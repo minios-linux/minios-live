@@ -1,0 +1,512 @@
+ /**************************************************************************
+ *
+ * Copyright (C) 2011 The Xubuntu Community
+ * Copyright (C) 2009 Canonical Ltd.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Written by: Mad Nick <dr.madnick@gmail.com>
+ *
+ **************************************************************************/
+
+/*
+ * Related to the screen */
+ 
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+screen_x = Window.GetX();
+screen_y = Window.GetY();
+
+/**/
+
+/*
+ * Images, check bits per pixel
+ * and load images accordingly */
+
+background_image = Image("wallpaper.png");
+passw_dialog_input_image = Image("passw-dialog.png");
+bullet_image = Image("test.png");
+
+bpp = Window.GetBitsPerPixel();
+
+if (bpp == 4) {
+
+	logotype_image = Image("logo_16bit.png");
+	progress_meter_image = Image("progress-meter_16bit.png");
+	progress_fade_image = Image("progress-fade_16bit.png");
+	fsck_progress_meter_image = Image("progress-meter_16bit.png");
+	fsck_progress_fade_image = Image("fsck-fade_16bit.png");
+
+}
+else {
+
+	logotype_image = Image("logo.png");
+	progress_meter_image = Image("progress-meter.png");
+	progress_fade_image = Image("progress-fade.png");
+	fsck_progress_meter_image = Image("progress-meter.png");
+	fsck_progress_fade_image = Image("fsck-fade.png");
+	
+}
+
+/**/
+
+/*
+ * Sprites */
+
+ratio = screen_height / screen_width;
+background_ratio = background_image.GetHeight() / background_image.GetWidth();
+factor = 0;
+
+if (ratio > background_ratio) {
+
+	factor = screen_height / background_image.GetHeight();
+
+}
+else {
+	
+	factor = screen_width / background_image.GetWidth();
+	
+}
+
+scaled = background_image.Scale(background_image.GetWidth() * factor, background_image.GetHeight() * factor);
+background_sprite = Sprite(scaled);
+background_sprite.SetX(screen_x + screen_width / 2 - scaled.GetWidth() / 2);
+background_sprite.SetY(screen_y + screen_height / 2 - scaled.GetHeight() / 2);
+
+logotype_sprite = Sprite(logotype_image);
+
+fsck_progress_meter_sprite = Sprite(fsck_progress_meter_image);
+fsck_progress_fade_sprite = Sprite(fsck_progress_fade_image.Scale(1, fsck_progress_fade_image.GetHeight()));
+
+passw_dialog_input_sprite = Sprite(passw_dialog_input_image);
+passw_lbl_sprite = Sprite();
+
+msg_label_sprite = Sprite();
+
+/**/
+
+/*
+ * Misc */
+
+counter = 0;
+
+fade_pos_x = (screen_width / 2) - (progress_meter_image.GetWidth() / 2);
+fade_dir = 0; /* 0 = right, 1 = left */
+
+fsck_running = 0;
+fsck_dev_array;
+fsck_dev_counter = 0;
+fsck_fade_in_counter = 0;
+fsck_done_fading = 0;
+
+stars_array;
+stars_n = 0;
+
+//full_msg = "";
+msgs_line = [NULL,NULL,NULL,NULL,NULL];
+
+/**/
+
+/*
+ * Debug related */
+ 
+debug = 0;
+debug_sprite = Sprite();
+
+fun debugOutput(str) {
+	
+	/*
+	 * This will print to the top left corner */
+	debug_sprite.SetImage(Image.Text(str));
+	
+}
+
+/**/
+
+/*
+ * Setup the graphics properties */
+logotype_sprite.SetPosition(screen_x + (screen_width / 2) - (logotype_image.GetWidth() / 2), screen_y + (screen_height / 2) - (logotype_image.GetHeight() / 2));
+fsck_progress_meter_sprite.SetPosition(screen_x + (screen_width / 2) - (progress_meter_image.GetWidth() / 2), screen_y + (screen_height / 2) + (logotype_image.GetHeight() / 2) + 25);
+fsck_progress_fade_sprite.SetPosition(screen_x + (screen_width / 2) - (progress_meter_image.GetWidth() / 2), screen_y + (screen_height / 2) + (logotype_image.GetHeight() / 2) + 25);
+fsck_progress_meter_sprite.SetOpacity(0);
+fsck_progress_fade_sprite.SetOpacity(0);
+passw_dialog_input_sprite.SetPosition(screen_x + (screen_width / 2) - (passw_dialog_input_image.GetWidth() / 2), screen_y + (screen_height / 2) + (logotype_image.GetHeight() / 2) + 70);
+passw_dialog_input_sprite.SetOpacity(0);
+passw_lbl_sprite.SetOpacity(0);
+
+spin = 0;
+
+/*
+ * this function only goes up to 100
+ * because thats all thats needed for
+ * the progress meter bar */
+fun atoi(str) {
+   
+    int = -1;
+   
+    for (i = 0; i <= 100; i++) {
+    
+        if (i + "" == str) {
+            
+            int = i;
+            
+            break;
+        
+        }
+    
+    }
+    
+    return int;
+
+}
+
+/*
+ * This handler will/can be invoked
+ * 50 times per second.
+ * 
+ * According to the previous author of the
+ * splash script, without this callback
+ * the screen is not updated correctly */
+spinner_sprite;
+spinner;
+
+fun refreshHandler() {
+	
+	if (spin < 3.14 * 2) {
+	
+		spin = spin + 0.1;
+	
+	}
+	else {
+	
+		spin = 0;
+	
+	}
+	
+	/* if fsck is running or the password is prompted, hide the spinner */
+	if (fsck_running == 1 || passw_dialog_input_sprite.GetOpacity() == 1) {
+	
+		spinner_sprite.SetOpacity(0);
+	
+	} else {
+	
+		spinner = Image("spinner.png");
+		spinner = spinner.Rotate(spin);
+		spinner_sprite = Sprite(spinner);
+		spinner_sprite.SetPosition(screen_x + (screen_width / 2) - (spinner.GetWidth() / 2), screen_y + (screen_height / 2) - (spinner.GetHeight() / 2) + 80);	
+	
+	}
+	
+	if (fade_dir == 0) {
+		
+		counter++;
+		
+		if (counter >= 200) {
+			
+			fade_dir = 1;
+		
+		}
+		
+	}
+	else {
+		
+		counter--;
+		
+		if (counter <= 0) {
+			
+			fade_dir = 0;
+		
+		}
+		
+	}
+	
+	if ((fsck_running == 1) && (fsck_done_fading == 0)) {
+		
+		
+		fsck_progress_meter_sprite.SetOpacity(fsck_fade_in_counter);
+		fsck_progress_fade_sprite.SetOpacity(fsck_fade_in_counter);
+		
+		if (fsck_fade_in_counter < 1) {
+		
+			fsck_fade_in_counter+= 0.025;
+		
+		}
+		else {
+			
+			fsck_done_fading = 1;
+			
+		}
+		
+	}
+	
+}
+
+Plymouth.SetRefreshFunction (refreshHandler);
+
+/**/
+
+/*
+ * This function will display the password related information
+ * when being prompt with entering a password */
+fun showPasswordHandler(prompt, stars) {
+	
+	if (passw_dialog_input_sprite.GetOpacity() == 0 && passw_lbl_sprite.GetOpacity() == 0) {
+		
+		passw_dialog_input_sprite.SetOpacity(1);
+		passw_lbl_sprite.SetOpacity(1);
+		
+	}
+	
+	tmp_prompt_image = Image.Text(prompt, 1, 1, 1);
+
+	passw_lbl_sprite.SetImage(tmp_prompt_image);
+	passw_lbl_sprite.SetPosition(screen_x + (screen_width / 2) - (tmp_prompt_image.GetWidth() / 2), screen_y + (screen_height / 2) + (logotype_image.GetHeight() / 2) + 50);
+	
+	for(i = 0; i < stars_n; i++)  {
+	
+		stars_array[i] = NULL;
+	
+	}
+	
+	stars_n = 0;
+
+	for(i = 0; (i < stars) && (i < 15); i++) {
+		
+		stars_array[i] = Sprite(bullet_image);
+		stars_array[i].SetPosition(screen_x + (((screen_width / 2) - (passw_dialog_input_image.GetWidth() / 2)) + (18 * i)) + 2, screen_y + (screen_height / 2) + (logotype_image.GetHeight() / 2) + 75);
+		stars_n++;
+		
+	}
+	
+}
+
+Plymouth.SetDisplayPasswordFunction(showPasswordHandler);
+
+/**/
+
+fun displayNormalHandler() {
+
+	/*
+	 * Hide the password dialog and the bullets */
+	
+	if (passw_dialog_input_sprite.GetOpacity() == 1) {
+		
+		passw_dialog_input_sprite.SetOpacity(0);
+		
+	}
+	
+	if (passw_lbl_sprite.GetOpacity() == 1) {
+		
+		passw_lbl_sprite.SetOpacity(0);
+		
+	}
+	
+	for(i = 0; i < stars_n; i++) {
+		
+		stars_array[i] = NULL;
+		
+	}
+
+}
+
+Plymouth.SetDisplayNormalFunction(displayNormalHandler);
+
+fun strlen(string) {
+    
+	i = 0;
+    
+	while (String(string).CharAt(i)) {
+	
+		i++;
+    
+	}
+	
+	return i;
+
+}
+
+/*
+ * This function will display the most current message */
+fun messageHandler(msg) {
+	
+	if ((msg == "") || !msg) {
+		
+		return 0;
+		
+	}
+	
+	if (msg.SubString(0, 5) == "keys:") {
+	
+		msg = msg.SubString(5, strlen(msg));
+	
+	}
+
+	# Get the message without the "fsckd-cancel-msg" prefix as we don't support i18n
+	if (msg.SubString(0, 17) == "fsckd-cancel-msg:")
+		msg = msg.SubString(17, strlen(msg));
+	
+	//full_msg += msg + " ";
+	for(i = 4; i > 0; i--) {
+
+		msgs_line[i] = msgs_line[i - 1];
+	
+	}
+	
+	msgs_line[0] = Sprite(Image.Text(msg, 1, 1, 1));
+	
+	dist = 1;
+	
+	for(i = 0; i < 5; i++) {
+
+		if (msgs_line[i] != NULL) {
+
+			msgs_line[i].SetPosition(screen_x + (screen_width / 2) - (msgs_line[i].GetImage().GetWidth() / 2), screen_y + (screen_height - msgs_line[i].GetImage().GetHeight()) - 20*dist);
+			dist++;
+
+		}
+
+	}
+
+}
+
+Plymouth.SetMessageFunction(messageHandler);
+
+/**/
+
+/*
+ * Handles the updates passed to the plymouth daemon
+ * for example the FSCK data */
+fun statusHandler(status) {
+	
+	tmp_char;
+	status_array[0] = "";
+	elem_count = 0;
+	
+	for (i = 0; String(status).CharAt(i) != ""; i++) {
+	
+		tmp_char = String(status).CharAt(i);
+		
+		if (tmp_char != ":") {
+		
+			status_array[elem_count] += tmp_char;
+		
+		}
+		else {
+			
+			elem_count++;
+			status_array[elem_count] = "";
+			
+		}
+		
+	}
+
+	if (status_array[0] == "fsck") {
+	
+		already_added = 0;
+		
+		if (fsck_running == 0) {
+			
+			/*
+			 * use the dedicated message handler for this
+			 * since there is no messages about fsck checks
+			 * currently... */
+			messageHandler("Routine disk drive check.");
+			
+			fsck_running = 1;
+			
+		}
+		
+		for(i = 0; i < fsck_dev_counter; i++) {
+			
+			/* 
+			 * check if the device already exist and update
+			 * the progress only in that case */
+			if (fsck_dev_array[i][0] == status_array[1]) {
+				
+				fsck_dev_array[i][1] = status_array[2]; /* progress */
+				already_added = 1;
+			
+			}
+			
+		}
+
+		/*
+		 * if the device is not added, then add it */
+		if (already_added == 0) {
+			
+			fsck_dev_array[fsck_dev_counter][0] = status_array[1]; /* device */
+			fsck_dev_array[fsck_dev_counter][1] = status_array[2]; /* progress */
+			fsck_dev_counter++;
+			
+		}
+	
+		/*
+		 * update the progress */
+		
+		total = 0;
+		
+		for(i = 0; i < fsck_dev_counter; i++) {
+			
+			total += atoi(fsck_dev_array[i][1]);
+			
+		}
+
+		if (fsck_dev_counter > 0) {
+		
+			/*
+			*  display the total percentage */
+			fsck_progress_fade_sprite.SetImage(fsck_progress_fade_image.Scale((fsck_progress_meter_image.GetWidth() / 100) * (total / fsck_dev_counter), fsck_progress_fade_image.GetHeight()));
+		
+		}
+		
+		/**/
+		
+		/*
+		 * if the total progress is at maximum, 
+		 * make the progress meter go away,
+		 * we might want to fade this out... */	
+		if (total == (100 * fsck_dev_counter)) {
+			
+			fsck_progress_meter_sprite.SetOpacity(0);
+			fsck_progress_fade_sprite.SetOpacity(0);
+		
+		}
+	
+	}
+
+	# systemd-fsckd pass fsckd:<number_devices>:<progress>:<l10n_string>
+	if (status_array[0] == "fsckd") {
+		fsck_running = 1;
+
+		# remove ",x" as we only care about integers
+		progress_str = status_array[2];
+		progress = atoi(progress_str.SubString(0, strlen(progress_str) - 2));
+
+		fsck_progress_fade_sprite.SetImage(fsck_progress_fade_image.Scale((fsck_progress_meter_image.GetWidth() / 100) * progress, fsck_progress_fade_image.GetHeight()));
+
+		/*
+		 * if the total progress is at maximum, 
+		 * make the progress meter go away,
+		 * we might want to fade this out... */	
+		if (progress == 100) {
+			fsck_progress_meter_sprite.SetOpacity(0);
+			fsck_progress_fade_sprite.SetOpacity(0);
+		}
+	}
+	
+}
+
+Plymouth.SetUpdateStatusFunction(statusHandler);
+
+/**/

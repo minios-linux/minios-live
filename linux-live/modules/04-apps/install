@@ -1,0 +1,15 @@
+#!/bin/bash
+
+CWD=$(dirname $(readlink -f $0))
+
+apt-get update
+apt-get install --no-install-recommends --yes \
+    qalculate-gtk \
+    pcmanfm \
+    lxtask \
+    xarchiver xdg-utils libgconf-2-4 \
+    wicd
+
+. ./cleanup
+
+(cd /rootcopy && cp --parents -afr * /)

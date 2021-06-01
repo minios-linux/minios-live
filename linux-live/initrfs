@@ -1,0 +1,17 @@
+#!/bin/bash
+
+export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
+
+. /linux-live/config || exit 1
+. /linux-live/livekitlib || exit 1
+. /linux-live/buildconfig || exit 1
+
+# build initramfs image
+echo "Building intramfs image..."
+cd /linux-live/initramfs
+chmod 755 ./initramfs_create
+INITRAMFS=$(./initramfs_create)
+
+if [ "$INITRAMFS" != "" ]; then
+	mv "$INITRAMFS" /boot/initrfs.img
+fi

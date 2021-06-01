@@ -1,0 +1,43 @@
+#!/bin/bash
+
+LOGPATH="/var/log"
+
+# default is output to log. you can use OUTPUT="/dev/stdout" if you want to route events to standard output.
+#OUTPUT="$LOGPATH/$LIVEKITNAME.log"
+OUTPUT="/dev/stdout"
+#OUTPUT="/dev/null"
+
+# if = "1", creates a second iso with a constant filename
+# если ="1", создаёт второй iso с постоянным именем файла
+BUILD_TEST_ISO="1"
+
+# удаляет старые файлы iso для данного типа сборки
+REMOVE_OLD_ISO="0"
+
+# if = "1", creates a copy of minios-live in chroot /opt
+# если ="1", создаёт копию minios-live в chroot /opt
+DEV_SYSTEM="0"
+
+# if ="1", creates backup in parent folder
+# если ="1", создаёт резервную копию в родительской папке
+CREATE_BACKUP="0"
+
+DEBIAN_FRONTEND_TYPE="noninteractive"
+#DEBIAN_FRONTEND_TYPE="dialog"
+#DEBIAN_FRONTEND_TYPE="text"
+
+APT_CMD="apt-get"
+
+APT_OPTIONS="-y"  
+APT_OPTIONS2="--no-install-recommends"
+
+#LIVE_TYPE="casper"
+LIVE_TYPE="livekit"
+
+#BOOT_TYPE="minios"
+BOOT_TYPE="slax"
+
+UNION_BUILD_TYPE="overlayfs"
+#UNION_BUILD_TYPE="aufs"
+
+INSTALL_OPTIONAL="1"

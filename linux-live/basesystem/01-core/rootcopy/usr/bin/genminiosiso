@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# Author: Tomas M. <http://www.linux-live.org>
+# Author: crims0n. <http://minios.ru>
+
+CWD=$(pwd)
+SOURCE=/run/initramfs/memory
+TEMP=/tmp/miniosiso.$$
+REGEX='^$'
+
+if [ "$1" = "-e" ]; then
+   REGEX="$2"
+   shift
+   shift
+fi
+
+TARGET="$(readlink -f "$1")"
+
+if [ "$TARGET" = "" ]; then
+   echo ""
+   echo "Generate MiniOS ISO image, adding specified modules"
+   echo "Regular expression is used to exclude any existing path or file with -e regex"
+   echo ""
+   echo "Usage:"
+   echo "        $0 [[ -e regex ]] target.iso [[module.sb]] [[module.sb]] ..."
+   echo ""
+   echo "Examples:"
+   echo "        # to create MiniOS iso without chromium.sb module:"
+   echo "        $0 -e 'chromium' minios_without_chromium.iso"
+   echo ""
+   echo "        # to create MiniOS text-mode core only:"
+   echo "        $0 -e 'firmware|xorg|desktop|apps|chromium' minios_textmode.iso"
+   exit 1
+fi
+
+if [ -e "$SOURCE/data/minios/boot/isolinux.bin" ]; then
+   MINIOS=$SOURCE/data/minios
+fi
+
+if [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
+   MINIOS=$SOURCE/toram
+fi
+
+if [ "$MINIOS" = "" ]; then
+   echo "Cannot find boot/isolinux.bin in MiniOS data" >&2
+   exit 2
+fi
+
+GRAFT=\
+$(
+  cd "$MINIOS"
+  find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
+     echo "minios/$LINE=$MINIOS/$LINE"
+  done
+)
+
+# add all modules
+while [ "$2" != "" ]; do
+   if [ ! -e "$2" ]; then
+      echo "File does not exist: $2"
+      exit 3
+   fi
+   BAS="$(basename "$2")"
+   MOD="$(readlink -f "$2")"
+   GRAFT="$GRAFT minios/modules/$BAS=$MOD"
+   shift
+done
+
+(
+   mkdir -p $TEMP/minios/{boot,modules,changes}
+   cp "$MINIOS/boot/isolinux.bin" "$TEMP/minios/boot"
+   cd "$TEMP"
+   genisoimage -o - -quiet -v -J -R -D -A minios -V minios \
+   -no-emul-boot -boot-info-table -boot-load-size 4 -input-charset utf-8 \
+   -b minios/boot/isolinux.bin -c minios/boot/isolinux.boot \
+   -graft-points $GRAFT \
+   . \
+) > "$TARGET"
+
+rm -Rf $TEMP
