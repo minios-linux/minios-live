@@ -16,6 +16,8 @@
 
 *build_live* - сборка initramfs и образа squashfs
 
+*build_modules_chroot* - сборка модулей
+
 *build_iso* - сборка итогового образа ISO
 
 **Синтаксис:** `./install [start_cmd] [-] [end_cmd]`
