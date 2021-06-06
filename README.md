@@ -6,7 +6,7 @@
 
 **Ни в коем случае не запускайте скрипты из linux-live! Они сломают вам систему.**
 
-**Поддерживаемые команды:** `setup_host build_bootstrap build_chroot build_live build_modules_chroot build_modules_live build_iso`
+**Поддерживаемые команды:** `setup_host build_bootstrap build_chroot build_live build_modules_chroot build_iso`
 
 *setup_host* - установка пакетов, необходимых для сборки, на хост
 
