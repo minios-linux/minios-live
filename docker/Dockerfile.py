@@ -12,8 +12,9 @@ logging.root.addHandler(logging.StreamHandler(sys.stdout))
 class DockerFile(pydocker.DockerFile):
     """   add here your custom features   """
 
-#d = DockerFile(base_img='ubuntu:focal', name='crims0n/minios-live-container:latest')
-d = DockerFile(base_img='ubuntu:focal', name='local/mlc:latest')
+d = DockerFile(base_img='ubuntu:focal', name='crims0n/minios-live-container:latest')
+#d = DockerFile(base_img='ubuntu:bionic', name='local/mlc:latest')
+#d = DockerFile(base_img='debian:buster', name='local/mlc:latest')
 
 d.RUN_bash_script('/opt/install.sh', r'''
 touch /.minios-live-container

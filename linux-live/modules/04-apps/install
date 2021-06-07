@@ -14,5 +14,5 @@ apt-get install --no-install-recommends --yes \
 
 (cd /rootcopy && cp --parents -afr * /)
 
-chown live.users /home/live
-chown -R live.users /home/live
+chown live:live /home/live
+chown -R live:live /home/live

@@ -14,6 +14,3 @@ if [ -f $SCRIPT_DIR/package.list ]; then
             $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
             $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
-
-chown live.users /home/live
-chown -R live.users /home/live

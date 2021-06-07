@@ -17,5 +17,5 @@ if [ -f $SCRIPT_DIR/package.list ]; then
             $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-chown live.users /home/live
-chown -R live.users /home/live
+chown live:live /home/live
+chown -R live:live /home/live
