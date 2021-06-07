@@ -1,8 +1,12 @@
 # MiniOS Slax
 
-Этот скрипт собирает загружаемый ISO образ MiniOS Slax.
+Эти скрипты собирают загружаемый ISO образ MiniOS Slax.
 
-**Поддерживаемые команды:** `setup_host build_bootstrap build_chroot build_live build_modules_chroot build_modules_live build_iso`
+Для установки используйте **install** - скрипт для управляемой установки, **autoinstall** - скрипт для автоматической установки.
+
+**Ни в коем случае не запускайте скрипты из linux-live! Они сломают вам систему.**
+
+**Поддерживаемые команды:** `setup_host build_bootstrap build_chroot build_live build_modules_chroot build_iso`
 
 *setup_host* - установка пакетов, необходимых для сборки, на хост
 
@@ -11,6 +15,8 @@
 *build_chroot* - установка остальных компонентов, необходимых для запуска системы
 
 *build_live* - сборка initramfs и образа squashfs
+
+*build_modules_chroot* - сборка модулей
 
 *build_iso* - сборка итогового образа ISO
 
@@ -26,6 +32,8 @@
                 ./install build_bootstrap -
                 ./install build_iso
                 ./install -
+
+**!!!Сборка с помощью докера пока не работает!!!**
 
 Для сборки с помошью докера создайте в домашней папке папку build, поместите туда minios-slax и используйте команду для автоматической установки:
 
