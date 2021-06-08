@@ -28,6 +28,14 @@ function common_variables() {
 	if [[ (-f /.dockerenv || "$container" = "podman") && (-d /opt/minios-live || -f /.minios-live-container) ]]; then
 		CONTAINER_TYPE="2"
 	fi
+
+	if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+		KERNEL_ARCH="amd64"
+	elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+		KERNEL_ARCH="686-pae"
+	elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
+		KERNEL_ARCH="arm64"
+	fi
 }
 
 # =================================================================
@@ -567,7 +575,7 @@ function copy_build_scripts() {
 		done
 	fi
 
-	chmod +x $BUILD_DIR/linux-live/build
+	#chmod +x $BUILD_DIR/linux-live/build
 	chmod +x $BUILD_DIR/linux-live/install_chroot
 
 	if [ "$DEV_SYSTEM" = "1" ]; then
@@ -675,7 +683,7 @@ function build_live() {
 	if [ $DISTRIBUTION != "buster" ]; then
 		cp $BUILD_DIR/boot/vmlinuz-**-**-generic $PARENT_DIR/image/$LIVEKITNAME/boot/vmlinuz
 	else
-		cp $BUILD_DIR/boot/vmlinuz-**-**-amd64 $PARENT_DIR/image/$LIVEKITNAME/boot/vmlinuz
+		cp $BUILD_DIR/boot/vmlinuz-**-**-$KERNEL_ARCH $PARENT_DIR/image/$LIVEKITNAME/boot/vmlinuz
 	fi
 	mv $BUILD_DIR/boot/initrfs.img $PARENT_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
@@ -980,6 +988,7 @@ function main_pkg_list() {
 			APT_CMD=$APT_CMD \
 			APT_OPTIONS=$APT_OPTIONS \
 			APT_OPTIONS2=$APT_OPTIONS2 \
+			KERNEL_ARCH=$KERNEL_ARCH \
 			LIVE_TYPE=$LIVE_TYPE \
 			/linux-live/basesystem/01-core/install
 	fi
@@ -1081,6 +1090,7 @@ EOF
 
                            Thank you for using MiniOS.
                            Based on Debian GNU/Linux 10.
+                           Powered by Slax.
 
         ::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  
         +:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: 

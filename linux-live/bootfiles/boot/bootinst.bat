@@ -7,12 +7,13 @@ COLOR 2F
 cls
 echo ===============================================================================
 echo.
-echo                            ________.__
-echo                           /   ____/^|  ^| _____  ___  ___
-echo                           \____  \ ^|  ^| \__  \ \  \/  /
-echo                           /       \^|  ^|__/ __ \_^>    ^<
-echo                          /______  /^|____(____  /__/\_ \
-echo                                 \/           \/      \/
+echo     ::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  
+echo     +:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: 
+echo     +:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        
+echo     +#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ 
+echo     +#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ 
+echo     #+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# 
+echo     ###       ### ########### ###    #### ########### ########   ########  
 echo.
 echo ===============================================================================
 echo.
@@ -53,18 +54,18 @@ if %OS% == Windows_NT goto setupNT
 goto setup95
 
 :setupNT
-\slax\boot\syslinux.exe -maf -d /slax/boot/ %DISK%:
+\minios\boot\syslinux.exe -maf -d /minios/boot/ %DISK%:
 if %ERRORLEVEL% == 0 goto setupEFI
 goto errorFound
 
 :setup95
-\slax\boot\syslinux.com -maf -d /slax/boot/ %DISK%:
+\minios\boot\syslinux.com -maf -d /minios/boot/ %DISK%:
 if %ERRORLEVEL% == 0 goto setupEFI
 goto errorFound
 
 :setupEFI
 mkdir %DISK%:\EFI\Boot
-copy \slax\boot\EFI\Boot\* %DISK%:\EFI\Boot
+copy \minios\boot\EFI\Boot\* %DISK%:\EFI\Boot
 goto setupDone
 
 :setupDone
@@ -80,7 +81,7 @@ goto pauseit
 :refuseDisk
 color 4F
 echo.
-echo Directory %DISK%:\slax\boot\ seems to be on the same physical disk as your Windows.
+echo Directory %DISK%:\minios\boot\ seems to be on the same physical disk as your Windows.
 echo Installing bootloader would harm your Windows and thus is disabled.
 echo Please use different drive and try again.
 goto pauseit

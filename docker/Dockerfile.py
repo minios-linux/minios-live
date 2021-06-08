@@ -12,7 +12,7 @@ logging.root.addHandler(logging.StreamHandler(sys.stdout))
 class DockerFile(pydocker.DockerFile):
     """   add here your custom features   """
 
-d = DockerFile(base_img='ubuntu:focal', name='crims0n/minios-live-container:latest')
+d = DockerFile(base_img='ubuntu:focal', name='local/mlc:latest')
 #d = DockerFile(base_img='ubuntu:bionic', name='local/mlc:latest')
 #d = DockerFile(base_img='debian:buster', name='local/mlc:latest')
 
@@ -61,9 +61,9 @@ rm -f /var/lib/dpkg/*-old
 ''')
 
 d.VOLUME = '/build'
-d.WORKDIR = '/build/minios-live'
+d.WORKDIR = '/build/minios-slax'
 
 # d.ENTRYPOINT = ["/opt/www-data/entrypoint.sh"]
-d.CMD = ["/build/minios-live/autoinstall", "-"]
+d.CMD = ["/build/minios-slax/autoinstall", "-"]
 
 d.build_img()

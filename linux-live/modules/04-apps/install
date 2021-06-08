@@ -6,6 +6,7 @@ echo "wicd-daemon	wicd/users	multiselect	live" | debconf-set-selections
 
 apt-get update >>$OUTPUT 2>&1
 apt-get install --no-install-recommends --yes \
+    medit \
     qalculate-gtk \
     pcmanfm \
     lxtask \

@@ -9,7 +9,7 @@ chmod u+s /usr/lib/xorg/Xorg
 rm -Rf /usr/share/icons/breeze_cursors >>$OUTPUT 2>&1
 mv /usr/share/icons/Breeze_Snow /usr/share/icons/breeze_cursors >>$OUTPUT 2>&1
 
-(cd rootcopy && cp --parents -afr * /)
+(cd /rootcopy && cp --parents -afr * /)
 
 # install x11 server utils, apt-get would add cpp dependency, bullshit!
 cd /tmp
