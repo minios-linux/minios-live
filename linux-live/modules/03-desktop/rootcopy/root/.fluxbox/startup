@@ -105,6 +105,10 @@ xrandr 2>/dev/null | fgrep x | fgrep . | sort -n | tr -s " " | cut -d " " -f 2 \
 # If startup took longer (sound completed already), no extra wait
 wait $SOUNDPID
 
+if [ -f /usr/bin/nm-applet ]; then
+   exec nm-applet &
+fi
+
 # And last but not least we start fluxbox.
 # Because it is the last app you have to run it with ''exec'' before it.
 
