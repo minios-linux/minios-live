@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#(cd /rootcopy && cp --parents -afr * /)
+
+# create user directories
+for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+   mkdir -p /home/live/$dir >>$OUTPUT 2>&1
+   mkdir -p /root/$dir >>$OUTPUT 2>&1
+done
+
+chown live:live /home/live
+chown -R live:live /home/live
+
+rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
+
+update-alternatives --set x-terminal-emulator /usr/bin/xterm >>$OUTPUT 2>&1

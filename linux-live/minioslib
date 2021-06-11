@@ -1095,6 +1095,8 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
+		sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
+		sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
 		systemctl enable ssh-keygen >>$OUTPUT 2>&1
 		systemctl enable ssh >>$OUTPUT 2>&1
 	fi
@@ -1172,9 +1174,6 @@ function chroot_finish_up() {
 	rm -f /var/lib/apt/lists/*InRelease >>$OUTPUT 2>&1
 	rm -f /var/lib/apt/lists/deb.* >>$OUTPUT 2>&1
 	rm -f /var/lib/dpkg/*-old >>$OUTPUT 2>&1
-
-	#chmod +x /linux-live/basesystem/01-core/postinstall
-	#/linux-live/basesystem/01-core/postinstall
 
 }
 
@@ -1678,7 +1677,7 @@ function module_build_cleanup() {
 #
 #
 # =================================================================
-function build_modules_chroot() {
+function build_modules() {
 	current_process
 
 	if [ $CONTAINER_TYPE = "1" ]; then
