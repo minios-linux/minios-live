@@ -1,4 +1,10 @@
 #!/bin/bash
+# Author: Tomas M. <http://www.slax.org/>
+# Author: crims0n <https://t.me/minios_news>
+
+if [ -f /run/initramfs/lib/config ]; then
+   . /run/initramfs/lib/config || exit 1
+fi
 
 TMP=/tmp/changes$$
 EXCLUDE="^\$|/\$|[.]wh[.][.]wh[.]orph/|^[.]wh[.][.]wh[.]plnk/|^[.]wh[.][.]wh[.]aufs|^var/cache/|^var/backups/|^var/tmp/|^var/log/|^var/lib/apt/|^var/lib/dhcp/|^var/lib/systemd/|^sbin/fsck[.]aufs|^etc/resolv[.]conf|^root/[.]Xauthority|^root/[.]xsession-errors|^root/[.]fehbg|^root/[.]fluxbox/lastwallpaper|^root/[.]fluxbox/menu_resolution|^etc/mtab|^etc/fstab|^boot/|^dev/|^mnt/|^proc/|^run/|^sys/|^tmp/"
@@ -32,15 +38,15 @@ cd $CHANGES || exit
 mkdir -p $TMP
 mount -t tmpfs tmpfs $TMP
 
-find \( -type d -printf "%p/\n" , -not -type d -print \) \
-  | sed -r "s/^[.]\\///" | egrep -v "$EXCLUDE" \
-  | while read FILE; do
-    cp --parents -afr "$FILE" "$TMP"
-done
+find \( -type d -printf "%p/\n" , -not -type d -print \) |
+   sed -r "s/^[.]\\///" | egrep -v "$EXCLUDE" |
+   while read FILE; do
+      cp --parents -afr "$FILE" "$TMP"
+   done
 
 cd $CWD
 
-mksquashfs $TMP "$1" -comp xz -b 1024K -always-use-fragments -noappend
+mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
 
 umount $TMP
 rmdir $TMP

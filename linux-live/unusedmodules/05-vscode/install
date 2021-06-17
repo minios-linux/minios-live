@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
+install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" >/etc/apt/sources.list.d/vscode.list'
+rm -f packages.microsoft.gpg
+
+# install packages
+if [ -f $SCRIPT_DIR/package.list ]; then
+    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+    $APT_CMD update >>$OUTPUT 2>&1 &&
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+fi

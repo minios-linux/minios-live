@@ -10,10 +10,10 @@ $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 linux-image-$KERNEL_ARCH >>$OUTPUT 2>&1
 
 # install packages
-if [ -f $SCRIPT_DIR/package.list ]; then
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
     $APT_CMD update >>$OUTPUT 2>&1 &&
         #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
         $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi

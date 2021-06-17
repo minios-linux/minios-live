@@ -8,8 +8,11 @@ for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; d
    mkdir -p /root/$dir >>$OUTPUT 2>&1
 done
 
-chown live:live /home/live
-chown -R live:live /home/live
+#if [ $DISTRIBUTION = "bullseye" ]; then
+   rm -f /usr/share/backgrounds/xfce/*
+   ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+   ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+#fi
 
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
 

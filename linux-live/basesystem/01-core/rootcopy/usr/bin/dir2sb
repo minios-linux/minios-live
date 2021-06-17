@@ -1,8 +1,12 @@
 #!/bin/bash
 # Author: Tomas M. <http://www.slax.org/>
+# Author: crims0n <https://t.me/minios_news>
 
-usage()
-{
+if [ -f /run/initramfs/lib/config ]; then
+   . /run/initramfs/lib/config || exit 1
+fi
+
+usage() {
    echo ""
    echo "Convert directory to .sb compressed module"
    echo "Usage: $0 [source_directory.sb] [[target_file.sb]]"
@@ -40,11 +44,14 @@ if [ ! -d "$P1" ]; then
    exit 2
 fi
 
-
 if [ "$P2" = "" ]; then
    TARGET="$P1".sb
    while [ -e "$TARGET" ]; do TARGET="$TARGET"x; done
-   mksquashfs "$P1" "$TARGET" -comp xz -b 1024K -always-use-fragments $KEEP >/dev/null || exit 3
+   if [ $COMP_TYPE = "zstd" ]; then
+      mksquashfs "$P1" "$TARGET" -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments $KEEP >/dev/null || exit 3
+   else
+      mksquashfs "$P1" "$TARGET" -comp $COMP_TYPE -b 1024K -always-use-fragments $KEEP >/dev/null || exit 3
+   fi
    umount "$P1" 2>/dev/null
    rm -Rf "$P1"
    mv "$TARGET" "$P1"
@@ -54,5 +61,9 @@ else
       exit 4
    fi
 
-   mksquashfs "$P1" "$P2" -comp xz -b 1024K -always-use-fragments $KEEP >/dev/null
+   if [ $COMP_TYPE = "zstd" ]; then
+      mksquashfs "$P1" "$P2" -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments $KEEP
+   else
+      mksquashfs "$P1" "$P2" -comp $COMP_TYPE -b 1024K -always-use-fragments $KEEP >/dev/null
+   fi
 fi

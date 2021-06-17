@@ -2,9 +2,6 @@
 
 (cd /rootcopy && cp --parents -afr * /)
 
-chown live:live /home/live
-chown -R live:live /home/live
-
 sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list
 
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1

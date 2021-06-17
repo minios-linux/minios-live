@@ -19,9 +19,9 @@ function common_variables() {
 	fi
 	set -u
 	: 'if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-		OUTPUT="/dev/stdout"
-		#CONTAINER="docker"
-	fi'
+        OUTPUT="/dev/stdout"
+        #CONTAINER="docker"
+    fi'
 	if [ -f /.dockerenv ] || [ "$container" = "podman" ] && [ ! -d /opt/minios-live ] && [ ! -f /.minios-live-container ]; then
 		CONTAINER_TYPE="1"
 	fi
@@ -515,12 +515,12 @@ function new_run() {
 # =================================================================
 
 # =================================================================
-# Creating a package list from a template
+# Creating a $PACKAGE_VARIANT list from a template
 # Создание списка пакетов из шаблона
 # =================================================================
 function create_apt_list() {
 	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
-	if [ ! -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list ] && [ $DISTRIBUTION != "buster" ]; then
+	if [ ! -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list ] && [ $DISTRIBUTION_TYPE != "debian" ]; then
 		cp -f $SCRIPT_DIR/linux-live/aptsources/sources.list $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
 		sed -i "s,distro,$DISTRIBUTION,g" $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
 		sed -i "s,http://ru.archive.ubuntu.com/ubuntu,$DISTRIBUTION_URL,g" $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
@@ -539,7 +539,7 @@ function build_bootstrap() {
 			setup_host
 		fi
 	fi
-	if [ $DISTRIBUTION != "buster" ]; then
+	if [ $DISTRIBUTION_TYPE != "debian" ]; then
 		sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
 			debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
 	else
@@ -680,7 +680,7 @@ function build_live() {
 	mkdir -p $PARENT_DIR/image/$LIVEKITNAME/{boot,changes,modules}
 
 	# copy kernel files
-	if [ $DISTRIBUTION != "buster" ]; then
+	if [ $DISTRIBUTION_TYPE != "debian" ]; then
 		cp $BUILD_DIR/boot/vmlinuz-**-**-generic $PARENT_DIR/image/$LIVEKITNAME/boot/vmlinuz
 	else
 		cp $BUILD_DIR/boot/vmlinuz-**-**-$KERNEL_ARCH $PARENT_DIR/image/$LIVEKITNAME/boot/vmlinuz
@@ -738,7 +738,7 @@ function build_iso() {
 	DATE=$(date +%Y%m%d_%H%M)
 
 	DIR=$PARENT_DIR/image
-	ISO=$ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-$DATE.iso
+	ISO=$ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-$DATE.iso
 
 	B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 
@@ -756,7 +756,7 @@ function build_iso() {
 	VER="$SYSTEMNAME"
 
 	if [ REMOVE_OLD_ISO = "1" ]; then
-		rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-*.iso >>$OUTPUT 2>&1
+		rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-*.iso >>$OUTPUT 2>&1
 	fi
 
 	if
@@ -772,7 +772,7 @@ function build_iso() {
 		if [ -L $ISO_DIR/$LIVEKITNAME.iso ]; then
 			rm $ISO_DIR/$LIVEKITNAME.iso
 		fi
-		if ln -s $LIVEKITNAME-$DISTRIBUTION-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-$DATE.iso $ISO_DIR/$LIVEKITNAME.iso; then
+		if ln -s $LIVEKITNAME-$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-$DATE.iso $ISO_DIR/$LIVEKITNAME.iso; then
 			echo ">>> $ISO_DIR/$LIVEKITNAME.iso created"
 		fi
 	fi
@@ -832,7 +832,7 @@ function chroot_build_cleanup() {
 	rm -f /install >>$OUTPUT 2>&1
 	rm -f /install2 >>$OUTPUT 2>&1
 	rm -f /cleanup >>$OUTPUT 2>&1
-	rm -f /package.list >>$OUTPUT 2>&1
+	rm -f /$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 	rm -f /postinstall >>$OUTPUT 2>&1
 	rm -rf /rootcopy >>$OUTPUT 2>&1
 	rm -rf /patches >>$OUTPUT 2>&1
@@ -957,6 +957,7 @@ function prereq_pkg_list() {
 			$APT_CMD install $APT_OPTIONS \
 				$(grep -vE "^\s*#" $SCRIPT_DIR/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
 	fi
+
 }
 
 # =================================================================
@@ -975,11 +976,13 @@ function main_pkg_list() {
 			APT_OPTIONS=$APT_OPTIONS \
 			APT_OPTIONS2=$APT_OPTIONS2 \
 			LIVE_TYPE=$LIVE_TYPE \
+			DISTRIBUTION=$DISTRIBUTION \
+			PACKAGE_VARIANT=$PACKAGE_VARIANT \
 			/linux-live/basesystem/01-core/preinstall
 	fi
 	: ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy)" != "" ]; then
-		(cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
-	fi'
+        (cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
+    fi'
 	if [ -f /linux-live/basesystem/01-core/install ]; then
 		chmod +x /linux-live/basesystem/01-core/install
 		/usr/bin/env \
@@ -990,6 +993,9 @@ function main_pkg_list() {
 			APT_OPTIONS2=$APT_OPTIONS2 \
 			KERNEL_ARCH=$KERNEL_ARCH \
 			LIVE_TYPE=$LIVE_TYPE \
+			DISTRIBUTION=$DISTRIBUTION \
+			PACKAGE_VARIANT=$PACKAGE_VARIANT \
+			COMP_TYPE=$COMP_TYPE \
 			/linux-live/basesystem/01-core/install
 	fi
 	if [ -f /linux-live/basesystem/01-core/postinstall ]; then
@@ -1001,6 +1007,8 @@ function main_pkg_list() {
 			APT_OPTIONS=$APT_OPTIONS \
 			APT_OPTIONS2=$APT_OPTIONS2 \
 			LIVE_TYPE=$LIVE_TYPE \
+			DISTRIBUTION=$DISTRIBUTION \
+			PACKAGE_VARIANT=$PACKAGE_VARIANT \
 			/linux-live/basesystem/01-core/postinstall
 	fi
 
@@ -1024,8 +1032,8 @@ function chroot_pkg_install() {
 }
 
 # =================================================================
-#
-#
+# No longer used, it will be cleaned after successful testing.
+# Больше не используется, будет убрано после успешного тестирования.
 # =================================================================
 function chroot_configure() {
 	current_process
@@ -1079,7 +1087,7 @@ EOF
 		systemctl disable grub-initrd-fallback.service
 	fi
 
-	if grep openssh-server $SCRIPT_DIR/basesystem/01-core/package.list >>$OUTPUT 2>&1; then
+	if grep openssh-server $SCRIPT_DIR/basesystem/01-core/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
 		echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
 		cat <<EOF >/usr/lib/systemd/system/ssh-keygen.service
 [Unit]
@@ -1101,7 +1109,23 @@ EOF
 		systemctl enable ssh >>$OUTPUT 2>&1
 	fi
 
-	if [ $DISTRIBUTION = "buster" ]; then
+	if [ ! -f /usr/share/sudo ]; then
+		cat <<EOF >/usr/share/sudo
+#!/bin/bash
+if [ "$#" -lt 1 ]; then
+   echo "Usage: sudo [command] [arguments]"
+   exit 1
+fi
+
+if [ "$UID" = 0 ]; then
+   exec "$@"
+fi
+
+echo "Sudo is not installed. Run the command as root or install sudo."
+EOF
+	fi
+
+	if [ $DISTRIBUTION_TYPE = "debian" ]; then
 		cat <<EOF >/etc/issue
 
 
@@ -1112,7 +1136,7 @@ EOF
 
 
                            Thank you for using MiniOS.
-                           Based on Debian GNU/Linux 10.
+                           Based on Debian GNU/Linux.
                            Powered by Slax.
 
         ::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  
@@ -1406,6 +1430,11 @@ EOF
     dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>&1
 EOF
 	fi
+
+	if [ -d $MODULE_UPPER_DIR/home/live ]; then
+		chown 1000:1000 $MODULE_UPPER_DIR/home/live
+		chown -R 1000:1000 $MODULE_UPPER_DIR/home/live
+	fi
 }
 
 # =================================================================
@@ -1438,7 +1467,7 @@ function module_chroot_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install
 		rm -f $MODULE_UPPER_DIR/install2
 		rm -f $MODULE_UPPER_DIR/cleanup
-		rm -f $MODULE_UPPER_DIR/package.list
+		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
 		rm -f $MODULE_UPPER_DIR/postinstall
 		rm -rf $MODULE_UPPER_DIR/rootcopy
 	else
@@ -1464,7 +1493,7 @@ function module_chroot_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
-		rm -f $MODULE_UPPER_DIR/package.list >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
 		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
 	fi
@@ -1484,7 +1513,7 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install
 		rm -f $MODULE_UPPER_DIR/install2
 		rm -f $MODULE_UPPER_DIR/cleanup
-		rm -f $MODULE_UPPER_DIR/package.list
+		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
 		rm -f $MODULE_UPPER_DIR/postinstall
 		rm -rf $MODULE_UPPER_DIR/rootcopy
 		rm -rf $MODULE_UPPER_DIR/patches
@@ -1578,7 +1607,7 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
-		rm -f $MODULE_UPPER_DIR/package.list >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
 		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
 		rm -rf $MODULE_UPPER_DIR/patches >>$OUTPUT 2>&1
@@ -1718,6 +1747,8 @@ function build_modules() {
 					APT_OPTIONS=$APT_OPTIONS \
 					APT_OPTIONS2=$APT_OPTIONS2 \
 					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
 					/preinstall >>$OUTPUT 2>&1
 			fi
 
@@ -1753,8 +1784,8 @@ function build_modules() {
 				if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/cleanup ]; then
 					cp $SCRIPT_DIR/linux-live/modules/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
 				fi
-				if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/package.list ]; then
-					cp $SCRIPT_DIR/linux-live/modules/$MODULE/package.list $MODULE_MERGED_DIR/package.list
+				if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list ]; then
+					cp $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
 				fi
 				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
 					chroot $MODULE_MERGED_DIR /usr/bin/env \
@@ -1767,6 +1798,8 @@ function build_modules() {
 						APT_OPTIONS=$APT_OPTIONS \
 						APT_OPTIONS2=$APT_OPTIONS2 \
 						LIVE_TYPE=$LIVE_TYPE \
+						DISTRIBUTION=$DISTRIBUTION \
+						PACKAGE_VARIANT=$PACKAGE_VARIANT \
 						/install
 				else
 					chroot $MODULE_MERGED_DIR /usr/bin/env \
@@ -1779,6 +1812,8 @@ function build_modules() {
 						APT_OPTIONS=$APT_OPTIONS \
 						APT_OPTIONS2=$APT_OPTIONS2 \
 						LIVE_TYPE=$LIVE_TYPE \
+						DISTRIBUTION=$DISTRIBUTION \
+						PACKAGE_VARIANT=$PACKAGE_VARIANT \
 						/install >>$OUTPUT 2>&1
 				fi
 			fi
@@ -1824,6 +1859,8 @@ function build_modules() {
 						APT_OPTIONS=$APT_OPTIONS \
 						APT_OPTIONS2=$APT_OPTIONS2 \
 						LIVE_TYPE=$LIVE_TYPE \
+						DISTRIBUTION=$DISTRIBUTION \
+						PACKAGE_VARIANT=$PACKAGE_VARIANT \
 						/install2
 				else
 					chroot $MODULE_MERGED_DIR /usr/bin/env \
@@ -1836,7 +1873,34 @@ function build_modules() {
 						APT_OPTIONS=$APT_OPTIONS \
 						APT_OPTIONS2=$APT_OPTIONS2 \
 						LIVE_TYPE=$LIVE_TYPE \
+						DISTRIBUTION=$DISTRIBUTION \
+						PACKAGE_VARIANT=$PACKAGE_VARIANT \
 						/install2 >>$OUTPUT 2>&1
+				fi
+			fi
+
+			# copy files
+			if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ]; then
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+					fi
+				else
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+					fi
+				fi
+			else
+				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ]; then
+						mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+					fi
+				else
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+						mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+					fi
 				fi
 			fi
 
@@ -1855,6 +1919,8 @@ function build_modules() {
 						APT_OPTIONS=$APT_OPTIONS \
 						APT_OPTIONS2=$APT_OPTIONS2 \
 						LIVE_TYPE=$LIVE_TYPE \
+						DISTRIBUTION=$DISTRIBUTION \
+						PACKAGE_VARIANT=$PACKAGE_VARIANT \
 						/postinstall
 				else
 					chroot $MODULE_MERGED_DIR /usr/bin/env \
@@ -1867,6 +1933,8 @@ function build_modules() {
 						APT_OPTIONS=$APT_OPTIONS \
 						APT_OPTIONS2=$APT_OPTIONS2 \
 						LIVE_TYPE=$LIVE_TYPE \
+						DISTRIBUTION=$DISTRIBUTION \
+						PACKAGE_VARIANT=$PACKAGE_VARIANT \
 						/postinstall >>$OUTPUT 2>&1
 				fi
 			fi
@@ -1946,6 +2014,38 @@ function build_modules_live() {
 			else
 				echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
 			fi
+		fi
+	done
+}
+
+function repack_module() {
+	OLD_MODULE=$MODULE
+	MODULE=${MODULE%"-$OLD_COMP_TYPE.$BEXT"}
+	if [ $COMP_TYPE = $OLD_COMP_TYPE ]; then
+		echo "The module is already in the required compression format." && exit
+	fi
+	unsquashfs $OLD_MODULE
+
+	mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+
+	rm -rf squashfs-root
+	rm -f $OLD_MODULE
+}
+
+function repack_modules() {
+	current_process
+
+	cd $PARENT_DIR/image/$LIVEKITNAME/
+	for MODULE in *; do
+		if (ls ./*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+			OLD_COMP_TYPE="xz"
+			repack_module
+		elif (ls ./*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+			OLD_COMP_TYPE="lz4"
+			repack_module
+		elif (ls ./*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+			OLD_COMP_TYPE="zstd"
+			repack_module
 		fi
 	done
 }

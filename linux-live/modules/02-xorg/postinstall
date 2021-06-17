@@ -14,6 +14,7 @@ mv /usr/share/icons/Breeze_Snow /usr/share/icons/breeze_cursors >>$OUTPUT 2>&1
 # install x11 server utils, apt-get would add cpp dependency, bullshit!
 cd /tmp
 apt-get download x11-xserver-utils >>$OUTPUT 2>&1
+ls -la
 dpkg -x x11-xserver-utils*.deb /tmp/x11utils >>$OUTPUT 2>&1
 cd /tmp/x11utils
 cp -aR * / >>$OUTPUT 2>&1

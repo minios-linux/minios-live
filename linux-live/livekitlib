@@ -8,8 +8,7 @@
 # debug and output functions
 # =================================================================
 
-debug_start()
-{
+debug_start() {
    if grep -q debug /proc/cmdline; then
       DEBUG_IS_ENABLED=1
       set -x
@@ -18,8 +17,7 @@ debug_start()
    fi
 }
 
-debug_log()
-{
+debug_log() {
    if [ "$DEBUG_IS_ENABLED" ]; then
       echo "- debug: $*" >&2
       log "- debug: $*"
@@ -29,35 +27,28 @@ debug_log()
 # header
 # $1 = text to show
 #
-header()
-{
+header() {
    echo "[0;1m""$@""[0;0m"
 }
 
-
 # echo green star
 #
-echo_green_star()
-{
+echo_green_star() {
    echo -ne "[0;32m""* ""[0;39m"
 }
 
 # log - store given text in /var/log/livedbg
-log()
-{
+log() {
    echo "$@" 2>/dev/null >>/var/log/livedbg
 }
 
-echolog()
-{
+echolog() {
    echo "$@"
    log "$@"
 }
 
-
 # show information about the debug shell
-show_debug_banner()
-{
+show_debug_banner() {
    echo
    echo "====="
    echo ": Debugging started. Here is the root shell for you."
@@ -65,12 +56,10 @@ show_debug_banner()
    echo
 }
 
-
 # debug_shell
 # executed when debug boot parameter is present
 #
-debug_shell()
-{
+debug_shell() {
    if [ "$DEBUG_IS_ENABLED" ]; then
       show_debug_banner
       setsid sh -c 'exec sh < /dev/tty1 >/dev/tty1 2>&1'
@@ -78,8 +67,7 @@ debug_shell()
    fi
 }
 
-fatal()
-{
+fatal() {
    echolog
    header "Fatal error occured - $1"
    echolog "Something went wrong and we can't continue. This should never happen."
@@ -88,25 +76,21 @@ fatal()
    setsid sh -c 'exec sh < /dev/tty1 >/dev/tty1 2>&1'
 }
 
-
 # get value of commandline parameter $1
 # $1 = parameter to search for
 #
-cmdline_value()
-{
+cmdline_value() {
    cat /proc/cmdline | egrep -o "(^|[[:space:]])$1=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
 }
 
-
 # test if the script is started by root user. If not, exit
 #
-allow_only_root()
-{
-  if [ "0$UID" -ne 0 ]; then
-     echo "Only root can run $(basename $0)"; exit 1
-  fi
+allow_only_root() {
+   if [ "0$UID" -ne 0 ]; then
+      echo "Only root can run $(basename $0)"
+      exit 1
+   fi
 }
-
 
 # Create bundle
 # call mksquashfs with apropriate arguments
@@ -114,20 +98,17 @@ allow_only_root()
 # $2 = output file
 # $3..$9 = optional arguments like -keep-as-directory or -b 123456789
 #
-create_bundle()
-{
+create_bundle() {
    debug_log "create_module" "$*"
    rm -f "$2" # overwrite, never append to existing file
-   mksquashfs "$1" "$2" -comp xz -b 1024K -always-use-fragments $3 $4 $5 $6 $7 $8 $9>/dev/null
+   mksquashfs "$1" "$2" -comp xz -b 1024K -always-use-fragments $3 $4 $5 $6 $7 $8 $9 >/dev/null
 }
-
 
 # Move entire initramfs tree to tmpfs mount.
 # It's a bit tricky but is necessray to enable pivot_root
 # even for initramfs boot image
 #
-transfer_initramfs()
-{
+transfer_initramfs() {
    if [ ! -r /lib/initramfs_escaped ]; then
       echo "switch root from initramfs to ramfs"
       SWITCH=/m # one letter directory
@@ -135,16 +116,14 @@ transfer_initramfs()
       mount -t tmpfs -o size="100%" tmpfs $SWITCH
       cp -a /??* $SWITCH 2>/dev/null # only copy two-and-more-letter directories
       cd $SWITCH
-      echo "This file indicates that we successfully escaped initramfs" > $SWITCH/lib/initramfs_escaped
+      echo "This file indicates that we successfully escaped initramfs" >$SWITCH/lib/initramfs_escaped
       exec switch_root -c /dev/console . $0
    fi
 }
 
-
 # mount virtual filesystems like proc etc
 #
-init_proc_sysfs()
-{
+init_proc_sysfs() {
    debug_log "init_proc_sysfs" "$*"
    mkdir -p /proc /sys /etc $MEMORY
    mount -n -t proc proc /proc
@@ -154,13 +133,11 @@ init_proc_sysfs()
    ln -sf /proc/mounts /etc/mtab
 }
 
-
 # modprobe all modules found in initial ramdisk
 # $1 = -e for match, -v for negative match
 # $2 = regex pattern
 #
-modprobe_everything()
-{
+modprobe_everything() {
    debug_log "modprobe_everything" "$*"
 
    echo_green_star >&2
@@ -170,20 +147,16 @@ modprobe_everything()
    refresh_devs
 }
 
-
-refresh_devs()
-{
+refresh_devs() {
    debug_log "refresh_devs" "$*"
    if [ -r /proc/sys/kernel/hotplug ]; then
-      echo /sbin/mdev > /proc/sys/kernel/hotplug
+      echo /sbin/mdev >/proc/sys/kernel/hotplug
    fi
    mdev -s
 }
 
-
 # make sure some devices are there
-init_devs()
-{
+init_devs() {
    debug_log "init_devs" "$*"
    modprobe zram 2>/dev/null
    modprobe loop 2>/dev/null
@@ -192,36 +165,30 @@ init_devs()
    refresh_devs
 }
 
-
 # Activate zram (auto-compression of RAM)
 # Compressed RAM consumes 1/2 or even 1/4 of original size
 # Setup static size of 500MB
 #
-init_zram()
-{
+init_zram() {
    debug_log "init_zram" "$*"
    echo_green_star
    echo "Setting dynamic RAM compression using ZRAM if available"
    if [ -r /sys/block/zram0/disksize ]; then
-      echo 536870912 > /sys/block/zram0/disksize # 512MB
+      echo 536870912 >/sys/block/zram0/disksize # 512MB
       mkswap /dev/zram0 >/dev/null
       swapon /dev/zram0
-      echo 100 > /proc/sys/vm/swappiness
+      echo 100 >/proc/sys/vm/swappiness
    fi
 }
 
-
-aufs_is_supported()
-{
+aufs_is_supported() {
    cat /proc/filesystems | grep aufs
 }
-
 
 # load the AUFS kernel driver. If not found,
 # load overlayfs instead.
 #
-init_aufs()
-{
+init_aufs() {
    debug_log "init_aufs" "$*"
    modprobe aufs 2>/dev/null
    if ! aufs_is_supported >/dev/null; then
@@ -230,14 +197,12 @@ init_aufs()
    refresh_devs
 }
 
-
 # Setup empty aufs union, or create overlayfs union
 # $1 = changes directory (ramfs or persistent changes)
 # $2 = union directory where to mount the union
 # $3 = bundles directory
 #
-init_union()
-{
+init_union() {
    debug_log "init_union" "$*"
    mkdir -p "$1"
    mkdir -p "$2"
@@ -255,12 +220,10 @@ init_union()
    fi
 }
 
-
 # Return device mounted for given directory
 # $1 = directory
 #
-mounted_device()
-{
+mounted_device() {
    debug_log "mounted_device" "$*"
 
    local MNT TARGET
@@ -275,12 +238,10 @@ mounted_device()
    done
 }
 
-
 # Return mounted dir for given directory
 # $1 = directory
 #
-mounted_dir()
-{
+mounted_dir() {
    debug_log "mounted_dir" "$*"
 
    local MNT
@@ -294,24 +255,20 @@ mounted_dir()
    done
 }
 
-
 # Get device tag.
 # $1 = device
 # $2 = tag name, such as TYPE, LABEL, UUID, etc
 #
-device_tag()
-{
+device_tag() {
    blkid -s $2 "$1" | sed -r "s/^[^=]+=//" | tr -d '"'
 }
-
 
 # Make sure to mount FAT12/16/32 using vfat
 # in order to support long filenames
 # $1 = device
 # $2 = prefix to add, like -t
 #
-device_bestfs()
-{
+device_bestfs() {
    debug_log "device_bestfs" "$*"
    local FS
 
@@ -329,12 +286,10 @@ device_bestfs()
    echo "$FS"
 }
 
-
 # Filesystem options for initial mount
 # $1.. = filesystem
 #
-fs_options()
-{
+fs_options() {
    debug_log "fs_options" "$*"
 
    if [ "$1" != "ntfs-3g" ]; then
@@ -348,12 +303,10 @@ fs_options()
    fi
 }
 
-
 # Mount command for given filesystem
 # $1.. = filesystem
 #
-mount_command()
-{
+mount_command() {
    debug_log "mount_command" "$*"
 
    if [ "$1" = "ntfs-3g" ]; then
@@ -363,15 +316,12 @@ mount_command()
    fi
 }
 
-
 # echo first network device known at the moment of calling, eg. eth0
 #
-network_device()
-{
+network_device() {
    debug_log "network_device" "$*"
    cat /proc/net/dev | grep : | grep -v lo: | cut -d : -f 1 | tr -d " " | head -n 1
 }
-
 
 # Modprobe network kernel modules until a working driver is found.
 # These drivers are (or used to be) probed in Slackware's initrd.
@@ -379,14 +329,13 @@ network_device()
 # to be a working one, eg. if the computer has two network interfaces
 # and ethernet cable is plugged only to one of them.
 #
-init_network_dev()
-{
+init_network_dev() {
    debug_log "init_network_dev" "$*"
    local MODULE ETH
 
    for MODULE in 3c59x acenic e1000 e1000e e100 epic100 hp100 ne2k-pci \
-   pcnet32 8139too 8139cp tulip via-rhine r8169 atl1e yellowfin tg3 \
-   dl2k ns83820 atl1 b44 bnx2 skge sky2 tulip forcedeth sb1000 sis900; do
+      pcnet32 8139too 8139cp tulip via-rhine r8169 atl1e yellowfin tg3 \
+      dl2k ns83820 atl1 b44 bnx2 skge sky2 tulip forcedeth sb1000 sis900; do
       modprobe $MODULE 2>/dev/null
       ETH="$(network_device)"
       if [ "$ETH" != "" ]; then
@@ -402,12 +351,10 @@ init_network_dev()
    echo $(network_device)
 }
 
-
 # Initialize network IP address
 # either static from ip=bootparameter, or from DHCP
 #
-init_network_ip()
-{
+init_network_ip() {
    debug_log "init_network_ip" "$*"
    local IP ETH SCRIPT CLIENT SERVER GW MASK
 
@@ -422,8 +369,8 @@ init_network_ip()
       echo "$IP" | while IFS=":" read CLIENT SERVER GW MASK; do
          ifconfig $ETH "$CLIENT" netmask "$MASK"
          route add default gw "$GW"
-         echo nameserver "$GW" >> /etc/resolv.conf
-         echo nameserver "$SERVER" >> /etc/resolv.conf
+         echo nameserver "$GW" >>/etc/resolv.conf
+         echo nameserver "$SERVER" >>/etc/resolv.conf
       done
    else
       # if client ip is unknown, try to get a DHCP lease
@@ -434,12 +381,10 @@ init_network_ip()
    fi
 }
 
-
 # Mount data from http using httpfs
 # $1 = from URL
 # $2 = target
-mount_data_http()
-{
+mount_data_http() {
    debug_log "mount_data_http" "$*"
    local CACHE
 
@@ -448,7 +393,7 @@ mount_data_http()
 
    CACHE=$(cmdline_value cache | sed -r "s/[^0-9]//g" | sed -r "s/^0+//g")
    if [ "$CACHE" != "" ]; then
-      CACHE="-C /tmp/httpfs.cache -S "$(($CACHE*1024*1024))
+      CACHE="-C /tmp/httpfs.cache -S "$(($CACHE * 1024 * 1024))
    fi
 
    init_network_ip
@@ -462,25 +407,21 @@ mount_data_http()
    fi
 }
 
-
 # stdin = files to get
 # $1 = server
 # $2 = destination directory
 #
-tftp_mget()
-{
+tftp_mget() {
    while read FNAME; do
       echo "* $FNAME ..." >&2
       tftp -b 1486 -g -r "$FNAME" -l "$2/$FNAME" "$1"
    done
 }
 
-
 # Download data from tftp
 # $1 = target (store downloaded files there)
 #
-download_data_pxe()
-{
+download_data_pxe() {
    debug_log "download_data_pxe" "$*"
    local IP CMD CLIENT SERVER GW MASK PORT PROTOCOL JOBS
 
@@ -523,20 +464,19 @@ download_data_pxe()
    echo "$1/$LIVEKITNAME"
 }
 
-
 # Find LIVEKIT data by mounting all devices
 # If found, keep mounted, else unmount
 # $1 = data directory target (mount here)
 # $2 = data directory which contains compressed bundles
 #
-find_data_try()
-{
+find_data_try() {
    debug_log "find_data_try" "$*"
 
    local DEVICE FS FROM OPTIONS MOUNT
 
    mkdir -p "$1"
-   blkid | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
+   # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
+   blkid /dev/* | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
       FROM="$2"
       FS="$(device_bestfs "$DEVICE")"
       OPTIONS="$(fs_options $FS)"
@@ -564,14 +504,12 @@ find_data_try()
    done
 }
 
-
 # Retry finding LIVEKIT data several times,
 # until timeouted or until data is found
 # $1 = timeout
 # $2 = data directory target (mount here)
 #
-find_data()
-{
+find_data() {
    debug_log "find_data" "$*"
 
    local DATA FROM
@@ -609,24 +547,20 @@ find_data()
    echo "" >&2
 }
 
-
 # Check if data is found and exists
 # $1 = data directory
 #
-check_data_found()
-{
+check_data_found() {
    if [ "$1" = "" -o ! -d "$1" ]; then
-      fatal "Could not locate $LIVEKITNAME data";
+      fatal "Could not locate $LIVEKITNAME data"
    fi
 }
-
 
 # Activate persistent changes
 # $1 = data directory
 # $2 = target changes directory
 #
-persistent_changes()
-{
+persistent_changes() {
    debug_log "persistent_changes" "$*"
 
    local CHANGES T1 T2 EXISTS
@@ -654,10 +588,10 @@ persistent_changes()
 
    echo_green_star
    echo "Testing persistent changes for posix compatibility"
-   touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null && \
-   chmod +x "$T1" 2>/dev/null && test -x "$T1" && \
-   chmod -x "$T1" 2>/dev/null && test ! -x "$T1" && \
-   rm "$T1" "$T2" 2>/dev/null
+   touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null &&
+      chmod +x "$T1" 2>/dev/null && test -x "$T1" &&
+      chmod -x "$T1" 2>/dev/null && test ! -x "$T1" &&
+      rm "$T1" "$T2" 2>/dev/null
 
    if [ $? -eq 0 ]; then
       echo "* Activating native persistent changes"
@@ -684,12 +618,10 @@ persistent_changes()
    rmdir "$2/lost+found" 2>/dev/null
 }
 
-
 # Copy content of rootcopy directory to union
 # $1 = data directory
 # $2 = union directory
-copy_rootcopy_content()
-{
+copy_rootcopy_content() {
    debug_log "copy_rootcopy_content" "$*"
 
    if [ "$(ls -1 "$1/rootcopy/" 2>/dev/null)" != "" ]; then
@@ -699,13 +631,11 @@ copy_rootcopy_content()
    fi
 }
 
-
 # Copy data to RAM if requested
 # $1 = live data directory
 # $2 = changes directory
 #
-copy_to_ram()
-{
+copy_to_ram() {
    debug_log "copy_to_ram" "$*"
 
    local MDIR MDEV RAM CHANGES
@@ -717,7 +647,7 @@ copy_to_ram()
 
    echo "* Copying $LIVEKITNAME data to RAM..." >&2
    RAM="$(dirname "$2")"/toram
-   mkdir  -p "$RAM"
+   mkdir -p "$RAM"
    cp -a "$1"/* "$RAM"
    echo "$RAM"
 
@@ -732,11 +662,9 @@ copy_to_ram()
    fi
 }
 
-
 # load filter
 #
-filter_load()
-{
+filter_load() {
    local FILTER
    FILTER=$(cmdline_value load)
    if [ "$FILTER" = "" ]; then
@@ -746,11 +674,9 @@ filter_load()
    fi
 }
 
-
 # noload filter
 #
-filter_noload()
-{
+filter_noload() {
    local FILTER
    FILTER=$(cmdline_value noload)
    if [ "$FILTER" = "" ]; then
@@ -762,20 +688,21 @@ filter_noload()
 
 # sort modules by number even if they are in subdirectory
 #
-sortmod()
-{
+sortmod() {
    cat - | sed -r "s,(.*/(.*)),\\2:\\1," | sort -n | cut -d : -f 2-
 }
-
 
 # Mount squashfs filesystem bundles
 # $1 = directory where to search for bundles
 # $2 = directory where to mount bundles
-mount_bundles()
-{
+mount_bundles() {
    echo_green_star
    echo "Mounting bundles"
-   ( ls -1 "$1" | sort -n ; cd "$1" ; find modules/ 2>/dev/null | sortmod | filter_load) | grep '[.]'$BEXT'$' | filter_noload | while read BUNDLE; do
+   (
+      ls -1 "$1" | sort -n
+      cd "$1"
+      find modules/ 2>/dev/null | sortmod | filter_load
+   ) | grep '[.]'$BEXT'$' | filter_noload | while read BUNDLE; do
       echo "* $BUNDLE"
       BUN="$(basename "$BUNDLE")"
       mkdir -p "$2/$BUN"
@@ -783,13 +710,11 @@ mount_bundles()
    done
 }
 
-
 # Add mounted bundles to aufs union
 # $1 = directory where bundles are mounted
 # $2 = directory where union is mounted
 #
-union_append_bundles()
-{
+union_append_bundles() {
    debug_log "union_append_bundles" "$*"
 
    if aufs_is_supported >/dev/null; then
@@ -801,23 +726,21 @@ union_append_bundles()
    fi
 }
 
-
 # Create empty fstab properly
 # $1 = root directory
 # $2 = directory where boot disk is mounted
 #
-fstab_create()
-{
+fstab_create() {
    debug_log "fstab_create" "$*"
 
    local FSTAB DEVICE FS LABEL BOOTDEVICE OPTS
 
    FSTAB="$1/etc/fstab"
-   echo aufs / aufs defaults 0 0 > $FSTAB
-   echo proc /proc proc defaults 0 0 >> $FSTAB
-   echo sysfs /sys sysfs defaults 0 0 >> $FSTAB
-   echo devpts /dev/pts devpts gid=5,mode=620 0 0 >> $FSTAB
-   echo tmpfs /dev/shm tmpfs defaults 0 0 >> $FSTAB
+   echo aufs / aufs defaults 0 0 >$FSTAB
+   echo proc /proc proc defaults 0 0 >>$FSTAB
+   echo sysfs /sys sysfs defaults 0 0 >>$FSTAB
+   echo devpts /dev/pts devpts gid=5,mode=620 0 0 >>$FSTAB
+   echo tmpfs /dev/shm tmpfs defaults 0 0 >>$FSTAB
 
    if grep -vq automount /proc/cmdline; then
       return
@@ -825,26 +748,25 @@ fstab_create()
 
    BOOTDEVICE=$(df "$2" | tail -n 1 | cut -d " " -f 1)
 
-   echo >> $FSTAB
+   echo >>$FSTAB
 
-   blkid | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DEVICE; do
+   # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
+   blkid /dev/* | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DEVICE; do
       FS="$(device_bestfs $DEVICE)"
       LABEL="$(basename $DEVICE)"
       OPTS="defaults,noatime,nofail,x-systemd.device-timeout=10"
 
       if [ "$FS" != "" -a "$FS" != "swap" -a "$FS" != "squashfs" -a "$DEVICE" != "$BOOTDEVICE" ]; then
          mkdir -p "$1/media/$LABEL"
-         echo "$DEVICE" "/media/$LABEL" $FS $OPTS 0 0 >> $FSTAB
+         echo "$DEVICE" "/media/$LABEL" $FS $OPTS 0 0 >>$FSTAB
       fi
    done
 }
 
-
 # Change root and execute init
 # $1 = where to change root
 #
-change_root()
-{
+change_root() {
    debug_log "change_root" "$*"
 
    # if we are booting over httpfs, we need to copyup some files so they are
@@ -872,14 +794,14 @@ change_root()
    if [ ! -e sbin/fsck.aufs ]; then ln -s /bin/true sbin/fsck.aufs; fi
 
    # find chroot and init
-   if [ -x bin/chroot -o -L bin/chroot ]; then  CHROOT=bin/chroot; fi
-   if [ -x sbin/chroot -o -L sbin/chroot ]; then  CHROOT=sbin/chroot; fi
-   if [ -x usr/bin/chroot -o -L usr/bin/chroot ]; then  CHROOT=usr/bin/chroot; fi
+   if [ -x bin/chroot -o -L bin/chroot ]; then CHROOT=bin/chroot; fi
+   if [ -x sbin/chroot -o -L sbin/chroot ]; then CHROOT=sbin/chroot; fi
+   if [ -x usr/bin/chroot -o -L usr/bin/chroot ]; then CHROOT=usr/bin/chroot; fi
    if [ -x usr/sbin/chroot -o -L usr/sbin/chroot ]; then CHROOT=usr/sbin/chroot; fi
    if [ "$CHROOT" = "" ]; then fatal "Can't find executable chroot command"; fi
 
    if [ -x bin/init -o -L bin/init ]; then INIT=bin/init; fi
-   if [ -x sbin/init -o -L sbin/init  ]; then INIT=sbin/init; fi
+   if [ -x sbin/init -o -L sbin/init ]; then INIT=sbin/init; fi
    if [ "$INIT" = "" ]; then fatal "Can't find executable init command"; fi
 
    mkdir -p run
@@ -887,5 +809,5 @@ change_root()
    mkdir -p run/initramfs
    mount -n -o remount,ro aufs .
    pivot_root . run/initramfs
-   exec $CHROOT . $INIT < dev/console > dev/console 2>&1
+   exec $CHROOT . $INIT <dev/console >dev/console 2>&1
 }

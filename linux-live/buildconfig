@@ -1,5 +1,24 @@
 #!/bin/bash
 
+#
+DISTRIBUTION_TYPE="debian"
+
+#
+DISTRIBUTION="bullseye"
+
+#
+DISTRIBUTION_ARCH="amd64"
+
+# Used when building Ubuntu
+DISTRIBUTION_VARIANT="minbase"
+
+# 
+DISTRIBUTION_URL="http://ftp.ru.debian.org/debian/"
+
+#
+PACKAGE_VARIANT="minimal"
+
+#
 LOGPATH="/var/log"
 
 # default is output to log. you can use OUTPUT="/dev/stdout" if you want to route events to standard output.
@@ -41,3 +60,9 @@ UNION_BUILD_TYPE="overlayfs"
 #UNION_BUILD_TYPE="aufs"
 
 INSTALL_OPTIONAL="1"
+
+# Used when assigned to the ISO name when building Minios-Live
+SYSTEMNAME="MiniOS"
+
+#
+SYSTEMVER="2021"
