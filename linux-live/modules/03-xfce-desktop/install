@@ -133,7 +133,8 @@ EOF
     echo $WHISKERMENU >>/root/.config/xfce4/panel/whiskermenu-1.rc
     echo $WHISKERMENU >>/home/live/.config/xfce4/panel/whiskermenu-1.rc
 else
-    read -r -d MINIMAL_PANEL '' <<EOF
+    #read -r -d MINIMAL_PANEL '' <<EOF
+cat <<EOF >/etc/skel/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -224,7 +225,189 @@ else
 </channel>
 
 EOF
-    echo $MINIMAL_PANEL >>/etc/skel/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
-    echo $MINIMAL_PANEL >>/root/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
-    echo $MINIMAL_PANEL >>/home/live/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+cat <<EOF >/root/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=8;x=512;y=752"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="34"/>
+      <property name="background-alpha" type="uint" value="90"/>
+      <property name="mode" type="uint" value="0"/>
+      <property name="enter-opacity" type="uint" value="100"/>
+      <property name="leave-opacity" type="uint" value="100"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="10"/>
+        <value type="int" value="12"/>
+        <value type="int" value="13"/>
+        <value type="int" value="14"/>
+      </property>
+    </property>
+    <property name="dark-mode" type="bool" value="true"/>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu">
+      <property name="button-icon" type="string" value="/usr/share/pixmaps/MiniOS-white.svg"/>
+      <property name="show-button-title" type="bool" value="false"/>
+    </property>
+    <property name="plugin-2" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-3" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="TerminalEmulator.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-4" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="FileManager.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-5" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="WebBrowser.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-6" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-7" type="string" value="tasklist">
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="show-labels" type="bool" value="true"/>
+      <property name="grouping" type="uint" value="1"/>
+    </property>
+    <property name="plugin-8" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+      <property name="expand" type="bool" value="true"/>
+    </property>
+    <property name="plugin-9" type="string" value="xkb">
+      <property name="display-type" type="uint" value="2"/>
+      <property name="display-name" type="uint" value="0"/>
+      <property name="group-policy" type="uint" value="0"/>
+    </property>
+    <property name="plugin-10" type="string" value="battery"/>
+    <property name="plugin-12" type="string" value="systray">
+      <property name="known-legacy-items" type="array">
+        <value type="string" value="task manager"/>
+        <value type="string" value="volumeicon"/>
+        <value type="string" value="networkmanager applet"/>
+      </property>
+    </property>
+    <property name="plugin-13" type="string" value="clock">
+      <property name="digital-format" type="string" value="%_H:%M"/>
+    </property>
+    <property name="plugin-14" type="string" value="showdesktop"/>
+  </property>
+</channel>
+
+EOF
+cat <<EOF >/home/live/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=8;x=512;y=752"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="34"/>
+      <property name="background-alpha" type="uint" value="90"/>
+      <property name="mode" type="uint" value="0"/>
+      <property name="enter-opacity" type="uint" value="100"/>
+      <property name="leave-opacity" type="uint" value="100"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="10"/>
+        <value type="int" value="12"/>
+        <value type="int" value="13"/>
+        <value type="int" value="14"/>
+      </property>
+    </property>
+    <property name="dark-mode" type="bool" value="true"/>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu">
+      <property name="button-icon" type="string" value="/usr/share/pixmaps/MiniOS-white.svg"/>
+      <property name="show-button-title" type="bool" value="false"/>
+    </property>
+    <property name="plugin-2" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-3" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="TerminalEmulator.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-4" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="FileManager.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-5" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="WebBrowser.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-6" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-7" type="string" value="tasklist">
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="show-labels" type="bool" value="true"/>
+      <property name="grouping" type="uint" value="1"/>
+    </property>
+    <property name="plugin-8" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+      <property name="expand" type="bool" value="true"/>
+    </property>
+    <property name="plugin-9" type="string" value="xkb">
+      <property name="display-type" type="uint" value="2"/>
+      <property name="display-name" type="uint" value="0"/>
+      <property name="group-policy" type="uint" value="0"/>
+    </property>
+    <property name="plugin-10" type="string" value="battery"/>
+    <property name="plugin-12" type="string" value="systray">
+      <property name="known-legacy-items" type="array">
+        <value type="string" value="task manager"/>
+        <value type="string" value="volumeicon"/>
+        <value type="string" value="networkmanager applet"/>
+      </property>
+    </property>
+    <property name="plugin-13" type="string" value="clock">
+      <property name="digital-format" type="string" value="%_H:%M"/>
+    </property>
+    <property name="plugin-14" type="string" value="showdesktop"/>
+  </property>
+</channel>
+
+EOF
+    #echo $MINIMAL_PANEL >>/etc/skel/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+    #echo $MINIMAL_PANEL >>/root/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+    #echo $MINIMAL_PANEL >>/home/live/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
 fi
