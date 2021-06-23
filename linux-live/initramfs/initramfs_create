@@ -85,8 +85,9 @@ copy_including_deps /$LMK/kernel/fs/nls
 copy_including_deps /$LMK/kernel/fs/fuse
 copy_including_deps /$LMK/kernel/fs/isofs
 copy_including_deps /$LMK/kernel/fs/ntfs
-copy_including_deps /$LMK/kernel/fs/reiserfs
+#copy_including_deps /$LMK/kernel/fs/reiserfs
 copy_including_deps /$LMK/kernel/fs/squashfs
+
 
 # crc32c is needed for ext4, but I don't know which one, add them all, they are small
 find /$LMK/kernel/ | grep crc32c | while read LINE; do

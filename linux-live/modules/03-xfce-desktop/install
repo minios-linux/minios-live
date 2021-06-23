@@ -134,7 +134,7 @@ EOF
     echo $WHISKERMENU >>/home/live/.config/xfce4/panel/whiskermenu-1.rc
 else
     #read -r -d MINIMAL_PANEL '' <<EOF
-cat <<EOF >/etc/skel/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -225,7 +225,7 @@ cat <<EOF >/etc/skel/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
 </channel>
 
 EOF
-cat <<EOF >/root/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+cat <<EOF >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -316,7 +316,7 @@ cat <<EOF >/root/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
 </channel>
 
 EOF
-cat <<EOF >/home/live/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+cat <<EOF >/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -407,7 +407,7 @@ cat <<EOF >/home/live/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
 </channel>
 
 EOF
-    #echo $MINIMAL_PANEL >>/etc/skel/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
-    #echo $MINIMAL_PANEL >>/root/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
-    #echo $MINIMAL_PANEL >>/home/live/.config/xfce4/xconf/xfce-perchannel-xml/xfce4-panel.xml
+    #echo $MINIMAL_PANEL >>/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+    #echo $MINIMAL_PANEL >>/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+    #echo $MINIMAL_PANEL >>/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 fi
