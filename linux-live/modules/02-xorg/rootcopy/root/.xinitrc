@@ -1,1 +1,2 @@
+xrdb -merge .Xresources
 blackbox
