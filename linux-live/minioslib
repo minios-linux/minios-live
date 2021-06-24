@@ -1047,6 +1047,7 @@ function chroot_configure() {
 	echo live:evil | chpasswd >>$OUTPUT 2>&1
 	addgroup live adm >>$OUTPUT 2>&1
 	addgroup live sudo >>$OUTPUT 2>&1
+	addgroup live audio >>$OUTPUT 2>&1
 
 	(cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
 
