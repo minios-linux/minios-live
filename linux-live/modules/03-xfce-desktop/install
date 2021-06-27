@@ -9,45 +9,45 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 GTKUI="2"
 
 if [ $DISTRIBUTION = "buster" ] && [ $GTKUI = "3" ]; then
+  #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+  $APT_CMD update >>$OUTPUT 2>&1 &&
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-            gnupg curl >>$OUTPUT 2>&1
-    echo "deb http://mxrepo.com/mx/repo/ temp main" >>/etc/apt/sources.list
-    curl -L https://cyber-x.ru/wp-content/upload/mx19/mx19.gpg | sudo apt-key add -
+    $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+      gnupg curl >>$OUTPUT 2>&1
+  echo "deb http://mxrepo.com/mx/repo/ temp main" >>/etc/apt/sources.list
+  curl -L https://cyber-x.ru/wp-content/upload/mx19/mx19.gpg | sudo apt-key add -
 fi
 
 # install $PACKAGE_VARIANTs
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+  #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+  $APT_CMD update >>$OUTPUT 2>&1 &&
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION = "buster" ] && [ $GTKUI = "3" ]; then
-    sed -i "s,deb http://mxrepo.com/mx/repo/ temp main,#deb http://mxrepo.com/mx/repo/ temp main,g" /etc/apt/sources.list
+  sed -i "s,deb http://mxrepo.com/mx/repo/ temp main,#deb http://mxrepo.com/mx/repo/ temp main,g" /etc/apt/sources.list
 fi
 
 if [ $DISTRIBUTION = "bullseye" ]; then
-    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-    $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-        librsvg2-common >>$OUTPUT 2>&1
+  #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+  $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+    librsvg2-common >>$OUTPUT 2>&1
 fi
 
 if grep xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-    if [ $DISTRIBUTION = "buster" ]; then
-        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/root/.config/xfce4/panel/whiskermenu-1.rc
-        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/home/live/.config/xfce4/panel/whiskermenu-1.rc
-    elif [ $DISTRIBUTION = "bullseye" ]; then
-        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/root/.config/xfce4/panel/whiskermenu-1.rc
-        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/home/live/.config/xfce4/panel/whiskermenu-1.rc
-    fi
-    cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+  if [ $DISTRIBUTION = "buster" ]; then
+    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/root/.config/xfce4/panel/whiskermenu-1.rc
+    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/home/live/.config/xfce4/panel/whiskermenu-1.rc
+  elif [ $DISTRIBUTION = "bullseye" ]; then
+    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/root/.config/xfce4/panel/whiskermenu-1.rc
+    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/home/live/.config/xfce4/panel/whiskermenu-1.rc
+  fi
+  cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
 button-single-row=false
@@ -94,7 +94,7 @@ show-command-logout=true
 command-menueditor=menulibre
 show-command-menueditor=true
 command-profile=mugshot
-show-command-profile=true
+show-command-profile=false
 search-actions=5
 
 [action0]
@@ -129,7 +129,7 @@ regex=true
 
 
 EOF
-    cat <<EOF >>/root/.config/xfce4/panel/whiskermenu-1.rc
+  cat <<EOF >>/root/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
 button-single-row=false
@@ -176,7 +176,7 @@ show-command-logout=true
 command-menueditor=menulibre
 show-command-menueditor=true
 command-profile=mugshot
-show-command-profile=true
+show-command-profile=false
 search-actions=5
 
 [action0]
@@ -211,7 +211,7 @@ regex=true
 
 
 EOF
-    cat <<EOF >>/home/live/.config/xfce4/panel/whiskermenu-1.rc
+  cat <<EOF >>/home/live/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
 button-single-row=false
@@ -258,7 +258,7 @@ show-command-logout=true
 command-menueditor=menulibre
 show-command-menueditor=true
 command-profile=mugshot
-show-command-profile=true
+show-command-profile=false
 search-actions=5
 
 [action0]
@@ -293,12 +293,12 @@ regex=true
 
 
 EOF
-    #echo $WHISKERMENU >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-    #echo $WHISKERMENU >>/root/.config/xfce4/panel/whiskermenu-1.rc
-    #echo $WHISKERMENU >>/home/live/.config/xfce4/panel/whiskermenu-1.rc
+  #echo $WHISKERMENU >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+  #echo $WHISKERMENU >>/root/.config/xfce4/panel/whiskermenu-1.rc
+  #echo $WHISKERMENU >>/home/live/.config/xfce4/panel/whiskermenu-1.rc
 else
-    #read -r -d MINIMAL_PANEL '' <<EOF
-cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+  #read -r -d MINIMAL_PANEL '' <<EOF
+  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -389,7 +389,7 @@ cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 </channel>
 
 EOF
-cat <<EOF >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+  cat <<EOF >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -480,7 +480,7 @@ cat <<EOF >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 </channel>
 
 EOF
-cat <<EOF >/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+  cat <<EOF >/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -571,7 +571,48 @@ cat <<EOF >/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 </channel>
 
 EOF
-    #echo $MINIMAL_PANEL >>/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
-    #echo $MINIMAL_PANEL >>/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
-    #echo $MINIMAL_PANEL >>/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+  #echo $MINIMAL_PANEL >>/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+  #echo $MINIMAL_PANEL >>/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+  #echo $MINIMAL_PANEL >>/home/live/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+fi
+
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=
+
+EOF
+    cat <<EOF >/home/live/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=
+
+EOF
+    cat <<EOF >/root/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=
+
+EOF
+
+elif [ $PACKAGE_VARIANT = "standard" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=Thunar
+WebBrowser=
+
+EOF
+    cat <<EOF >/home/live/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=Thunar
+WebBrowser=
+
+EOF
+    cat <<EOF >/root/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=Thunar
+WebBrowser=
+
+EOF
 fi

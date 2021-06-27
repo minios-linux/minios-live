@@ -15,8 +15,43 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-if [ $PACKAGE_VARIANT = "standard" ]; then
-    wget -c https://github.com/VSCodium/vscodium/releases/download/1.57.1/codium_1.57.1-1623975230_amd64.deb &&
-        $APT_CMD install $APT_OPTIONS ./codium_1.57.1-1623975230_amd64.deb &&
-        rm -f ./codium_1.57.1-1623975230_amd64.deb
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=firefox
+
+EOF
+    cat <<EOF >/home/live/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=firefox
+
+EOF
+    cat <<EOF >/root/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=firefox
+
+EOF
+
+elif [ $PACKAGE_VARIANT = "standard" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=firefox
+
+EOF
+    cat <<EOF >/home/live/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=firefox
+
+EOF
+    cat <<EOF >/root/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=firefox
+
+EOF
 fi

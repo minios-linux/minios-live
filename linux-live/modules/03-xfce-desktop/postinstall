@@ -4,15 +4,17 @@
 
 # create user directories
 for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-   mkdir -p /home/live/$dir >>$OUTPUT 2>&1
-   mkdir -p /root/$dir >>$OUTPUT 2>&1
+    mkdir -p /home/live/$dir >>$OUTPUT 2>&1
+    mkdir -p /root/$dir >>$OUTPUT 2>&1
 done
 
-#if [ $DISTRIBUTION = "bullseye" ]; then
-   rm -f /usr/share/backgrounds/xfce/*
-   ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-   ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-#fi
+rm -f /usr/share/backgrounds/xfce/*
+ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+
+if [ $PACKAGE_VARIANT = "standard" ]; then
+    rm -f /usr/share/applications/pavucontrol.desktop
+fi
 
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
 
