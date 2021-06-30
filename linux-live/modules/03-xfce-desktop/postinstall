@@ -16,6 +16,178 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
     rm -f /usr/share/applications/pavucontrol.desktop
 fi
 
+if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
+    sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
+    if [ $PACKAGE_VARIANT = "minimal" ]; then
+        sed -i 's,#default_user        simone,default_user        root,g' /etc/slim.conf
+    else
+        sed -i 's,#default_user        simone,default_user        live,g' /etc/slim.conf
+    fi
+    sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
+    sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
+fi
+
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    cat <<EOF >>/usr/share/applications/taskmanager.desktop
+[Desktop Entry]
+Name=Task Manager
+Name[ar]=مدير المهام
+Name[ast]=Xestor de xeres
+Name[be]=Кіраўнік задач
+Name[bg]=Мениджър на задачи
+Name[ca]=Gestor de tasques
+Name[cs]=Správce úloh
+Name[da]=Opgavehåndtering
+Name[de]=Taskmanager
+Name[el]=Διαχειριστής εργασιών
+Name[en_AU]=Task Manager
+Name[en_GB]=Task Manager
+Name[es]=Gestor de tareas
+Name[eu]=Zeregin kudeatzailea
+Name[fi]=Tehtävienhallinta
+Name[fr]=Gestionnaire de tâches
+Name[gl]=Xestor de tarefas
+Name[he]=מנהל משימות
+Name[hr]=Upravitelj zadacima
+Name[hu]=Feladatkezelő
+Name[id]=Manajer Tugas
+Name[is]=Verkefnastjóri
+Name[it]=Gestore dei processi
+Name[ja]=タスクマネージャー
+Name[kk]=Үрдістерді басқарушысы
+Name[ko]=작업 관리자
+Name[lt]=Užduočių tvarkytuvė
+Name[ms]=Pengurus Tugas
+Name[nb]=Oppgavebehandler
+Name[nl]=Taakbeheerder
+Name[oc]=Gestionari de prètzfaches
+Name[pl]=Menedżer zadań
+Name[pt]=Gestor de tarefas
+Name[pt_BR]=Gerenciador de tarefas
+Name[ru]=Диспетчер задач
+Name[sk]=Správca úloh
+Name[sl]=Upravljalnik nalog
+Name[sq]=Përgjegjës Aktesh
+Name[sr]=Управник задатака
+Name[sv]=Aktivitetshanterare
+Name[te]=కర్తవ్య నిర్వాహకం
+Name[th]=โปรแกรมจัดการทาสก์
+Name[tr]=Görev Yöneticisi
+Name[ug]=ۋەزىپە باشقۇرغۇ
+Name[uk]=Диспетчер задач
+Name[vi]=Quản lý tác vụ
+Name[zh_CN]=任务管理器
+Name[zh_HK]=工作管理員
+Name[zh_TW]=工作管理員
+Comment=Easy to use task manager
+Comment[ar]=من السهل إستخدام مدير المهام
+Comment[ast]=Xestor de xeres cenciellu d'usar
+Comment[be]=Зручны ў выкарыстанні кіраўнік задач
+Comment[bg]=Лесен за използване мениджър на задачи
+Comment[ca]=Gestor de tasques fàcil d'utilitzar
+Comment[cs]=Snadno použitelný správce úloh
+Comment[da]=Opgavehåndtering som er nem at bruge
+Comment[de]=Prozessverwaltung mit einfacher Bedienung
+Comment[el]=Εύκολος στην χρήση διαχειριστής διεργασιών
+Comment[en_AU]=Easy to use task manager
+Comment[en_GB]=Easy to use task manager
+Comment[es]=Un gestor de tareas fácil de usar
+Comment[eu]= Zeregin kudeatzaile erabilerraz bat da
+Comment[fi]=Helppokäyttöinen tehtävienhallinta
+Comment[fr]=Gestionnaire de tâches simple d’utilisation
+Comment[gl]=Xestor de tarefas fácil de usar
+Comment[he]=מנהל משימות קל לשימוש
+Comment[hr]=Lagan za korištenje upravitelj zadacima
+Comment[hu]=Egyszerűen használható feladatkezelő
+Comment[id]=Manajer tugas yang mudah digunakan
+Comment[is]=Einfaldur og auðveldur verkefnastjóri
+Comment[it]=Gestore dei processi di semplice utilizzo
+Comment[ja]=使いやすいタスクマネージャーです
+Comment[kk]=Жүйе үрдістерін ыңғайлы басқару
+Comment[ko]=쓰기 쉬운 작업관리자
+Comment[lt]=Lengvai naudojama užduočių tvarkytuvė
+Comment[ms]=Pengurus tugas yang mudah digunakan
+Comment[nb]=Lett å bruke oppgavebehandler
+Comment[nl]=Gemakkelijk te gebruiken taakbeheerder
+Comment[oc]=De bon utilizar : lo gestionari de prètzfaches
+Comment[pl]=Zarządza uruchomionymi procesami
+Comment[pt]=Gestor de tarefas fácil de usar
+Comment[pt_BR]=Um gerenciador de tarefas fácil de usar
+Comment[ru]=Простой диспетчер задач
+Comment[sk]=Správca úloh s jednoduchým používaním
+Comment[sl]=Enostaven upravljalnik nalog
+Comment[sq]=Përgjegjës aktesh i lehtë për t’u përdorur
+Comment[sr]=Управник задатака лак за коришћење
+Comment[sv]=Lättanvänd aktivitetshanterare
+Comment[te]=వాడుటకు సరళమైన కర్తవ్య నిర్వాహకం
+Comment[th]=โปรแกรมจัดการทาสก์สะดวกใช้
+Comment[tr]=Kullanımı kolay görev yöneticisi
+Comment[ug]=ئىشلىتىشكە ئەپلىك ۋەزىپە باشقۇرغۇ
+Comment[uk]=Простий у використанні диспетчер задач
+Comment[vi]=Trình quản lý tác vụ dễ dùng
+Comment[zh_CN]=易用的任务管理器
+Comment[zh_HK]=易用的工作管理員
+Comment[zh_TW]=易於使用的工作管理員
+GenericName=Task Manager
+GenericName[ar]=مدير المهام
+GenericName[ast]=Xestor de xeres
+GenericName[be]=Кіраўнік задач
+GenericName[bg]=Мениджър на задачи
+GenericName[ca]=Gestor de tasques
+GenericName[cs]=Správce úloh
+GenericName[da]=Opgavehåndtering
+GenericName[de]=Taskmanager
+GenericName[el]=Διαχειριστής εργασιών
+GenericName[en_AU]=Task Manager
+GenericName[en_GB]=Task Manager
+GenericName[es]=Gestor de tareas
+GenericName[eu]=Zeregin kudeatzailea
+GenericName[fi]=Tehtävienhallinta
+GenericName[fr]=Gestionnaire de tâches
+GenericName[gl]=Xestor de tarefas
+GenericName[he]=מנהל משימות
+GenericName[hr]=Upravitelj zadacima
+GenericName[hu]=Feladatkezelő
+GenericName[id]=Manajer Tugas
+GenericName[is]=Verkefnastjóri
+GenericName[it]=Gestore dei processi
+GenericName[ja]=タスクマネージャー
+GenericName[kk]=Үрдістерді басқарушысы
+GenericName[ko]=작업 관리자
+GenericName[lt]=Užduočių tvarkytuvė
+GenericName[ms]=Pengurus Tugas
+GenericName[nb]=Oppgavebehandler
+GenericName[nl]=Taakbeheerder
+GenericName[oc]=Gestionari de prètzfaches
+GenericName[pl]=Menedżer zadań
+GenericName[pt]=Gestor de tarefas
+GenericName[pt_BR]=Gerenciador de tarefas
+GenericName[ru]=Диспетчер задач
+GenericName[sk]=Správca úloh
+GenericName[sl]=Upravljalnik nalog
+GenericName[sq]=Përgjegjës Aktesh
+GenericName[sr]=Управник задатака
+GenericName[sv]=Aktivitetshanterare
+GenericName[te]=కర్తవ్య నిర్వాహకం
+GenericName[th]=โปรแกรมจัดการทาสก์
+GenericName[tr]=Görev Yöneticisi
+GenericName[ug]=ۋەزىپە باشقۇرغۇ
+GenericName[uk]=Диспетчер задач
+GenericName[vi]=Quản lý tác vụ
+GenericName[zh_CN]=任务管理器
+GenericName[zh_HK]=工作管理員
+GenericName[zh_TW]=工作管理員
+Exec=xterm -e 'htop'
+Icon=utilities-system-monitor
+Terminal=false
+StartupNotify=true
+Type=Application
+Categories=System;Utility;
+
+EOF
+fi
+
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
 
 update-alternatives --set x-terminal-emulator /usr/bin/xterm >>$OUTPUT 2>&1

@@ -31,8 +31,10 @@ function common_variables() {
 
 	if [ $DISTRIBUTION_ARCH = "amd64" ]; then
 		KERNEL_ARCH="amd64"
+		#PACKAGE_VARIANT="standard"
 	elif [ $DISTRIBUTION_ARCH = "i386" ]; then
 		KERNEL_ARCH="686-pae"
+		PACKAGE_VARIANT="minimal"
 	elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
 		KERNEL_ARCH="arm64"
 	fi
@@ -688,6 +690,11 @@ function build_live() {
 	mv $BUILD_DIR/boot/initrfs.img $PARENT_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
 	cp -r $SCRIPT_DIR/linux-live/bootfiles/* $PARENT_DIR/image/$LIVEKITNAME
+	
+	if [ $PACKAGE_VARIANT = "minimal" ]; then
+		sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+		sed -i 's/minios.flags= /minios.flags=automount /g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+	fi
 
 	# create compressed 01-core.sb
 	cd $BUILD_DIR
@@ -881,7 +888,7 @@ function chroot_build_cleanup() {
 	rm -Rf /usr/share/man/?? >>$OUTPUT 2>&1
 	rm -Rf /usr/share/man/*_* >>$OUTPUT 2>&1
 
-	rm -Rf /usr/share/icons/elementaryXubuntu-dark >>$OUTPUT 2>&1
+	#rm -Rf /usr/share/icons/elementaryXubuntu-dark >>$OUTPUT 2>&1
 	rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
 
 	rm /usr/share/applications/compton.desktop >>$OUTPUT 2>&1
@@ -1045,11 +1052,13 @@ function chroot_configure() {
 	adduser --gecos '' live --disabled-password >>$OUTPUT 2>&1
 	echo "Set up password for user 'live'" >>$OUTPUT 2>&1
 	echo live:evil | chpasswd >>$OUTPUT 2>&1
-	addgroup live adm >>$OUTPUT 2>&1
-	addgroup live sudo >>$OUTPUT 2>&1
-	addgroup live audio >>$OUTPUT 2>&1
-	addgroup live users >>$OUTPUT 2>&1
-	addgroup live live >>$OUTPUT 2>&1
+	#addgroup live adm >>$OUTPUT 2>&1
+	#addgroup live sudo >>$OUTPUT 2>&1
+	#addgroup live audio >>$OUTPUT 2>&1
+	#addgroup live plugdev >>$OUTPUT 2>&1
+	#addgroup live users >>$OUTPUT 2>&1
+	#addgroup live live >>$OUTPUT 2>&1
+	usermod -a -G sudo live
 
 	(cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
 

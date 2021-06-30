@@ -2,7 +2,9 @@
 
 (cd /rootcopy && cp --parents -afr * /)
 
-sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list
+fi
 
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
 rm -Rf /usr/share/icons/Adwaita/256x256 >>$OUTPUT 2>&1

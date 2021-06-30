@@ -15,6 +15,22 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
+if [ $PACKAGE_VARIANT = "standard" ]; then
+    if [ $DISTRIBUTION = "stretch" ]; then
+        echo 'deb http://ftp.debian.org/debian stretch-backports main' | sudo tee --append /etc/apt/sources.list.d/stretch-backports.list >>$OUTPUT 2>&1
+        $APT_CMD update &&
+            #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+            $APT_CMD install -t stretch-backports $APT_OPTIONS $APT_OPTIONS2 \
+                remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
+    else
+        $APT_CMD update &&
+            #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+            $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+                remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
+
+    fi
+fi
+
 if [ $PACKAGE_VARIANT = "minimal" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm

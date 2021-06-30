@@ -1,13 +1,57 @@
 #!/bin/bash
 
-apt-get update >>$OUTPUT 2>&1
-apt-get install --yes --no-install-recommends chromium chromium-sandbox >>$OUTPUT 2>&1
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
 
-echo 'export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1"' >>/etc/chromium.d/default-flags
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
-#rm -Rf /root/.fluxbox
-#rm -Rf /root/.fluxbox/kblayout
-#rm -Rf /root/.gtk-bookmarks
-#rm -Rf /var/lib/wicd/dhclient.conf
-rm -Rf /usr/share/applications/chromium.desktop >>$OUTPUT 2>&1
+# install packages
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+    $APT_CMD update >>$OUTPUT 2>&1 &&
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+fi
+
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=chromium
+
+EOF
+    cat <<EOF >/home/live/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=chromium
+
+EOF
+    cat <<EOF >/root/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=chromium --no-sandbox
+
+EOF
+
+elif [ $PACKAGE_VARIANT = "standard" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=chromium
+
+EOF
+    cat <<EOF >/home/live/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=chromium
+
+EOF
+    cat <<EOF >/root/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=chromium --no-sandbox
+
+EOF
+fi

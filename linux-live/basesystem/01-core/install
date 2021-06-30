@@ -9,6 +9,8 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 linux-image-$KERNEL_ARCH >>$OUTPUT 2>&1
 
+echo "davfs2 davfs2/suid_file boolean true" | debconf-set-selections
+
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
@@ -16,4 +18,22 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
         $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+fi
+
+# install packages
+if [ $DISTRIBUTION != "stretch" ] && [ $PACKAGE_VARIANT = "standard" ]; then
+    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+    $APT_CMD update >>$OUTPUT 2>&1 &&
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+            lz4 zstd >>$OUTPUT 2>&1
+fi
+
+if [ $DISTRIBUTION = "bullseye" ]; then
+    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+    $APT_CMD update >>$OUTPUT 2>&1 &&
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+            selinux-policy-default >>$OUTPUT 2>&1
+    sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
 fi
