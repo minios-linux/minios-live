@@ -672,8 +672,6 @@ function build_live() {
 
 	check_build_dir
 
-	#(cd /linux-live/rootcopy && cp --parents -afr * /)
-
 	chroot $BUILD_DIR mount none -t proc /proc
 	chroot $BUILD_DIR /linux-live/initrfs
 	chroot $BUILD_DIR umount /proc
@@ -690,7 +688,7 @@ function build_live() {
 	mv $BUILD_DIR/boot/initrfs.img $PARENT_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
 	cp -r $SCRIPT_DIR/linux-live/bootfiles/* $PARENT_DIR/image/$LIVEKITNAME
-	
+
 	if [ $PACKAGE_VARIANT = "minimal" ]; then
 		sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 		sed -i 's/minios.flags= /minios.flags=automount /g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
@@ -840,6 +838,7 @@ function chroot_build_cleanup() {
 	rm -f /install2 >>$OUTPUT 2>&1
 	rm -f /cleanup >>$OUTPUT 2>&1
 	rm -f /$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
+	rm -f /preseed.txt >>$OUTPUT 2>&1
 	rm -f /postinstall >>$OUTPUT 2>&1
 	rm -rf /rootcopy >>$OUTPUT 2>&1
 	rm -rf /patches >>$OUTPUT 2>&1
@@ -880,11 +879,11 @@ function chroot_build_cleanup() {
 	rm -Rf /usr/share/fluxbox/nls/??* >>$OUTPUT 2>&1
 	rm -Rf /usr/share/gnome/help >>$OUTPUT 2>&1
 
-	rm -Rf /usr/share/locale/?? >>$OUTPUT 2>&1
-	rm -Rf /usr/share/locale/??_* >>$OUTPUT 2>&1
-	rm -Rf /usr/share/locale/??@* >>$OUTPUT 2>&1
-	rm -Rf /usr/share/locale/??? >>$OUTPUT 2>&1
-	rm -Rf /usr/share/i18n/locales/*_* >>$OUTPUT 2>&1
+	#rm -Rf /usr/share/locale/?? >>$OUTPUT 2>&1
+	#rm -Rf /usr/share/locale/??_* >>$OUTPUT 2>&1
+	#rm -Rf /usr/share/locale/??@* >>$OUTPUT 2>&1
+	#rm -Rf /usr/share/locale/??? >>$OUTPUT 2>&1
+	#rm -Rf /usr/share/i18n/locales/*_* >>$OUTPUT 2>&1
 	rm -Rf /usr/share/man/?? >>$OUTPUT 2>&1
 	rm -Rf /usr/share/man/*_* >>$OUTPUT 2>&1
 
@@ -987,8 +986,8 @@ function main_pkg_list() {
 			PACKAGE_VARIANT=$PACKAGE_VARIANT \
 			/linux-live/basesystem/01-core/preinstall
 	fi
-	: ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy)" != "" ]; then
-        (cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
+	: ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy-install)" != "" ]; then
+        (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
     fi'
 	if [ -f /linux-live/basesystem/01-core/install ]; then
 		chmod +x /linux-live/basesystem/01-core/install
@@ -1060,7 +1059,7 @@ function chroot_configure() {
 	#addgroup live live >>$OUTPUT 2>&1
 	usermod -a -G sudo live
 
-	(cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
+	(cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
 	chown live:live /home/live
 	chown -R live:live /home/live
@@ -1480,8 +1479,9 @@ function module_chroot_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install2
 		rm -f $MODULE_UPPER_DIR/cleanup
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
+		rm -f $MODULE_UPPER_DIR/preseed.txt
 		rm -f $MODULE_UPPER_DIR/postinstall
-		rm -rf $MODULE_UPPER_DIR/rootcopy
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install
 	else
 		rm -rf $MODULE_UPPER_DIR/boot $MODULE_UPPER_DIR/dev $MODULE_UPPER_DIR/proc $MODULE_UPPER_DIR/sys $MODULE_UPPER_DIR/rmp $MODULE_UPPER_DIR/run
 		rm -f $MODULE_UPPER_DIR/root/.bash_history >>$OUTPUT 2>&1
@@ -1506,8 +1506,9 @@ function module_chroot_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/preseed.txt >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
-		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
 	fi
 }
 
@@ -1526,8 +1527,9 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install2
 		rm -f $MODULE_UPPER_DIR/cleanup
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
+		rm -f $MODULE_UPPER_DIR/preseed.txt
 		rm -f $MODULE_UPPER_DIR/postinstall
-		rm -rf $MODULE_UPPER_DIR/rootcopy
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install
 		rm -rf $MODULE_UPPER_DIR/patches
 
 		rm -f $MODULE_UPPER_DIR/etc/fstab
@@ -1566,11 +1568,11 @@ function module_build_cleanup() {
 		rm -Rf $MODULE_UPPER_DIR/usr/share/fluxbox/nls/??*
 		rm -Rf $MODULE_UPPER_DIR/usr/share/gnome/help
 
-		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??
-		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??_*
-		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??@*
-		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/???
-		rm -Rf $MODULE_UPPER_DIR/usr/share/i18n/locales/*_*
+		#rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??
+		#rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??_*
+		#rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??@*
+		#rm -Rf $MODULE_UPPER_DIR/usr/share/locale/???
+		#rm -Rf $MODULE_UPPER_DIR/usr/share/i18n/locales/*_*
 		rm -Rf $MODULE_UPPER_DIR/usr/share/man/??
 		rm -Rf $MODULE_UPPER_DIR/usr/share/man/*_*
 
@@ -1620,8 +1622,9 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/preseed.txt >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
-		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
 		rm -rf $MODULE_UPPER_DIR/patches >>$OUTPUT 2>&1
 
 		rm -f $MODULE_UPPER_DIR/etc/fstab >>$OUTPUT 2>&1
@@ -1767,24 +1770,24 @@ function build_modules() {
 			# copy files
 			if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
 				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ]; then
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ]; then
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
 					fi
 				else
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ] >>$OUTPUT 2>&1; then
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
 					fi
 				fi
 			else
 				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ]; then
-						mkdir $MODULE_MERGED_DIR/rootcopy
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ]; then
+						mkdir $MODULE_MERGED_DIR/rootcopy-install
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
 					fi
 				else
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ] >>$OUTPUT 2>&1; then
-						mkdir $MODULE_MERGED_DIR/rootcopy
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+						mkdir $MODULE_MERGED_DIR/rootcopy-install
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
 					fi
 				fi
 			fi
@@ -1798,6 +1801,9 @@ function build_modules() {
 				fi
 				if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list ]; then
 					cp $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+				fi
+				if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/preseed.txt ]; then
+					cp $SCRIPT_DIR/linux-live/modules/$MODULE/preseed.txt $MODULE_MERGED_DIR/preseed.txt
 				fi
 				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
 					chroot $MODULE_MERGED_DIR /usr/bin/env \
@@ -1958,8 +1964,6 @@ function build_modules() {
 
 			module_chroot_finish_up
 
-			module_chroot_umount_fs
-
 			if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
 				module_build_cleanup
 			fi
@@ -1984,6 +1988,8 @@ function build_modules() {
 				fi
 			fi
 
+			module_chroot_umount_fs
+
 		fi
 	done
 }
@@ -1994,7 +2000,6 @@ function build_modules() {
 # =================================================================
 function build_modules_live() {
 	current_process
-	echo "here 2"
 	if [ $CONTAINER_TYPE = "1" ]; then
 		if [ ! -f /.minios-live ]; then
 			setup_host

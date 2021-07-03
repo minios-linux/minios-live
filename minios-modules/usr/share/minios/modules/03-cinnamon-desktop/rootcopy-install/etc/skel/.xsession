@@ -1,0 +1,1 @@
+cinnamon-session

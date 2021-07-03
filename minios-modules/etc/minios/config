@@ -1,8 +1,8 @@
 #!/bin/bash
 # This is a config file for MiniOS-Live build script and Linux Live Kit boot script.
-# You shouldn't need to change anything expect PACKAGE_VARIANT OUTPUT COMP_TYPE
+# You shouldn't need to change anything expect LIVEKITNAME PACKAGE_VARIANT OUTPUT COMP_TYPE
 
-# Live Kit Name. Defaults to 'minios';
+# Live Kit Name. Defaults to 'linux';
 # This will be the name of the directory created on your CD/USB, which
 # will contain everything including boot files and such.
 # For example, Slax changes it to 'slax'
@@ -14,74 +14,34 @@
 # and you're done.
 LIVEKITNAME="minios"
 
-#
+# Sets the name of the iso
+SYSTEMNAME="MiniOS"
+
 DISTRIBUTION_TYPE="debian"
 
-#
 DISTRIBUTION="bullseye"
 
-#
 DISTRIBUTION_ARCH="amd64"
 
-# Used when building Ubuntu
-DISTRIBUTION_VARIANT="minbase"
+PACKAGE_VARIANT="standard"
 
-# 
-DISTRIBUTION_URL="http://ftp.ru.debian.org/debian/"
-
-#
-PACKAGE_VARIANT="minimal"
-
-#
-LOGPATH="/var/log"
+LIVE_TYPE="livekit"
 
 # default is output to log. you can use OUTPUT="/dev/stdout" if you want to route events to standard output.
-#OUTPUT="$LOGPATH/$LIVEKITNAME.log"
-OUTPUT="/dev/stdout"
-#OUTPUT="/dev/null"
-
-# if = "1", creates a second iso with a constant filename
-# если ="1", создаёт второй iso с постоянным именем файла
-BUILD_TEST_ISO="1"
-
-# удаляет старые файлы iso для данного типа сборки
-REMOVE_OLD_ISO="0"
-
-# if = "1", creates a copy of minios-live in chroot /opt
-# если ="1", создаёт копию minios-live в chroot /opt
-DEV_SYSTEM="0"
-
-# if ="1", creates backup in parent folder
-# если ="1", создаёт резервную копию в родительской папке
-CREATE_BACKUP="0"
+#OUTPUT="/dev/stdout"
+OUTPUT="/dev/null"
 
 DEBIAN_FRONTEND_TYPE="noninteractive"
-#DEBIAN_FRONTEND_TYPE="dialog"
-#DEBIAN_FRONTEND_TYPE="text"
 
 APT_CMD="apt-get"
 
-APT_OPTIONS="-y"  
+APT_OPTIONS="-y"
+
 APT_OPTIONS2="--no-install-recommends"
 
-#LIVE_TYPE="casper"
-LIVE_TYPE="livekit"
-
-#BOOT_TYPE="minios"
-BOOT_TYPE="slax"
-
 UNION_BUILD_TYPE="overlayfs"
-#UNION_BUILD_TYPE="aufs"
 
-INSTALL_OPTIONAL="1"
-
-# Used when assigned to the ISO name when building Minios-Live
-SYSTEMNAME="MiniOS"
-
-#
-SYSTEMVER="2021"
-
-#
+# 
 COMP_TYPE="xz"
 
 # Kernel file, will be copied to your Live Kit
