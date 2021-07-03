@@ -1,0 +1,851 @@
+#!/bin/bash
+
+# Functions library :: for install scripts
+# Author: crims0n. <http://minios.ru>
+#
+
+# =================================================================
+# =================================================================
+# ========================= VARIABLES =============================
+# =================================================================
+# =================================================================
+
+function common_variables() {
+	if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+		KERNEL_ARCH="amd64"
+		PACKAGE_VARIANT="standard"
+	elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+		KERNEL_ARCH="686-pae"
+		PACKAGE_VARIANT="minimal"
+	elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
+		KERNEL_ARCH="arm64"
+	fi
+}
+
+# =================================================================
+# =================================================================
+# ===================== COMMON FUNCTIONS ==========================
+# =================================================================
+# =================================================================
+
+function current_process() {
+	echo -e "${LIGHTYELLOW}=====> running ${CYAN}${CMD[ii]}${ENDCOLOUR}${LIGHTYELLOW} ...${ENDCOLOUR}"
+}
+
+# =================================================================
+# beautiful console
+# красивая консоль
+# =================================================================
+function console_colours() {
+	RED="\e[31m"
+	GREEN="\e[32m"
+	YELLOW="\e[33m"
+	BLUE="\e[34m"
+	MAGENTA="\e[35m"
+	CYAN="\e[36m"
+	LIGHTGRAY="\e[37m"
+	DARKGRAY="\e[90m"
+	LIGHTRED="\e[91m"
+	LIGHTGREEN="\e[92m"
+	LIGHTYELLOW="\e[93m"
+	LIGHTBLUE="\e[94m"
+	LIGHTMAGENTA="\e[95m"
+	LIGHTCYAN="\e[96m"
+	BOLD="\e[1m"
+	DIM="\e[2m"
+	UNDERLINED="\e[4m"
+	BLINK="\e[5m"
+	REVERSE="\e[7m"
+	HIDDEN="\e[8m"
+	ENDCOLOUR="\e[0m"
+}
+
+# =================================================================
+# help functions
+# функции помощи
+# =================================================================
+function help() {
+	# if $1 is set, use $1 as headline message in help()
+	if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+		if [ -z ${1+x} ]; then
+			echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
+			echo -e
+		else
+			echo -e $1
+			echo
+		fi
+		echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+		echo -e
+		echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+		if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+			echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+		fi
+		echo -e "\tзапуск от start_cmd до end_cmd"
+		echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
+		echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
+		echo -e "\tвведите одну команду, чтобы запустить определенную команду"
+		echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
+		echo -e "\t"
+		echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+		exit 0
+	else
+		if [ -z ${1+x} ]; then
+			echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOUR}"
+			echo -e
+		else
+			echo -e $1
+			echo
+		fi
+		echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+		echo -e
+		echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+		if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+			echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+		fi
+		echo -e "\trun from start_cmd to end_cmd"
+		echo -e "\tif start_cmd is omitted, start from first command"
+		echo -e "\tif end_cmd is omitted, end with last command"
+		echo -e "\tenter single cmd to run the specific command"
+		echo -e "\tenter '-' as only argument to run all commands"
+		echo -e "\t"
+		echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
+		echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+		exit 0
+	fi
+}
+
+# =================================================================
+# parsing input commands
+# разбор входных команд
+# =================================================================
+function find_index() {
+	local ret
+	local i
+	for ((i = 0; i < ${#CMD[*]}; i++)); do
+		if [ "${CMD[i]}" == "$1" ]; then
+			index=$i
+			return
+		fi
+	done
+	help "Command not found : $1"
+}
+
+# =================================================================
+# creating a symbolic link to the executable file for using
+# autocompletion on the command line
+# создание символической ссылки на исполняемый файл для
+# использования автодополнения в командной строке
+# =================================================================
+function create_livekitname_install_symlink() {
+	if [ -L /usr/bin/$LIVEKITNAME-install ]; then
+		if [ "$(readlink /usr/bin/$LIVEKITNAME-install)" != "$SCRIPT_DIR/install" ]; then
+			rm -f /usr/bin/$LIVEKITNAME-install
+			ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+				echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была обновлена."
+				echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+			else
+				echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} symbolic link has been updated."
+				echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+			fi
+		fi
+		if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+				echo -e "Вы можете использовать команду ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} для запуска этой программы."
+			else
+				echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} command to run this program."
+			fi
+		fi
+	else
+		ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
+		if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+			echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была добавлена"
+			echo -e "для ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+
+		else
+			echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} symbolic link has been added"
+			echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+		fi
+	fi
+}
+
+# =================================================================
+# creating autocompletion on the command line
+# создание автодополнения в командной строке
+# =================================================================
+function create_completion() {
+	if [ -d /etc/bash_completion.d ]; then
+		if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install >>$OUTPUT; then
+			cat <<EOF >/etc/bash_completion.d/$LIVEKITNAME-install
+#/usr/bin/env bash
+complete -W "${CMD[*]}" $LIVEKITNAME-install
+EOF
+		fi
+		if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+				echo -e "Дополнение команд работает только при использовании команды ${CYAN}$LIVEKITNAME-install${ENDCOLOUR}."
+				echo -e
+			else
+				echo -e "Command completion only works when using the ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} command."
+				echo -e
+			fi
+		fi
+	fi
+}
+
+# =================================================================
+# only allow 'root' to run the script
+# разрешаем запуск скрипта только пользователю 'root'
+# =================================================================
+
+function allow_root_only() {
+	if [ $(id -u) -ne 0 ]; then
+		echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOUR}"
+		exit 1
+	fi
+
+	export HOME=/root
+	export LC_ALL=C
+}
+
+# =================================================================
+# check that we are inside chroot
+# проверяем, что мы внутри chroot
+# =================================================================
+
+function check_is_in_chroot() {
+	if [ $(stat -c %i /)="2" ]; then
+		echo -e "${BOLD}${RED}This script should be run inside chroot only!${ENDCOLOUR}"
+		exit 1
+	fi
+}
+
+# =================================================================
+# =================================================================
+# ======================= MODULES FUNCTIONS =======================
+# =================================================================
+# =================================================================
+
+# =================================================================
+#
+#
+# =================================================================
+function module_check_mounted() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+	if grep -qs "$MODULE_MERGED_DIR" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/run" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/proc" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/sys" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev/pts" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/tmp" /proc/mounts; then
+		echo -e "${BOLD}${LIGHTYELLOW}Chroot contains mounted filesystems.${ENDCOLOUR}"
+		if [ "$UNATTENDED" = "1" ]; then
+			module_chroot_umount_fs
+		else
+			read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOUR}? [${BOLD}${GREEN}Y${ENDCOLOUR}/n])" response
+			response=${response,,}
+			if [[ "$response" =~ ^(no|n)$ ]]; then
+				exit 1
+			else
+				module_chroot_umount_fs
+			fi
+		fi
+	fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function module_check_build_dir() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+	if [ "$UNATTENDED" = "1" ]; then
+		#echo -e "${RED}!!!Unattended installation!!!${ENDCOLOUR}"
+		echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR}."
+		if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+			module_cleanup
+			module_check_mounted
+		fi
+	else
+		# ▼ должно быть только перенаправление ошибки!
+		if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+			echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is not empty."
+			module_cleanup
+			module_check_mounted
+			echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOUR}."
+		else
+			module_check_mounted
+			echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOUR}."
+		fi
+	fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function module_chroot_mount_fs() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+
+	local MODULES MODULE_LOWER_DIR
+
+	module_check_mounted
+
+	mkdir -p $MODULES_DIR
+	mount -t tmpfs none $MODULES_DIR
+
+	MODULES_LIST=""
+	MODULES=(/run/initramfs/memory/bundles/*.$BEXT)
+	for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
+		MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+		mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+		mount -o bind ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+		MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
+	done
+	MODULES_LIST=${MODULES_LIST:1}
+
+	mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
+
+	mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
+
+	if [ ! -d $MODULE_MERGED_DIR/dev ]; then
+		mkdir -p $MODULE_MERGED_DIR/dev
+	fi
+	if [ ! -d $MODULE_MERGED_DIR/run ]; then
+		mkdir -p $MODULE_MERGED_DIR/run
+	fi
+	if [ ! -d $MODULE_MERGED_DIR/proc ]; then
+		mkdir -p $MODULE_MERGED_DIR/proc
+	fi
+	if [ ! -d $MODULE_MERGED_DIR/sys ]; then
+		mkdir -p $MODULE_MERGED_DIR/sys
+	fi
+	if [ ! -d $MODULE_MERGED_DIR/tmp ]; then
+		mkdir -p $MODULE_MERGED_DIR/tmp
+	fi
+
+	mount --bind /dev $MODULE_MERGED_DIR/dev
+
+	echo "nameserver 8.8.8.8" >$MODULE_MERGED_DIR/etc/resolv.conf
+
+	mount none -t proc $MODULE_MERGED_DIR/proc
+	mount none -t sysfs $MODULE_MERGED_DIR/sys
+	mount none -t devpts $MODULE_MERGED_DIR/dev/pts
+	mount none -t tmpfs $MODULE_MERGED_DIR/tmp
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function module_chroot_umount_fs() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+
+	local MODULES MODULE_LOWER_DIR
+
+	set +e
+	if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+		umount $MODULE_MERGED_DIR/proc
+		umount $MODULE_MERGED_DIR/sys
+		umount $MODULE_MERGED_DIR/dev/pts
+		umount $MODULE_MERGED_DIR/tmp
+		umount $MODULE_MERGED_DIR/dev
+
+		rm -f $MODULE_UPPER_DIR/etc/resolv.conf
+
+		umount $MODULE_MERGED_DIR
+
+		umount $MODULES_DIR/lower/*
+
+		umount $MODULES_DIR
+	else
+		umount $MODULE_MERGED_DIR/proc >>$OUTPUT 2>&1
+		umount $MODULE_MERGED_DIR/sys >>$OUTPUT 2>&1
+		umount $MODULE_MERGED_DIR/dev/pts >>$OUTPUT 2>&1
+		umount $MODULE_MERGED_DIR/tmp >>$OUTPUT 2>&1
+		umount $MODULE_MERGED_DIR/dev >>$OUTPUT 2>&1
+
+		rm -f $MODULE_UPPER_DIR/etc/resolv.conf >>$OUTPUT 2>&1
+
+		umount $MODULE_MERGED_DIR >>$OUTPUT 2>&1
+
+		umount $MODULES_DIR/lower/* >>$OUTPUT 2>&1
+
+		umount $MODULES_DIR >>$OUTPUT 2>&1
+	fi
+
+	set -e
+
+	module_check_mounted
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function module_cleanup() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+	if [ "$UNATTENDED" = "1" ]; then
+		module_check_mounted
+		rm -rf $MODULE_UPPER_DIR
+		if [ -d "$MODULE_UPPER_DIR" ]; then
+			module_cleanup
+		fi
+	else
+		read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
+		response=${response,,}
+		if [[ "$response" =~ ^(yes|y)$ ]]; then
+			module_check_mounted
+			rm -rf $MODULE_UPPER_DIR
+			if [ -d "$MODULE_UPPER_DIR" ]; then
+				module_cleanup
+			fi
+		else
+			echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} should be empty to continue."
+			exit 1
+		fi
+	fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function module_chroot_finish_up() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+
+	chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
+truncate -s 0 /etc/machine-id
+EOF
+
+	if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+		chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
+    rm /sbin/initctl
+    dpkg-divert --rename --remove /sbin/initctl
+EOF
+	else
+		chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
+    rm /sbin/initctl >>$OUTPUT 2>&1
+    dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>&1
+EOF
+	fi
+
+	if [ -d $MODULE_UPPER_DIR/home/live ]; then
+		chown 1000:1000 $MODULE_UPPER_DIR/home/live
+		chown -R 1000:1000 $MODULE_UPPER_DIR/home/live
+	fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function module_build_cleanup() {
+	echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+
+	set +e
+
+	if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+		rm -f $MODULE_UPPER_DIR/preinstall
+		rm -f $MODULE_UPPER_DIR/install
+		rm -f $MODULE_UPPER_DIR/install2
+		rm -f $MODULE_UPPER_DIR/cleanup
+		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
+		rm -f $MODULE_UPPER_DIR/postinstall
+		rm -rf $MODULE_UPPER_DIR/rootcopy
+		rm -rf $MODULE_UPPER_DIR/patches
+
+		rm -f $MODULE_UPPER_DIR/etc/fstab
+		rm -f $MODULE_UPPER_DIR/etc/mtab
+		rm -f $MODULE_UPPER_DIR/etc/apt/sources.list~
+		rm -Rf $MODULE_UPPER_DIR/etc/systemd/system/timers.target.wants
+		rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/ssh.service
+		rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/dnsmasq.service
+		rm -f $MODULE_UPPER_DIR/etc/resolv.conf
+
+		rm -f $MODULE_UPPER_DIR/etc/ssh/ssh_host*
+
+		rm -f $MODULE_UPPER_DIR/var/backups/*
+		rm -f $MODULE_UPPER_DIR/var/cache/ldconfig/*
+		rm -f $MODULE_UPPER_DIR/var/cache/debconf/*
+		rm -f $MODULE_UPPER_DIR/var/cache/fontconfig/*
+		rm -f $MODULE_UPPER_DIR/var/lib/apt/extended_states
+		rm -f $MODULE_UPPER_DIR/var/lib/systemd/random-seed
+		rm -f $MODULE_UPPER_DIR/var/lib/apt/lists/deb.*
+		rm -Rf $MODULE_UPPER_DIR/root/.local/share/mc
+		rm -Rf $MODULE_UPPER_DIR/root/.cache
+		rm -f $MODULE_UPPER_DIR/root/.wget-hsts
+
+		rm -f $MODULE_UPPER_DIR/var/lib/dpkg/*-old
+		rm -f $MODULE_UPPER_DIR/var/log/*
+		rm -f $MODULE_UPPER_DIR/var/log/*/*
+		rm -f $MODULE_UPPER_DIR/var/log/*/*/*
+		rm -f $MODULE_UPPER_DIR/var/cache/apt/archives/*.deb
+		rm -f $MODULE_UPPER_DIR/var/cache/apt/*.bin
+		rm -f $MODULE_UPPER_DIR/var/cache/debconf/*-old
+		rm -f $MODULE_UPPER_DIR/var/lib/dhcp/dhclient.leases
+		rm -f $MODULE_UPPER_DIR/root/.bash_history
+		rm -f $MODULE_UPPER_DIR/root/.wget-hsts
+		rm -Rf $MODULE_UPPER_DIR/usr/share/doc/*
+		rm -Rf $MODULE_UPPER_DIR/usr/share/info/*
+		rm -f $MODULE_UPPER_DIR/usr/share/images/fluxbox/debian-squared.jpg
+		rm -Rf $MODULE_UPPER_DIR/usr/share/fluxbox/nls/??*
+		rm -Rf $MODULE_UPPER_DIR/usr/share/gnome/help
+
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??_*
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??@*
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/???
+		rm -Rf $MODULE_UPPER_DIR/usr/share/i18n/locales/*_*
+		rm -Rf $MODULE_UPPER_DIR/usr/share/man/??
+		rm -Rf $MODULE_UPPER_DIR/usr/share/man/*_*
+
+		rm -Rf $MODULE_UPPER_DIR/usr/share/icons/elementaryXubuntu-dark
+		rm -Rf $MODULE_UPPER_DIR/usr/share/icons/gnome/256x256
+
+		rm $MODULE_UPPER_DIR/usr/share/applications/compton.desktop
+		rm $MODULE_UPPER_DIR/usr/share/applications/debian-uxterm.desktop
+		#rm $MODULE_UPPER_DIR/usr/share/applications/debian-xterm.desktop
+		#rm $MODULE_UPPER_DIR/usr/share/applications/htop.desktop
+		#rm $MODULE_UPPER_DIR/usr/share/applications/mc.desktop
+		rm $MODULE_UPPER_DIR/usr/share/applications/mcedit.desktop
+		rm $MODULE_UPPER_DIR/usr/share/applications/pcmanfm-desktop-pref.desktop
+		rm $MODULE_UPPER_DIR/usr/share/applications/python2.7.desktop
+		rm $MODULE_UPPER_DIR/usr/share/applications/python3.7.desktop
+		rm $MODULE_UPPER_DIR/usr/share/applications/vim.desktop
+
+		# Unzip gzipped files (man pages), so LZMA can compress 2times better.
+		# First we fix symlinks, then uncompress files
+		# $1 = search directory
+		uncompress_files() {
+			local LINK LINE
+
+			find "$1" -type l -name "*.gz" | while read LINE; do
+				LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
+				FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
+				ln -sfn "$LINK" "$FILE"
+				rm -f "$LINE"
+			done
+			find "$1" -type f -name "*.gz" | xargs -r gunzip
+		}
+
+		uncompress_files $MODULE_UPPER_DIR/etc/alternatives
+		uncompress_files $MODULE_UPPER_DIR/usr/share/man
+
+		# remove broken links
+		# $1 = search directory
+		remove_broken_links() {
+			find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
+		}
+
+		remove_broken_links $MODULE_UPPER_DIR/etc/alternatives
+		remove_broken_links $MODULE_UPPER_DIR/usr/share/man
+	else
+		rm -f $MODULE_UPPER_DIR/preinstall >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/install >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/patches >>$OUTPUT 2>&1
+
+		rm -f $MODULE_UPPER_DIR/etc/fstab >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/etc/mtab >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/etc/apt/sources.list~ >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/etc/systemd/system/timers.target.wants >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/ssh.service >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/dnsmasq.service >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/etc/resolv.conf >>$OUTPUT 2>&1
+
+		rm -f $MODULE_UPPER_DIR/etc/ssh/ssh_host* >>$OUTPUT 2>&1
+
+		rm -f $MODULE_UPPER_DIR/var/backups/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/cache/ldconfig/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/cache/debconf/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/cache/fontconfig/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/lib/apt/extended_states >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/lib/systemd/random-seed >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/lib/apt/lists/deb.* >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/root/.local/share/mc >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/root/.cache >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/root/.wget-hsts >>$OUTPUT 2>&1
+
+		rm -f $MODULE_UPPER_DIR/var/lib/dpkg/*-old >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/log/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/log/*/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/log/*/*/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/cache/apt/archives/*.deb >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/cache/apt/*.bin >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/cache/debconf/*-old >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/var/lib/dhcp/dhclient.leases >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/root/.bash_history >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/root/.wget-hsts >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/doc/* >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/info/* >>$OUTPUT 2>&1
+		rm -f $MODULE_UPPER_DIR/usr/share/images/fluxbox/debian-squared.jpg >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/fluxbox/nls/??* >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/gnome/help >>$OUTPUT 2>&1
+
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/?? >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??_* >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??@* >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??? >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/i18n/locales/*_* >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/man/?? >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/man/*_* >>$OUTPUT 2>&1
+
+		rm -Rf $MODULE_UPPER_DIR/usr/share/icons/elementaryXubuntu-dark >>$OUTPUT 2>&1
+		rm -Rf $MODULE_UPPER_DIR/usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
+
+		rm $MODULE_UPPER_DIR/usr/share/applications/compton.desktop >>$OUTPUT 2>&1
+		rm $MODULE_UPPER_DIR/usr/share/applications/debian-uxterm.desktop >>$OUTPUT 2>&1
+		#rm $MODULE_UPPER_DIR/usr/share/applications/debian-xterm.desktop >>$OUTPUT 2>&1
+		#rm $MODULE_UPPER_DIR/usr/share/applications/htop.desktop >>$OUTPUT 2>&1
+		#rm $MODULE_UPPER_DIR/usr/share/applications/mc.desktop >>$OUTPUT 2>&1
+		rm $MODULE_UPPER_DIR/usr/share/applications/mcedit.desktop >>$OUTPUT 2>&1
+		rm $MODULE_UPPER_DIR/usr/share/applications/pcmanfm-desktop-pref.desktop >>$OUTPUT 2>&1
+		rm $MODULE_UPPER_DIR/usr/share/applications/python2.7.desktop >>$OUTPUT 2>&1
+		rm $MODULE_UPPER_DIR/usr/share/applications/python3.7.desktop >>$OUTPUT 2>&1
+		rm $MODULE_UPPER_DIR/usr/share/applications/vim.desktop >>$OUTPUT 2>&1
+
+		# Unzip gzipped files (man pages), so LZMA can compress 2times better.
+		# First we fix symlinks, then uncompress files
+		# $1 = search directory
+		uncompress_files() {
+			local LINK LINE
+
+			find "$1" -type l -name "*.gz" | while read LINE; do
+				LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
+				FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
+				ln -sfn "$LINK" "$FILE"
+				rm -f "$LINE"
+			done
+			find "$1" -type f -name "*.gz" | xargs -r gunzip >>$OUTPUT 2>&1
+		}
+
+		uncompress_files $MODULE_UPPER_DIR/etc/alternatives >>$OUTPUT 2>&1
+		uncompress_files $MODULE_UPPER_DIR/usr/share/man >>$OUTPUT 2>&1
+
+		# remove broken links
+		# $1 = search directory
+		remove_broken_links() {
+			find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf >>$OUTPUT 2>&1
+		}
+
+		remove_broken_links $MODULE_UPPER_DIR/etc/alternatives >>$OUTPUT 2>&1
+		remove_broken_links $MODULE_UPPER_DIR/usr/share/man >>$OUTPUT 2>&1
+	fi
+
+	set -e
+
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function build_modules() {
+	current_process
+
+	MODULES_DIR=$CURRENT_DIR/build
+
+	cd $CURRENT_DIR/modules
+
+	for MODULE in *; do
+		MODULE_UPPER_DIR="$MODULES_DIR/$MODULE-upper"
+		MODULE_WORK_DIR="$MODULES_DIR/$MODULE-work"
+		MODULE_MERGED_DIR="$MODULES_DIR/$MODULE-merged"
+
+		module_check_build_dir
+
+		module_chroot_mount_fs
+
+		# run pre-install script
+		if [ -f $CURRENT_DIR/modules/$MODULE/preinstall ]; then
+			cp $CURRENT_DIR/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+			chmod +x $MODULE_MERGED_DIR/preinstall
+			chroot $MODULE_MERGED_DIR /usr/bin/env \
+				OUTPUT=$OUTPUT \
+				BUILD_TEST_ISO=$BUILD_TEST_ISO \
+				DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+				APT_CMD=$APT_CMD \
+				APT_OPTIONS=$APT_OPTIONS \
+				APT_OPTIONS2=$APT_OPTIONS2 \
+				LIVE_TYPE=$LIVE_TYPE \
+				DISTRIBUTION=$DISTRIBUTION \
+				PACKAGE_VARIANT=$PACKAGE_VARIANT \
+				/preinstall >>$OUTPUT 2>&1
+		fi
+
+		# copy files
+		if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy)" != "" ]; then
+				(cd $CURRENT_DIR/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+			fi
+		else
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy)" != "" ] >>$OUTPUT 2>&1; then
+				(cd $CURRENT_DIR/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+			fi
+		fi
+
+		# run install script
+		if [ -f $CURRENT_DIR/modules/$MODULE/install ]; then
+			cp $CURRENT_DIR/modules/$MODULE/install $MODULE_MERGED_DIR/install
+			chmod +x $MODULE_MERGED_DIR/install
+			if [ -f $CURRENT_DIR/modules/$MODULE/cleanup ]; then
+				cp $CURRENT_DIR/modules/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
+			fi
+			if [ -f $CURRENT_DIR/modules/$MODULE/$PACKAGE_VARIANT.list ]; then
+				cp $CURRENT_DIR/modules/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+			fi
+			if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+				chroot $MODULE_MERGED_DIR /usr/bin/env \
+					OUTPUT=$OUTPUT \
+					DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+					APT_CMD=$APT_CMD \
+					APT_OPTIONS=$APT_OPTIONS \
+					APT_OPTIONS2=$APT_OPTIONS2 \
+					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
+					/install
+			else
+				chroot $MODULE_MERGED_DIR /usr/bin/env \
+					OUTPUT=$OUTPUT \
+					DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+					APT_CMD=$APT_CMD \
+					APT_OPTIONS=$APT_OPTIONS \
+					APT_OPTIONS2=$APT_OPTIONS2 \
+					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
+					/install >>$OUTPUT 2>&1
+			fi
+		fi
+
+		# run install2 script
+		if [ -f $CURRENT_DIR/modules/$MODULE/install2 ]; then
+			cp $CURRENT_DIR/modules/$MODULE/install2 $MODULE_MERGED_DIR/install2
+			chmod +x $MODULE_MERGED_DIR/install2
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
+				mkdir $MODULE_MERGED_DIR/patches
+				(cd $CURRENT_DIR/modules/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+			fi
+			if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+				chroot $MODULE_MERGED_DIR /usr/bin/env \
+					OUTPUT=$OUTPUT \
+					DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+					APT_CMD=$APT_CMD \
+					APT_OPTIONS=$APT_OPTIONS \
+					APT_OPTIONS2=$APT_OPTIONS2 \
+					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
+					/install2
+			else
+				chroot $MODULE_MERGED_DIR /usr/bin/env \
+					OUTPUT=$OUTPUT \
+					DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+					APT_CMD=$APT_CMD \
+					APT_OPTIONS=$APT_OPTIONS \
+					APT_OPTIONS2=$APT_OPTIONS2 \
+					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
+					/install2 >>$OUTPUT 2>&1
+			fi
+		fi
+
+		# copy files
+		if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy-postinstall)" != "" ]; then
+				(cd $CURRENT_DIR/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+			fi
+		else
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+				(cd $CURRENT_DIR/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+			fi
+		fi
+
+		# run post-install script
+		if [ -f $CURRENT_DIR/modules/$MODULE/postinstall ]; then
+			cp $CURRENT_DIR/modules/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
+			chmod +x $MODULE_MERGED_DIR/postinstall
+			if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+				chroot $MODULE_MERGED_DIR /usr/bin/env \
+					OUTPUT=$OUTPUT \
+					DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+					APT_CMD=$APT_CMD \
+					APT_OPTIONS=$APT_OPTIONS \
+					APT_OPTIONS2=$APT_OPTIONS2 \
+					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
+					/postinstall
+			else
+				chroot $MODULE_MERGED_DIR /usr/bin/env \
+					OUTPUT=$OUTPUT \
+					DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+					APT_CMD=$APT_CMD \
+					APT_OPTIONS=$APT_OPTIONS \
+					APT_OPTIONS2=$APT_OPTIONS2 \
+					LIVE_TYPE=$LIVE_TYPE \
+					DISTRIBUTION=$DISTRIBUTION \
+					PACKAGE_VARIANT=$PACKAGE_VARIANT \
+					/postinstall >>$OUTPUT 2>&1
+			fi
+		fi
+
+		module_chroot_finish_up
+
+		module_build_cleanup
+
+		if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+			mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+		else
+			echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} ${RED}is empty${ENDCOLOUR}. Nothing to do."
+		fi
+
+		module_chroot_umount_fs
+
+	done
+
+}
+
+function repack_module() {
+	cd $CURRENT_DIR
+	OLD_MODULE=$MODULE
+	MODULE=${MODULE%"-$OLD_COMP_TYPE.$BEXT"}
+	if [ $COMP_TYPE = $OLD_COMP_TYPE ]; then
+		echo "The module is already in the required compression format." && exit
+	fi
+
+	if (ls $CURRENT_DIR/*.$BEXT | grep -q $MODULE 2>/dev/null); then
+		echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+		echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
+		echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+	else
+		mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+	fi
+}
+
+function repack_system() {
+	current_process
+
+	cd /run/initramfs/memory/bundles/
+	for MODULE in *; do
+		if (ls /run/initramfs/memory/bundles/*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+			OLD_COMP_TYPE="xz"
+			repack_module
+		elif (ls /run/initramfs/memory/bundles/*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+			OLD_COMP_TYPE="lz4"
+			repack_module
+		elif (ls /run/initramfs/memory/bundles/*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+			OLD_COMP_TYPE="zstd"
+			repack_module
+		fi
+	done
+}
