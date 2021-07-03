@@ -84,7 +84,7 @@ function console_colours() {
 # =================================================================
 function help() {
 	# if $1 is set, use $1 as headline message in help()
-	if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+	if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
 		if [ -z ${1+x} ]; then
 			echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
 			echo -e
@@ -166,7 +166,7 @@ function create_livekitname_install_symlink() {
 		if [ "$(readlink /usr/bin/$LIVEKITNAME-install)" != "$SCRIPT_DIR/install" ]; then
 			rm -f /usr/bin/$LIVEKITNAME-install
 			ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
 				echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была обновлена."
 				echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
 			else
@@ -175,7 +175,7 @@ function create_livekitname_install_symlink() {
 			fi
 		fi
 		if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
 				echo -e "Вы можете использовать команду ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} для запуска этой программы."
 			else
 				echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} command to run this program."
@@ -183,7 +183,7 @@ function create_livekitname_install_symlink() {
 		fi
 	else
 		ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-		if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+		if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
 			echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была добавлена"
 			echo -e "для ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
 
@@ -200,14 +200,14 @@ function create_livekitname_install_symlink() {
 # =================================================================
 function create_completion() {
 	if [ -d /etc/bash_completion.d ]; then
-		if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install >>$OUTPUT; then
+		if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install > /dev/null 2>&1; then
 			cat <<EOF >/etc/bash_completion.d/$LIVEKITNAME-install
 #/usr/bin/env bash
 complete -W "${CMD[*]}" $LIVEKITNAME-install
 EOF
 		fi
 		if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >>$OUTPUT; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
 				echo -e "Дополнение команд работает только при использовании команды ${CYAN}$LIVEKITNAME-install${ENDCOLOUR}."
 				echo -e
 			else
