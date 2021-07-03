@@ -672,8 +672,6 @@ function build_live() {
 
 	check_build_dir
 
-	#(cd /linux-live/rootcopy && cp --parents -afr * /)
-
 	chroot $BUILD_DIR mount none -t proc /proc
 	chroot $BUILD_DIR /linux-live/initrfs
 	chroot $BUILD_DIR umount /proc
