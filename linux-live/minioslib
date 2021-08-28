@@ -84,7 +84,7 @@ function console_colours() {
 # =================================================================
 function help() {
 	# if $1 is set, use $1 as headline message in help()
-	if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
+	if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
 		if [ -z ${1+x} ]; then
 			echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
 			echo -e
@@ -166,7 +166,7 @@ function create_livekitname_install_symlink() {
 		if [ "$(readlink /usr/bin/$LIVEKITNAME-install)" != "$SCRIPT_DIR/install" ]; then
 			rm -f /usr/bin/$LIVEKITNAME-install
 			ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
 				echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была обновлена."
 				echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
 			else
@@ -175,7 +175,7 @@ function create_livekitname_install_symlink() {
 			fi
 		fi
 		if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
 				echo -e "Вы можете использовать команду ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} для запуска этой программы."
 			else
 				echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} command to run this program."
@@ -183,7 +183,7 @@ function create_livekitname_install_symlink() {
 		fi
 	else
 		ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-		if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
+		if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
 			echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была добавлена"
 			echo -e "для ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
 
@@ -200,14 +200,14 @@ function create_livekitname_install_symlink() {
 # =================================================================
 function create_completion() {
 	if [ -d /etc/bash_completion.d ]; then
-		if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install > /dev/null 2>&1; then
+		if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install >/dev/null 2>&1; then
 			cat <<EOF >/etc/bash_completion.d/$LIVEKITNAME-install
 #/usr/bin/env bash
 complete -W "${CMD[*]}" $LIVEKITNAME-install
 EOF
 		fi
 		if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale > /dev/null 2>&1; then
+			if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
 				echo -e "Дополнение команд работает только при использовании команды ${CYAN}$LIVEKITNAME-install${ENDCOLOUR}."
 				echo -e
 			else
@@ -688,7 +688,7 @@ function build_live() {
 	mv $BUILD_DIR/boot/initrfs.img $PARENT_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
 	cp -r $SCRIPT_DIR/linux-live/bootfiles/* $PARENT_DIR/image/$LIVEKITNAME
-	
+
 	if [ $PACKAGE_VARIANT = "minimal" ]; then
 		sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 		sed -i 's/minios.flags= /minios.flags=automount /g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
@@ -747,15 +747,30 @@ function build_iso() {
 
 	B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 
-	C="-no-emul-boot -boot-load-size 4 -boot-info-table"
+	if [ $BOOT_TYPE = "hybrid" ]; then
+		C="-no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot"
+	else
+		C="-no-emul-boot -boot-load-size 4 -boot-info-table"
+	fi
 
 	# ▼ должно быть только перенаправление ошибки!
 
-	M=genisoimage
-
-	D=""
-
-	E=""
+	if [ -x "$(which xorriso 2>>$OUTPUT)" ] && [ $BOOT_TYPE = "hybrid" ]; then
+		M="xorriso -as mkisofs -isohybrid-mbr $DIR/$LIVEKITNAME/boot/syslinux/isohdpfx.bin"
+		D=" -isohybrid-gpt-basdat -e"
+	elif [ -x "$(which genisoimage 2>>$OUTPUT)" ]; then
+		M=genisoimage
+		if [ $BOOT_TYPE = "hybrid" ]; then
+			D="-efi-boot"
+		else
+			D=""
+		fi
+	fi
+	if [ $BOOT_TYPE = "hybrid" ]; then
+		E="EFI/boot/efiboot.img -no-emul-boot"
+	else
+		E=""
+	fi
 
 	#VER="$SYSTEMNAME $VER"
 	VER="$SYSTEMNAME"
@@ -764,11 +779,23 @@ function build_iso() {
 		rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-*.iso >>$OUTPUT 2>&1
 	fi
 
-	if
-		! $M -f -r -J -l -V "$VER" -A "$VER" \
-			$B $C $D $E -o $ISO $DIR
-	then
-		exit 1
+	if [ $BOOT_TYPE = "hybrid" ]; then
+		if [ ! -d $DIR/EFI ]; then
+			cp -r $SCRIPT_DIR/linux-live/bootfiles/EFI $DIR
+		fi
+		if
+			! $M -hide-rr-moved -f -r -J -l -V "$VER" -A "$VER" \
+				$B $C $D $E -o $ISO $DIR
+		then
+			exit 1
+		fi
+	else
+		if
+			! $M -f -r -J -l -V "$VER" -A "$VER" \
+				$B $C $D $E -o $ISO $DIR
+		then
+			exit 1
+		fi
 	fi
 
 	echo ">>> $ISO created"
@@ -943,7 +970,15 @@ function hostreq_pkg_list() {
 		$APT_CMD install -y \
 			$(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/hostreq.list | tr "\n" " ") >>$OUTPUT 2>&1
 	else
-		$APT_CMD install -y sudo debootstrap genisoimage >>$OUTPUT 2>&1
+		$APT_CMD install -y \
+			sudo debootstrap genisoimage >>$OUTPUT 2>&1
+	fi
+	if [ $DISTRIBUTION_ARCH = "arm64" ]; then
+		$APT_CMD install -y \
+			grub-efi-arm64-bin >>$OUTPUT 2>&1
+	else
+		$APT_CMD install -y \
+			grub-efi-amd64-bin >>$OUTPUT 2>&1
 	fi
 }
 
