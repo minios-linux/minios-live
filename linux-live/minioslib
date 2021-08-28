@@ -978,7 +978,7 @@ function hostreq_pkg_list() {
 			grub-efi-arm64-bin >>$OUTPUT 2>&1
 	else
 		$APT_CMD install -y \
-			grub-efi-amd64-bin >>$OUTPUT 2>&1
+			grub-efi-amd64-bin grub-pc-bin >>$OUTPUT 2>&1
 	fi
 }
 
