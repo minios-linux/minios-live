@@ -1,6 +1,6 @@
 #!/bin/bash
 
-(cd /rootcopy && cp --parents -afr * /)
+(cd /rootcopy-install && cp --parents -afr * /)
 
 if [ $PACKAGE_VARIANT = "minimal" ]; then
     sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list

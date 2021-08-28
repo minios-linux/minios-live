@@ -839,7 +839,7 @@ function chroot_build_cleanup() {
 	rm -f /cleanup >>$OUTPUT 2>&1
 	rm -f /$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 	rm -f /postinstall >>$OUTPUT 2>&1
-	rm -rf /rootcopy >>$OUTPUT 2>&1
+	rm -rf /rootcopy-install >>$OUTPUT 2>&1
 	rm -rf /patches >>$OUTPUT 2>&1
 
 	rm -f /etc/fstab >>$OUTPUT 2>&1
@@ -985,8 +985,8 @@ function main_pkg_list() {
 			PACKAGE_VARIANT=$PACKAGE_VARIANT \
 			/linux-live/basesystem/01-core/preinstall
 	fi
-	: ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy)" != "" ]; then
-        (cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
+	: ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy-install)" != "" ]; then
+        (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
     fi'
 	if [ -f /linux-live/basesystem/01-core/install ]; then
 		chmod +x /linux-live/basesystem/01-core/install
@@ -1058,7 +1058,7 @@ function chroot_configure() {
 	#addgroup live live >>$OUTPUT 2>&1
 	usermod -a -G sudo live
 
-	(cd /linux-live/basesystem/01-core/rootcopy && cp --parents -afr * /)
+	(cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
 	chown live:live /home/live
 	chown -R live:live /home/live
@@ -1505,7 +1505,7 @@ function module_chroot_cleanup() {
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
-		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
 	fi
 }
 
@@ -1619,7 +1619,7 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
-		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
 		rm -rf $MODULE_UPPER_DIR/patches >>$OUTPUT 2>&1
 
 		rm -f $MODULE_UPPER_DIR/etc/fstab >>$OUTPUT 2>&1
@@ -1765,24 +1765,24 @@ function build_modules() {
 			# copy files
 			if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
 				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ]; then
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ]; then
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
 					fi
 				else
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ] >>$OUTPUT 2>&1; then
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
 					fi
 				fi
 			else
 				if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ]; then
-						mkdir $MODULE_MERGED_DIR/rootcopy
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ]; then
+						mkdir $MODULE_MERGED_DIR/rootcopy-install
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
 					fi
 				else
-					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy)" != "" ] >>$OUTPUT 2>&1; then
-						mkdir $MODULE_MERGED_DIR/rootcopy
-						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy/)
+					if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+						mkdir $MODULE_MERGED_DIR/rootcopy-install
+						(cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
 					fi
 				fi
 			fi

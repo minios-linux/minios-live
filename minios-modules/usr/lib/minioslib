@@ -454,7 +454,7 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/cleanup
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
 		rm -f $MODULE_UPPER_DIR/postinstall
-		rm -rf $MODULE_UPPER_DIR/rootcopy
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install
 		rm -rf $MODULE_UPPER_DIR/patches
 
 		rm -f $MODULE_UPPER_DIR/etc/fstab
@@ -549,7 +549,7 @@ function module_build_cleanup() {
 		rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
 		rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
-		rm -rf $MODULE_UPPER_DIR/rootcopy >>$OUTPUT 2>&1
+		rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
 		rm -rf $MODULE_UPPER_DIR/patches >>$OUTPUT 2>&1
 
 		rm -f $MODULE_UPPER_DIR/etc/fstab >>$OUTPUT 2>&1
@@ -682,12 +682,12 @@ function build_modules() {
 
 		# copy files
 		if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy)" != "" ]; then
-				(cd $CURRENT_DIR/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy-install)" != "" ]; then
+				(cd $CURRENT_DIR/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
 			fi
 		else
-			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy)" != "" ] >>$OUTPUT 2>&1; then
-				(cd $CURRENT_DIR/modules/$MODULE/rootcopy && cp --parents -afr * $MODULE_MERGED_DIR/)
+			if [ "$(ls -A $CURRENT_DIR/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+				(cd $CURRENT_DIR/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
 			fi
 		fi
 
