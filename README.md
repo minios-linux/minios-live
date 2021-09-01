@@ -35,13 +35,13 @@
 
 **!!!Сборка с помощью докера пока не работает!!!**
 
-Для сборки с помошью докера создайте в домашней папке папку build, поместите туда minios-slax и используйте команду для автоматической установки:
+Для сборки с помошью докера создайте в домашней папке папку build, поместите туда скрипты сборки minios и используйте команду для автоматической установки:
 
-`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build ubuntu:trusty /build/minios-slax/autoinstall -`
+`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build ubuntu:trusty /build/minios/autoinstall -`
 
 либо для установки в ручном режиме:
 
-`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build ubuntu:trusty /build/minios-slax/install -`
+`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build ubuntu:trusty /build/minios/install -`
 
 Для использования сборки в специально подготовленном контейнере используйте следующие примеры команд:
 
