@@ -45,6 +45,6 @@
 
 Для использования сборки в специально подготовленном контейнере используйте следующие примеры команд:
 
-`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build crims0n/minios-slax-container` - пример сборки с выводом информации в консоль
+`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build crims0n/minios-container` - пример сборки с выводом информации в консоль
 
-`sudo docker run -d --name=minios-slax-build --cap-add SYS_ADMIN -v /home/user/build:/build crims0n/minios-slax-container` - пример сборки в фоне без удаления контейнера по окончании сборки
+`sudo docker run -d --name=minios-build --cap-add SYS_ADMIN -v /home/user/build:/build crims0n/minios-container` - пример сборки в фоне без удаления контейнера по окончании сборки
