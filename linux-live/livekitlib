@@ -133,6 +133,16 @@ init_proc_sysfs() {
    ln -sf /proc/mounts /etc/mtab
 }
 
+#
+modprobe_cloud() {
+   modprobe virtio 2>/dev/null
+   modprobe virtio_ring 2>/dev/null
+   modprobe virtio_pci 2>/dev/null
+   modprobe virtio_blk 2>/dev/null
+   modprobe virtio_scsi 2>/dev/null
+   modprobe vmw_pvscsi 2>/dev/null
+}
+
 # modprobe all modules found in initial ramdisk
 # $1 = -e for match, -v for negative match
 # $2 = regex pattern
@@ -335,7 +345,8 @@ init_network_dev() {
 
    for MODULE in 3c59x acenic e1000 e1000e e100 epic100 hp100 ne2k-pci \
       pcnet32 8139too 8139cp tulip via-rhine r8169 atl1e yellowfin tg3 \
-      dl2k ns83820 atl1 b44 bnx2 skge sky2 tulip forcedeth sb1000 sis900; do
+      dl2k ns83820 atl1 b44 bnx2 skge sky2 tulip forcedeth sb1000 sis900 \
+      vmxnet3 virtio_net; do
       modprobe $MODULE 2>/dev/null
       ETH="$(network_device)"
       if [ "$ETH" != "" ]; then
@@ -477,6 +488,7 @@ find_data_try() {
    mkdir -p "$1"
    # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
    blkid /dev/* | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
+      #blkid | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
       FROM="$2"
       FS="$(device_bestfs "$DEVICE")"
       OPTIONS="$(fs_options $FS)"
@@ -752,6 +764,7 @@ fstab_create() {
 
    # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
    blkid /dev/* | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DEVICE; do
+      #blkid | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DEVICE; do
       FS="$(device_bestfs $DEVICE)"
       LABEL="$(basename $DEVICE)"
       OPTS="defaults,noatime,nofail,x-systemd.device-timeout=10"
@@ -773,7 +786,9 @@ change_root() {
    # accessible on union without any further lookup down, else httpfs locks
    if [ "$(network_device)" != "" ]; then
       touch "/net.up.flag"
-      touch "$1/etc/resolv.conf"
+      if [ ! -f $1/etc/resolv.conf ]; then
+         touch "$1/etc/resolv.conf"
+      fi
       touch "$1/etc/hosts"
       touch "$1/etc/gai.conf"
    fi

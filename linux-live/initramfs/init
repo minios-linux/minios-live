@@ -26,6 +26,9 @@ init_devs
 init_aufs
 init_zram
 
+#
+modprobe_cloud
+
 # modprobe all devices excluding network drivers
 modprobe_everything -v /drivers/net/
 

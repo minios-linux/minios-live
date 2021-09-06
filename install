@@ -16,8 +16,8 @@ set -u
 . $SCRIPT_DIR/linux-live/minioslib || exit 1
 . $SCRIPT_DIR/linux-live/config || exit 1
 
-# don't change! use ./autoinstall instead
-UNATTENDED="0"
+# change this for unattended installation
+UNATTENDED="1"
 
 CMD=(setup_host build_bootstrap build_chroot build_live build_modules build_iso)
 

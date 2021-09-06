@@ -1,12 +1,17 @@
 #!/bin/bash
 
-#(cd /rootcopy-install && cp --parents -afr * /)
-
 # create user directories
 for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-    mkdir -p /home/live/$dir >>$OUTPUT 2>&1
+    mkdir -p /home/$USER_NAME/$dir >>$OUTPUT 2>&1
     mkdir -p /root/$dir >>$OUTPUT 2>&1
 done
+
+cp -rT /etc/skel /home/$USER_NAME
+cp -rT /etc/skel /root
+chown 1000:1000 /home/$USER_NAME
+chown -R 1000:1000 /home/$USER_NAME
+chown 0:0 /root
+chown -R 0:0 /root
 
 rm -f /usr/share/backgrounds/xfce/*
 ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-verticals.png
@@ -22,7 +27,7 @@ if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     if [ $PACKAGE_VARIANT = "minimal" ]; then
         sed -i 's,#default_user        simone,default_user        root,g' /etc/slim.conf
     else
-        sed -i 's,#default_user        simone,default_user        live,g' /etc/slim.conf
+        sed -i "s,#default_user        simone,default_user        $USER_NAME,g" /etc/slim.conf
     fi
     sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
     sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf

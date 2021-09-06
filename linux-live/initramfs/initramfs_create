@@ -99,6 +99,34 @@ copy_including_deps /$LMK/kernel/drivers/staging/zsmalloc # needed by zram
 copy_including_deps /$LMK/kernel/drivers/block/zram
 copy_including_deps /$LMK/kernel/drivers/block/loop.*
 
+: 'copy_including_deps /$LMK/kernel/drivers/block
+   copy_including_deps /$LMK/kernel/drivers/hv/hv_vmbus.*
+   copy_including_deps /$LMK/kernel/drivers/md/dm-mod.*
+   #copy_including_deps /$LMK/kernel/drivers/net/hyperv
+   #copy_including_deps /$LMK/kernel/drivers/net/ipvlan
+   copy_including_deps /$LMK/kernel/drivers/net/vmxnet3
+   #copy_including_deps /$LMK/kernel/drivers/net/wireguard
+   #copy_including_deps /$LMK/kernel/drivers/net/eql.*
+   #copy_including_deps /$LMK/kernel/drivers/net/geneve.*
+   #copy_including_deps /$LMK/kernel/drivers/net/macsec.*
+   copy_including_deps /$LMK/kernel/drivers/net/net_failover.*
+   copy_including_deps /$LMK/kernel/drivers/net/netconsole.*
+   copy_including_deps /$LMK/kernel/drivers/net/nlmon.*
+   copy_including_deps /$LMK/kernel/drivers/net/tap.*
+   copy_including_deps /$LMK/kernel/drivers/net/virtio_net.*
+   copy_including_deps /$LMK/kernel/drivers/net/vrf.*
+   copy_including_deps /$LMK/kernel/drivers/net/vsockmon.*
+   copy_including_deps /$LMK/kernel/drivers/net/vxlan.*
+   #copy_including_deps /$LMK/kernel/drivers/net/xen-netfront.*
+   copy_including_deps /$LMK/kernel/drivers/pci/controller
+   copy_including_deps /$LMK/kernel/drivers/pps/pps_core.*
+   copy_including_deps /$LMK/kernel/drivers/ptp/ptp.*
+   copy_including_deps /$LMK/kernel/drivers/scsi
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio.*
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_mmio.*
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_pci.*
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_ring.*'
+
 # usb drivers
 copy_including_deps /$LMK/kernel/drivers/usb/storage/usb-storage.*
 copy_including_deps /$LMK/kernel/drivers/usb/host
@@ -115,14 +143,28 @@ copy_including_deps /$LMK/kernel/drivers/scsi/sr_mod.*
 copy_including_deps /$LMK/kernel/drivers/scsi/sd_mod.*
 copy_including_deps /$LMK/kernel/drivers/scsi/scsi_mod.*
 copy_including_deps /$LMK/kernel/drivers/scsi/sg.*
+
+if [ "$CLOUD" = "true" ]; then
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio.*
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_mmio.*
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_pci.*
+   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_ring.*
+   copy_including_deps /$LMK/kernel/drivers/scsi/vmw_pvscsi.*
+   copy_including_deps /$LMK/kernel/drivers/scsi/virtio_scsi.*
+   copy_including_deps /$LMK/kernel/drivers/block/virtio_blk.*
+fi
+
 copy_including_deps /$LMK/kernel/drivers/ata
 copy_including_deps /$LMK/kernel/drivers/nvme
 copy_including_deps /$LMK/kernel/drivers/mmc
 
 # network support drivers
 if [ "$NETWORK" = "true" ]; then
-   # add all known ethernet drivers
    copy_including_deps /$LMK/kernel/drivers/net/ethernet
+   if [ "$CLOUD" = "true" ]; then
+      copy_including_deps /$LMK/kernel/drivers/net/vmxnet3
+      copy_including_deps /$LMK/kernel/drivers/net/virtio_net.*
+   fi
 fi
 
 # copy all custom-built modules

@@ -14,8 +14,8 @@
 # and you're done.
 LIVEKITNAME="minios"
 
-#
-COMP_TYPE="zstd"
+# note: stretch only works with xz
+COMP_TYPE="xz"
 
 # Kernel file, will be copied to your Live Kit
 # Your kernel must support aufs and squashfs. Debian Jessie's kernel is ready
@@ -42,6 +42,12 @@ MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
 # This is disabled by default since most people won't need it.
 # To enable, set to true
 NETWORK=true
+
+# If you need support for VM drivers at boot time (QEMU KVM, VMware 
+# ESXi), you can enable it here.
+# This is disabled by default since most people won't need it.
+# To enable, set to true
+CLOUD=false
 
 # Temporary directory to store livekit filesystem
 LIVEKITDATA=/tmp/$LIVEKITNAME-data-$$

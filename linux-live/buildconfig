@@ -6,10 +6,12 @@ DISTRIBUTION_TYPE="debian"
 
 # distribution
 # дистрибутив
-DISTRIBUTION="bullseye"
+DISTRIBUTION="stretch"
 
 # distribution arch
+# note: stretch only works with amd64
 # архитектура дистрибутива
+# для заметки: stretch работает только с amd64
 DISTRIBUTION_ARCH="amd64"
 
 # bootstrap variant (used to build Ubuntu)
@@ -17,12 +19,13 @@ DISTRIBUTION_ARCH="amd64"
 DISTRIBUTION_VARIANT="minbase"
 
 # 
-DISTRIBUTION_URL="http://ftp.ru.debian.org/debian/"
+# если core, то выполнение скриптов не будет собирать модули.
+#SYSTEM_TYPE="core"
 
-#
+# вариант системы, указывает на используемый список пакетов в модулях
 PACKAGE_VARIANT="standard"
 
-#
+# путь файла лога
 LOGPATH="/var/log"
 
 # default is output to log. you can use OUTPUT="/dev/stdout" if you want to route events to standard output.
@@ -50,23 +53,35 @@ DEBIAN_FRONTEND_TYPE="noninteractive"
 #DEBIAN_FRONTEND_TYPE="text"
 
 APT_CMD="apt-get"
+APT_OPTIONS="-y"
 
-APT_OPTIONS="-y"  
-APT_OPTIONS2="--no-install-recommends"
-
+# не используется
 #LIVE_TYPE="casper"
 LIVE_TYPE="livekit"
 
+# тип iso
 BOOT_TYPE="hybrid"
 #BOOT_TYPE=""
 
+# тип union, используемый для сборки системы
 UNION_BUILD_TYPE="overlayfs"
 #UNION_BUILD_TYPE="aufs"
 
-INSTALL_OPTIONAL="1"
+# не используется?
+#INSTALL_OPTIONAL="1"
 
 # Used when assigned to the ISO name when building Minios-Live
 SYSTEMNAME="MiniOS"
 
-#
+# Не используется?
 SYSTEMVER="2021"
+
+# использование готового файла bootstrap при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл bootstrap.
+USE_BOOTSTRAP="1"
+# использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
+USE_ROOTFS="1"
+
+#ROOT_PASSWORD="uG5TYt5sIzHe"
+ROOT_PASSWORD="toor"
+USER_NAME="live"
+USER_PASSWORD="evil"

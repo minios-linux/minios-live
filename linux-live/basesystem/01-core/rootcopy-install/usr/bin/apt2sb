@@ -1,0 +1,54 @@
+#!/bin/bash
+
+TMP=/tmp/tmpfs$$ 
+CHANGES=$TMP/changes
+UNION=$TMP/union 
+BUNDLES=/run/initramfs/memory/bundles/ 
+INSTALL="$1"
+[ -n "$INSTALL" ] || exit
+# In case multiple packages were specified on the command line.
+INSTALL_ALL="$@"
+
+
+mkdir -p $TMP 
+mount -t tmpfs tmpfs $TMP 
+mkdir -p $CHANGES 
+mkdir -p $UNION 
+
+#Changed from aufs to overlay mounts for Slax 10.
+#mount -t aufs -o xino=$TMP/.xino,trunc_xino,br=$CHANGES aufs $UNION 
+## I don't use chromium so filter it out.
+#\ls -1d $BUNDLES[0-1]* | grep -v chromium | while read MOD; do 
+#mount -o remount,add:1:$BUNDLES/$(basename $MOD)=ro aufs $UNION 
+#done 
+LOWERS=$(\ls -1dr $BUNDLES[0-1]* | grep -v chromium | tr '\n' ':')
+LOWERS=${LOWERS/%:/}
+rm -rf $TMP/xino ; mkdir $TMP/xino
+mount -t overlay -o lowerdir=$LOWERS,upperdir=$CHANGES,workdir=$TMP/xino overlay $UNION
+
+for d in boot dev proc sys tmp media mnt run; do 
+   mkdir -p $UNION/$d 
+done 
+
+chmod ugo+rwx $UNION/tmp 
+
+mount --bind /dev $UNION/dev 
+mount --bind /proc $UNION/proc 
+mount --bind /sys $UNION/sys 
+
+echo "apt-get update; apt-get install --yes $INSTALL_ALL" >$UNION/doit 
+chmod ugo+x $UNION/doit 
+cp /etc/resolv.conf $UNION/etc/
+chroot $UNION /doit 
+
+umount $UNION/sys 
+umount $UNION/proc 
+umount $UNION/dev 
+rm $CHANGES/doit 
+rmdir $CHANGES/* 2>/dev/null 
+#cleanup.sh $CHANGES
+savechanges /"$INSTALL".sb $CHANGES
+
+umount $UNION 
+umount $TMP 
+rmdir $TMP 

@@ -11,8 +11,24 @@ echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)"
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS \
+        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
+
+cat <<EOF >/usr/lib/systemd/system/xorg.service
+[Unit]
+Description=X-Window
+ConditionKernelCommandLine=!text
+After=systemd-user-sessions.service
+
+[Service]
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
+
+EOF
+
+cp -rT /etc/skel /home/$USER_NAME
+cp -rT /etc/skel /root
+chown 1000:1000 /home/$USER_NAME
+chown -R 1000:1000 /home/$USER_NAME
+chown 0:0 /root
+chown -R 0:0 /root

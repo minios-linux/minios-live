@@ -33,18 +33,6 @@
                 ./install build_iso
                 ./install -
 
-**!!!Сборка с помощью докера пока не работает!!!**
+Для сборки с помошью докера создайте в домашней папке папку build, поместите туда minios-slax, запустите 01-runme.sh из папки docker. Данное действие установит необходимые программы и создаст образ. Для запуска сборки отредактируйте под себя и запустите 02-build.sh. Пример содержимого файла:
 
-Для сборки с помошью докера создайте в домашней папке папку build, поместите туда скрипты сборки minios и используйте команду для автоматической установки:
-
-`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build ubuntu:trusty /build/minios/autoinstall -`
-
-либо для установки в ручном режиме:
-
-`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build ubuntu:trusty /build/minios/install -`
-
-Для использования сборки в специально подготовленном контейнере используйте следующие примеры команд:
-
-`sudo docker run -it --rm --cap-add SYS_ADMIN -v /home/user/build:/build crims0n/minios-container` - пример сборки с выводом информации в консоль
-
-`sudo docker run -d --name=minios-build --cap-add SYS_ADMIN -v /home/user/build:/build crims0n/minios-container` - пример сборки в фоне без удаления контейнера по окончании сборки
+`docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc`

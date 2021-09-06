@@ -1,0 +1,31 @@
+set default="0"
+set timeout="3"
+set hidden_timeout_quiet=false
+set gfxmode=auto
+insmod efi_gop
+insmod efi_uga
+insmod gfxterm
+terminal_output gfxterm
+set color_normal=black/black
+set color_highlight=black/white
+loadfont /boot/grub/unicode.pf2
+background_image /boot/grub/bootlogo.png
+
+set default_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0 quiet"
+set perch_settings="slax.flags=perch,automount"
+set live_settings="slax.flags=automount"
+set ram_settings="slax.flags=toram"
+set http_settings="from=http://ch2.crims0n.ru:8080/minios-cloud-loader.iso"
+set console_settings="console=tty0 console=ttyS0,115200"
+set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
+set linux_64="/minios/boot/vmlinuz"
+set initrd_img="/minios/boot/initrfs.img"
+set default=0
+set message="Loading kernel and ramdisk..."
+
+menuentry "MiniOS (Copy to RAM)"{
+    echo $message
+    search --set -f $linux_64
+    linux $linux_64 $default_settings $ram_settings $http_settings $console_settings
+    initrd $initrd_img
+}

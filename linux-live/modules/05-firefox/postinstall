@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cp -rT /etc/skel /home/$USER_NAME
+cp -rT /etc/skel /root
+chown 1000:1000 /home/$USER_NAME
+chown -R 1000:1000 /home/$USER_NAME
+chown 0:0 /root
+chown -R 0:0 /root
+
+rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1

@@ -1,5 +1,12 @@
 #!/bin/bash
 
+cp -rT /etc/skel /home/$USER_NAME
+cp -rT /etc/skel /root
+chown 1000:1000 /home/$USER_NAME
+chown -R 1000:1000 /home/$USER_NAME
+chown 0:0 /root
+chown -R 0:0 /root
+
 # Set setuid bit on xorg binary, so it can be started by guest user
 chmod u+s /usr/lib/xorg/Xorg
 

@@ -10,10 +10,14 @@ echo "firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true" | debconf
 echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-set-selections
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-    $APT_CMD update >>$OUTPUT 2>&1 &&
+    $APT_CMD install $APT_OPTIONS \
+        linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
+else
+    if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
+        $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    fi
 fi

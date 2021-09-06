@@ -1,6 +1,11 @@
 #!/bin/bash
 
-(cd /rootcopy-install && cp --parents -afr * /)
+cp -rT /etc/skel /home/$USER_NAME
+cp -rT /etc/skel /root
+chown 1000:1000 /home/$USER_NAME
+chown -R 1000:1000 /home/$USER_NAME
+chown 0:0 /root
+chown -R 0:0 /root
 
 if [ $PACKAGE_VARIANT = "minimal" ]; then
     sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list
