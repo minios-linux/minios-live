@@ -577,12 +577,12 @@ function build_bootstrap() {
             setup_host
         fi
     fi
-    if [ $USE_ROOTFS = "1" ] && [ ! -f $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
-        if [ -f $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
+    if [ $USE_ROOTFS = "1" ] && [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
+        if [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
             if [ ! -d $BUILD_DIR ]; then
                 mkdir -p $BUILD_DIR
             fi
-            tar -xzf $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR
+            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR
         else
             # Раскомментировать для Ubuntu, но придётся вручную подбирать пакеты до соответсвия bootstrap Debian по пакетам.
             #if [ $DISTRIBUTION_TYPE != "debian" ]; then
@@ -592,22 +592,22 @@ function build_bootstrap() {
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             #fi
-            if [ ! -d $SCRIPT_DIR/bootstrap ]; then
-                mkdir -p $SCRIPT_DIR/bootstrap
+            if [ ! -d $SCRIPT_DIR/rootfs ]; then
+                mkdir -p $SCRIPT_DIR/rootfs
             fi
-            tar -czf $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR .
+            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR .
         fi
-    elif [ $USE_ROOTFS = "1" ] && [ -f $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
+    elif [ $USE_ROOTFS = "1" ] && [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
         if [ ! -d $BUILD_DIR ]; then
             mkdir -p $BUILD_DIR
         fi
-        tar -xzf $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $BUILD_DIR
+        tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $BUILD_DIR
     elif [ $USE_ROOTFS != "1" ] && [ $USE_BOOTSTRAP = "1" ]; then
-        if [ -f $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
+        if [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
             if [ ! -d $BUILD_DIR ]; then
                 mkdir -p $BUILD_DIR
             fi
-            tar -xzf $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR
+            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR
         else
             # Раскомментировать для Ubuntu, но придётся вручную подбирать пакеты до соответсвия bootstrap Debian по пакетам.
             #if [ $DISTRIBUTION_TYPE != "debian" ]; then
@@ -617,10 +617,10 @@ function build_bootstrap() {
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             #fi
-            if [ ! -d $SCRIPT_DIR/bootstrap ]; then
-                mkdir -p $SCRIPT_DIR/bootstrap
+            if [ ! -d $SCRIPT_DIR/rootfs ]; then
+                mkdir -p $SCRIPT_DIR/rootfs
             fi
-            tar -czf $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR .
+            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR .
         fi
     else
         sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
@@ -636,7 +636,7 @@ function build_rootfs() {
     #current_process
 
     if [ $USE_ROOTFS = "1" ]; then
-        if [ ! -f $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
+        if [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
             if [ $CONTAINER_TYPE = "1" ]; then
                 if [ ! -f /.minios-live ]; then
                     setup_host
@@ -820,7 +820,7 @@ EOF
             fi
             chroot_umount_fs
 
-            tar -czf $SCRIPT_DIR/bootstrap/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $BUILD_DIR .
+            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $BUILD_DIR .
         fi
     fi
 }
