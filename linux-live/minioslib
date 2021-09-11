@@ -36,6 +36,7 @@ function common_variables() {
     fi
 
     if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+        echo "+++++++++===amd64===+++++++++"
         KERNEL_ARCH="amd64"
         #PACKAGE_VARIANT="standard"
     elif [ $DISTRIBUTION_ARCH = "i386" ]; then
@@ -269,7 +270,7 @@ function check_is_in_chroot() {
 
 function check_mounted() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
-    if grep -qs "$BUILD_DIR/dev" /proc/mounts || grep -qs "$BUILD_DIR/run" /proc/mounts || grep -qs "$BUILD_DIR/proc" /proc/mounts || grep -qs "$BUILD_DIR/sys" /proc/mounts || grep -qs "$BUILD_DIR/dev/pts" /proc/mounts || grep -qs "$BUILD_DIR/tmp" /proc/mounts; then
+    if grep -qs "$INSTALL_DIR/dev" /proc/mounts || grep -qs "$INSTALL_DIR/run" /proc/mounts || grep -qs "$INSTALL_DIR/proc" /proc/mounts || grep -qs "$INSTALL_DIR/sys" /proc/mounts || grep -qs "$INSTALL_DIR/dev/pts" /proc/mounts || grep -qs "$INSTALL_DIR/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOUR}"
         if [ "$UNATTENDED" = "1" ]; then
             chroot_umount_fs
@@ -290,40 +291,40 @@ function check_mounted() {
 # проверяем, пуста ли папка, в которую будет производиться установка
 # =================================================================
 
-function check_build_dir() {
+function check_install_dir() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     if [ "$UNATTENDED" = "1" ]; then
         #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOUR}"
-        BUILD_DIR="/build/$DISTRIBUTION"
-        echo -e "The working directory is ${MAGENTA}$BUILD_DIR${ENDCOLOUR}."
-        if [ "$(ls -A $BUILD_DIR)" != "" ]; then
+        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
+        echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
+        if [ "$(ls -A $INSTALL_DIR)" != "" ]; then
             cleanup
             check_mounted
         fi
     else
         # ▼ должно быть только перенаправление ошибки!
-        if [ "$(ls -A $BUILD_DIR)" != "" ]; then
-            echo -e "${MAGENTA}$BUILD_DIR${ENDCOLOUR} is not empty."
+        if [ "$(ls -A $INSTALL_DIR)" != "" ]; then
+            echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} is not empty."
             cleanup
             check_mounted
-            if [ ! -d "$BUILD_DIR" ]; then
-                mkdir -p $BUILD_DIR
+            if [ ! -d "$INSTALL_DIR" ]; then
+                mkdir -p $INSTALL_DIR
             fi
-            BUILD_DIR="$(
-                cd $BUILD_DIR
+            INSTALL_DIR="$(
+                cd $INSTALL_DIR
                 pwd
             )"
-            echo $BUILD_DIR >$SCRIPT_DIR/.build_dir && chmod 644 $SCRIPT_DIR/.build_dir
-            echo -e "The working directory is ${MAGENTA}$BUILD_DIR${ENDCOLOUR}."
+            echo $INSTALL_DIR >$SCRIPT_DIR/.install_dir && chmod 644 $SCRIPT_DIR/.install_dir
+            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
         else
-            mkdir -p $BUILD_DIR
+            mkdir -p $INSTALL_DIR
             check_mounted
-            BUILD_DIR="$(
-                cd $BUILD_DIR
+            INSTALL_DIR="$(
+                cd $INSTALL_DIR
                 pwd
             )"
-            echo $BUILD_DIR >$SCRIPT_DIR/.build_dir && chmod 644 $SCRIPT_DIR/.build_dir
-            echo -e "The working directory is ${MAGENTA}$BUILD_DIR${ENDCOLOUR}."
+            echo $INSTALL_DIR >$SCRIPT_DIR/.install_dir && chmod 644 $SCRIPT_DIR/.install_dir
+            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
         fi
     fi
 }
@@ -333,37 +334,37 @@ function check_build_dir() {
 # настраиваем папку для сборки
 # =================================================================
 
-function setup_build_dir() {
+function setup_install_dir() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
-    if [ "$UNATTENDED" = "1" ] && [ "$BUILD_DIR" = "" ]; then
-        BUILD_DIR="/build/$DISTRIBUTION"
-        check_build_dir
+    if [ "$UNATTENDED" = "1" ] && [ "$INSTALL_DIR" = "" ]; then
+        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION"
+        check_install_dir
     else
-        if [ "$BUILD_DIR" = "" ]; then
-            if [ ! -f "$SCRIPT_DIR/.build_dir" ]; then
+        if [ "$INSTALL_DIR" = "" ]; then
+            if [ ! -f "$SCRIPT_DIR/.install_dir" ]; then
                 echo "Enter the address of the working directory where we will build the system"
-                read -r -p "$(echo -e "(Default is ${MAGENTA}$PARENT_DIR/$DISTRIBUTION${ENDCOLOUR}): ")" response
-                BUILD_DIR=${response,,}
-                if [ "$BUILD_DIR" = "" ]; then
-                    BUILD_DIR=$PARENT_DIR/$DISTRIBUTION
+                read -r -p "$(echo -e "(Default is ${MAGENTA}$BUILD_DIR/$DISTRIBUTION${ENDCOLOUR}): ")" response
+                INSTALL_DIR=${response,,}
+                if [ "$INSTALL_DIR" = "" ]; then
+                    INSTALL_DIR=$BUILD_DIR/$DISTRIBUTION
                 fi
-                check_build_dir
+                check_install_dir
             else
-                LAST_BUILD_DIR=$(cat "$SCRIPT_DIR/.build_dir")
-                echo -e "Last time you used the build directory ${MAGENTA}$LAST_BUILD_DIR${ENDCOLOUR}."
+                LAST_INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir")
+                echo -e "Last time you used the build directory ${MAGENTA}$LAST_INSTALL_DIR${ENDCOLOUR}."
                 read -r -p "$(echo -e ""Do you want to use it again? [${BOLD}${GREEN}Y${ENDCOLOUR}/n])" response
                 response=${response,,}
                 if [[ "$response" =~ ^(no|n)$ ]]; then
                     echo "Enter the address of the working directory where we will build the system"
-                    read -r -p "$(echo -e "(Default is ${MAGENTA}$PARENT_DIR/$DISTRIBUTION${ENDCOLOUR}): ")" response
-                    BUILD_DIR=${response,,}
-                    if [ "$BUILD_DIR" = "" ]; then
-                        BUILD_DIR=$PARENT_DIR/$DISTRIBUTION
+                    read -r -p "$(echo -e "(Default is ${MAGENTA}$BUILD_DIR/$DISTRIBUTION${ENDCOLOUR}): ")" response
+                    INSTALL_DIR=${response,,}
+                    if [ "$INSTALL_DIR" = "" ]; then
+                        INSTALL_DIR=$BUILD_DIR/$DISTRIBUTION
                     fi
-                    check_build_dir
+                    check_install_dir
                 else
-                    BUILD_DIR="$LAST_BUILD_DIR"
-                    check_build_dir
+                    INSTALL_DIR="$LAST_INSTALL_DIR"
+                    check_install_dir
                 fi
             fi
         fi
@@ -379,21 +380,21 @@ function cleanup() {
     if [ "${CMD[ii]}" = "setup_host" ] || [ "${CMD[ii]}" = "build_bootstrap" ] || [ "${CMD[ii]}" = "build_chroot" ]; then
         if [ "$UNATTENDED" = "1" ]; then
             check_mounted
-            rm -rf $BUILD_DIR
-            if [ -d "$BUILD_DIR" ]; then
+            rm -rf $INSTALL_DIR
+            if [ -d "$INSTALL_DIR" ]; then
                 cleanup
             fi
         else
-            read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$BUILD_DIR${ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
+            read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
             response=${response,,}
             if [[ "$response" =~ ^(yes|y)$ ]]; then
                 check_mounted
-                rm -rf $BUILD_DIR
-                if [ -d "$BUILD_DIR" ]; then
+                rm -rf $INSTALL_DIR
+                if [ -d "$INSTALL_DIR" ]; then
                     cleanup
                 fi
             else
-                echo -e "${MAGENTA}$BUILD_DIR${ENDCOLOUR} should be empty to continue."
+                echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} should be empty to continue."
                 exit 1
             fi
         fi
@@ -411,22 +412,22 @@ function chroot_mount_fs() {
     check_mounted
 
     if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [ -L $BUILD_DIR/etc/resolv.conf ]; then
-            mv $BUILD_DIR/etc/resolv.conf $BUILD_DIR/etc/resolv.conf.bak
-            echo "nameserver 8.8.8.8" >$BUILD_DIR/etc/resolv.conf
+        if [ -L $INSTALL_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ]; then
+            mv $INSTALL_DIR/etc/resolv.conf $INSTALL_DIR/etc/resolv.conf.bak
+            echo "nameserver 8.8.8.8" >>$INSTALL_DIR/etc/resolv.conf
         fi
     fi
 
-    mount --bind /dev $BUILD_DIR/dev
-    mount --bind /run $BUILD_DIR/run
+    mount --bind /dev $INSTALL_DIR/dev
+    mount --bind /run $INSTALL_DIR/run
     if [ $DISTRIBUTION = "stretch" ]; then
-        mount --bind /proc $BUILD_DIR/proc
+        mount --bind /proc $INSTALL_DIR/proc
     else
-        mount none -t proc $BUILD_DIR/proc
+        mount none -t proc $INSTALL_DIR/proc
     fi
-    mount none -t sysfs $BUILD_DIR/sys
-    mount none -t devpts $BUILD_DIR/dev/pts
-    mount none -t tmpfs $BUILD_DIR/tmp
+    mount none -t sysfs $INSTALL_DIR/sys
+    mount none -t devpts $INSTALL_DIR/dev/pts
+    mount none -t tmpfs $INSTALL_DIR/tmp
 }
 
 # =================================================================
@@ -439,26 +440,26 @@ function chroot_umount_fs() {
 
     set +e
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-        umount $BUILD_DIR/proc
-        umount $BUILD_DIR/sys
-        umount $BUILD_DIR/dev/pts
-        umount $BUILD_DIR/tmp
-        umount $BUILD_DIR/dev
-        umount $BUILD_DIR/run
+        umount $INSTALL_DIR/proc
+        umount $INSTALL_DIR/sys
+        umount $INSTALL_DIR/dev/pts
+        umount $INSTALL_DIR/tmp
+        umount $INSTALL_DIR/dev
+        umount $INSTALL_DIR/run
     else
-        umount $BUILD_DIR/proc >>$OUTPUT 2>&1
-        umount $BUILD_DIR/sys >>$OUTPUT 2>&1
-        umount $BUILD_DIR/dev/pts >>$OUTPUT 2>&1
-        umount $BUILD_DIR/tmp >>$OUTPUT 2>&1
-        umount $BUILD_DIR/dev >>$OUTPUT 2>&1
-        umount $BUILD_DIR/run >>$OUTPUT 2>&1
+        umount $INSTALL_DIR/proc >>$OUTPUT 2>&1
+        umount $INSTALL_DIR/sys >>$OUTPUT 2>&1
+        umount $INSTALL_DIR/dev/pts >>$OUTPUT 2>&1
+        umount $INSTALL_DIR/tmp >>$OUTPUT 2>&1
+        umount $INSTALL_DIR/dev >>$OUTPUT 2>&1
+        umount $INSTALL_DIR/run >>$OUTPUT 2>&1
     fi
     if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [ -L $BUILD_DIR/etc/resolv.conf.bak ] && [ ! -L $BUILD_DIR/etc/resolv.conf ]; then
-            rm -f $BUILD_DIR/etc/resolv.conf
-            mv $BUILD_DIR/etc/resolv.conf.bak $BUILD_DIR/etc/resolv.conf
-        elif [ -L $BUILD_DIR/etc/resolv.conf.bak ] && [ -L $BUILD_DIR/etc/resolv.conf ]; then
-            rm -f $BUILD_DIR/etc/resolv.conf.bak
+        if [ -L $INSTALL_DIR/etc/resolv.conf.bak ] || [ $DISTRIBUTION = "stretch" ]; then
+            rm -f $INSTALL_DIR/etc/resolv.conf
+            mv $INSTALL_DIR/etc/resolv.conf.bak $INSTALL_DIR/etc/resolv.conf
+        elif [ -L $INSTALL_DIR/etc/resolv.conf.bak ] && [ -L $INSTALL_DIR/etc/resolv.conf ]; then
+            rm -f $INSTALL_DIR/etc/resolv.conf.bak
         fi
     fi
     set -e
@@ -475,8 +476,8 @@ function remove_log_file() {
     if [ -f $LOGPATH/$LIVEKITNAME.log ]; then
         rm -f $LOGPATH/$LIVEKITNAME.log
     fi
-    if [ -f $BUILD_DIR/$LIVEKITNAME.log ]; then
-        rm -f $BUILD_DIR/$LIVEKITNAME.log
+    if [ -f $INSTALL_DIR/$LIVEKITNAME.log ]; then
+        rm -f $INSTALL_DIR/$LIVEKITNAME.log
     fi
 }
 
@@ -496,30 +497,30 @@ function create_backup() {
         DATE=$(date +%Y%m%d_%H%M)
         CHANGED="0"
         rm -rf $SCRIPT_DIR/iso >>$OUTPUT 2>&1
-        rm -f $SCRIPT_DIR/.build_dir >>$OUTPUT 2>&1
+        rm -f $SCRIPT_DIR/.install_dir >>$OUTPUT 2>&1
         rm -f $SCRIPT_DIR/*.log >>$OUTPUT 2>&1
-        if [ ! -d $PARENT_DIR/minios-live-current ]; then
+        if [ ! -d $BUILD_DIR/minios-live-current ]; then
             CHANGED="1"
-            mkdir -p $PARENT_DIR/minios-live-current
-            (cd $SCRIPT_DIR && cp --parents -afr * $PARENT_DIR/minios-live-current)
+            mkdir -p $BUILD_DIR/minios-live-current
+            (cd $SCRIPT_DIR && cp --parents -afr * $BUILD_DIR/minios-live-current)
         else
             for file in $(find $SCRIPT_DIR -path $SCRIPT_DIR/.git -prune -false -o -type f | sed "s,$SCRIPT_DIR/,,g" | sed "s,.script_version,,g"); do
-                if ! cmp $SCRIPT_DIR/$file $PARENT_DIR/minios-live-current/$file >>$OUTPUT 2>&1; then
+                if ! cmp $SCRIPT_DIR/$file $BUILD_DIR/minios-live-current/$file >>$OUTPUT 2>&1; then
                     CHANGED="1"
                     echo -e "$file has been modified since last backup." >>$OUTPUT 2>&1
-                    echo -e "Copying $SCRIPT_DIR/$file to $PARENT_DIR/minios-live-current/$file..." >>$OUTPUT 2>&1
-                    cp -f "$SCRIPT_DIR/$file" "$PARENT_DIR/minios-live-current/$file" >>$OUTPUT 2>&1
+                    echo -e "Copying $SCRIPT_DIR/$file to $BUILD_DIR/minios-live-current/$file..." >>$OUTPUT 2>&1
+                    cp -f "$SCRIPT_DIR/$file" "$BUILD_DIR/minios-live-current/$file" >>$OUTPUT 2>&1
                 fi
             done
         fi
         if [ $CHANGED = "1" ]; then
             SCRIPT_VERSION=$(cat $SCRIPT_DIR/.script_version)
             echo $(($SCRIPT_VERSION + 1)) >$SCRIPT_DIR/.script_version
-            echo $(($SCRIPT_VERSION + 1)) >$PARENT_DIR/minios-live-current/.script_version
+            echo $(($SCRIPT_VERSION + 1)) >$BUILD_DIR/minios-live-current/.script_version
             cd $SCRIPT_DIR >>$OUTPUT 2>&1
-            rm -f $PARENT_DIR/minios-live-current.tar.gz
-            tar -czf $PARENT_DIR/minios-live-current.tar.gz ./ >>$OUTPUT 2>&1
-            cp $PARENT_DIR/minios-live-current.tar.gz $PARENT_DIR/minios-live-v$SCRIPT_VERSION-$DATE.tar.gz >>$OUTPUT 2>&1
+            rm -f $BUILD_DIR/minios-live-current.tar.gz
+            tar -czf $BUILD_DIR/minios-live-current.tar.gz ./ >>$OUTPUT 2>&1
+            cp $BUILD_DIR/minios-live-current.tar.gz $BUILD_DIR/minios-live-v$SCRIPT_VERSION-$DATE.tar.gz >>$OUTPUT 2>&1
         fi
     fi
 }
@@ -543,6 +544,9 @@ function new_run() {
     echo "================= based container to install. ===================" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
+    echo "========== Distributution: $DISTRIBUTION" >>$OUTPUT 2>&1
+    echo "========== Arch: $DISTRIBUTION_ARCH" >>$OUTPUT 2>&1
+    echo "========== Compression: $COMP_TYPE" >>$OUTPUT 2>&1
     echo ""
 }
 
@@ -579,52 +583,52 @@ function build_bootstrap() {
     fi
     if [ $USE_ROOTFS = "1" ] && [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
         if [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
-            if [ ! -d $BUILD_DIR ]; then
-                mkdir -p $BUILD_DIR
+            if [ ! -d $INSTALL_DIR ]; then
+                mkdir -p $INSTALL_DIR
             fi
-            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR
+            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
             # Раскомментировать для Ubuntu, но придётся вручную подбирать пакеты до соответсвия bootstrap Debian по пакетам.
             #if [ $DISTRIBUTION_TYPE != "debian" ]; then
             #    sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            #        debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            #        debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             #else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             #fi
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
-            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR .
+            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR .
         fi
     elif [ $USE_ROOTFS = "1" ] && [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
-        if [ ! -d $BUILD_DIR ]; then
-            mkdir -p $BUILD_DIR
+        if [ ! -d $INSTALL_DIR ]; then
+            mkdir -p $INSTALL_DIR
         fi
-        tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $BUILD_DIR
+        tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $INSTALL_DIR
     elif [ $USE_ROOTFS != "1" ] && [ $USE_BOOTSTRAP = "1" ]; then
         if [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
-            if [ ! -d $BUILD_DIR ]; then
-                mkdir -p $BUILD_DIR
+            if [ ! -d $INSTALL_DIR ]; then
+                mkdir -p $INSTALL_DIR
             fi
-            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR
+            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
             # Раскомментировать для Ubuntu, но придётся вручную подбирать пакеты до соответсвия bootstrap Debian по пакетам.
             #if [ $DISTRIBUTION_TYPE != "debian" ]; then
             #    sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            #        debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            #        debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             #else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             #fi
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
-            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $BUILD_DIR .
+            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR .
         fi
     else
         sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $BUILD_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
     fi
 
     build_rootfs
@@ -647,8 +651,8 @@ function build_rootfs() {
 
             create_apt_list
 
-            cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $BUILD_DIR/etc/apt/sources.list
-            cat <<'EOF' >$BUILD_DIR/etc/apt/apt.conf.d/000MiniOS
+            cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+            cat <<'EOF' >$INSTALL_DIR/etc/apt/apt.conf.d/000MiniOS
 APT::Install-Recommends "0";
 APT::Install-Suggests "0";
 Acquire::Languages { "none"; }
@@ -656,7 +660,7 @@ EOF
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot $BUILD_DIR /usr/bin/env \
+                    chroot $INSTALL_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
                         BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -673,7 +677,7 @@ EOF
                         USER_NAME=$USER_NAME \
                         $APT_CMD update $APT_OPTIONS
                 else
-                    chroot $BUILD_DIR /usr/bin/env \
+                    chroot $INSTALL_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
                         BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -691,12 +695,12 @@ EOF
                         $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
                 fi
             else
-                chroot $BUILD_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
             fi
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot $BUILD_DIR /usr/bin/env \
+                    chroot $INSTALL_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
                         BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -713,7 +717,7 @@ EOF
                         USER_NAME=$USER_NAME \
                         $APT_CMD upgrade $APT_OPTIONS
                 else
-                    chroot $BUILD_DIR /usr/bin/env \
+                    chroot $INSTALL_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
                         BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -731,13 +735,13 @@ EOF
                         $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
                 fi
             else
-                chroot $BUILD_DIR $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
             fi
 
             if [ -f $SCRIPT_DIR/linux-live/pkglists/prereq.list ]; then
                 if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot $BUILD_DIR /usr/bin/env \
+                        chroot $INSTALL_DIR /usr/bin/env \
                             OUTPUT=$OUTPUT \
                             LOGPATH=$LOGPATH \
                             BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -755,7 +759,7 @@ EOF
                             $APT_CMD install $APT_OPTIONS \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ")
                     else
-                        chroot $BUILD_DIR /usr/bin/env \
+                        chroot $INSTALL_DIR /usr/bin/env \
                             OUTPUT=$OUTPUT \
                             LOGPATH=$LOGPATH \
                             BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -774,14 +778,14 @@ EOF
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
                     fi
                 else
-                    chroot $BUILD_DIR $APT_CMD install $APT_OPTIONS \
+                    chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
                         $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
                 fi
             fi
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
-                    chroot $BUILD_DIR /usr/bin/env \
+                    chroot $INSTALL_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
                         BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -798,7 +802,7 @@ EOF
                         USER_NAME=$USER_NAME \
                         $APT_CMD clean $APT_OPTIONS
                 else
-                    chroot $BUILD_DIR /usr/bin/env \
+                    chroot $INSTALL_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
                         BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -816,11 +820,11 @@ EOF
                         $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
                 fi
             else
-                chroot $BUILD_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
             fi
             chroot_umount_fs
 
-            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $BUILD_DIR .
+            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $INSTALL_DIR .
         fi
     fi
 }
@@ -831,40 +835,40 @@ EOF
 # =================================================================
 function copy_build_scripts() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
-    if [ ! -d $BUILD_DIR/linux-live ]; then
-        mkdir -p $BUILD_DIR/linux-live
-        (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $BUILD_DIR/linux-live)
+    if [ ! -d $INSTALL_DIR/linux-live ]; then
+        mkdir -p $INSTALL_DIR/linux-live
+        (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $INSTALL_DIR/linux-live)
     else
         find $SCRIPT_DIR/linux-live -type f -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
             if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                if ! cmp $SCRIPT_DIR/linux-live/"$file" $BUILD_DIR/linux-live/"$file"; then
+                if ! cmp $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file"; then
                     echo -e "$file has been modified since last build run."
-                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $BUILD_DIR/linux-live/$file..."
-                    cp -f $SCRIPT_DIR/linux-live/"$file" $BUILD_DIR/linux-live/"$file"
+                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $INSTALL_DIR/linux-live/$file..."
+                    cp -f $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file"
                 fi
             else
-                if ! cmp $SCRIPT_DIR/linux-live/"$file" $BUILD_DIR/linux-live/"$file" >>$OUTPUT 2>&1; then
+                if ! cmp $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file" >>$OUTPUT 2>&1; then
                     echo -e "$file has been modified since last build run." >>$OUTPUT 2>&1
-                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $BUILD_DIR/linux-live/$file..." >>$OUTPUT 2>&1
-                    cp -f $SCRIPT_DIR/linux-live/"$file" $BUILD_DIR/linux-live/"$file" >>$OUTPUT 2>&1
+                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $INSTALL_DIR/linux-live/$file..." >>$OUTPUT 2>&1
+                    cp -f $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file" >>$OUTPUT 2>&1
                 fi
             fi
         done
     fi
 
-    #chmod +x $BUILD_DIR/linux-live/build
-    chmod +x $BUILD_DIR/linux-live/install_chroot
+    #chmod +x $INSTALL_DIR/linux-live/build
+    chmod +x $INSTALL_DIR/linux-live/install_chroot
 
     if [ "$DEV_SYSTEM" = "1" ]; then
-        if [ ! -d $BUILD_DIR/opt/minios-live ]; then
-            mkdir -p $BUILD_DIR/opt/minios-live
-            (cd $SCRIPT_DIR && cp --parents -afr * $BUILD_DIR/opt/minios-live)
+        if [ ! -d $INSTALL_DIR/opt/minios-live ]; then
+            mkdir -p $INSTALL_DIR/opt/minios-live
+            (cd $SCRIPT_DIR && cp --parents -afr * $INSTALL_DIR/opt/minios-live)
         else
             find $SCRIPT_DIR/linux-live -type f -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
-                if ! cmp $SCRIPT_DIR/"$file" $BUILD_DIR/opt/minios-live/"$file" >>$OUTPUT 2>&1; then
+                if ! cmp $SCRIPT_DIR/"$file" $INSTALL_DIR/opt/minios-live/"$file" >>$OUTPUT 2>&1; then
                     echo -e "$file has been modified since last build run." >>$OUTPUT 2>&1
-                    echo -e "Copying $SCRIPT_DIR/$file to $BUILD_DIR/opt/minios-live/$file..." >>$OUTPUT 2>&1
-                    cp -f $SCRIPT_DIR/"$file" $BUILD_DIR/opt/minios-live/"$file" >>$OUTPUT 2>&1
+                    echo -e "Copying $SCRIPT_DIR/$file to $INSTALL_DIR/opt/minios-live/$file..." >>$OUTPUT 2>&1
+                    cp -f $SCRIPT_DIR/"$file" $INSTALL_DIR/opt/minios-live/"$file" >>$OUTPUT 2>&1
                 fi
             done
         fi
@@ -891,20 +895,20 @@ function build_chroot() {
     create_apt_list
 
     if [ "$OUTPUT"="$LOGPATH/$LIVEKITNAME.log" ] && [ -f /$LIVEKITNAME.log ]; then
-        mv -f /$LIVEKITNAME.log $BUILD_DIR/$LIVEKITNAME.log
+        mv -f /$LIVEKITNAME.log $INSTALL_DIR/$LIVEKITNAME.log
     fi
-    if [ "$OUTPUT"="$LOGPATH/$LIVEKITNAME.log" ] && [ -f $BUILD_DIR/$LIVEKITNAME.log ]; then
-        echo "===========================================" >>$BUILD_DIR/$LIVEKITNAME.log 2>&1
-        echo "===========================================" >>$BUILD_DIR/$LIVEKITNAME.log 2>&1
-        echo "=============== CHROOT LOG ================" >>$BUILD_DIR/$LIVEKITNAME.log 2>&1
-        echo "===========================================" >>$BUILD_DIR/$LIVEKITNAME.log 2>&1
-        echo "===========================================" >>$BUILD_DIR/$LIVEKITNAME.log 2>&1
+    if [ "$OUTPUT"="$LOGPATH/$LIVEKITNAME.log" ] && [ -f $INSTALL_DIR/$LIVEKITNAME.log ]; then
+        echo "===========================================" >>$INSTALL_DIR/$LIVEKITNAME.log 2>&1
+        echo "===========================================" >>$INSTALL_DIR/$LIVEKITNAME.log 2>&1
+        echo "=============== CHROOT LOG ================" >>$INSTALL_DIR/$LIVEKITNAME.log 2>&1
+        echo "===========================================" >>$INSTALL_DIR/$LIVEKITNAME.log 2>&1
+        echo "===========================================" >>$INSTALL_DIR/$LIVEKITNAME.log 2>&1
     fi
 
-    cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $BUILD_DIR/etc/apt/sources.list
+    cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
 
     if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
-        chroot $BUILD_DIR /usr/bin/env \
+        chroot $INSTALL_DIR /usr/bin/env \
             OUTPUT=$OUTPUT \
             LOGPATH=$LOGPATH \
             BUILD_TEST_ISO=$BUILD_TEST_ISO \
@@ -921,13 +925,13 @@ function build_chroot() {
             USER_NAME=$USER_NAME \
             LIVE_TYPE=$LIVE_TYPE /linux-live/install_chroot -
     else
-        chroot $BUILD_DIR /linux-live/install_chroot -
+        chroot $INSTALL_DIR /linux-live/install_chroot -
     fi
 
     chroot_umount_fs
 
-    if [ "$OUTPUT"="$LOGPATH/$LIVEKITNAME.log" ] && [ -f $BUILD_DIR/$LIVEKITNAME.log ]; then
-        mv -f $BUILD_DIR/$LIVEKITNAME.log $SCRIPT_DIR/$LIVEKITNAME.log
+    if [ "$OUTPUT"="$LOGPATH/$LIVEKITNAME.log" ] && [ -f $INSTALL_DIR/$LIVEKITNAME.log ]; then
+        mv -f $INSTALL_DIR/$LIVEKITNAME.log $SCRIPT_DIR/$LIVEKITNAME.log
         if [ -f $SCRIPT_DIR/$LIVEKITNAME.log ]; then
             echo -e "Installation log was saved to ${MAGENTA}$SCRIPT_DIR/$LIVEKITNAME.log${ENDCOLOUR}"
         fi
@@ -951,15 +955,15 @@ function build_live() {
 
     copy_build_scripts
 
-    check_build_dir
+    check_install_dir
 
-    rm -rf $PARENT_DIR/image
-    mkdir -p $PARENT_DIR/image/$LIVEKITNAME/{boot,changes,modules}
+    rm -rf $BUILD_DIR/image
+    mkdir -p $BUILD_DIR/image/$LIVEKITNAME/{boot,changes,modules}
 
     build_boot
 
     # create compressed 01-core.sb
-    cd $BUILD_DIR
+    cd $INSTALL_DIR
     COREFS=""
     for i in $MKMOD; do
         if [ -d /$i ]; then
@@ -968,12 +972,12 @@ function build_live() {
     done
 
     : 'if [ $COMP_TYPE = "zstd" ]; then
-        mksquashfs $COREFS $PARENT_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+        mksquashfs $COREFS $BUILD_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     else
-        mksquashfs $COREFS $PARENT_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+        mksquashfs $COREFS $BUILD_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     fi'
 
-    mksquashfs $COREFS $PARENT_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+    mksquashfs $COREFS $BUILD_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
 
 }
 
@@ -993,36 +997,36 @@ function build_boot() {
 
     copy_build_scripts
 
-    check_build_dir
+    check_install_dir
 
     # initramfs generation
-    chroot $BUILD_DIR mount none -t proc /proc
-    chmod +x $BUILD_DIR/linux-live/initrfs
-    chroot $BUILD_DIR /linux-live/initrfs
-    chroot $BUILD_DIR umount /proc
+    chroot $INSTALL_DIR mount none -t proc /proc
+    chmod +x $INSTALL_DIR/linux-live/initrfs
+    chroot $INSTALL_DIR /linux-live/initrfs
+    chroot $INSTALL_DIR umount /proc
 
     # copy kernel files
-    cp $BUILD_DIR/boot/vmlinuz-**-**-* $PARENT_DIR/image/$LIVEKITNAME/boot/vmlinuz
-    cp $BUILD_DIR/boot/initrfs.img $PARENT_DIR/image/$LIVEKITNAME/boot/initrfs.img
+    cp $INSTALL_DIR/boot/vmlinuz-**-**-* $BUILD_DIR/image/$LIVEKITNAME/boot/vmlinuz
+    cp $INSTALL_DIR/boot/initrfs.img $BUILD_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
     #if [ $CLOUD != "true" ]; then
-    cp -r $SCRIPT_DIR/linux-live/bootfiles/* $PARENT_DIR/image/$LIVEKITNAME
+    cp -r $SCRIPT_DIR/linux-live/bootfiles/* $BUILD_DIR/image/$LIVEKITNAME
     #fi
 
     if [ $CLOUD = "true" ]; then
         BOOT_TYPE="hybrid"
     fi
     if [ $BOOT_TYPE = "hybrid" ]; then
-        cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $PARENT_DIR/image
+        cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $BUILD_DIR/image
         #cp -r $SCRIPT_DIR/linux-live/bootfiles-hybrid/ $DIR
-        if [ ! -d $PARENT_DIR/image/.disk ]; then
-            mkdir -p $PARENT_DIR/image/.disk
+        if [ ! -d $BUILD_DIR/image/.disk ]; then
+            mkdir -p $BUILD_DIR/image/.disk
         fi
-        echo $SYSTEMNAME >$PARENT_DIR/image/.disk/info
+        echo $SYSTEMNAME >$BUILD_DIR/image/.disk/info
     fi
 
     if [ $CLOUD = "true" ]; then
-        cat <<'EOF' | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$PARENT_DIR/image/minios/boot/syslinux.cfg
+        cat <<'EOF' | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$BUILD_DIR/image/minios/boot/syslinux.cfg
 UI /minios/boot/vesamenu.c32
 
 PROMPT 0
@@ -1057,7 +1061,7 @@ KERNEL /minios/boot/vmlinuz
 APPEND vga=normal initrd=/minios/boot/initrfs.img load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 selinux=0 minios.flags=toram net.ifnames=0 biosdevname=0
 
 EOF
-        cat <<'EOF' >$PARENT_DIR/image/boot/grub/grub.cfg
+        cat <<'EOF' >$BUILD_DIR/image/boot/grub/grub.cfg
 set default="0"
 set timeout="4"
 set hidden_timeout_quiet=false
@@ -1092,11 +1096,11 @@ EOF
     fi
 
     if [ $PACKAGE_VARIANT = "minimal" ]; then
-        sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        sed -i 's/minios.flags= /minios.flags=automount /g' $PARENT_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        sed -i 's/minios.flags= /minios.flags=automount /g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
         if [ $BOOT_TYPE = "hybrid" ]; then
-            sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $PARENT_DIR/image/boot/grub/grub.cfg
-            sed -i 's/minios.flags= /minios.flags=automount /g' $PARENT_DIR/image/boot/grub/grub.cfg
+            sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $BUILD_DIR/image/boot/grub/grub.cfg
+            sed -i 's/minios.flags= /minios.flags=automount /g' $BUILD_DIR/image/boot/grub/grub.cfg
         fi
     fi
 }
@@ -1113,19 +1117,17 @@ function build_iso() {
         fi
     fi
 
-    check_build_dir
+    check_install_dir
 
     if [ "$UNATTENDED" = "1" ]; then
-        BUILD_DIR="/build/$DISTRIBUTION"
+        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION"
     fi
-    if [ "$BUILD_DIR" = "" ]; then
-        LAST_BUILD_DIR=$(cat "$SCRIPT_DIR/.build_dir") >>$OUTPUT 2>&1
-        BUILD_DIR=$LAST_BUILD_DIR
+    if [ "$INSTALL_DIR" = "" ]; then
+        LAST_INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir") >>$OUTPUT 2>&1
+        INSTALL_DIR=$LAST_INSTALL_DIR
     fi
 
-    ISO_DIR="/build/template/iso"
-
-    cd $PARENT_DIR/image
+    cd $BUILD_DIR/image
     if [ ! -d $ISO_DIR ]; then
         mkdir -p $ISO_DIR
     fi
@@ -1134,7 +1136,7 @@ function build_iso() {
     VER=$SYSTEMVER
     DATE=$(date +%Y%m%d_%H%M)
 
-    DIR=$PARENT_DIR/image
+    DIR=$BUILD_DIR/image
     ISO=$ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-$DATE.iso
 
     B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
@@ -1397,7 +1399,7 @@ EOF
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         if [ -f $SCRIPT_DIR/pkglists/prereq.list ]; then
             $APT_CMD update
-                echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
+            echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
                 $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
                 $APT_CMD install $APT_OPTIONS \
@@ -1564,7 +1566,7 @@ WantedBy=multi-user.target
 WantedBy=network-online.target
 EOF
         systemctl enable dhclient >>$OUTPUT 2>&1
-    elif [ -d /etc/NetworkManager ] && [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" ]]; then
         cat <<EOF >/etc/netplan/01-netcfg.yaml
 # This file describes the network interfaces available on your system
 # For more information, see netplan(5).
@@ -1769,7 +1771,7 @@ function module_check_mounted() {
 #
 #
 # =================================================================
-function module_check_build_dir() {
+function module_check_install_dir() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     if [ "$UNATTENDED" = "1" ]; then
         #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOUR}"
@@ -1805,7 +1807,7 @@ function module_chroot_mount_fs() {
 
     if [ $UNION_BUILD_TYPE = "overlayfs" ]; then
         MODULES_LIST=""
-        MODULES=($PARENT_DIR/image/$LIVEKITNAME/*.$BEXT)
+        MODULES=($BUILD_DIR/image/$LIVEKITNAME/*.$BEXT)
         for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
             MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
             mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
@@ -1819,7 +1821,7 @@ function module_chroot_mount_fs() {
         mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
     elif [ $UNION_BUILD_TYPE = "aufs" ]; then
         MODULES_LIST=""
-        MODULES=($PARENT_DIR/image/$LIVEKITNAME/*.$BEXT)
+        MODULES=($BUILD_DIR/image/$LIVEKITNAME/*.$BEXT)
         for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
             MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
             mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
@@ -1852,9 +1854,9 @@ function module_chroot_mount_fs() {
     mount --bind /dev $MODULE_MERGED_DIR/dev
 
     if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+        if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ]; then
             mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
-            echo "nameserver 8.8.8.8" >$MODULE_MERGED_DIR/etc/resolv.conf
+            echo "nameserver 8.8.8.8" >>$MODULE_MERGED_DIR/etc/resolv.conf
         fi
         : 'if [ ! -d $MODULE_MERGED_DIR/run/resolvconf ]; then
             mkdir -p $MODULE_MERGED_DIR/run/resolvconf
@@ -1888,13 +1890,9 @@ function module_chroot_umount_fs() {
         umount $MODULE_MERGED_DIR/tmp
         umount $MODULE_MERGED_DIR/dev
         if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            ls -la $MODULE_MERGED_DIR/etc/resolv.*
-            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
-                ls -la $MODULE_MERGED_DIR/etc/resolv.*
+            if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
                 rm -f $MODULE_MERGED_DIR/etc/resolv.conf
-                ls -la $MODULE_MERGED_DIR/etc/resolv.*
                 mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
-                ls -la $MODULE_MERGED_DIR/etc/resolv.*
             elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
                 rm -f $MODULE_MERGED_DIR/etc/resolv.conf.bak
             fi
@@ -1917,7 +1915,7 @@ function module_chroot_umount_fs() {
         umount $MODULE_MERGED_DIR/tmp >>$OUTPUT 2>&1
         umount $MODULE_MERGED_DIR/dev >>$OUTPUT 2>&1
         if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+            if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch"]; then
                 rm -f $MODULE_UPPER_DIR/etc/resolv.conf
                 mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
             elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
@@ -1937,7 +1935,7 @@ function module_chroot_umount_fs() {
         fi
     fi
 
-    MODULES=($PARENT_DIR/image/$LIVEKITNAME/*.$BEXT)
+    MODULES=($BUILD_DIR/image/$LIVEKITNAME/*.$BEXT)
     for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
         MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
         umount $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
@@ -2289,45 +2287,25 @@ function build_modules() {
             fi
         fi
 
-        MODULES_DIR=$PARENT_DIR/modules
+        MODULES_DIR=$BUILD_DIR/modules
 
         cd $SCRIPT_DIR/linux-live/modules
 
         for MODULE in *; do
-            if (ls $PARENT_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
+            if (ls $BUILD_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-                echo -e "Please remove ${MAGENTA}$PARENT_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
+                echo -e "Please remove ${MAGENTA}$BUILD_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
             else
                 MODULE_UPPER_DIR="$MODULES_DIR/$MODULE-upper"
                 MODULE_WORK_DIR="$MODULES_DIR/$MODULE-work"
                 MODULE_MERGED_DIR="$MODULES_DIR/$MODULE-merged"
 
-                module_check_build_dir
+                module_check_install_dir
 
                 module_chroot_mount_fs
 
-                chroot $MODULE_MERGED_DIR /usr/bin/env \
-                    OUTPUT=$OUTPUT \
-                    LOGPATH=$LOGPATH \
-                    BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                    CREATE_BACKUP=$CREATE_BACKUP \
-                    DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                    APT_CMD=$APT_CMD \
-                    APT_OPTIONS=$APT_OPTIONS \
-                    LIVE_TYPE=$LIVE_TYPE \
-                    DISTRIBUTION=$DISTRIBUTION \
-                    DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                    PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                    COMP_TYPE=$COMP_TYPE \
-                    KERNEL_ARCH=$KERNEL_ARCH \
-                    USER_NAME=$USER_NAME \
-                    $APT_CMD update >>$OUTPUT 2>&1
-
-                # run pre-install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
-                    chmod +x $MODULE_MERGED_DIR/preinstall
+                if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                     chroot $MODULE_MERGED_DIR /usr/bin/env \
                         OUTPUT=$OUTPUT \
                         LOGPATH=$LOGPATH \
@@ -2343,7 +2321,67 @@ function build_modules() {
                         COMP_TYPE=$COMP_TYPE \
                         KERNEL_ARCH=$KERNEL_ARCH \
                         USER_NAME=$USER_NAME \
-                        /preinstall >>$OUTPUT 2>&1
+                        $APT_CMD update
+                else
+                    chroot $MODULE_MERGED_DIR /usr/bin/env \
+                        OUTPUT=$OUTPUT \
+                        LOGPATH=$LOGPATH \
+                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
+                        CREATE_BACKUP=$CREATE_BACKUP \
+                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+                        APT_CMD=$APT_CMD \
+                        APT_OPTIONS=$APT_OPTIONS \
+                        LIVE_TYPE=$LIVE_TYPE \
+                        DISTRIBUTION=$DISTRIBUTION \
+                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
+                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
+                        COMP_TYPE=$COMP_TYPE \
+                        KERNEL_ARCH=$KERNEL_ARCH \
+                        USER_NAME=$USER_NAME \
+                        $APT_CMD update >>$OUTPUT 2>&1
+                fi
+
+                # run pre-install script
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall ]; then
+                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                        cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                        chmod +x $MODULE_MERGED_DIR/preinstall
+                        chroot $MODULE_MERGED_DIR /usr/bin/env \
+                            OUTPUT=$OUTPUT \
+                            LOGPATH=$LOGPATH \
+                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
+                            CREATE_BACKUP=$CREATE_BACKUP \
+                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+                            APT_CMD=$APT_CMD \
+                            APT_OPTIONS=$APT_OPTIONS \
+                            LIVE_TYPE=$LIVE_TYPE \
+                            DISTRIBUTION=$DISTRIBUTION \
+                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
+                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
+                            COMP_TYPE=$COMP_TYPE \
+                            KERNEL_ARCH=$KERNEL_ARCH \
+                            USER_NAME=$USER_NAME \
+                            /preinstall
+                    else
+                        cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                        chmod +x $MODULE_MERGED_DIR/preinstall
+                        chroot $MODULE_MERGED_DIR /usr/bin/env \
+                            OUTPUT=$OUTPUT \
+                            LOGPATH=$LOGPATH \
+                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
+                            CREATE_BACKUP=$CREATE_BACKUP \
+                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
+                            APT_CMD=$APT_CMD \
+                            APT_OPTIONS=$APT_OPTIONS \
+                            LIVE_TYPE=$LIVE_TYPE \
+                            DISTRIBUTION=$DISTRIBUTION \
+                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
+                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
+                            COMP_TYPE=$COMP_TYPE \
+                            KERNEL_ARCH=$KERNEL_ARCH \
+                            USER_NAME=$USER_NAME \
+                            /preinstall >>$OUTPUT 2>&1
+                    fi
                 fi
 
                 # copy files
@@ -2426,16 +2464,16 @@ function build_modules() {
                     # run external actions
 
                     if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                        mkdir -p $PARENT_DIR/modules/tmp >>$OUTPUT 2>&1
-                        mksquashfs $MODULE_UPPER_DIR $PARENT_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
-                        mv $PARENT_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
+                        mkdir -p $BUILD_DIR/modules/tmp >>$OUTPUT 2>&1
+                        mksquashfs $MODULE_UPPER_DIR $BUILD_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        mv $BUILD_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
                         cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
                         unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
                     else
                         echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
                     fi
 
-                    #module_check_build_dir
+                    #module_check_install_dir
 
                     module_chroot_mount_fs
                 fi
@@ -2553,7 +2591,7 @@ function build_modules() {
 
                 # run external actions
                 if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
-                    cp $MODULE_UPPER_DIR/$MODULE.$BEXT $PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                    cp $MODULE_UPPER_DIR/$MODULE.$BEXT $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                 fi
 
                 module_chroot_finish_up
@@ -2567,19 +2605,19 @@ function build_modules() {
                 module_chroot_cleanup
 
                 if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
-                    if [ ! -f $PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
+                    if [ ! -f $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [ $COMP_TYPE = "zstd" ]; then
-                                mksquashfs $MODULE_UPPER_DIR $PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                                mksquashfs $MODULE_UPPER_DIR $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
                             else
-                                mksquashfs $MODULE_UPPER_DIR $PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                mksquashfs $MODULE_UPPER_DIR $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                             fi
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
                         fi
                     else
                         echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-                        echo -e "Please remove ${MAGENTA}$PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
+                        echo -e "Please remove ${MAGENTA}$BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
                         echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
                     fi
                 fi
@@ -2602,15 +2640,15 @@ function build_modules_live() {
         fi
     fi
 
-    MODULES_DIR=$PARENT_DIR/modules
+    MODULES_DIR=$BUILD_DIR/modules
 
     cd $SCRIPT_DIR/linux-live/modules
 
     for MODULE in *; do
 
-        if (ls $PARENT_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
+        if (ls $BUILD_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-            echo -e "Please remove ${MAGENTA}$PARENT_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
+            echo -e "Please remove ${MAGENTA}$BUILD_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
         else
 
@@ -2620,9 +2658,9 @@ function build_modules_live() {
 
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
-                    mksquashfs $MODULE_UPPER_DIR $PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                    mksquashfs $MODULE_UPPER_DIR $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
                 else
-                    mksquashfs $MODULE_UPPER_DIR $PARENT_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                    mksquashfs $MODULE_UPPER_DIR $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
             else
                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
@@ -2648,7 +2686,7 @@ function repack_module() {
 function repack_modules() {
     current_process
 
-    cd $PARENT_DIR/image/$LIVEKITNAME/
+    cd $BUILD_DIR/image/$LIVEKITNAME/
     for MODULE in *; do
         if (ls ./*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
             OLD_COMP_TYPE="xz"

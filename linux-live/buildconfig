@@ -2,17 +2,19 @@
 
 # distribution type
 # тип дистрибутива
-DISTRIBUTION_TYPE="debian"
+DISTRIBUTION_TYPE="ubuntu"
 
 # distribution
 # дистрибутив
-DISTRIBUTION="buster"
+DISTRIBUTION="bionic"
 
 # distribution arch
 # note: stretch only works with amd64
 # архитектура дистрибутива
 # для заметки: stretch работает только с amd64
 DISTRIBUTION_ARCH="amd64"
+
+COMP_TYPE="xz"
 
 # bootstrap variant (used to build Ubuntu)
 # вариант bootstrap (используется для сборки Ubuntu)
@@ -66,9 +68,6 @@ BOOT_TYPE="hybrid"
 # тип union, используемый для сборки системы
 UNION_BUILD_TYPE="overlayfs"
 #UNION_BUILD_TYPE="aufs"
-
-# не используется?
-#INSTALL_OPTIONAL="1"
 
 # Used when assigned to the ISO name when building Minios-Live
 SYSTEMNAME="MiniOS"

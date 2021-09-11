@@ -11,9 +11,16 @@ echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-se
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-    $APT_CMD install $APT_OPTIONS \
-        linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "bionic" ]; then
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS \
+            linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
+    else
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS \
+            #linux-firmware >>$OUTPUT 2>&1 #firmware-b43-installer
+            linux-image-generic
+    fi
 else
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \

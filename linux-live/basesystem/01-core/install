@@ -32,14 +32,16 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
     $APT_CMD install $APT_OPTIONS \
         zstd >>$OUTPUT 2>&1
-    if [ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION != "xenial" ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ]; then
+        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+        $APT_CMD install $APT_OPTIONS \
+            liblz4-tool >>$OUTPUT 2>&1
+    else
         #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
         $APT_CMD install $APT_OPTIONS \
             lz4 >>$OUTPUT 2>&1
-    else
-        $APT_CMD install $APT_OPTIONS \
-            liblz4-tool >>$OUTPUT 2>&1
     fi
+
 fi
 
 if [ $DISTRIBUTION = "bullseye" ]; then
@@ -56,8 +58,12 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
     fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    KERNEL_IMAGE="linux-image-5.11.0-27-generic"
+    if [ $DISTRIBUTION = "xenial" ]; then
+        KERNEL_IMAGE="linux-image-4.4.0-210-generic"
+    elif [ $DISTRIBUTION = "focal" ]; then
+        KERNEL_IMAGE="linux-image-5.4.0-84-generic"
     #KERNEL_IMAGE="linux-image-generic"
+    fi
 fi
 
 $APT_CMD update >>$OUTPUT 2>&1 &&
