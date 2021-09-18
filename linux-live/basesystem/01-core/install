@@ -32,7 +32,7 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
     #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
     $APT_CMD install $APT_OPTIONS \
         zstd >>$OUTPUT 2>&1
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
         #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
         $APT_CMD install $APT_OPTIONS \
             liblz4-tool >>$OUTPUT 2>&1
@@ -62,7 +62,8 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         KERNEL_IMAGE="linux-image-4.4.0-210-generic"
     elif [ $DISTRIBUTION = "focal" ]; then
         KERNEL_IMAGE="linux-image-5.4.0-84-generic"
-    #KERNEL_IMAGE="linux-image-generic"
+    elif [ $DISTRIBUTION = "bionic" ]; then
+        KERNEL_IMAGE="linux-image-4.15.0-156-generic"
     fi
 fi
 
