@@ -40,6 +40,7 @@ function common_variables() {
         #PACKAGE_VARIANT="standard"
     elif [ $DISTRIBUTION_ARCH = "i386" ]; then
         KERNEL_ARCH="686-pae"
+        #KERNEL_ARCH="686"
         PACKAGE_VARIANT="minimal"
     elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
         KERNEL_ARCH="arm64"
