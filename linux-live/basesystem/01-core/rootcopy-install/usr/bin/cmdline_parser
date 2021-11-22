@@ -59,7 +59,7 @@ else
     rm -rf /home/live
 fi
 
-if [ ! "$SSH" = "true" ]; then
+if [ "$SSH" != "true" ]; then
 #    systemctl enable ssh-keygen
 #    systemctl enable ssh
 #else
