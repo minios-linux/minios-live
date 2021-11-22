@@ -1,6 +1,7 @@
 [Unit]
 Description=Сommand line parsing script
-Before=ssh-keygen.service
+Before=basic.target
+After=local-fs.target sysinit.target
 
 [Service]
 Type=oneshot
@@ -9,4 +10,4 @@ RemainAfterExit=true
 StandardOutput=journal
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target
