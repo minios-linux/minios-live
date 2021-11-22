@@ -1,7 +1,6 @@
 [Unit]
-Description=Сommand line parsing script
-Before=basic.target
-After=local-fs.target sysinit.target
+Description=Command line parsing script
+Before=getty.target
 
 [Service]
 Type=oneshot
@@ -10,4 +9,4 @@ RemainAfterExit=true
 StandardOutput=journal
 
 [Install]
-WantedBy=basic.target
+WantedBy=getty.target
