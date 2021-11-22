@@ -1,0 +1,6 @@
+#!/bin/bash
+
+$APT_CMD autoremove $APT_OPTIONS $APT_OPTIONS2 \
+    linux-headers-amd64 gcc make >>$OUTPUT 2>&1
+
+rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1

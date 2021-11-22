@@ -41,7 +41,7 @@ function common_variables() {
     elif [ $DISTRIBUTION_ARCH = "i386" ]; then
         KERNEL_ARCH="686-pae"
         #KERNEL_ARCH="686"
-        PACKAGE_VARIANT="minimal"
+        #PACKAGE_VARIANT="minimal"
     elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
         KERNEL_ARCH="arm64"
     fi
@@ -1514,18 +1514,19 @@ function chroot_pkg_install() {
 function chroot_configure() {
     current_process
 
-    if [ $CLOUD != "true" ]; then
-        (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
-        echo "Set up password for user 'root'" >>$OUTPUT 2>&1
-        echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
+    (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
-        echo "Set up user '$USER_NAME'" >>$OUTPUT 2>&1
-        adduser --uid 1000 --gecos '' $USER_NAME --disabled-password >>$OUTPUT 2>&1
-        echo "Set up password for user '$USER_NAME'" >>$OUTPUT 2>&1
-        echo $USER_NAME:$USER_PASSWORD | chpasswd >>$OUTPUT 2>&1
-        usermod -a -G sudo $USER_NAME
+    #    if [ $CLOUD != "true" ]; then
+    #        echo "Set up password for user 'root'" >>$OUTPUT 2>&1
+    #        echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
 
-        : 'if [ ! -d /home/$USER_NAME ]; then
+    #        echo "Set up user '$USER_NAME'" >>$OUTPUT 2>&1
+    #        adduser --uid 1000 --gecos '' $USER_NAME --disabled-password >>$OUTPUT 2>&1
+    #        echo "Set up password for user '$USER_NAME'" >>$OUTPUT 2>&1
+    #        echo $USER_NAME:$USER_PASSWORD | chpasswd >>$OUTPUT 2>&1
+    #        usermod -a -G sudo $USER_NAME
+
+    : 'if [ ! -d /home/$USER_NAME ]; then
             mkdir -p /home/$USER_NAME
         fi
         cp -r /etc/skel/* /home/$USER_NAME
@@ -1533,17 +1534,16 @@ function chroot_configure() {
         chown $USER_NAME:$USER_NAME /home/$USER_NAME
         chown -R $USER_NAME:$USER_NAME /home/$USER_NAME'
 
-        cat <<EOF >/etc/sudoers.d/90-minios
-# live user is default user in minios.
-# It needs passwordless sudo functionality.
-$USER_NAME ALL=(ALL) NOPASSWD:ALL
-EOF
-    else
-        echo "Set up password for user 'root'" >>$OUTPUT 2>&1
-        echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
-        (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
-        rm -rf /home/live
-    fi
+    #        cat <<EOF >/etc/sudoers.d/90-minios
+    # live user is default user in minios.
+    # It needs passwordless sudo functionality.
+    #$USER_NAME ALL=(ALL) NOPASSWD:ALL
+    #EOF
+    #    else
+    #        echo "Set up password for user 'root'" >>$OUTPUT 2>&1
+    #        echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
+    #        rm -rf /home/live
+    #    fi
 
     if [ ! -d /etc/NetworkManager ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
@@ -1608,12 +1608,12 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-        if [ $CLOUD != "true" ]; then
-            sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
-            sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
-        fi
-        systemctl enable ssh-keygen >>$OUTPUT 2>&1
-        systemctl enable ssh >>$OUTPUT 2>&1
+        #if [ $CLOUD != "true" ]; then
+        #    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
+        #    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
+        #fi
+        #systemctl enable ssh-keygen >>$OUTPUT 2>&1
+        #systemctl enable ssh >>$OUTPUT 2>&1
     fi
 
     if [ ! -f /usr/share/sudo ]; then
@@ -1632,7 +1632,7 @@ echo "Sudo is not installed. Run the command as root or install sudo."
 EOF
     fi
 
-    if [ $CLOUD != "true" ]; then
+: '    if [ $CLOUD != "true" ]; then
         cat <<EOF >/etc/issue
 
 
@@ -1698,7 +1698,7 @@ EOF
 
 
 EOF
-    fi
+    fi'
 }
 
 # =================================================================

@@ -1,0 +1,12 @@
+[Unit]
+Description=Сommand line parsing script
+Before=ssh-keygen.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cmdline_parser
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
