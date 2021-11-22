@@ -1516,9 +1516,9 @@ function chroot_configure() {
 
     (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
-    if [ -f /usr/lib/systemd/system/cmdline-parser.service ]; then
-        echo "Enable cmdline-parser.service autostart." >>$OUTPUT 2>&1
-        systemctl enable cmdline-parser.service >>$OUTPUT 2>&1
+    if [ "$CMDLINE_PARSER" = "true" ]; then
+        #echo "Enable cmdline-parser.service autostart." >>$OUTPUT 2>&1
+        #systemctl enable cmdline-parser.service >>$OUTPUT 2>&1
         echo "Set up password for user 'root'" >>$OUTPUT 2>&1
         echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
     else

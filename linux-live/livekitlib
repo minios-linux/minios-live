@@ -776,6 +776,148 @@ fstab_create() {
    done
 }
 
+minios_configure() {
+   debug_log "minios_configure" "$*"
+
+   USER_NAME=$(cmdline_value user_name)
+   USER_PASSWORD=$(cmdline_value user_password)
+   ROOT_PASSWORD=$(cmdline_value root_password)
+
+   if grep -vq ssh /proc/cmdline; then
+      SSH="true"
+   fi
+
+   if grep -vq cloud /proc/cmdline; then
+      CLOUD="true"
+   fi
+
+   if [ -z "$ROOT_PASSWORD" ]; then
+      ROOT_PASSWORD="toor"
+   fi
+   echo "Set up password for user 'root'"
+   echo root:$ROOT_PASSWORD | chpasswd
+
+   if [ "$CLOUD" != "true" ]; then
+
+      if [ -z "$USER_NAME" ]; then
+         USER_NAME="live"
+      fi
+      echo "Set up user '$USER_NAME'"
+      chroot $1 /bin/bash -c "adduser --uid 1000 --gecos '' $USER_NAME --disabled-password"
+
+      if [ -z "$USER_PASSWORD" ]; then
+         USER_PASSWORD="evil"
+      fi
+      echo "Set up password for user '$USER_NAME'"
+      chroot $1 /bin/bash -c "echo $USER_NAME:$USER_PASSWORD | chpasswd"
+      chroot $1 /bin/bash -c "usermod -a -G sudo $USER_NAME"
+
+      chroot $1 /bin/bash -c "sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config"
+      chroot $1 /bin/bash -c "sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config"
+   else
+      chroot $1 /bin/bash -c "rm -rf /home/live"
+   fi
+
+   if [ "$SSH" = "true" ]; then
+      sleep 3
+      chroot $1 /bin/bash -c "systemctl enable ssh-keygen"
+      echo "ssh-keygen is enabled"
+      sleep 3
+      chroot $1 /bin/bash -c "systemctl enable ssh"
+      echo "ssh is enabled"
+      sleep 3
+   else
+      chroot $1 /bin/bash -c "systemctl disable ssh-keygen"
+      chroot $1 /bin/bash -c "systemctl disable ssh"
+   fi
+   cat <<EOF >$1/etc/sudoers.d/90-minios
+# live user is default user in minios.
+# It needs passwordless sudo functionality.
+$USER_NAME ALL=(ALL) NOPASSWD:ALL
+EOF
+
+   if [ "$CLOUD" != "true" ]; then
+      cat <<EOF >$1/etc/issue
+
+
+                                                                          \l
+
+
+
+
+
+                        Thank you for using MiniOS.
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+                        Root login name: [1;33mroot[0;29m
+                        Password: [1;33m$ROOT_PASSWORD[0;29m
+                        User login name: [1;33m$USER_NAME[0;29m
+                        Password: [1;33m$USER_PASSWORD[0;29m
+
+
+
+
+
+EOF
+   else
+      cat <<EOF >$1/etc/issue
+
+
+                                                                          \l
+
+
+
+
+
+                        Thank you for using MiniOS.
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+                        User login name set by
+                        cloud-init. You must use
+                        your ssh key to login.
+                        Root login name: [1;33mroot[0;29m
+                        Password: [1;33m$ROOT_PASSWORD[0;29m
+
+
+
+
+
+
+EOF
+   fi
+
+   if [ -f $1/usr/lib/systemd/system/xorg.service ]; then
+      cat <<EOF >$1/usr/lib/systemd/system/xorg.service
+[Unit]
+Description=X-Window
+ConditionKernelCommandLine=!text
+After=systemd-user-sessions.service
+
+[Service]
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USERNAME
+EOF
+   fi
+
+}
+
 # Change root and execute init
 # $1 = where to change root
 #
