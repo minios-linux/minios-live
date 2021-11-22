@@ -1519,6 +1519,8 @@ function chroot_configure() {
     if [ -f /usr/lib/systemd/system/cmdline-parser.service ]; then
         echo "Enable cmdline-parser.service autostart." >>$OUTPUT 2>&1
         systemctl enable cmdline-parser.service >>$OUTPUT 2>&1
+        echo "Set up password for user 'root'" >>$OUTPUT 2>&1
+        echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
     else
         if [ $CLOUD != "true" ]; then
             echo "Set up password for user 'root'" >>$OUTPUT 2>&1
@@ -1682,8 +1684,8 @@ EOF
         #    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
         #    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
         #fi
-        #systemctl enable ssh-keygen >>$OUTPUT 2>&1
-        #systemctl enable ssh >>$OUTPUT 2>&1
+        systemctl enable ssh-keygen >>$OUTPUT 2>&1
+        systemctl enable ssh >>$OUTPUT 2>&1
     fi
 
     if [ ! -f /usr/share/sudo ]; then

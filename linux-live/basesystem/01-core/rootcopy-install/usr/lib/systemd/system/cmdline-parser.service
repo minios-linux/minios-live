@@ -1,6 +1,6 @@
 [Unit]
 Description=Command line parsing script
-Before=getty.target
+Before=ssh-keygen.service
 
 [Service]
 Type=oneshot
@@ -9,4 +9,4 @@ RemainAfterExit=true
 StandardOutput=journal
 
 [Install]
-WantedBy=getty.target
+WantedBy=multi-user.target

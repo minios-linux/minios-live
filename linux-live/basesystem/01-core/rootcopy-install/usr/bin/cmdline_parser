@@ -53,17 +53,18 @@ if [ "$CLOUD" != "true" ]; then
     echo $USER_NAME:$USER_PASSWORD | chpasswd
     usermod -a -G sudo $USER_NAME
 
-    if [ "$SSH" = "true" ]; then
-        systemctl enable ssh-keygen
-        systemctl enable ssh
-    else
-        systemctl disable ssh-keygen
-        systemctl disable ssh
-    fi
     sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
     sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
 else
     rm -rf /home/live
+fi
+
+if [ ! "$SSH" = "true" ]; then
+#    systemctl enable ssh-keygen
+#    systemctl enable ssh
+#else
+    systemctl disable ssh-keygen
+    systemctl disable ssh
 fi
 
 cat <<EOF >/etc/sudoers.d/90-minios
