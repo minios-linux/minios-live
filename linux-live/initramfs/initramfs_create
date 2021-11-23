@@ -53,6 +53,7 @@ cp static/mount.dynfilefs $INITRAMFS/bin/@mount.dynfilefs
 cp static/mount.httpfs2 $INITRAMFS/bin/@mount.httpfs2
 cp static/mount.ntfs-3g $INITRAMFS/bin/@mount.ntfs-3g
 cp static/blkid $INITRAMFS/bin
+cp static/cmdline_parser $INITRAMFS/bin
 chmod a+x $INITRAMFS/bin/*
 
 $INITRAMFS/bin/busybox | grep , | grep -v Copyright | tr "," " " | while read LINE; do
