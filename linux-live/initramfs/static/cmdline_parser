@@ -18,6 +18,14 @@ for i in $(cat /cmdline); do
         ROOT_PASSWORD="${i#*=}"
         shift # past argument=value
         ;;
+    host_name=*)
+        HOST_NAME="${i#*=}"
+        shift # past argument=value
+        ;;
+    default_target=*)
+        DEFAULT_TARGET="${i#*=}"
+        shift # past argument=value
+        ;;
     ssh)
         SSH=true
         shift # past argument with no value
@@ -32,13 +40,6 @@ for i in $(cat /cmdline); do
     esac
 done
 
-echo "USER_NAME=$USER_NAME"
-echo "USER_PASSWORD=$USER_PASSWORD"
-echo "ROOT_PASSWORD=$ROOT_PASSWORD"
-echo "SSH=$SSH"
-echo "CLOUD=$CLOUD"
-sleep 5
-
 if [ -z "$ROOT_PASSWORD" ]; then
     ROOT_PASSWORD="toor"
 fi
@@ -50,19 +51,32 @@ if [ "$CLOUD" != "true" ]; then
     if [ -z "$USER_NAME" ]; then
         USER_NAME="live"
     fi
-    #echo "Set up user '$USER_NAME'" 
-    adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
+    if [ "$USER_NAME" != "root" ]; then
+        #echo "Set up user '$USER_NAME'"
+        adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
 
-    if [ -z "$USER_PASSWORD" ]; then
-        USER_PASSWORD="evil"
+        if [ -z "$USER_PASSWORD" ]; then
+            USER_PASSWORD="evil"
+        fi
+        #echo "Set up password for user '$USER_NAME'"
+        echo $USER_NAME:$USER_PASSWORD | chpasswd
+        usermod -a -G sudo $USER_NAME
     fi
-    #echo "Set up password for user '$USER_NAME'"
-    echo $USER_NAME:$USER_PASSWORD | chpasswd
-    usermod -a -G sudo $USER_NAME
-
     sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
     sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
 else
+    rm -rf /home/live
+fi
+
+if [ "$USER_NAME" != "live" ] && [ "$USER_NAME" != "root" ]; then
+    rm -rf /home/live
+    # create user directories
+    for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+        mkdir -p /home/$USER_NAME/$dir
+    done
+    chown 1000:1000 /home/$USER_NAME
+    chown -R 1000:1000 /home/$USER_NAME
+elif [ "$USER_NAME" = "root" ]; then
     rm -rf /home/live
 fi
 
@@ -74,14 +88,17 @@ else
     systemctl disable ssh
 fi
 
-cat <<EOF >/etc/sudoers.d/90-minios
+if [ "$USER_NAME" != "root" ]; then
+    cat <<EOF >/etc/sudoers.d/90-minios
 # live user is default user in minios.
 # It needs passwordless sudo functionality.
 $USER_NAME ALL=(ALL) NOPASSWD:ALL
 EOF
+fi
 
 if [ "$CLOUD" != "true" ]; then
-    cat <<EOF >/etc/issue
+    if [ "$USER_NAME" != "root" ]; then
+        cat <<EOF >/etc/issue
 
 
                                                                           \l
@@ -112,6 +129,39 @@ if [ "$CLOUD" != "true" ]; then
 
 
 EOF
+    else
+        cat <<EOF >/etc/issue
+
+
+                                                                          \l
+
+
+
+
+
+                        Thank you for using MiniOS.
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+                        Root login name: [1;33mroot[0;29m
+                        Password: [1;33m$ROOT_PASSWORD[0;29m
+
+
+
+
+
+
+
+EOF
+    fi
 else
     cat <<EOF >/etc/issue
 
@@ -156,6 +206,29 @@ ConditionKernelCommandLine=!text
 After=systemd-user-sessions.service
 
 [Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USERNAME
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
 EOF
 fi
+if [ -f /etc/default/nodm ]; then
+    sed -i "s/NODM_USER=live/NODM_USER=$USER_NAME/g" /etc/default/nodm
+fi
+if [ -f /etc/slim.conf ]; then
+    sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
+fi
+
+if [ -z "$HOST_NAME" ]; then
+    HOST_NAME="minios"
+fi
+echo $HOST_NAME >/etc/hostname
+
+if [ -z "$DEFAULT_TARGET" ]; then
+    $DEFAULT_TARGET="graphical"
+fi
+systemctl set-default $DEFAULT_TARGET
+
+echo "USER_NAME=$USER_NAME"
+echo "USER_PASSWORD=$USER_PASSWORD"
+echo "ROOT_PASSWORD=$ROOT_PASSWORD"
+echo "HOSTNAME=$HOSTNAME"
+echo "SSH=$SSH"
+echo "CLOUD=$CLOUD"

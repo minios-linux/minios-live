@@ -781,10 +781,8 @@ minios_configure() {
 
    cp /bin/cmdline_parser $1/
    cat /proc/cmdline >$1/cmdline
-   ls -la $1/
-   sleep 5
 
-   chroot $1 /bin/bash -c "/cmdline_parser"
+   chroot $1 /bin/bash -c "/cmdline_parser" > /dev/null 2>&1
 
    rm -f $1/cmdline
    rm -f $1/cmdline_parser
