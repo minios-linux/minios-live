@@ -1058,7 +1058,7 @@ MENU TABMSG [F1] help                                                        [Ta
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 selinux=0 minios.flags=toram net.ifnames=0 biosdevname=0
+APPEND vga=normal initrd=/minios/boot/initrfs.img load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 selinux=0 minios.flags=toram net.ifnames=0 biosdevname=0 ssh
 
 EOF
         cat <<'EOF' >$BUILD_DIR/image/boot/grub/grub.cfg
@@ -1075,12 +1075,12 @@ set color_highlight=black/white
 loadfont /boot/grub/unicode.pf2
 #background_image /boot/grub/bootlogo.png
 
-set default_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
+set default_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0 ssh"
 set perch_settings="minios.flags=perch"
 set live_settings="minios.flags= "
 set ram_settings="minios.flags=toram"
 set console_settings="console=tty0 console=ttyS0,115200"
-set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
+set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0 ssh"
 set linux_64="/minios/boot/vmlinuz"
 set initrd_img="/minios/boot/initrfs.img"
 set default=0

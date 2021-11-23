@@ -26,6 +26,6 @@ set message="Loading kernel and ramdisk..."
 menuentry "MiniOS (Copy to RAM)"{
     echo $message
     search --set -f $linux_64
-    linux $linux_64 $default_settings $ram_settings $http_settings $console_settings
+    linux $linux_64 $default_settings $ram_settings $http_settings $console_settings ssh
     initrd $initrd_img
 }

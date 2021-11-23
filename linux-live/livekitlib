@@ -619,7 +619,12 @@ persistent_changes() {
       EXISTS=""
    fi
 
-   @mount.dynfilefs "$CHANGES/changes.dat" 4000 "$2"
+   PERCH_SIZE=$(cmdline_value perch_size)
+   if [ ! "$PERCH_SIZE" ]; then
+      @mount.dynfilefs "$CHANGES/changes.dat" 4000 "$2"
+   else
+      @mount.dynfilefs "$CHANGES/changes.dat" $PERCH_SIZE "$2"
+   fi
    if [ ! "$EXISTS" ]; then
       mke2fs -F "$2/loop.fs" >/dev/null 2>&1
    fi
@@ -782,7 +787,7 @@ minios_configure() {
    cp /bin/cmdline_parser $1/
    cat /proc/cmdline >$1/cmdline
 
-   chroot $1 /bin/bash -c "/cmdline_parser" > /dev/null 2>&1
+   chroot $1 /bin/bash -c "/cmdline_parser" >/dev/null 2>&1
 
    rm -f $1/cmdline
    rm -f $1/cmdline_parser

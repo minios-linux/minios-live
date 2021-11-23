@@ -4,89 +4,179 @@
 # Author: crims0n. <http://minios.ru>
 #
 
-for i in $(cat /cmdline); do
-    case $i in
-    user_name=*)
-        USER_NAME="${i#*=}"
-        shift # past argument=value
-        ;;
-    user_password=*)
-        USER_PASSWORD="${i#*=}"
-        shift # past argument=value
-        ;;
-    root_password=*)
-        ROOT_PASSWORD="${i#*=}"
-        shift # past argument=value
-        ;;
-    host_name=*)
-        HOST_NAME="${i#*=}"
-        shift # past argument=value
-        ;;
-    default_target=*)
-        DEFAULT_TARGET="${i#*=}"
-        shift # past argument=value
-        ;;
-    ssh)
-        SSH=true
-        shift # past argument with no value
-        ;;
-    cloud)
-        CLOUD=true
-        shift # past argument with no value
-        ;;
-    *)
-        # unknown option
-        ;;
-    esac
-done
+function read_cmdline() {
+    for i in $(cat /cmdline); do
+        case $i in
+        user_name=*)
+            USER_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        user_password=*)
+            USER_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        root_password=*)
+            ROOT_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        host_name=*)
+            HOST_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        default_target=*)
+            DEFAULT_TARGET="${i#*=}"
+            shift # past argument=value
+            ;;
+        ssh)
+            SSH=true
+            shift # past argument with no value
+            ;;
+        cloud)
+            CLOUD=true
+            shift # past argument with no value
+            ;;
+        *)
+            # unknown option
+            ;;
+        esac
+    done
+}
 
-if [ -z "$ROOT_PASSWORD" ]; then
-    ROOT_PASSWORD="toor"
+function read_config() { # read_config file.cfg var_name1 var_name2
+    # ref: https://stackoverflow.com/a/20815951
+
+    shopt -s extglob # needed the "one of these"-match below
+    local configfile="${1?No configuration file given}"
+    local keylist="${@:2}" # positional parameters 2 and following
+
+    if [[ ! -f "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not a file!"
+        exit 1
+    fi
+    if [[ ! -r "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not readable!"
+        exit 1
+    fi
+
+    keylist="${keylist// /|}" # this will generate a regex 'one of these'
+
+    # lhs : "left hand side" : Everything left of the '='
+    # rhs : "right hand side": Everything right of the '='
+    #
+    # "lhs" will hold the name of the key you want to read.
+    # The value of "rhs" will be assigned to that key.
+    while IFS='= ' read -r lhs rhs; do
+        # IF lhs in keylist
+        # AND rhs not empty
+        if [[ "$lhs" =~ ^($keylist)$ ]] && [[ -n $rhs ]]; then
+            rhs="${rhs%\"*}"   # Del opening string quotes
+            rhs="${rhs#\"*}"   # Del closing string quotes
+            rhs="${rhs%\'*}"   # Del opening string quotes
+            rhs="${rhs#\'*}"   # Del closing string quotes
+            eval $lhs=\"$rhs\" # The magic happens here
+        fi
+        # tr used as a safeguard against dos line endings
+    done <<<$(tr -d '\r' <$configfile)
+
+    shopt -u extglob # Switching it back off after use
+}
+
+$CMDLINE=$(cat /cmdline)
+read_cmdline $CMDLINE
+
+if [ -f /run/initramfs/memory/data/minios/minios.conf ]; then
+    cp /run/initramfs/memory/data/minios/minios.conf /etc/minios.conf
+elif [ -f /etc/minios.conf ]; then
+    cp /etc/minios.conf /run/initramfs/memory/data/minios/minios.conf
 fi
+
+if [ -z "$ROOT_PASSWORD" ] || [ "$ROOT_PASSWORD" = "" ]; then
+    if [ -f /etc/minios.conf ]; then
+        read_config /etc/minios.conf ROOT_PASSWORD
+    else
+        ROOT_PASSWORD="toor"
+    fi
+fi
+
 #echo "Set up password for user 'root'"
 echo root:$ROOT_PASSWORD | chpasswd
+if [ -f /etc/minios.conf ]; then
+    sed -i -e "/ROOT_PASSWORD=/s/=.*/=$ROOT_PASSWORD/" /etc/minios.conf
+fi
 
+if [ -z "$CLOUD" ] || [ "$CLOUD" = "" ]; then
+    if [ -f /etc/minios.conf ]; then
+        read_config /etc/minios.conf CLOUD
+    else
+        CLOUD="false"
+    fi
+fi
+sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/minios.conf
 if [ "$CLOUD" != "true" ]; then
-
-    if [ -z "$USER_NAME" ]; then
-        USER_NAME="live"
-    fi
-    if [ "$USER_NAME" != "root" ]; then
-        #echo "Set up user '$USER_NAME'"
-        adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
-
-        if [ -z "$USER_PASSWORD" ]; then
-            USER_PASSWORD="evil"
+    if [ ! -f /etc/minios.conf ]; then
+        if [ -z "$USER_NAME" ] || [ "$USER_NAME" = "" ]; then
+            USER_NAME="live"
         fi
-        #echo "Set up password for user '$USER_NAME'"
+        if [ "$USER_NAME" != "root" ]; then
+            #echo "Set up user '$USER_NAME'"
+            adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
+            usermod -a -G sudo $USER_NAME
+
+            if [ -z "$USER_PASSWORD" ] || [ "$USER_PASSWORD" = "" ]; then
+                USER_PASSWORD="evil"
+            fi
+            #echo "Set up password for user '$USER_NAME'"
+            echo $USER_NAME:$USER_PASSWORD | chpasswd
+        fi
+    else
+        if [ -z "$USER_NAME" ] || [ "$USER_NAME" = "" ]; then
+            read_config /etc/minios.conf USER_NAME
+        fi
+        if [ -z "$USER_PASSWORD" ] || [ "$USER_PASSWORD" = "" ]; then
+            read_config /etc/minios.conf USER_PASSWORD
+        fi
         echo $USER_NAME:$USER_PASSWORD | chpasswd
-        usermod -a -G sudo $USER_NAME
+        sed -i -e "/USER_PASSWORD=/s/=.*/=$USER_PASSWORD/" /etc/minios.conf
     fi
-    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
-    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
 else
-    rm -rf /home/live
+    USER_NAME="root"
+    SSH="true"
 fi
 
-if [ "$USER_NAME" != "live" ] && [ "$USER_NAME" != "root" ]; then
-    rm -rf /home/live
-    # create user directories
-    for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-        mkdir -p /home/$USER_NAME/$dir
-    done
-    chown 1000:1000 /home/$USER_NAME
-    chown -R 1000:1000 /home/$USER_NAME
-elif [ "$USER_NAME" = "root" ]; then
-    rm -rf /home/live
+if [ ! -f /etc/minios.conf ]; then
+    if [ "$USER_NAME" != "live" ] || [ "$USER_NAME" != "root" ]; then
+        if [ -d /home/live ]; then
+            rm -rf /home/live
+        fi
+        # create user directories
+        if [ -d /home/$USER_NAME/$dir ]; then
+            for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                mkdir -p /home/$USER_NAME/$dir
+            done
+            chown 1000:1000 /home/$USER_NAME
+            chown -R 1000:1000 /home/$USER_NAME
+        fi
+    fi
 fi
 
+if [ -z "$SSH" ] || [ "$SSH" = "" ]; then
+    if [ -f /etc/minios.conf ]; then
+        read_config /etc/minios.conf SSH
+    else
+        SSH="false"
+    fi
+fi
 if [ "$SSH" = "true" ]; then
     systemctl enable ssh-keygen
     systemctl enable ssh
+    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
+    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
 else
     systemctl disable ssh-keygen
     systemctl disable ssh
+    SSH="false"
 fi
+sed -i -e "/SSH=/s/=.*/=$SSH/" /etc/minios.conf
 
 if [ "$USER_NAME" != "root" ]; then
     cat <<EOF >/etc/sudoers.d/90-minios
@@ -216,20 +306,40 @@ if [ -f /etc/slim.conf ]; then
     sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
 fi
 
-if [ -z "$HOST_NAME" ]; then
-    HOST_NAME="minios"
+if [ "$CLOUD" != "true" ]; then
+    if [ -z "$HOST_NAME" ] || [ "$HOST_NAME" = "" ]; then
+        if [ -f /etc/minios.conf ]; then
+            read_config /etc/minios.conf HOST_NAME
+        else
+            HOST_NAME="minios"
+        fi
+    fi
+    echo $HOST_NAME >/etc/hostname
+    if [ -f /etc/minios.conf ]; then
+        sed -i -e "/HOST_NAME=/s/=.*/=$HOST_NAME/" /etc/minios.conf
+    fi
 fi
-echo $HOST_NAME >/etc/hostname
 
-if [ -z "$DEFAULT_TARGET" ]; then
-    $DEFAULT_TARGET="graphical"
+if [ -z "$DEFAULT_TARGET" ] || [ "$DEFAULT_TARGET" = "" ]; then
+    if [ -f /etc/minios.conf ]; then
+        read_config /etc/minios.conf DEFAULT_TARGET
+    else
+        $DEFAULT_TARGET="graphical"
+    fi
 fi
 systemctl set-default $DEFAULT_TARGET
+if [ -f /etc/minios.conf ]; then
+    sed -i -e "/DEFAULT_TARGET=/s/=.*/=$DEFAULT_TARGET/" /etc/minios.conf
+fi
 
-echo "USER_NAME=$USER_NAME"
-echo "USER_PASSWORD=$USER_PASSWORD"
-echo "ROOT_PASSWORD=$ROOT_PASSWORD"
-echo "HOSTNAME=$HOSTNAME"
-echo "DEFAULT_TARGET=$DEFAULT_TARGET"
-echo "SSH=$SSH"
-echo "CLOUD=$CLOUD"
+#if [ "$CLOUD" != "true" ]; then
+if [ ! -f /etc/minios.conf ]; then
+    echo "USER_NAME=$USER_NAME" >/etc/minios.conf
+    echo "USER_PASSWORD=$USER_PASSWORD" >>/etc/minios.conf
+    echo "ROOT_PASSWORD=$ROOT_PASSWORD" >>/etc/minios.conf
+    echo "HOST_NAME=$HOST_NAME" >>/etc/minios.conf
+    echo "DEFAULT_TARGET=$DEFAULT_TARGET" >>/etc/minios.conf
+    echo "SSH=$SSH" >>/etc/minios.conf
+    echo "CLOUD=$CLOUD" >>/etc/minios.conf
+fi
+#fi
