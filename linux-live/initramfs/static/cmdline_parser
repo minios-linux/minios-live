@@ -332,7 +332,6 @@ if [ -f /etc/minios.conf ]; then
     sed -i -e "/DEFAULT_TARGET=/s/=.*/=$DEFAULT_TARGET/" /etc/minios.conf
 fi
 
-#if [ "$CLOUD" != "true" ]; then
 if [ ! -f /etc/minios.conf ]; then
     echo "USER_NAME=$USER_NAME" >/etc/minios.conf
     echo "USER_PASSWORD=$USER_PASSWORD" >>/etc/minios.conf
@@ -342,4 +341,3 @@ if [ ! -f /etc/minios.conf ]; then
     echo "SSH=$SSH" >>/etc/minios.conf
     echo "CLOUD=$CLOUD" >>/etc/minios.conf
 fi
-#fi
