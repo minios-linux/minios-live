@@ -1,0 +1,523 @@
+#!/bin/bash
+#
+# Сommand line parsing script.
+# Author: crims0n. <http://minios.ru>
+#
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+function help() {
+    # if $1 is set, use $1 as headline message in help()
+    echo -e "root_password - root password."
+    echo -e "user_name - username. If you specify the username root , then the user profile will not be created, the user_password parameter will be ignored."
+    echo -e "user_password - user password."
+    echo -e "host_name - hostname of the system."
+    echo -e "default_target - target of systemd. For loading GUI - graphical, for loading in command line mode - multi-user, for loading in emergency mode - emergency."
+    echo -e "ssh - enable ssh."
+    echo -e "cloud - special mode to run as a cloud-init host."
+    echo -e ""
+    echo -e "Example: ${MAGENTA}$0${ENDCOLOUR} root_password=toor user_name=live user_password=evil"
+
+    exit 0
+}
+
+function allow_root_only() {
+    if [ $(id -u) -ne 0 ]; then
+        echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOUR}"
+        exit 1
+    fi
+
+    export HOME=/root
+    export LC_ALL=C
+}
+
+function read_cmdline() {
+    for i in $@; do
+        case $i in
+        user_name=*)
+            USER_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        user_password=*)
+            USER_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        root_password=*)
+            ROOT_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        host_name=*)
+            HOST_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        default_target=*)
+            DEFAULT_TARGET="${i#*=}"
+            shift # past argument=value
+            ;;
+        ssh)
+            SSH=true
+            shift # past argument with no value
+            ;;
+        cloud)
+            CLOUD=true
+            shift # past argument with no value
+            ;;
+        *)
+            UNKNOWN=true
+            # unknown option
+            ;;
+        esac
+    done
+}
+
+function read_config() { # read_config file.cfg var_name1 var_name2
+    # ref: https://stackoverflow.com/a/20815951
+
+    shopt -s extglob # needed the "one of these"-match below
+    local configfile="${1?No configuration file given}"
+    local keylist="${@:2}" # positional parameters 2 and following
+
+    if [[ ! -f "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not a file!"
+        exit 1
+    fi
+    if [[ ! -r "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not readable!"
+        exit 1
+    fi
+
+    keylist="${keylist// /|}" # this will generate a regex 'one of these'
+
+    # lhs : "left hand side" : Everything left of the '='
+    # rhs : "right hand side": Everything right of the '='
+    #
+    # "lhs" will hold the name of the key you want to read.
+    # The value of "rhs" will be assigned to that key.
+    while IFS='= ' read -r lhs rhs; do
+        # IF lhs in keylist
+        # AND rhs not empty
+        if [[ "$lhs" =~ ^($keylist)$ ]] && [[ -n $rhs ]]; then
+            rhs="${rhs%\"*}"   # Del opening string quotes
+            rhs="${rhs#\"*}"   # Del closing string quotes
+            rhs="${rhs%\'*}"   # Del opening string quotes
+            rhs="${rhs#\'*}"   # Del closing string quotes
+            eval $lhs=\"$rhs\" # The magic happens here
+        fi
+        # tr used as a safeguard against dos line endings
+    done <<<$(tr -d '\r' <$configfile)
+
+    shopt -u extglob # Switching it back off after use
+}
+
+allow_root_only
+
+CURRENT_USER_NAME=$(id -nu 1000 2>/dev/null)
+CURRENT_USER_GROUP=$(id -ng 1000 2>/dev/null)
+
+if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+    if [ -f /cmdline ]; then
+        CMDLINE=$(cat /cmdline)
+        read_cmdline $CMDLINE
+    fi
+    if [ -f /livekit.conf ]; then
+        read_config /livekit.conf LIVEKITNAME
+    else
+        LIVEKITNAME="minios"
+    fi
+else
+    read_cmdline $@
+    if [[ $# == 0 ]] || [ "$UNKNOWN" = "true" ]; then help; fi
+    if [ -f /run/initramfs/lib/config ]; then
+        read_config /run/initramfs/lib/config LIVEKITNAME
+    else
+        LIVEKITNAME="minios"
+    fi
+fi
+
+# Set up user 'root'
+if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+    if [ ! -f /etc/$LIVEKITNAME.conf ]; then
+        cp -rT /etc/skel /root
+        chown 0:0 /root
+        chown -R 0:0 /root
+    fi
+fi
+if [ -z "$ROOT_PASSWORD" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f /etc/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME.conf ROOT_PASSWORD
+            if [ -z "$ROOT_PASSWORD" ]; then
+                ROOT_PASSWORD="toor"
+            fi
+        else
+            ROOT_PASSWORD="toor"
+        fi
+    fi
+fi
+if [ ! -z "$ROOT_PASSWORD" ]; then
+    echo root:$ROOT_PASSWORD | chpasswd
+fi
+
+if [ -z "$CLOUD" ]; then
+    if [ -f /etc/$LIVEKITNAME.conf ]; then
+        read_config /etc/$LIVEKITNAME.conf CLOUD
+        if [ -z "$CLOUD" ]; then
+            CLOUD="false"
+        fi
+    else
+        CLOUD="false"
+    fi
+fi
+sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME.conf
+if [ "$CLOUD" != "true" ]; then
+    if [ -z "$USER_NAME" ]; then
+        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+            if [ -f /etc/$LIVEKITNAME.conf ]; then
+                read_config /etc/$LIVEKITNAME.conf USER_NAME
+            fi
+            if [ -z "$USER_NAME" ]; then
+                USER_NAME="live"
+                USER_GROUP="live"
+            fi
+        fi
+    fi
+
+    if [ "$USER_NAME" != "root" ]; then
+        # Set up user
+        USER_GROUP=$USER_NAME
+        if [ -z "$CURRENT_USER_NAME" ]; then
+            adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
+            usermod -a -G sudo $USER_NAME
+        elif [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
+            if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+                if [[ ! $(ps -u $CURRENT_USER_NAME) ]]; then
+                    usermod -l $USER_NAME $CURRENT_USER_NAME
+                    usermod -m -d /home/$USER_NAME $USER_NAME
+                    groupmod -n $USER_GROUP $CURRENT_USER_GROUP
+                else
+                    echo "Processes are running under the $CURRENT_USER_NAME. Username will be changed after system reboot."
+                    USER_NAME_CHANGE_PENDING="true"
+                fi
+            else
+                usermod -l $USER_NAME $CURRENT_USER_NAME
+                usermod -m -d /home/$USER_NAME $USER_NAME
+                groupmod -n $USER_GROUP $CURRENT_USER_GROUP
+            fi
+        fi
+    fi
+    if [ -z "$USER_PASSWORD" ]; then
+        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+            if [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
+                if [ -f /etc/$LIVEKITNAME.conf ]; then
+                    read_config /etc/$LIVEKITNAME.conf USER_PASSWORD
+                fi
+                if [ -z "$USER_PASSWORD" ]; then
+                    USER_PASSWORD="evil"
+                fi
+            fi
+        fi
+    fi
+    if [ ! -z "$USER_PASSWORD" ]; then
+        # Set up password for user
+        if [ "$USER_NAME_CHANGE_PENDING" = "true" ]; then
+            echo $CURRENT_USER_NAME:$USER_PASSWORD | chpasswd
+        else
+            if [ -z "$USER_NAME" ]; then
+                if [ ! -z "$CURRENT_USER_NAME" ]; then
+                    echo $CURRENT_USER_NAME:$USER_PASSWORD | chpasswd
+                else
+                    echo "Username not specified"
+                fi
+            else
+                echo $USER_NAME:$USER_PASSWORD | chpasswd
+            fi
+        fi
+    fi
+else
+    USER_NAME="root"
+    SSH="true"
+    DEFAULT_TARGET="multi-user"
+fi
+
+if [ ! -f /etc/$LIVEKITNAME.conf ]; then
+    if [ "$USER_NAME" != "root" ]; then
+        if [ ! -z $USER_NAME ]; then
+            if [ -z $CURRENT_USER_NAME ]; then
+                # create user directories
+                if [ -d /home/$USER_NAME/$dir ]; then
+                    for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                        mkdir -p /home/$USER_NAME/$dir
+                    done
+                    UID=$(id -u $USER_NAME)
+                    GID=$(id -g $USER_NAME)
+                    chown $USER_NAME:$USER_NAME /home/$USER_NAME
+                    chown -R $USER_NAME:$USER_NAME /home/$USER_NAME
+                fi
+            fi
+        fi
+    fi
+fi
+
+if [ -z "$SSH" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f /etc/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME.conf SSH
+            if [ -z "$SSH" ]; then
+                SSH="false"
+            fi
+        else
+            SSH="false"
+        fi
+    fi
+fi
+if [ ! -z "$SSH" ]; then
+    if [ "$SSH" = "true" ]; then
+        systemctl enable ssh-keygen
+        systemctl enable ssh
+        sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
+        sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
+    else
+        systemctl disable ssh-keygen
+        systemctl disable ssh
+        SSH="false"
+    fi
+fi
+
+if [ ! -z "$USER_NAME" ]; then
+    if [ "$USER_NAME" != "root" ]; then
+        cat <<EOF >/etc/sudoers.d/90-minios
+# live user is default user in minios.
+# It needs passwordless sudo functionality.
+$USER_NAME ALL=(ALL) NOPASSWD:ALL
+EOF
+    fi
+fi
+
+if [ "$CLOUD" != "true" ]; then
+    if [ ! -z "$USER_NAME" ]; then
+        if [ "$USER_NAME" != "root" ]; then
+            cat <<EOF >/etc/issue
+
+
+                                                                          \l
+
+
+
+
+
+                        Thank you for using MiniOS.
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+                        Root login name: [1;33mroot[0;29m
+                        Password: [1;33m$ROOT_PASSWORD[0;29m
+                        User login name: [1;33m$USER_NAME[0;29m
+                        Password: [1;33m$USER_PASSWORD[0;29m
+
+
+
+
+
+EOF
+        else
+            cat <<EOF >/etc/issue
+
+
+                                                                          \l
+
+
+
+
+
+                        Thank you for using MiniOS.
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+                        Root login name: [1;33mroot[0;29m
+                        Password: [1;33m$ROOT_PASSWORD[0;29m
+
+
+
+
+
+
+
+EOF
+        fi
+    fi
+else
+    cat <<EOF >/etc/issue
+
+
+                                                                          \l
+
+
+
+
+
+                        Thank you for using MiniOS.
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+                        User login name set by
+                        cloud-init. You must use
+                        your ssh key to login.
+                        Root login name: [1;33mroot[0;29m
+                        Password: [1;33m$ROOT_PASSWORD[0;29m
+
+
+
+
+
+
+EOF
+fi
+
+cat <<EOF >/usr/lib/systemd/system/minios-configure.service
+[Unit]
+Description=MiniOS config file updater
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStop=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then if [ /etc/$LIVEKITNAME.conf -nt /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME.conf /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf; fi; fi"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+if [ ! -z "$USER_NAME" ]; then
+    if [ -f /usr/lib/systemd/system/xorg.service ]; then
+        cat <<EOF >/usr/lib/systemd/system/xorg.service
+[Unit]
+Description=X-Window
+ConditionKernelCommandLine=!text
+After=systemd-user-sessions.service
+
+[Service]
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
+EOF
+    fi
+    if [ -f /etc/default/nodm ]; then
+        sed -i "s/NODM_USER=live/NODM_USER=$USER_NAME/g" /etc/default/nodm
+    fi
+    if [ -f /etc/slim.conf ]; then
+        sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
+    fi
+fi
+
+if [ "$CLOUD" != "true" ]; then
+    if [ -z "$HOST_NAME" ]; then
+        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+            if [ -f /etc/$LIVEKITNAME.conf ]; then
+                read_config /etc/$LIVEKITNAME.conf HOST_NAME
+                if [ -z "$HOST_NAME" ]; then
+                    HOST_NAME="minios"
+                fi
+            else
+                HOST_NAME="minios"
+            fi
+        fi
+    fi
+    if [ ! -z "$HOST_NAME" ]; then
+        echo $HOST_NAME >/etc/hostname
+        cat <<EOF >/etc/hosts
+127.0.0.1       localhost $HOST_NAME
+::1             localhost ip6-localhost ip6-loopback $HOST_NAME
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+
+EOF
+    fi
+fi
+
+if [ -z "$DEFAULT_TARGET" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f /etc/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME.conf DEFAULT_TARGET
+            if [ -z "$DEFAULT_TARGET" ]; then
+                DEFAULT_TARGET="graphical"
+            fi
+        else
+            DEFAULT_TARGET="graphical"
+        fi
+    fi
+fi
+if [ ! -z "$DEFAULT_TARGET" ]; then
+    systemctl set-default $DEFAULT_TARGET
+fi
+
+if [ -f /minios-modules.tar.xz ]; then
+    tar -xJf /minios-modules.tar.xz -C /
+    rm /minios-modules.tar.xz
+fi
+
+systemctl enable minios-configure
+
+if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+    cat <<EOF >/etc/$LIVEKITNAME.conf
+# =================================================================
+# Be careful. If you are using persistent mode, do not change the
+# DEFAULT_TARGET and CLOUD variables, it may break your system.
+# Please do not change the username, password and root password by
+# system tools, they will be automatically replaced with the ones
+# specified here during system reboot/shutdown. If you delete the
+# configuration files ($LIVEKITNAME.conf), the username, password,
+# password of the root user will be replaced with the default ones.
+# =================================================================
+
+USER_NAME=$USER_NAME
+USER_PASSWORD=$USER_PASSWORD
+ROOT_PASSWORD=$ROOT_PASSWORD
+HOST_NAME=$HOST_NAME
+DEFAULT_TARGET=$DEFAULT_TARGET
+SSH=$SSH
+CLOUD=$CLOUD
+EOF
+else
+    if [ ! -z "$USER_NAME" ]; then
+        sed -i -e "/USER_NAME=/s/=.*/=$USER_NAME/" /etc/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$USER_PASSWORD" ]; then
+        sed -i -e "/USER_PASSWORD=/s/=.*/=$USER_PASSWORD/" /etc/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$ROOT_PASSWORD" ]; then
+        sed -i -e "/ROOT_PASSWORD=/s/=.*/=$ROOT_PASSWORD/" /etc/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$HOST_NAME" ]; then
+        sed -i -e "/HOST_NAME=/s/=.*/=$HOST_NAME/" /etc/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$DEFAULT_TARGET" ]; then
+        sed -i -e "/DEFAULT_TARGET=/s/=.*/=$DEFAULT_TARGET/" /etc/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$SSH" ]; then
+        sed -i -e "/SSH=/s/=.*/=$SSH/" /etc/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$CLOUD" ]; then
+        sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME.conf
+    fi
+fi

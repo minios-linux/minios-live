@@ -1,17 +1,7 @@
 #!/bin/bash
 # This is a config file for MiniOS-Live build script and Linux Live Kit boot script.
-# You shouldn't need to change anything expect LIVEKITNAME PACKAGE_VARIANT OUTPUT COMP_TYPE
+# You shouldn't need to change anything expect PACKAGE_VARIANT OUTPUT COMP_TYPE
 
-# Live Kit Name. Defaults to 'linux';
-# This will be the name of the directory created on your CD/USB, which
-# will contain everything including boot files and such.
-# For example, Slax changes it to 'slax'
-# Must not contain any spaces.
-# If you change it, you must run ./tools/isolinux.bin.update script
-# in order to update isolinux.bin for CD booting.
-# If you do not need booting from CD (eg you're booting only from USB)
-# then you can ignore recompiling isolinux.bin, just rename LIVEKITNAME
-# and you're done.
 LIVEKITNAME="minios"
 
 SYSTEMNAME="MiniOS"
@@ -27,8 +17,8 @@ PACKAGE_VARIANT="standard"
 LIVE_TYPE="livekit"
 
 # default is output to log. you can use OUTPUT="/dev/stdout" if you want to route events to standard output.
-#OUTPUT="/dev/stdout"
-OUTPUT="/dev/null"
+OUTPUT="/dev/stdout"
+#OUTPUT="/dev/null"
 
 DEBIAN_FRONTEND_TYPE="noninteractive"
 
@@ -36,44 +26,9 @@ APT_CMD="apt-get"
 
 APT_OPTIONS="-y"
 
-APT_OPTIONS2="--no-install-recommends"
-
 UNION_BUILD_TYPE="overlayfs"
 
+BEXT="sb"
+
 # Compression method used for the system and modules.
-COMP_TYPE="lz4"
-
-# Kernel file, will be copied to your Live Kit
-# Your kernel must support aufs and squashfs. Debian Jessie's kernel is ready
-# out of the box.
-VMLINUZ="/vmlinuz"
-
-# Kernel version. Change it to "3.2.28" for example, if you are building
-# Live Kit with a different kernel than the one you are actually running
-if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
-	KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* | head -n 1 | sed 's/linux-image-//')
-else
-	KERNEL=$(uname -r)
-fi
-
-# List of directories for root filesystem
-# No subdirectories are allowed, no slashes,
-# so You can't use /var/tmp here for example
-# Exclude directories like proc sys tmp
-MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
-
-# If you require network support in initrd, for example to boot over
-# PXE or to load data using 'from' boot parameter from a http server,
-# you will need network modules included in your initrd.
-# This is disabled by default since most people won't need it.
-# To enable, set to true
-NETWORK=true
-
-# Temporary directory to store livekit filesystem
-LIVEKITDATA=/tmp/$LIVEKITNAME-data-$$
-
-# Bundle extension, for example 'sb' for .sb extension
-BEXT=sb
-
-# Directory with kernel .ko modules, can be different in some distros
-LMK="lib/modules/$KERNEL"
+COMP_TYPE="xz"

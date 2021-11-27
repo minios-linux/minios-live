@@ -1,18 +1,5 @@
 #!/bin/bash
 
-# create user directories
-for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-    mkdir -p /home/$USER_NAME/$dir >>$OUTPUT 2>&1
-    mkdir -p /root/$dir >>$OUTPUT 2>&1
-done
-
-cp -rT /etc/skel /home/$USER_NAME
-cp -rT /etc/skel /root
-chown 1000:1000 /home/$USER_NAME
-chown -R 1000:1000 /home/$USER_NAME
-chown 0:0 /root
-chown -R 0:0 /root
-
 rm -f /usr/share/backgrounds/xfce/*
 ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-verticals.png
 ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
@@ -193,6 +180,7 @@ Categories=System;Utility;
 EOF
 fi
 
+rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
 
 update-alternatives --set x-terminal-emulator /usr/bin/xterm >>$OUTPUT 2>&1

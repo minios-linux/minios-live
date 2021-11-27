@@ -83,6 +83,14 @@ cmdline_value() {
    cat /proc/cmdline | egrep -o "(^|[[:space:]])$1=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
 }
 
+# get value of config parameter $2
+# $1 = config file name
+# $2 = parameter to search for
+#
+config_value() {
+   cat $1 | egrep -o "(^|[[:space:]])$2=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
+}
+
 # test if the script is started by root user. If not, exit
 #
 allow_only_root() {
@@ -575,7 +583,7 @@ check_data_found() {
 persistent_changes() {
    debug_log "persistent_changes" "$*"
 
-   local CHANGES T1 T2 EXISTS
+   local CHANGES T1 T2 EXISTS CHANGES_SIZE
 
    CHANGES="$1/$(basename "$2")"
    T1="$CHANGES/.empty"
@@ -611,19 +619,27 @@ persistent_changes() {
       return
    fi
 
-   if [ -e "$CHANGES/changes.dat" ]; then
-      echo "* Restoring persistent changes"
-      EXISTS="true"
+   if grep -vq remove_changes /proc/cmdline; then
+      if [ -e "$CHANGES/changes.dat" ]; then
+         echo "* Restoring persistent changes"
+         EXISTS="true"
+      else
+         echo "* Creating new persistent changes"
+         EXISTS=""
+      fi
    else
+      if [ -f "$CHANGES/changes.dat" ]; then
+         rm -f "$CHANGES/changes.dat"
+      fi
       echo "* Creating new persistent changes"
       EXISTS=""
    fi
 
-   PERCH_SIZE=$(cmdline_value perch_size)
-   if [ ! "$PERCH_SIZE" ]; then
+   CHANGES_SIZE=$(cmdline_value changes_size)
+   if [ ! "$CHANGES_SIZE" ]; then
       @mount.dynfilefs "$CHANGES/changes.dat" 4000 "$2"
    else
-      @mount.dynfilefs "$CHANGES/changes.dat" $PERCH_SIZE "$2"
+      @mount.dynfilefs "$CHANGES/changes.dat" $CHANGES_SIZE "$2"
    fi
    if [ ! "$EXISTS" ]; then
       mke2fs -F "$2/loop.fs" >/dev/null 2>&1
@@ -784,13 +800,51 @@ fstab_create() {
 minios_configure() {
    debug_log "minios_configure" "$*"
 
-   cp /bin/cmdline_parser $1/
+   local WRITABLE
+
+   cp /bin/minios-configure $1/
    cat /proc/cmdline >$1/cmdline
 
-   chroot $1 /bin/bash -c "/cmdline_parser" >/dev/null 2>&1
+   touch "$2/$LIVEKITNAME/.empty" 2>/dev/null && rm -f "$2/$LIVEKITNAME/.empty" 2>/dev/null
+
+   if [ $? -ne 0 ]; then
+      WRITABLE="false"
+      #echo "* Directory $2/$LIVEKITNAME not writable"
+   else
+      WRITABLE="true"
+      if [ -d $2/$LIVEKITNAME ]; then
+         if [ -f $2/$LIVEKITNAME/$LIVEKITNAME.conf ] && [ -f $1/etc/$LIVEKITNAME.conf ]; then
+            if [ "$2/$LIVEKITNAME/$LIVEKITNAME.conf" -nt "$1/etc/$LIVEKITNAME.conf" ]; then
+               cp -fp $2/$LIVEKITNAME/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME.conf
+            elif [ "$2/$LIVEKITNAME/$LIVEKITNAME.conf" -ot "$1/etc/$LIVEKITNAME.conf" ]; then
+               cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME/$LIVEKITNAME.conf
+            fi
+         elif [ -f $2/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            cp -fp $2/$LIVEKITNAME/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME.conf
+         elif [ -f $1/etc/$LIVEKITNAME.conf ]; then
+            cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME/$LIVEKITNAME.conf
+         fi
+      fi
+   fi
+
+   echo "LIVEKITNAME=$LIVEKITNAME" >$1/livekit.conf
+
+   if grep -q minios_modules /proc/cmdline; then
+      cp /opt/minios-modules.tar.xz $1/minios-modules.tar.xz
+   fi
+
+   chroot $1 /bin/bash -c "/minios-configure" >/dev/null 2>&1
+
+   if [ "$WRITABLE" = "true" ]; then
+      if [ -f $1/etc/$LIVEKITNAME.conf ]; then
+         cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME/$LIVEKITNAME.conf
+      fi
+   fi
 
    rm -f $1/cmdline
-   rm -f $1/cmdline_parser
+   mv -f $1/minios-configure $1/usr/bin/minios-configure
+   chmod 755 $1/usr/bin/minios-configure
+   rm -f $1/livekit.conf
 }
 
 # Change root and execute init

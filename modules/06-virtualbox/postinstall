@@ -1,6 +1,31 @@
 #!/bin/bash
 
-$APT_CMD autoremove $APT_OPTIONS $APT_OPTIONS2 \
-    linux-headers-amd64 gcc make >>$OUTPUT 2>&1
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
+if [ -z $DISTRIBUTION ]; then
+    DISTRIBUTION="bullseye"
+fi
+if [ -z $APT_CMD ]; then
+    APT_CMD="apt-get"
+fi
+if [ -z $APT_OPTIONS ]; then
+    APT_OPTIONS="-y"
+fi
+if [ -z $OUTPUT ]; then
+    OUTPUT="/dev/stdout"
+fi
+
+VBOX_VERSION=$(wget -O- https://download.virtualbox.org/virtualbox/LATEST.TXT)
+
+$APT_CMD autoremove $APT_OPTIONS \
+    binutils binutils-common binutils-x86-64-linux-gnu \
+    gcc gcc-10 libasan6 libatomic1 libbinutils libcc1-0 \
+    libctf-nobfd0 libctf0 libgcc-10-dev libitm1 liblsan0 \
+    libquadmath0 libtsan0 libubsan1 linux-compiler-gcc-10-x86 \
+    linux-headers-5.10.0-9-amd64 linux-headers-5.10.0-9-common \
+    linux-headers-amd64 linux-kbuild-5.10 make >>$OUTPUT 2>&1
+
+rm -f $SCRIPT_DIR/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
+
+rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1

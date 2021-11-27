@@ -1,12 +1,5 @@
 #!/bin/bash
 
-cp -rT /etc/skel /home/$USER_NAME
-cp -rT /etc/skel /root
-chown 1000:1000 /home/$USER_NAME
-chown -R 1000:1000 /home/$USER_NAME
-chown 0:0 /root
-chown -R 0:0 /root
-
 # Set setuid bit on xorg binary, so it can be started by guest user
 chmod u+s /usr/lib/xorg/Xorg
 
@@ -25,5 +18,7 @@ ls -la
 dpkg -x x11-xserver-utils*.deb /tmp/x11utils >>$OUTPUT 2>&1
 cd /tmp/x11utils
 cp -aR * / >>$OUTPUT 2>&1
+
+rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
 
 update-alternatives --set x-terminal-emulator /usr/bin/xterm >>$OUTPUT 2>&1

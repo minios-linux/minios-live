@@ -72,6 +72,7 @@ function current_process() {
 # beautiful console
 # красивая консоль
 # =================================================================
+
 function console_colours() {
     RED="\e[31m"
     GREEN="\e[32m"
@@ -100,67 +101,115 @@ function console_colours() {
 # help functions
 # функции помощи
 # =================================================================
+
 function help() {
     # if $1 is set, use $1 as headline message in help()
-    if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-        if [ -z ${1+x} ]; then
-            echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
+    if [ -f /etc/default/locale ]; then
+        if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
+            if [ -z ${1+x} ]; then
+                echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
+                echo -e
+            else
+                echo -e $1
+                echo
+            fi
+            echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
             echo -e
+            echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+            if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+                echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+            fi
+            echo -e "\tзапуск от start_cmd до end_cmd"
+            echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
+            echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
+            echo -e "\tвведите одну команду, чтобы запустить определенную команду"
+            echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
+            echo -e "\t"
+            echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+            exit 0
         else
-            echo -e $1
-            echo
-        fi
-        echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
-        echo -e
-        echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-        if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-            echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-        fi
-        echo -e "\tзапуск от start_cmd до end_cmd"
-        echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
-        echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
-        echo -e "\tвведите одну команду, чтобы запустить определенную команду"
-        echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
-        echo -e "\t"
-        echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
-        exit 0
-    else
-        if [ -z ${1+x} ]; then
-            echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOUR}"
+            if [ -z ${1+x} ]; then
+                echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOUR}"
+                echo -e
+            else
+                echo -e $1
+                echo
+            fi
+            echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
             echo -e
-        else
-            echo -e $1
-            echo
+            echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+            if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+                echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+            fi
+            echo -e "\trun from start_cmd to end_cmd"
+            echo -e "\tif start_cmd is omitted, start from first command"
+            echo -e "\tif end_cmd is omitted, end with last command"
+            echo -e "\tenter single cmd to run the specific command"
+            echo -e "\tenter '-' as only argument to run all commands"
+            echo -e "\t"
+            echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
+            echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+            exit 0
         fi
-        echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
-        echo -e
-        echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-        if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-            echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-        fi
-        echo -e "\trun from start_cmd to end_cmd"
-        echo -e "\tif start_cmd is omitted, start from first command"
-        echo -e "\tif end_cmd is omitted, end with last command"
-        echo -e "\tenter single cmd to run the specific command"
-        echo -e "\tenter '-' as only argument to run all commands"
-        echo -e "\t"
-        echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
-        echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
-        exit 0
     fi
+}
+
+# =================================================================
+# reading configuration file
+# чтение конфигурационного файла
+# =================================================================
+
+function read_config() { # read_config file.cfg var_name1 var_name2
+    # ref: https://stackoverflow.com/a/20815951
+
+    shopt -s extglob # needed the "one of these"-match below
+    local configfile="${1?No configuration file given}"
+    local keylist="${@:2}" # positional parameters 2 and following
+
+    if [[ ! -f "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not a file!"
+        exit 1
+    fi
+    if [[ ! -r "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not readable!"
+        exit 1
+    fi
+
+    keylist="${keylist// /|}" # this will generate a regex 'one of these'
+
+    # lhs : "left hand side" : Everything left of the '='
+    # rhs : "right hand side": Everything right of the '='
+    #
+    # "lhs" will hold the name of the key you want to read.
+    # The value of "rhs" will be assigned to that key.
+    while IFS='= ' read -r lhs rhs; do
+        # IF lhs in keylist
+        # AND rhs not empty
+        if [[ "$lhs" =~ ^($keylist)$ ]] && [[ -n $rhs ]]; then
+            rhs="${rhs%\"*}"   # Del opening string quotes
+            rhs="${rhs#\"*}"   # Del closing string quotes
+            rhs="${rhs%\'*}"   # Del opening string quotes
+            rhs="${rhs#\'*}"   # Del closing string quotes
+            eval $lhs=\"$rhs\" # The magic happens here
+        fi
+        # tr used as a safeguard against dos line endings
+    done <<<$(tr -d '\r' <$configfile)
+
+    shopt -u extglob # Switching it back off after use
 }
 
 # =================================================================
 # parsing input commands
 # разбор входных команд
 # =================================================================
+
 function find_index() {
     local ret
     local i
@@ -179,6 +228,7 @@ function find_index() {
 # создание символической ссылки на исполняемый файл для
 # использования автодополнения в командной строке
 # =================================================================
+
 function create_livekitname_install_symlink() {
     if [ -L /usr/bin/$LIVEKITNAME-install ]; then
         if [ "$(readlink /usr/bin/$LIVEKITNAME-install)" != "$SCRIPT_DIR/install" ]; then
@@ -216,6 +266,7 @@ function create_livekitname_install_symlink() {
 # creating autocompletion on the command line
 # создание автодополнения в командной строке
 # =================================================================
+
 function create_completion() {
     if [ -d /etc/bash_completion.d ]; then
         if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install >/dev/null 2>&1; then
@@ -375,6 +426,7 @@ function setup_install_dir() {
 # cleaning the build folder
 # очистка папки для сборки
 # =================================================================
+
 function cleanup() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     if [ "${CMD[ii]}" = "setup_host" ] || [ "${CMD[ii]}" = "build_bootstrap" ] || [ "${CMD[ii]}" = "build_chroot" ]; then
@@ -471,6 +523,7 @@ function chroot_umount_fs() {
 # delete the log
 # удаляем лог
 # =================================================================
+
 function remove_log_file() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     if [ -f $LOGPATH/$LIVEKITNAME.log ]; then
@@ -487,6 +540,7 @@ function remove_log_file() {
 # создание бэкапа скриптов (для запуска необходимо установить
 # переменную CREATE_BACKUP="1" в linux-live/buildconfig)
 # =================================================================
+
 function create_backup() {
     if [ $CREATE_BACKUP = "1" ]; then
         echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
@@ -531,6 +585,7 @@ function create_backup() {
 # Отображение информации о старте сборки для более удобного поиска
 # в логах
 # =================================================================
+
 function new_run() {
     DATE=$(date +"%Y.%m.%d %H:%M")
     echo ""
@@ -550,6 +605,106 @@ function new_run() {
     echo ""
 }
 
+function add_chroot_configuration_files() {
+    cat <<EOF >$1/$LIVEKITNAME.conf
+OUTPUT=$OUTPUT
+LOGPATH=$LOGPATH
+BUILD_TEST_ISO=$BUILD_TEST_ISO
+CREATE_BACKUP=$CREATE_BACKUP
+DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE
+APT_CMD=$APT_CMD
+APT_OPTIONS=$APT_OPTIONS
+LIVE_TYPE=$LIVE_TYPE
+DISTRIBUTION=$DISTRIBUTION
+DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
+PACKAGE_VARIANT=$PACKAGE_VARIANT
+COMP_TYPE=$COMP_TYPE
+KERNEL_ARCH=$KERNEL_ARCH
+USER_NAME=$USER_NAME
+EOF
+
+    cat <<'EOF' >$1/functions
+#!/bin/bash
+
+# =================================================================
+# beautiful console
+# красивая консоль
+# =================================================================
+function console_colours() {
+    RED="\e[31m"
+    GREEN="\e[32m"
+    YELLOW="\e[33m"
+    BLUE="\e[34m"
+    MAGENTA="\e[35m"
+    CYAN="\e[36m"
+    LIGHTGRAY="\e[37m"
+    DARKGRAY="\e[90m"
+    LIGHTRED="\e[91m"
+    LIGHTGREEN="\e[92m"
+    LIGHTYELLOW="\e[93m"
+    LIGHTBLUE="\e[94m"
+    LIGHTMAGENTA="\e[95m"
+    LIGHTCYAN="\e[96m"
+    BOLD="\e[1m"
+    DIM="\e[2m"
+    UNDERLINED="\e[4m"
+    BLINK="\e[5m"
+    REVERSE="\e[7m"
+    HIDDEN="\e[8m"
+    ENDCOLOUR="\e[0m"
+}
+
+# =================================================================
+# reading configuration file
+# чтение конфигурационного файла
+# =================================================================
+
+function read_config() { # read_config file.cfg var_name1 var_name2
+    # ref: https://stackoverflow.com/a/20815951
+
+    shopt -s extglob # needed the "one of these"-match below
+    local configfile="${1?No configuration file given}"
+    local keylist="${@:2}" # positional parameters 2 and following
+
+    if [[ ! -f "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not a file!"
+        exit 1
+    fi
+    if [[ ! -r "$configfile" ]]; then
+        echo >&2 "\"$configfile\" is not readable!"
+        exit 1
+    fi
+
+    keylist="${keylist// /|}" # this will generate a regex 'one of these'
+
+    # lhs : "left hand side" : Everything left of the '='
+    # rhs : "right hand side": Everything right of the '='
+    #
+    # "lhs" will hold the name of the key you want to read.
+    # The value of "rhs" will be assigned to that key.
+    while IFS='= ' read -r lhs rhs; do
+        # IF lhs in keylist
+        # AND rhs not empty
+        if [[ "$lhs" =~ ^($keylist)$ ]] && [[ -n $rhs ]]; then
+            rhs="${rhs%\"*}"   # Del opening string quotes
+            rhs="${rhs#\"*}"   # Del closing string quotes
+            rhs="${rhs%\'*}"   # Del opening string quotes
+            rhs="${rhs#\'*}"   # Del closing string quotes
+            eval $lhs=\"$rhs\" # The magic happens here
+        fi
+        # tr used as a safeguard against dos line endings
+    done <<<$(tr -d '\r' <$configfile)
+
+    shopt -u extglob # Switching it back off after use
+}
+EOF
+}
+
+function remove_chroot_configuration_files() {
+    rm -f $1/$LIVEKITNAME.conf
+    rm -f $1/functions
+}
+
 # =================================================================
 # =================================================================
 # ====================== HOST FUNCTIONS ===========================
@@ -560,6 +715,7 @@ function new_run() {
 # Creating a $PACKAGE_VARIANT list from a template
 # Создание списка пакетов из шаблона
 # =================================================================
+
 function create_apt_list() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     if [ ! -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list ] && [ $DISTRIBUTION_TYPE != "debian" ]; then
@@ -569,10 +725,46 @@ function create_apt_list() {
     fi
 }
 
+function chroot_run() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+
+    add_chroot_configuration_files $1
+    chroot $1 /bin/bash <<EOF
+. /functions
+read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE USER_NAME
+export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE USER_NAME
+${@:2}
+EOF
+}
+
+# Unzip gzipped files (man pages), so LZMA can compress 2times better.
+# First we fix symlinks, then uncompress files
+# $1 = search directory
+uncompress_files() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    local LINK LINE
+
+    find "$1" -type l -name "*.gz" | while read LINE; do
+        LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
+        FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
+        ln -sfn "$LINK" "$FILE"
+        rm -f "$LINE"
+    done
+    find "$1" -type f -name "*.gz" | xargs -r gunzip
+}
+
+# remove broken links
+# $1 = search directory
+remove_broken_links() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
+}
+
 # =================================================================
 # Installing the base system
 # Установка базовой системы
 # =================================================================
+
 function build_bootstrap() {
     current_process
 
@@ -660,39 +852,9 @@ EOF
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot $INSTALL_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD update $APT_OPTIONS
+                    chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
                 else
-                    chroot $INSTALL_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
                 fi
             else
                 chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
@@ -700,39 +862,9 @@ EOF
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot $INSTALL_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD upgrade $APT_OPTIONS
+                    chroot_run $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS
                 else
-                    chroot $INSTALL_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
                 fi
             else
                 chroot $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
@@ -741,40 +873,10 @@ EOF
             if [ -f $SCRIPT_DIR/linux-live/pkglists/prereq.list ]; then
                 if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot $INSTALL_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            $APT_CMD install $APT_OPTIONS \
+                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ")
                     else
-                        chroot $INSTALL_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            $APT_CMD install $APT_OPTIONS \
+                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
                     fi
                 else
@@ -785,39 +887,9 @@ EOF
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
-                    chroot $INSTALL_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD clean $APT_OPTIONS
+                    chroot_run $INSTALL_DIR $APT_CMD clean $APT_OPTIONS
                 else
-                    chroot $INSTALL_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
                 fi
             else
                 chroot $INSTALL_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
@@ -908,22 +980,7 @@ function build_chroot() {
     cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
 
     if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
-        chroot $INSTALL_DIR /usr/bin/env \
-            OUTPUT=$OUTPUT \
-            LOGPATH=$LOGPATH \
-            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-            CREATE_BACKUP=$CREATE_BACKUP \
-            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-            APT_CMD=$APT_CMD \
-            APT_OPTIONS=$APT_OPTIONS \
-            LIVE_TYPE=$LIVE_TYPE \
-            DISTRIBUTION=$DISTRIBUTION \
-            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-            COMP_TYPE=$COMP_TYPE \
-            KERNEL_ARCH=$KERNEL_ARCH \
-            USER_NAME=$USER_NAME \
-            LIVE_TYPE=$LIVE_TYPE /linux-live/install_chroot -
+        chroot_run $INSTALL_DIR /linux-live/install_chroot -
     else
         chroot $INSTALL_DIR /linux-live/install_chroot -
     fi
@@ -1255,107 +1312,87 @@ function chroot_setup_host() {
 #
 #
 # =================================================================
-function chroot_build_cleanup() {
+function chroot_cleanup() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
 
-    set +e
+    set +eu
+    rm -f $1/functions
+    rm -f $1/$LIVEKITNAME.conf
+    rm -f $1/preinstall
+    rm -f $1/install
+    rm -f $1/install2
+    rm -f $1/cleanup
+    rm -f $1/$PACKAGE_VARIANT.list
+    rm -f $1/postinstall
+    rm -rf $1/rootcopy-install
+    rm -rf $1/rootcopy
+    rm -rf $1/patches
 
-    rm -f /preinstall >>$OUTPUT 2>&1
-    rm -f /install >>$OUTPUT 2>&1
-    rm -f /install2 >>$OUTPUT 2>&1
-    rm -f /cleanup >>$OUTPUT 2>&1
-    rm -f /$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
-    rm -f /postinstall >>$OUTPUT 2>&1
-    rm -rf /rootcopy-install >>$OUTPUT 2>&1
-    rm -rf /patches >>$OUTPUT 2>&1
+    rm -f $1/etc/fstab
+    rm -f $1/etc/mtab
+    rm -f $1/etc/apt/sources.list~
+    rm -Rf $1/etc/systemd/system/timers.target.wants
+    rm -f $1/etc/systemd/system/multi-user.target.wants/ssh.service
+    rm -f $1/etc/systemd/system/multi-user.target.wants/dnsmasq.service
 
-    rm -f /etc/fstab >>$OUTPUT 2>&1
-    rm -f /etc/mtab >>$OUTPUT 2>&1
-    rm -f /etc/apt/sources.list~ >>$OUTPUT 2>&1
-    rm -Rf /etc/systemd/system/timers.target.wants >>$OUTPUT 2>&1
-    rm -f /etc/systemd/system/multi-user.target.wants/ssh.service >>$OUTPUT 2>&1
-    rm -f /etc/systemd/system/multi-user.target.wants/dnsmasq.service >>$OUTPUT 2>&1
+    rm -f $1/etc/ssh/ssh_host*
 
-    rm -f /etc/ssh/ssh_host* >>$OUTPUT 2>&1
+    rm -f $1/var/backups/*
+    rm -f $1/var/cache/ldconfig/*
+    rm -f $1/var/cache/debconf/*
+    rm -f $1/var/cache/fontconfig/*
+    rm -f $1/var/lib/apt/extended_states
+    rm -f $1/var/lib/systemd/random-seed
+    rm -f $1/var/lib/apt/lists/deb.*
+    rm -Rf $1/root/.local/share/mc
+    rm -Rf $1/root/.cache
+    rm -f $1/root/.wget-hsts
 
-    rm -f /var/backups/* >>$OUTPUT 2>&1
-    rm -f /var/cache/ldconfig/* >>$OUTPUT 2>&1
-    rm -f /var/cache/debconf/* >>$OUTPUT 2>&1
-    rm -f /var/cache/fontconfig/* >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/extended_states >>$OUTPUT 2>&1
-    rm -f /var/lib/systemd/random-seed >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/lists/deb.* >>$OUTPUT 2>&1
-    rm -Rf /root/.local/share/mc >>$OUTPUT 2>&1
-    rm -Rf /root/.cache >>$OUTPUT 2>&1
-    rm -f /root/.wget-hsts >>$OUTPUT 2>&1
+    rm -f $1/var/lib/dpkg/*-old
+    rm -f $1/var/log/*
+    rm -f $1/var/log/*/*
+    rm -f $1/var/log/*/*/*
+    rm -f $1/var/cache/apt/archives/*.deb
+    rm -f $1/var/cache/apt/*.bin
+    rm -f $1/var/cache/debconf/*-old
+    rm -f $1/var/lib/dhcp/dhclient.leases
+    rm -f $1/root/.bash_history
+    rm -f $1/root/.wget-hsts
+    rm -Rf $1/usr/share/doc/*
+    rm -Rf $1/usr/share/info/*
+    rm -f $1/usr/share/images/fluxbox/debian-squared.jpg
+    rm -Rf $1/usr/share/fluxbox/nls/??*
+    rm -Rf $1/usr/share/gnome/help
 
-    rm -f /var/lib/dpkg/*-old >>$OUTPUT 2>&1
-    rm -f /var/log/* >>$OUTPUT 2>&1
-    rm -f /var/log/*/* >>$OUTPUT 2>&1
-    rm -f /var/log/*/*/* >>$OUTPUT 2>&1
-    rm -f /var/cache/apt/archives/*.deb >>$OUTPUT 2>&1
-    rm -f /var/cache/apt/*.bin >>$OUTPUT 2>&1
-    rm -f /var/cache/debconf/*-old >>$OUTPUT 2>&1
-    rm -f /var/lib/dhcp/dhclient.leases >>$OUTPUT 2>&1
-    rm -f /root/.bash_history >>$OUTPUT 2>&1
-    rm -f /root/.wget-hsts >>$OUTPUT 2>&1
-    rm -Rf /usr/share/doc/* >>$OUTPUT 2>&1
-    rm -Rf /usr/share/info/* >>$OUTPUT 2>&1
-    rm -f /usr/share/images/fluxbox/debian-squared.jpg >>$OUTPUT 2>&1
-    rm -Rf /usr/share/fluxbox/nls/??* >>$OUTPUT 2>&1
-    rm -Rf /usr/share/gnome/help >>$OUTPUT 2>&1
+    rm -Rf $1/usr/share/locale/??
+    rm -Rf $1/usr/share/locale/??_*
+    rm -Rf $1/usr/share/locale/??@*
+    rm -Rf $1/usr/share/locale/???
+    rm -Rf $1/usr/share/i18n/locales/*_*
+    rm -Rf $1/usr/share/man/??
+    rm -Rf $1/usr/share/man/*_*
 
-    rm -Rf /usr/share/locale/?? >>$OUTPUT 2>&1
-    rm -Rf /usr/share/locale/??_* >>$OUTPUT 2>&1
-    rm -Rf /usr/share/locale/??@* >>$OUTPUT 2>&1
-    rm -Rf /usr/share/locale/??? >>$OUTPUT 2>&1
-    rm -Rf /usr/share/i18n/locales/*_* >>$OUTPUT 2>&1
-    rm -Rf /usr/share/man/?? >>$OUTPUT 2>&1
-    rm -Rf /usr/share/man/*_* >>$OUTPUT 2>&1
+    rm -Rf $1/usr/share/icons/elementaryXubuntu-dark
+    rm -Rf $1/usr/share/icons/gnome/256x256
 
-    #rm -Rf /usr/share/icons/elementaryXubuntu-dark >>$OUTPUT 2>&1
-    rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
+    rm $1/usr/share/applications/compton.desktop
+    rm $1/usr/share/applications/debian-uxterm.desktop
+    rm $1/usr/share/applications/debian-xterm.desktop
+    rm $1/usr/share/applications/htop.desktop
+    rm $1/usr/share/applications/mc.desktop
+    rm $1/usr/share/applications/mcedit.desktop
+    rm $1/usr/share/applications/pcmanfm-desktop-pref.desktop
+    rm $1/usr/share/applications/python2.7.desktop
+    rm $1/usr/share/applications/python3.7.desktop
+    rm $1/usr/share/applications/vim.desktop
 
-    rm /usr/share/applications/compton.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/debian-uxterm.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/debian-xterm.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/htop.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/mc.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/mcedit.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/pcmanfm-desktop-pref.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/python2.7.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/python3.7.desktop >>$OUTPUT 2>&1
-    rm /usr/share/applications/vim.desktop >>$OUTPUT 2>&1
+    uncompress_files $1/etc/alternatives
+    uncompress_files $1/usr/share/man
 
-    # Unzip gzipped files (man pages), so LZMA can compress 2times better.
-    # First we fix symlinks, then uncompress files
-    # $1 = search directory
-    uncompress_files() {
-        local LINK LINE
+    remove_broken_links $1/etc/alternatives
+    remove_broken_links $1/usr/share/man
 
-        find "$1" -type l -name "*.gz" | while read LINE; do
-            LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
-            FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
-            ln -sfn "$LINK" "$FILE"
-            rm -f "$LINE"
-        done
-        find "$1" -type f -name "*.gz" | xargs -r gunzip >>$OUTPUT 2>&1
-    }
-
-    uncompress_files /etc/alternatives >>$OUTPUT 2>&1
-    uncompress_files /usr/share/man >>$OUTPUT 2>&1
-
-    # remove broken links
-    # $1 = search directory
-    remove_broken_links() {
-        find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf >>$OUTPUT 2>&1
-    }
-
-    remove_broken_links /etc/alternatives >>$OUTPUT 2>&1
-    remove_broken_links /usr/share/man >>$OUTPUT 2>&1
-
-    set -e
-
+    set -eu
 }
 
 # =================================================================
@@ -1488,7 +1525,7 @@ function main_pkg_list() {
             /linux-live/basesystem/01-core/postinstall
     fi
 
-    chroot_build_cleanup
+    chroot_cleanup
 }
 
 # =================================================================
@@ -1511,7 +1548,7 @@ function chroot_pkg_install() {
 # No longer used, it will be cleaned after successful testing.
 # Больше не используется, будет убрано после успешного тестирования.
 # =================================================================
-function chroot_configure() {
+function chroot_configure_unused_part() {
     current_process
 
     (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
@@ -1616,7 +1653,10 @@ EOF
 EOF
         fi
     fi
+}
 
+function chroot_configure() {
+    current_process
     if [ ! -d /etc/NetworkManager ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
         cat <<EOF >/usr/lib/systemd/system/dhclient.service
@@ -1684,8 +1724,8 @@ EOF
         #    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
         #    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
         #fi
-        systemctl enable ssh-keygen >>$OUTPUT 2>&1
-        systemctl enable ssh >>$OUTPUT 2>&1
+        #systemctl enable ssh-keygen >>$OUTPUT 2>&1
+        #systemctl enable ssh >>$OUTPUT 2>&1
     fi
 
     if [ ! -f /usr/share/sudo ]; then
@@ -2080,200 +2120,11 @@ function module_chroot_cleanup() {
 function module_build_cleanup() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
 
-    set +e
-
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-        rm -f $MODULE_UPPER_DIR/preinstall
-        rm -f $MODULE_UPPER_DIR/install
-        rm -f $MODULE_UPPER_DIR/install2
-        rm -f $MODULE_UPPER_DIR/cleanup
-        rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
-        rm -f $MODULE_UPPER_DIR/postinstall
-        rm -rf $MODULE_UPPER_DIR/rootcopy
-        rm -rf $MODULE_UPPER_DIR/patches
-
-        rm -f $MODULE_UPPER_DIR/etc/fstab
-        rm -f $MODULE_UPPER_DIR/etc/mtab
-        rm -f $MODULE_UPPER_DIR/etc/apt/sources.list~
-        rm -Rf $MODULE_UPPER_DIR/etc/systemd/system/timers.target.wants
-        rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/ssh.service
-        rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/dnsmasq.service
-
-        rm -f $MODULE_UPPER_DIR/etc/ssh/ssh_host*
-
-        rm -f $MODULE_UPPER_DIR/var/backups/*
-        rm -f $MODULE_UPPER_DIR/var/cache/ldconfig/*
-        rm -f $MODULE_UPPER_DIR/var/cache/debconf/*
-        rm -f $MODULE_UPPER_DIR/var/cache/fontconfig/*
-        rm -f $MODULE_UPPER_DIR/var/lib/apt/extended_states
-        rm -f $MODULE_UPPER_DIR/var/lib/systemd/random-seed
-        rm -f $MODULE_UPPER_DIR/var/lib/apt/lists/deb.*
-        rm -Rf $MODULE_UPPER_DIR/root/.local/share/mc
-        rm -Rf $MODULE_UPPER_DIR/root/.cache
-        rm -f $MODULE_UPPER_DIR/root/.wget-hsts
-
-        rm -f $MODULE_UPPER_DIR/var/lib/dpkg/*-old
-        rm -f $MODULE_UPPER_DIR/var/log/*
-        rm -f $MODULE_UPPER_DIR/var/log/*/*
-        rm -f $MODULE_UPPER_DIR/var/log/*/*/*
-        rm -f $MODULE_UPPER_DIR/var/cache/apt/archives/*.deb
-        rm -f $MODULE_UPPER_DIR/var/cache/apt/*.bin
-        rm -f $MODULE_UPPER_DIR/var/cache/debconf/*-old
-        rm -f $MODULE_UPPER_DIR/var/lib/dhcp/dhclient.leases
-        rm -f $MODULE_UPPER_DIR/root/.bash_history
-        rm -f $MODULE_UPPER_DIR/root/.wget-hsts
-        rm -Rf $MODULE_UPPER_DIR/usr/share/doc/*
-        rm -Rf $MODULE_UPPER_DIR/usr/share/info/*
-        rm -f $MODULE_UPPER_DIR/usr/share/images/fluxbox/debian-squared.jpg
-        rm -Rf $MODULE_UPPER_DIR/usr/share/fluxbox/nls/??*
-        rm -Rf $MODULE_UPPER_DIR/usr/share/gnome/help
-
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??_*
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??@*
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/???
-        rm -Rf $MODULE_UPPER_DIR/usr/share/i18n/locales/*_*
-        rm -Rf $MODULE_UPPER_DIR/usr/share/man/??
-        rm -Rf $MODULE_UPPER_DIR/usr/share/man/*_*
-
-        rm -Rf $MODULE_UPPER_DIR/usr/share/icons/elementaryXubuntu-dark
-        rm -Rf $MODULE_UPPER_DIR/usr/share/icons/gnome/256x256
-
-        rm $MODULE_UPPER_DIR/usr/share/applications/compton.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/debian-uxterm.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/debian-xterm.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/htop.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/mc.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/mcedit.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/pcmanfm-desktop-pref.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/python2.7.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/python3.7.desktop
-        rm $MODULE_UPPER_DIR/usr/share/applications/vim.desktop
-
-        # Unzip gzipped files (man pages), so LZMA can compress 2times better.
-        # First we fix symlinks, then uncompress files
-        # $1 = search directory
-        uncompress_files() {
-            local LINK LINE
-
-            find "$1" -type l -name "*.gz" | while read LINE; do
-                LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
-                FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
-                ln -sfn "$LINK" "$FILE"
-                rm -f "$LINE"
-            done
-            find "$1" -type f -name "*.gz" | xargs -r gunzip
-        }
-
-        uncompress_files $MODULE_UPPER_DIR/etc/alternatives
-        uncompress_files $MODULE_UPPER_DIR/usr/share/man
-
-        # remove broken links
-        # $1 = search directory
-        remove_broken_links() {
-            find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
-        }
-
-        remove_broken_links $MODULE_UPPER_DIR/etc/alternatives
-        remove_broken_links $MODULE_UPPER_DIR/usr/share/man
+        chroot_cleanup $MODULE_UPPER_DIR
     else
-        rm -f $MODULE_UPPER_DIR/preinstall >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/install >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
-        rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
-        rm -rf $MODULE_UPPER_DIR/patches >>$OUTPUT 2>&1
-
-        rm -f $MODULE_UPPER_DIR/etc/fstab >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/etc/mtab >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/etc/apt/sources.list~ >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/etc/systemd/system/timers.target.wants >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/ssh.service >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/etc/systemd/system/multi-user.target.wants/dnsmasq.service >>$OUTPUT 2>&1
-
-        rm -f $MODULE_UPPER_DIR/etc/ssh/ssh_host* >>$OUTPUT 2>&1
-
-        rm -f $MODULE_UPPER_DIR/var/backups/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/cache/ldconfig/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/cache/debconf/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/cache/fontconfig/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/lib/apt/extended_states >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/lib/systemd/random-seed >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/lib/apt/lists/deb.* >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/root/.local/share/mc >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/root/.cache >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/root/.wget-hsts >>$OUTPUT 2>&1
-
-        rm -f $MODULE_UPPER_DIR/var/lib/dpkg/*-old >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/log/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/log/*/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/log/*/*/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/cache/apt/archives/*.deb >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/cache/apt/*.bin >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/cache/debconf/*-old >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/var/lib/dhcp/dhclient.leases >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/root/.bash_history >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/root/.wget-hsts >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/doc/* >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/info/* >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/usr/share/images/fluxbox/debian-squared.jpg >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/fluxbox/nls/??* >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/gnome/help >>$OUTPUT 2>&1
-
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/?? >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??_* >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??@* >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/locale/??? >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/i18n/locales/*_* >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/man/?? >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/man/*_* >>$OUTPUT 2>&1
-
-        rm -Rf $MODULE_UPPER_DIR/usr/share/icons/elementaryXubuntu-dark >>$OUTPUT 2>&1
-        rm -Rf $MODULE_UPPER_DIR/usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
-
-        rm $MODULE_UPPER_DIR/usr/share/applications/compton.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/debian-uxterm.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/debian-xterm.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/htop.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/mc.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/mcedit.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/pcmanfm-desktop-pref.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/python2.7.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/python3.7.desktop >>$OUTPUT 2>&1
-        rm $MODULE_UPPER_DIR/usr/share/applications/vim.desktop >>$OUTPUT 2>&1
-
-        # Unzip gzipped files (man pages), so LZMA can compress 2times better.
-        # First we fix symlinks, then uncompress files
-        # $1 = search directory
-        uncompress_files() {
-            local LINK LINE
-
-            find "$1" -type l -name "*.gz" | while read LINE; do
-                LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
-                FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
-                ln -sfn "$LINK" "$FILE"
-                rm -f "$LINE"
-            done
-            find "$1" -type f -name "*.gz" | xargs -r gunzip >>$OUTPUT 2>&1
-        }
-
-        uncompress_files $MODULE_UPPER_DIR/etc/alternatives >>$OUTPUT 2>&1
-        uncompress_files $MODULE_UPPER_DIR/usr/share/man >>$OUTPUT 2>&1
-
-        # remove broken links
-        # $1 = search directory
-        remove_broken_links() {
-            find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf >>$OUTPUT 2>&1
-        }
-
-        remove_broken_links $MODULE_UPPER_DIR/etc/alternatives >>$OUTPUT 2>&1
-        remove_broken_links $MODULE_UPPER_DIR/usr/share/man >>$OUTPUT 2>&1
+        chroot_cleanup $MODULE_UPPER_DIR >>$OUTPUT 2>&1
     fi
-
-    set -e
-
 }
 
 # =================================================================
@@ -2310,39 +2161,9 @@ function build_modules() {
                 module_chroot_mount_fs
 
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot $MODULE_MERGED_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD update
+                    chroot_run $MODULE_MERGED_DIR $APT_CMD update
                 else
-                    chroot $MODULE_MERGED_DIR /usr/bin/env \
-                        OUTPUT=$OUTPUT \
-                        LOGPATH=$LOGPATH \
-                        BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                        CREATE_BACKUP=$CREATE_BACKUP \
-                        DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                        APT_CMD=$APT_CMD \
-                        APT_OPTIONS=$APT_OPTIONS \
-                        LIVE_TYPE=$LIVE_TYPE \
-                        DISTRIBUTION=$DISTRIBUTION \
-                        DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                        PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                        COMP_TYPE=$COMP_TYPE \
-                        KERNEL_ARCH=$KERNEL_ARCH \
-                        USER_NAME=$USER_NAME \
-                        $APT_CMD update >>$OUTPUT 2>&1
+                    chroot_run $MODULE_MERGED_DIR $APT_CMD update >>$OUTPUT 2>&1
                 fi
 
                 # run pre-install script
@@ -2350,41 +2171,11 @@ function build_modules() {
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
                         chmod +x $MODULE_MERGED_DIR/preinstall
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /preinstall
+                        chroot_run $MODULE_MERGED_DIR /preinstall
                     else
                         cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
                         chmod +x $MODULE_MERGED_DIR/preinstall
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /preinstall >>$OUTPUT 2>&1
+                        chroot_run $MODULE_MERGED_DIR /preinstall >>$OUTPUT 2>&1
                     fi
                 fi
 
@@ -2424,39 +2215,9 @@ function build_modules() {
                         cp $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /install
+                        chroot_run $MODULE_MERGED_DIR /install
                     else
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /install >>$OUTPUT 2>&1
+                        chroot_run $MODULE_MERGED_DIR /install >>$OUTPUT 2>&1
                     fi
                 fi
 
@@ -2491,39 +2252,9 @@ function build_modules() {
                         (cd $SCRIPT_DIR/linux-live/modules/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /install2
+                        chroot_run $MODULE_MERGED_DIR /install2
                     else
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /install2 >>$OUTPUT 2>&1
+                        chroot_run $MODULE_MERGED_DIR /install2 >>$OUTPUT 2>&1
                     fi
                 fi
 
@@ -2557,39 +2288,9 @@ function build_modules() {
                     cp $SCRIPT_DIR/linux-live/modules/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
                     chmod +x $MODULE_MERGED_DIR/postinstall
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /postinstall
+                        chroot_run $MODULE_MERGED_DIR /postinstall
                     else
-                        chroot $MODULE_MERGED_DIR /usr/bin/env \
-                            OUTPUT=$OUTPUT \
-                            LOGPATH=$LOGPATH \
-                            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-                            CREATE_BACKUP=$CREATE_BACKUP \
-                            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-                            APT_CMD=$APT_CMD \
-                            APT_OPTIONS=$APT_OPTIONS \
-                            LIVE_TYPE=$LIVE_TYPE \
-                            DISTRIBUTION=$DISTRIBUTION \
-                            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-                            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-                            COMP_TYPE=$COMP_TYPE \
-                            KERNEL_ARCH=$KERNEL_ARCH \
-                            USER_NAME=$USER_NAME \
-                            /postinstall >>$OUTPUT 2>&1
+                        chroot_run $MODULE_MERGED_DIR /postinstall >>$OUTPUT 2>&1
                     fi
                 fi
 
