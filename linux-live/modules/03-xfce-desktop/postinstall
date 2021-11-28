@@ -14,7 +14,7 @@ if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     if [ $PACKAGE_VARIANT = "minimal" ]; then
         sed -i 's,#default_user        simone,default_user        root,g' /etc/slim.conf
     else
-        sed -i "s,#default_user        simone,default_user        $USER_NAME,g" /etc/slim.conf
+        sed -i "s,#default_user        simone,default_user        live,g" /etc/slim.conf
     fi
     sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
     sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf

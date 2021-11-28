@@ -14,6 +14,5 @@ rm -f packages.microsoft.gpg
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     $APT_CMD update >>$OUTPUT 2>&1 &&
-        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        $APT_CMD install $APT_OPTIONS code >>$OUTPUT 2>&1
 fi

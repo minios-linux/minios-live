@@ -833,7 +833,11 @@ minios_configure() {
       cp /opt/minios-modules.tar.xz $1/minios-modules.tar.xz
    fi
 
-   chroot $1 /bin/bash -c "/minios-configure" >/dev/null 2>&1
+   mkdir $1/var/log/minios
+   chroot $1 /bin/bash -c "/minios-configure" >>/dev/null 2>&1
+   : 'chroot $1 /bin/bash <<'EOF'
+/minios-configure >>$1/var/log/minios/boot.log 2>&1
+EOF'
 
    if [ "$WRITABLE" = "true" ]; then
       if [ -f $1/etc/$LIVEKITNAME.conf ]; then

@@ -620,7 +620,6 @@ DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
 PACKAGE_VARIANT=$PACKAGE_VARIANT
 COMP_TYPE=$COMP_TYPE
 KERNEL_ARCH=$KERNEL_ARCH
-USER_NAME=$USER_NAME
 EOF
 
     cat <<'EOF' >$1/functions
@@ -725,14 +724,23 @@ function create_apt_list() {
     fi
 }
 
+function get_vars() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    set +u
+    add_chroot_configuration_files $1
+    . /functions
+    read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
+    export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
+    set -u
+}
+
 function chroot_run() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
-
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /functions
-read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE USER_NAME
-export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE USER_NAME
+read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
+export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
 ${@:2}
 EOF
 }
@@ -1190,7 +1198,7 @@ function build_iso() {
     fi
 
     mkdir -p $ISO_DIR >>$OUTPUT 2>&1
-    VER=$SYSTEMVER
+    #VER=$SYSTEMVER
     DATE=$(date +%Y%m%d_%H%M)
 
     DIR=$BUILD_DIR/image
@@ -1226,7 +1234,7 @@ function build_iso() {
     #VER="$SYSTEMNAME $VER"
     VER="$SYSTEMNAME"
 
-    if [ REMOVE_OLD_ISO = "1" ]; then
+    if [ $REMOVE_OLD_ISO = "1" ]; then
         rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$LIVE_TYPE-*.iso >>$OUTPUT 2>&1
         while [ -f $ISO_DIR/$LIVEKITNAME.iso ]; do
             rm $ISO_DIR/$LIVEKITNAME.iso >>$OUTPUT 2>&1
@@ -1462,67 +1470,24 @@ EOF
 function main_pkg_list() {
     echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOUR}"
 
+    get_vars
+
     $APT_CMD update
 
     if [ -f /linux-live/basesystem/01-core/preinstall ]; then
         chmod +x /linux-live/basesystem/01-core/preinstall
-        /usr/bin/env \
-            OUTPUT=$OUTPUT \
-            LOGPATH=$LOGPATH \
-            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-            CREATE_BACKUP=$CREATE_BACKUP \
-            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-            APT_CMD=$APT_CMD \
-            APT_OPTIONS=$APT_OPTIONS \
-            LIVE_TYPE=$LIVE_TYPE \
-            DISTRIBUTION=$DISTRIBUTION \
-            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-            COMP_TYPE=$COMP_TYPE \
-            KERNEL_ARCH=$KERNEL_ARCH \
-            USER_NAME=$USER_NAME \
-            /linux-live/basesystem/01-core/preinstall
+        /linux-live/basesystem/01-core/preinstall
     fi
     : ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy-install)" != "" ]; then
         (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
     fi'
     if [ -f /linux-live/basesystem/01-core/install ]; then
         chmod +x /linux-live/basesystem/01-core/install
-        /usr/bin/env \
-            OUTPUT=$OUTPUT \
-            LOGPATH=$LOGPATH \
-            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-            CREATE_BACKUP=$CREATE_BACKUP \
-            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-            APT_CMD=$APT_CMD \
-            APT_OPTIONS=$APT_OPTIONS \
-            LIVE_TYPE=$LIVE_TYPE \
-            DISTRIBUTION=$DISTRIBUTION \
-            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-            COMP_TYPE=$COMP_TYPE \
-            KERNEL_ARCH=$KERNEL_ARCH \
-            USER_NAME=$USER_NAME \
-            /linux-live/basesystem/01-core/install
+        /linux-live/basesystem/01-core/install
     fi
     if [ -f /linux-live/basesystem/01-core/postinstall ]; then
         chmod +x /linux-live/basesystem/01-core/postinstall
-        /usr/bin/env \
-            OUTPUT=$OUTPUT \
-            LOGPATH=$LOGPATH \
-            BUILD_TEST_ISO=$BUILD_TEST_ISO \
-            CREATE_BACKUP=$CREATE_BACKUP \
-            DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE \
-            APT_CMD=$APT_CMD \
-            APT_OPTIONS=$APT_OPTIONS \
-            LIVE_TYPE=$LIVE_TYPE \
-            DISTRIBUTION=$DISTRIBUTION \
-            DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE \
-            PACKAGE_VARIANT=$PACKAGE_VARIANT \
-            COMP_TYPE=$COMP_TYPE \
-            KERNEL_ARCH=$KERNEL_ARCH \
-            USER_NAME=$USER_NAME \
-            /linux-live/basesystem/01-core/postinstall
+        /linux-live/basesystem/01-core/postinstall
     fi
 
     chroot_cleanup

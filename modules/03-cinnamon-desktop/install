@@ -30,13 +30,6 @@ if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
 fi
 
-# create user directories
-for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-    mkdir -p /home/live/$dir >>$OUTPUT 2>&1
-    mkdir -p /root/$dir >>$OUTPUT 2>&1
-    mkdir -p /etc/skel/$dir >>$OUTPUT 2>&1
-done
-
 update-alternatives --install /usr/share/images/desktop-base/desktop-background desktop-background /usr/share/backgrounds/MiniOS-wallpaper.svg 100
 
      cat <<EOF >>/usr/share/applications/htop.desktop

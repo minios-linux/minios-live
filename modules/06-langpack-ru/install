@@ -12,11 +12,8 @@ debconf-set-selections preseed.txt
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
     $APT_CMD update >>$OUTPUT 2>&1 &&
-        #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-        $APT_CMD install $APT_OPTIONS $APT_OPTIONS2 \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        $APT_CMD install $APT_OPTIONS locales >>$OUTPUT 2>&1
 fi
 
 dpkg-reconfigure locales >>$OUTPUT 2>&1

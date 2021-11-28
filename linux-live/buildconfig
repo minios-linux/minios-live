@@ -20,10 +20,11 @@ COMP_TYPE="xz"
 # вариант bootstrap (используется для сборки Ubuntu)
 DISTRIBUTION_VARIANT="minbase"
 
-# 
+# if core, then executing scripts will not build modules.
 # если core, то выполнение скриптов не будет собирать модули.
 #SYSTEM_TYPE="core"
 
+# system variant, indicates the used list of packages in modules
 # вариант системы, указывает на используемый список пакетов в модулях
 PACKAGE_VARIANT="standard"
 
@@ -40,7 +41,7 @@ OUTPUT="/dev/stdout"
 BUILD_TEST_ISO="1"
 
 # удаляет старые файлы iso для данного типа сборки
-REMOVE_OLD_ISO="0"
+REMOVE_OLD_ISO="1"
 
 # if = "1", creates a copy of minios-live in chroot /opt
 # если ="1", создаёт копию minios-live в chroot /opt
@@ -73,7 +74,7 @@ UNION_BUILD_TYPE="overlayfs"
 SYSTEMNAME="MiniOS"
 
 # Не используется?
-SYSTEMVER="2021"
+#SYSTEMVER="2021"
 
 # использование готового файла bootstrap при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл bootstrap.
 USE_BOOTSTRAP="1"
@@ -81,8 +82,8 @@ USE_BOOTSTRAP="1"
 USE_ROOTFS="1"
 
 #ROOT_PASSWORD="uG5TYt5sIzHe"
-ROOT_PASSWORD="toor"
-USER_NAME="live"
-USER_PASSWORD="evil"
+#ROOT_PASSWORD="toor"
+#USER_NAME="live"
+#USER_PASSWORD="evil"
 
 CMDLINE_PARSER="true"
