@@ -22,6 +22,8 @@ apt-get source pcmanfm >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION = "stretch" ]; then
     cd pcmanfm-1.2.5
+elif [ $DISTRIBUTION = "bullseye" ]; then
+    cd pcmanfm-1.3.2
 else
     cd pcmanfm-1.3.1
 fi
