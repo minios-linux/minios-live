@@ -44,7 +44,7 @@ copy_including_deps() {
 }
 
 rm -Rf $INITRAMFS
-mkdir -p $INITRAMFS/{bin,dev,etc,lib,lib64,mnt,opt,proc,root,run,sys,tmp,usr,var/log}
+mkdir -p $INITRAMFS/{bin,dev,etc,lib,lib64,mnt,proc,root,run,sys,tmp,usr,var/log}
 ln -s bin $INITRAMFS/sbin
 
 #cp static/bash $INITRAMFS/bin
@@ -197,7 +197,6 @@ ln -s ../init $INITRAMFS/bin/init
 cp ../livekitlib $INITRAMFS/lib/
 cp ../config $INITRAMFS/lib/
 cp ../buildconfig $INITRAMFS/lib/
-cp minios-modules.tar.xz $INITRAMFS/opt/
 
 cd $INITRAMFS
 find . -print | cpio -o -H newc 2>/dev/null | xz -f --extreme --check=crc32 >$INITRAMFS.img

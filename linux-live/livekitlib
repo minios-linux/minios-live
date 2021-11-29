@@ -861,7 +861,7 @@ change_root() {
    # accessible on union without any further lookup down, else httpfs locks
    if [ "$(network_device)" != "" ]; then
       touch "/net.up.flag"
-      touch "$1/etc/resolv.conf"
+      touch "$1/etc/resolv.conf" 2>/dev/null
       touch "$1/etc/hosts"
       touch "$1/etc/gai.conf"
    fi

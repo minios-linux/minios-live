@@ -46,6 +46,10 @@ function common_variables() {
         KERNEL_ARCH="arm64"
     fi
 
+    if [ $MODULES_TYPE = "slax" ]; then
+        PACKAGE_VARIANT="minimal"
+    fi
+
     if [ $CLOUD = "true" ]; then
         PACKAGE_VARIANT="cloud"
     fi
@@ -620,6 +624,9 @@ DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
 PACKAGE_VARIANT=$PACKAGE_VARIANT
 COMP_TYPE=$COMP_TYPE
 KERNEL_ARCH=$KERNEL_ARCH
+LIVEKITNAME=$LIVEKITNAME
+SYSTEMNAME=$SYSTEMNAME
+DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
 EOF
 
     cat <<'EOF' >$1/functions
@@ -696,6 +703,29 @@ function read_config() { # read_config file.cfg var_name1 var_name2
 
     shopt -u extglob # Switching it back off after use
 }
+
+# Unzip gzipped files (man pages), so LZMA can compress 2times better.
+# First we fix symlinks, then uncompress files
+# $1 = search directory
+uncompress_files() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    local LINK LINE
+
+    find "$1" -type l -name "*.gz" | while read LINE; do
+        LINK="$(readlink "$LINE" | sed -r 's/.gz$//')"
+        FILE="$(echo "$LINE" | sed -r 's/.gz$//')"
+        ln -sfn "$LINK" "$FILE"
+        rm -f "$LINE"
+    done
+    find "$1" -type f -name "*.gz" | xargs -r gunzip
+}
+
+# remove broken links
+# $1 = search directory
+remove_broken_links() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
+}
 EOF
 }
 
@@ -729,8 +759,8 @@ function get_vars() {
     set +u
     add_chroot_configuration_files $1
     . /functions
-    read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
-    export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
+    read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH
+    export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH
     set -u
 }
 
@@ -739,10 +769,11 @@ function chroot_run() {
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /functions
-read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
-export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH
+read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH
+export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS LIVE_TYPE DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH
 ${@:2}
 EOF
+    remove_chroot_configuration_files $1
 }
 
 # Unzip gzipped files (man pages), so LZMA can compress 2times better.
@@ -1027,6 +1058,10 @@ function build_live() {
 
     build_boot
 
+    if [ $DISTRIBUTION = "stretch" ]; then
+        MKMOD="bin etc home lib opt root sbin srv usr var"
+    fi
+
     # create compressed 01-core.sb
     cd $INSTALL_DIR
     COREFS=""
@@ -1163,11 +1198,18 @@ EOF
     if [ $PACKAGE_VARIANT = "minimal" ]; then
         sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
         sed -i 's/minios.flags= /minios.flags=automount /g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        if [ $MODULES_TYPE = "slax" ]; then
+            sed -i 's/quiet/quiet user_name=root/g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        fi
         if [ $BOOT_TYPE = "hybrid" ]; then
             sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $BUILD_DIR/image/boot/grub/grub.cfg
             sed -i 's/minios.flags= /minios.flags=automount /g' $BUILD_DIR/image/boot/grub/grub.cfg
+            if [ $MODULES_TYPE = "slax" ]; then
+                sed -i 's/quiet/quiet user_name=root/g' $BUILD_DIR/image/boot/grub/grub.cfg
+            fi
         fi
     fi
+
 }
 # =================================================================
 #
@@ -1324,8 +1366,9 @@ function chroot_cleanup() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
 
     set +eu
-    rm -f $1/functions
+
     rm -f $1/$LIVEKITNAME.conf
+    rm -f $1/functions
     rm -f $1/preinstall
     rm -f $1/install
     rm -f $1/install2
@@ -1394,11 +1437,13 @@ function chroot_cleanup() {
     rm $1/usr/share/applications/python3.7.desktop
     rm $1/usr/share/applications/vim.desktop
 
-    uncompress_files $1/etc/alternatives
-    uncompress_files $1/usr/share/man
+    if [ -z $1 ]; then
+        uncompress_files $1/etc/alternatives
+        uncompress_files $1/usr/share/man
 
-    remove_broken_links $1/etc/alternatives
-    remove_broken_links $1/usr/share/man
+        remove_broken_links $1/etc/alternatives
+        remove_broken_links $1/usr/share/man
+    fi
 
     set -eu
 }
@@ -1478,7 +1523,7 @@ function main_pkg_list() {
         chmod +x /linux-live/basesystem/01-core/preinstall
         /linux-live/basesystem/01-core/preinstall
     fi
-    : ' if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy-install)" != "" ]; then
+    : 'if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy-install)" != "" ]; then
         (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
     fi'
     if [ -f /linux-live/basesystem/01-core/install ]; then
@@ -1510,118 +1555,38 @@ function chroot_pkg_install() {
 }
 
 # =================================================================
-# No longer used, it will be cleaned after successful testing.
-# Больше не используется, будет убрано после успешного тестирования.
+#
+#
 # =================================================================
-function chroot_configure_unused_part() {
+function chroot_configure() {
     current_process
 
     (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
-    if [ "$CMDLINE_PARSER" = "true" ]; then
-        #echo "Enable cmdline-parser.service autostart." >>$OUTPUT 2>&1
-        #systemctl enable cmdline-parser.service >>$OUTPUT 2>&1
-        echo "Set up password for user 'root'" >>$OUTPUT 2>&1
-        echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
-    else
-        if [ $CLOUD != "true" ]; then
-            echo "Set up password for user 'root'" >>$OUTPUT 2>&1
-            echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
-
-            echo "Set up user '$USER_NAME'" >>$OUTPUT 2>&1
-            adduser --uid 1000 --gecos '' $USER_NAME --disabled-password >>$OUTPUT 2>&1
-            echo "Set up password for user '$USER_NAME'" >>$OUTPUT 2>&1
-            echo $USER_NAME:$USER_PASSWORD | chpasswd >>$OUTPUT 2>&1
-            usermod -a -G sudo $USER_NAME
-
-            : 'if [ ! -d /home/$USER_NAME ]; then
-            mkdir -p /home/$USER_NAME
-        fi
-        cp -r /etc/skel/* /home/$USER_NAME
-
-        chown $USER_NAME:$USER_NAME /home/$USER_NAME
-        chown -R $USER_NAME:$USER_NAME /home/$USER_NAME'
-
-            cat <<EOF >/etc/sudoers.d/90-minios
-# live user is default user in minios.
-# It needs passwordless sudo functionality.
-$USER_NAME ALL=(ALL) NOPASSWD:ALL
-EOF
-
-            cat <<EOF >/etc/issue
-
-
-                                                                          \l
-
-
-
-
-
-                        Thank you for using MiniOS.
-                        Based on Debian GNU/Linux.
-                        Powered by [1;32mSlax[0;29m.
-
-    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
-    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
-    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
-    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
-    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
-    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
-    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
-
-                        Root login name: [1;33mroot[0;29m
-                        Password: [1;33m$ROOT_PASSWORD[0;29m
-                        User login name: [1;33m$USER_NAME[0;29m
-                        Password: [1;33m$USER_PASSWORD[0;29m
-
-
-
-
-
-EOF
-        else
-            echo "Set up password for user 'root'" >>$OUTPUT 2>&1
-            echo root:$ROOT_PASSWORD | chpasswd >>$OUTPUT 2>&1
-            rm -rf /home/live
-            cat <<EOF >/etc/issue
-
-
-                                                                          \l
-
-
-
-
-
-                        Thank you for using MiniOS.
-                        Based on Debian GNU/Linux.
-                        Powered by [1;32mSlax[0;29m.
-
-    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
-    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
-    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
-    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
-    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
-    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
-    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
-
-                        User login name set by
-                        cloud-init. You must use
-                        your ssh key to login.
-                        Root login name: [1;33mroot[0;29m
-                        Password: [1;33m$ROOT_PASSWORD[0;29m
-
-
-
-
-
-
-EOF
-        fi
+    # minios-install setup
+    if [ ! -d /etc/$LIVEKITNAME ]; then
+        mkdir -p /etc/$LIVEKITNAME
     fi
-}
+    cat <<EOF >/etc/$LIVEKITNAME/config
+#!/bin/bash
+# This is a config file for MiniOS-Live build script and Linux Live Kit boot script.
+# !!! You shouldn't need to change anything expect PACKAGE_VARIANT OUTPUT COMP_TYPE !!!
+LIVEKITNAME="$LIVEKITNAME"
+SYSTEMNAME="$SYSTEMNAME"
+DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE"
+DISTRIBUTION="$DISTRIBUTION"
+DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
+PACKAGE_VARIANT="$PACKAGE_VARIANT"
+LIVE_TYPE="livekit"
+OUTPUT="/dev/stdout" # Default is output to /dev/stdout. You can use OUTPUT="/dev/null" if you want to silent installation or OUTPUT="somefilename.log" to route events to log file.
+DEBIAN_FRONTEND_TYPE="noninteractive"
+APT_CMD="apt-get"
+APT_OPTIONS="-y"
+UNION_BUILD_TYPE="overlayfs"
+BEXT="sb"
+COMP_TYPE="xz" # Compression method used for the system and modules.
+EOF
 
-function chroot_configure() {
-    current_process
     if [ ! -d /etc/NetworkManager ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
         cat <<EOF >/usr/lib/systemd/system/dhclient.service
@@ -2007,11 +1972,6 @@ EOF
     dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>&1
 EOF
     fi
-
-    if [ -d $MODULE_UPPER_DIR/home/live ]; then
-        chown 1000:1000 $MODULE_UPPER_DIR/home/live
-        chown -R 1000:1000 $MODULE_UPPER_DIR/home/live
-    fi
 }
 
 # =================================================================
@@ -2020,6 +1980,7 @@ EOF
 # =================================================================
 function module_chroot_cleanup() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    set +e
     # clean up useless stuff
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         rm -rf $MODULE_UPPER_DIR/boot $MODULE_UPPER_DIR/dev $MODULE_UPPER_DIR/proc $MODULE_UPPER_DIR/sys $MODULE_UPPER_DIR/rmp $MODULE_UPPER_DIR/run
@@ -2075,6 +2036,7 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
         rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/machine-id >>$OUTPUT 2>&1
+        set -e
     fi
 }
 
@@ -2109,7 +2071,7 @@ function build_modules() {
 
         MODULES_DIR=$BUILD_DIR/modules
 
-        cd $SCRIPT_DIR/linux-live/modules
+        cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE
 
         for MODULE in *; do
             if (ls $BUILD_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
@@ -2125,59 +2087,59 @@ function build_modules() {
 
                 module_chroot_mount_fs
 
-                if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $MODULE_MERGED_DIR $APT_CMD update
-                else
-                    chroot_run $MODULE_MERGED_DIR $APT_CMD update >>$OUTPUT 2>&1
-                fi
+                #if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                #    chroot_run $MODULE_MERGED_DIR $APT_CMD update
+                #else
+                #    chroot_run $MODULE_MERGED_DIR $APT_CMD update >>$OUTPUT 2>&1
+                #fi
 
                 # run pre-install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall ]; then
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/preinstall ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                        cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
                         chmod +x $MODULE_MERGED_DIR/preinstall
                         chroot_run $MODULE_MERGED_DIR /preinstall
                     else
-                        cp $SCRIPT_DIR/linux-live/modules/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                        cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
                         chmod +x $MODULE_MERGED_DIR/preinstall
                         chroot_run $MODULE_MERGED_DIR /preinstall >>$OUTPUT 2>&1
                     fi
                 fi
 
                 # copy files
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ]; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install)" != "" ]; then
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     fi
                 else
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ]; then
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install)" != "" ]; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-install
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-install
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
                         fi
                     fi
                 fi
 
                 # run install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/install ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$MODULE/install $MODULE_MERGED_DIR/install
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/install ]; then
+                    cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/install $MODULE_MERGED_DIR/install
                     chmod +x $MODULE_MERGED_DIR/install
-                    if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/cleanup ]; then
-                        cp $SCRIPT_DIR/linux-live/modules/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
+                    if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/cleanup ]; then
+                        cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
                     fi
-                    if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list ]; then
-                        cp $SCRIPT_DIR/linux-live/modules/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+                    if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/$PACKAGE_VARIANT.list ]; then
+                        cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /install
@@ -2186,7 +2148,7 @@ function build_modules() {
                     fi
                 fi
 
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
                     module_chroot_umount_fs
 
                     module_build_cleanup
@@ -2209,12 +2171,12 @@ function build_modules() {
                 fi
 
                 # run install2 script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/install2 ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$MODULE/install2 $MODULE_MERGED_DIR/install2
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/install2 ]; then
+                    cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/install2 $MODULE_MERGED_DIR/install2
                     chmod +x $MODULE_MERGED_DIR/install2
-                    if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
+                    if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
                         mkdir $MODULE_MERGED_DIR/patches
-                        (cd $SCRIPT_DIR/linux-live/modules/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                        (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /install2
@@ -2224,33 +2186,33 @@ function build_modules() {
                 fi
 
                 # copy files
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ]; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall)" != "" ]; then
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     fi
                 else
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ]; then
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall)" != "" ]; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
-                            (cd $SCRIPT_DIR/linux-live/modules/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+                            (cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
                         fi
                     fi
                 fi
 
                 # run post-install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/postinstall ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/postinstall ]; then
+                    cp $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
                     chmod +x $MODULE_MERGED_DIR/postinstall
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /postinstall
@@ -2259,8 +2221,17 @@ function build_modules() {
                     fi
                 fi
 
+                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
+                    set +e
+                    chroot_run $MODULE_MERGED_DIR uncompress_files /etc/alternatives
+                    chroot_run $MODULE_MERGED_DIR uncompress_files /usr/share/man
+                    chroot_run $MODULE_MERGED_DIR remove_broken_links /etc/alternatives
+                    chroot_run $MODULE_MERGED_DIR remove_broken_links /usr/share/man
+                    set -e
+                fi
+
                 # run external actions
-                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+                if [ -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
                     cp $MODULE_UPPER_DIR/$MODULE.$BEXT $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                 fi
 
@@ -2268,13 +2239,13 @@ function build_modules() {
 
                 module_chroot_umount_fs
 
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
                     module_build_cleanup
                 fi
 
                 module_chroot_cleanup
 
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULE/is_internal_build ]; then
+                if [ ! -f $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE/$MODULE/is_internal_build ]; then
                     if [ ! -f $BUILD_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [ $COMP_TYPE = "zstd" ]; then
@@ -2312,7 +2283,7 @@ function build_modules_live() {
 
     MODULES_DIR=$BUILD_DIR/modules
 
-    cd $SCRIPT_DIR/linux-live/modules
+    cd $SCRIPT_DIR/linux-live/modules/$MODULES_TYPE
 
     for MODULE in *; do
 

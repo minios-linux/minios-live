@@ -8,11 +8,11 @@ VERSION=1.3.5
 cd /
 
 # create user directories
-for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-   mkdir -p /squashfs-root/home/live/$dir >>$OUTPUT 2>&1
-   mkdir -p /squashfs-root/root/$dir >>$OUTPUT 2>&1
-done
-chown -R live.users /squashfs-root/home/live
+#for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+#   mkdir -p /squashfs-root/home/live/$dir >>$OUTPUT 2>&1
+#   mkdir -p /squashfs-root/root/$dir >>$OUTPUT 2>&1
+#done
+#chown -R live.users /squashfs-root/home/live
 
 # then, we want to patch it to implement window resizing!
 # so we will recompile whole package

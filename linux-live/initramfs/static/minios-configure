@@ -4,15 +4,45 @@
 # Author: crims0n. <http://minios.ru>
 #
 
-exec 19>/var/log/minios/boot.log
-BASH_XTRACEFD=19
-
-set -x
-
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+function console_colours() {
+    RED="\e[31m"
+    GREEN="\e[32m"
+    YELLOW="\e[33m"
+    BLUE="\e[34m"
+    MAGENTA="\e[35m"
+    CYAN="\e[36m"
+    LIGHTGRAY="\e[37m"
+    DARKGRAY="\e[90m"
+    LIGHTRED="\e[91m"
+    LIGHTGREEN="\e[92m"
+    LIGHTYELLOW="\e[93m"
+    LIGHTBLUE="\e[94m"
+    LIGHTMAGENTA="\e[95m"
+    LIGHTCYAN="\e[96m"
+    BOLD="\e[1m"
+    DIM="\e[2m"
+    UNDERLINED="\e[4m"
+    BLINK="\e[5m"
+    REVERSE="\e[7m"
+    HIDDEN="\e[8m"
+    ENDCOLOUR="\e[0m"
+}
 
 function help() {
     # if $1 is set, use $1 as headline message in help()
+    if [ -z ${1+x} ]; then
+        echo -e "${LIGHTYELLOW}This script allows you to configure some parameters of $SYSTEMNAME.${ENDCOLOUR}"
+        echo -e
+    else
+        echo -e $1
+        echo
+    fi
+    echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} parameter=value"
+    if [ -L /usr/bin/$LIVEKITNAME-configure ] && [ "$0" != "/usr/bin/$LIVEKITNAME-configure" ]; then
+        echo -e "\t${CYAN}$LIVEKITNAME-configure${ENDCOLOUR} parameter=value"
+    fi
     echo -e "root_password - root password."
     echo -e "user_name - username. If you specify the username root , then the user profile will not be created, the user_password parameter will be ignored."
     echo -e "user_password - user password."
@@ -21,8 +51,7 @@ function help() {
     echo -e "ssh - enable ssh."
     echo -e "cloud - special mode to run as a cloud-init host."
     echo -e ""
-    echo -e "Example: ${MAGENTA}$0${ENDCOLOUR} root_password=toor user_name=live user_password=evil"
-
+    echo -e "Example: ${LIGHTYELLOW}$0${ENDCOLOUR} root_password=toor user_name=live user_password=evil"
     exit 0
 }
 
@@ -114,7 +143,16 @@ function read_config() { # read_config file.cfg var_name1 var_name2
     shopt -u extglob # Switching it back off after use
 }
 
+console_colours
 allow_root_only
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+    exec 19>/var/log/minios/boot.log
+    BASH_XTRACEFD=19
+
+    set -x
+fi
 
 CURRENT_USER_NAME=$(id -nu 1000)
 CURRENT_USER_GROUP=$(id -ng 1000)
@@ -238,33 +276,37 @@ if [ "$CLOUD" != "true" ]; then
                 groupmod -n $USER_GROUP $CURRENT_USER_GROUP
             fi
         fi
-    fi
-    if [ -z "$USER_PASSWORD" ]; then
-        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-            if [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
-                if [ -f /etc/$LIVEKITNAME.conf ]; then
-                    read_config /etc/$LIVEKITNAME.conf USER_PASSWORD
-                fi
-                if [ -z "$USER_PASSWORD" ]; then
-                    USER_PASSWORD="evil"
+        if [ -z "$USER_PASSWORD" ]; then
+            if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+                if [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
+                    if [ -f /etc/$LIVEKITNAME.conf ]; then
+                        read_config /etc/$LIVEKITNAME.conf USER_PASSWORD
+                    fi
+                    if [ -z "$USER_PASSWORD" ]; then
+                        USER_PASSWORD="evil"
+                    fi
                 fi
             fi
         fi
-    fi
-    if [ ! -z "$USER_PASSWORD" ]; then
-        # Set up password for user
-        if [ "$USER_NAME_CHANGE_PENDING" = "true" ]; then
-            echo $CURRENT_USER_NAME:$USER_PASSWORD | chpasswd
-        else
-            if [ -z "$USER_NAME" ]; then
-                if [ ! -z "$CURRENT_USER_NAME" ]; then
-                    echo $CURRENT_USER_NAME:$USER_PASSWORD | chpasswd
-                else
-                    echo "Username not specified"
-                fi
+        if [ ! -z "$USER_PASSWORD" ]; then
+            # Set up password for user
+            if [ "$USER_NAME_CHANGE_PENDING" = "true" ]; then
+                echo $CURRENT_USER_NAME:$USER_PASSWORD | chpasswd
             else
-                echo $USER_NAME:$USER_PASSWORD | chpasswd
+                if [ -z "$USER_NAME" ]; then
+                    if [ ! -z "$CURRENT_USER_NAME" ]; then
+                        echo $CURRENT_USER_NAME:$USER_PASSWORD | chpasswd
+                    else
+                        echo "Username not specified"
+                    fi
+                else
+                    echo $USER_NAME:$USER_PASSWORD | chpasswd
+                fi
             fi
+        fi
+    else
+        if [ -z "$CURRENT_USER_NAME" ]; then
+            adduser --uid 1000 --gecos '' guest --disabled-password
         fi
     fi
 else

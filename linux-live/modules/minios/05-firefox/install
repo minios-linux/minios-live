@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+$APT_CMD update >>$OUTPUT 2>&1
+
+# install packages
+if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    $APT_CMD install $APT_OPTIONS \
+        firefox >>$OUTPUT 2>&1
+elif [ $DISTRIBUTION_TYPE = "debian" ]; then
+    $APT_CMD install $APT_OPTIONS \
+        firefox-esr >>$OUTPUT 2>&1
+fi
+
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=firefox
+
+EOF
+elif [ $PACKAGE_VARIANT = "standard" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=firefox
+
+EOF
+fi

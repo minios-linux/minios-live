@@ -6,13 +6,13 @@ DISTRIBUTION_TYPE="debian"
 
 # distribution
 # дистрибутив
-DISTRIBUTION="bullseye"
+DISTRIBUTION="stretch"
 
 # distribution arch
 # note: stretch only works with amd64
 # архитектура дистрибутива
 # для заметки: stretch работает только с amd64
-DISTRIBUTION_ARCH="amd64"
+DISTRIBUTION_ARCH="i386"
 
 COMP_TYPE="xz"
 
@@ -61,6 +61,10 @@ APT_OPTIONS="-y"
 # не используется
 #LIVE_TYPE="casper"
 LIVE_TYPE="livekit"
+
+#MODULES_TYPE="minios"
+#MODULES_TYPE="slax"
+MODULES_TYPE="minios"
 
 # тип iso
 BOOT_TYPE="hybrid"

@@ -37,6 +37,10 @@ if [ -e "$SOURCE/data/minios/boot/isolinux.bin" ]; then
    MINIOS=$SOURCE/data/minios
 fi
 
+if [ -e "$SOURCE/iso/minios/boot/isolinux.bin" ]; then
+   MINIOS=$SOURCE/iso/slax
+fi
+
 if [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
    MINIOS=$SOURCE/toram
 fi
