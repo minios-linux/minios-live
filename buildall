@@ -1,0 +1,88 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+. $SCRIPT_DIR/linux-live/minioslib || exit 1
+. $SCRIPT_DIR/linux-live/config || exit 1
+if [ -z $OUTPUT ]; then
+    . $SCRIPT_DIR/linux-live/buildconfig || exit 1
+fi
+
+function build() {
+    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=$DISTRIBUTION_TYPE/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DISTRIBUTION=/s/=.*/=$DISTRIBUTION/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=$DISTRIBUTION_ARCH/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=$DESKTOP_ENVIRONMENT/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/COMP_TYPE=/s/=.*/=$COMP_TYPE/" $SCRIPT_DIR/linux-live/buildconfig
+    ./install -
+}
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="bullseye"
+DISTRIBUTION_ARCH="amd64"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="bullseye"
+DISTRIBUTION_ARCH="i386"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="buster"
+DISTRIBUTION_ARCH="amd64"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="buster"
+DISTRIBUTION_ARCH="i386"
+DESKTOP_ENVIRONMENT="slax"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="buster"
+DISTRIBUTION_ARCH="amd64"
+DESKTOP_ENVIRONMENT="slax"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="buster"
+DISTRIBUTION_ARCH="i386"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="stretch"
+DISTRIBUTION_ARCH="amd64"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="debian"
+DISTRIBUTION="stretch"
+DISTRIBUTION_ARCH="i386"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="ubuntu"
+DISTRIBUTION="focal"
+DISTRIBUTION_ARCH="amd64"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build
+
+DISTRIBUTION_TYPE="ubuntu"
+DISTRIBUTION="focal"
+DISTRIBUTION_ARCH="i386"
+DESKTOP_ENVIRONMENT="xfce"
+COMP_TYPE="xz"
+build

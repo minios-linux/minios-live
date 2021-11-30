@@ -800,7 +800,8 @@ fstab_create() {
 minios_configure() {
    debug_log "minios_configure" "$*"
 
-   local WRITABLE
+   local WRITABLE SSH_KEY
+   SSH_KEY=$(cmdline_value ssh_key)
 
    cp /bin/minios-configure $1/
    cat /proc/cmdline >$1/cmdline
@@ -810,6 +811,9 @@ minios_configure() {
    if [ $? -ne 0 ]; then
       WRITABLE="false"
       #echo "* Directory $2/$LIVEKITNAME not writable"
+      if [ -z $SSH_KEY ]; then
+         SSH_KEY="authorized_keys"
+      fi
    else
       WRITABLE="true"
       if [ -d $2/$LIVEKITNAME ]; then
@@ -824,14 +828,31 @@ minios_configure() {
          elif [ -f $1/etc/$LIVEKITNAME.conf ]; then
             cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME/$LIVEKITNAME.conf
          fi
+         if [ -z $SSH_KEY ]; then
+            SSH_KEY=$(config_value $1/etc/$LIVEKITNAME.conf SSH_KEY)
+            if [ -z $SSH_KEY ]; then
+               SSH_KEY="authorized_keys"
+            fi
+         fi
+         if [ ! -d $1/root/.ssh ]; then
+            mkdir $1/root/.ssh
+            chmod 700 $1/root/.ssh
+         fi
+         if [ -f $2/$LIVEKITNAME/$SSH_KEY ] && [ -f $1/root/.ssh/authorized_keys ]; then
+            if [ "$2/$LIVEKITNAME/$SSH_KEY" -nt "$1/root/.ssh/authorized_keys" ]; then
+               cp -fp $2/$LIVEKITNAME/$SSH_KEY $1/root/.ssh/authorized_keys
+            elif [ "$2/$LIVEKITNAME/$SSH_KEY" -ot "$1/root/.ssh/authorized_keys" ]; then
+               cp -fp $1/root/.ssh/authorized_keys $2/$LIVEKITNAME/$SSH_KEY
+            fi
+         elif [ -f $2/$LIVEKITNAME/$SSH_KEY ]; then
+            cp -fp $2/$LIVEKITNAME/$SSH_KEY $1/root/.ssh/authorized_keys
+         elif [ -f $1/root/.ssh/authorized_keys ]; then
+            cp -fp $1/root/.ssh/authorized_keys $2/$LIVEKITNAME/$SSH_KEY
+         fi
       fi
    fi
 
    echo "LIVEKITNAME=$LIVEKITNAME" >$1/livekit.conf
-
-   if grep -q minios_modules /proc/cmdline; then
-      cp /opt/minios-modules.tar.xz $1/minios-modules.tar.xz
-   fi
 
    mkdir $1/var/log/minios
    chroot $1 /bin/bash -c "/minios-configure" >>/dev/null 2>&1
