@@ -2,22 +2,24 @@
 
 # distribution type
 # тип дистрибутива
-DISTRIBUTION_TYPE=debian
+DISTRIBUTION_TYPE=ubuntu
 
 # distribution
 # дистрибутив
-DISTRIBUTION=bullseye
+DISTRIBUTION=focal
 
 # distribution arch
 # note: stretch only works with amd64
 # архитектура дистрибутива
-# для заметки: stretch работает только с amd64
-DISTRIBUTION_ARCH=i386
+# заметка: stretch работает только с amd64
+DISTRIBUTION_ARCH=amd64
 
-#DESKTOP_ENVIRONMENT=xfce
-#DESKTOP_ENVIRONMENT=xfce
+# окружение рабочего стола
+# desktop environment
 DESKTOP_ENVIRONMENT=xfce
 
+# тип сжатия
+# compresssion type
 COMP_TYPE=xz
 
 # bootstrap variant (used to build Ubuntu)
@@ -62,11 +64,6 @@ DEBIAN_FRONTEND_TYPE="noninteractive"
 APT_CMD="apt-get"
 APT_OPTIONS="-y"
 
-# не используется
-#LIVE_TYPE="casper"
-LIVE_TYPE="livekit"
-
-
 # тип iso
 BOOT_TYPE="hybrid"
 #BOOT_TYPE=""
@@ -78,9 +75,6 @@ UNION_BUILD_TYPE="overlayfs"
 # Used when assigned to the ISO name when building Minios-Live
 SYSTEMNAME="MiniOS"
 
-# Не используется?
-#SYSTEMVER="2021"
-
 # использование готового файла bootstrap при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл bootstrap.
 USE_BOOTSTRAP="1"
 # использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
@@ -91,4 +85,4 @@ USE_ROOTFS="1"
 #USER_NAME="live"
 #USER_PASSWORD="evil"
 
-CMDLINE_PARSER="true"
+# CMDLINE_PARSER="true"
