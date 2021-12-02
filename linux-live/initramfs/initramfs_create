@@ -6,6 +6,12 @@
 . ../config
 
 INITRAMFS=/tmp/$LIVEKITNAME-initramfs-$$
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+exec 19>$SCRIPT_DIR/initramfs.log
+BASH_XTRACEFD=19
+
+set -x
 
 # copy file to initramfs tree, including
 # all library dependencies (as shown by ldd)

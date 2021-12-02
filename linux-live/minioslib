@@ -655,6 +655,7 @@ KERNEL_ARCH=$KERNEL_ARCH
 LIVEKITNAME=$LIVEKITNAME
 SYSTEMNAME=$SYSTEMNAME
 DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
+MODULE=$MODULE
 EOF
 
     cat <<'EOF' >$1/functions
@@ -1226,13 +1227,13 @@ EOF
     if [ $PACKAGE_VARIANT = "minimal" ]; then
         sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
         sed -i 's/minios.flags= /minios.flags=automount /g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+        if [[ $DESKTOP_ENVIRONMENT =~ "slax" ]]; then
             sed -i 's/quiet/quiet user_name=root/g' $BUILD_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
         fi
         if [ $BOOT_TYPE = "hybrid" ]; then
             sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $BUILD_DIR/image/boot/grub/grub.cfg
             sed -i 's/minios.flags= /minios.flags=automount /g' $BUILD_DIR/image/boot/grub/grub.cfg
-            if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+            if [[ $DESKTOP_ENVIRONMENT =~ "slax" ]]; then
                 sed -i 's/quiet/quiet user_name=root/g' $BUILD_DIR/image/boot/grub/grub.cfg
             fi
         fi
@@ -1615,14 +1616,14 @@ DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE"
 DISTRIBUTION="$DISTRIBUTION"
 DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
 PACKAGE_VARIANT="$PACKAGE_VARIANT"
-DESKTOP_ENVIRONMENT="livekit"
+DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT"
+COMP_TYPE="xz" # Compression method used for the system and modules.
 OUTPUT="/dev/stdout" # Default is output to /dev/stdout. You can use OUTPUT="/dev/null" if you want to silent installation or OUTPUT="somefilename.log" to route events to log file.
 DEBIAN_FRONTEND_TYPE="noninteractive"
 APT_CMD="apt-get"
 APT_OPTIONS="-y"
 UNION_BUILD_TYPE="overlayfs"
 BEXT="sb"
-COMP_TYPE="xz" # Compression method used for the system and modules.
 EOF
 
     if [ ! -d /etc/NetworkManager ]; then
@@ -2124,12 +2125,6 @@ function build_modules() {
                 module_check_install_dir
 
                 module_chroot_mount_fs
-
-                #if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                #    chroot_run $MODULE_MERGED_DIR $APT_CMD update
-                #else
-                #    chroot_run $MODULE_MERGED_DIR $APT_CMD update >>$OUTPUT 2>&1
-                #fi
 
                 # run pre-install script
                 if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/preinstall ]; then

@@ -467,7 +467,7 @@ EOF
         sed -i "s/NODM_USER=live/NODM_USER=$USER_NAME/g" /etc/default/nodm
     fi
     if [ -f /etc/slim.conf ]; then
-        sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
+        sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
     fi
 fi
 

@@ -61,8 +61,9 @@ rm -f /var/lib/dpkg/*-old
 ''')
 
 d.VOLUME = '/build'
-d.WORKDIR = '/build/minios-slax'
+d.WORKDIR = '/build/minios'
+#d.WORKDIR = '/build/minios-slax'
 
-d.CMD = ["/build/minios-slax/install", "-"]
+#d.CMD = ["/build/minios-slax/install", "-"]
 
 d.build_img()
