@@ -275,7 +275,7 @@ function create_completion() {
     if [ -d /etc/bash_completion.d ]; then
         if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install >/dev/null 2>&1; then
             cat <<EOF >/etc/bash_completion.d/$LIVEKITNAME-install
-#/usr/bin/env bash
+#!/usr/bin/env bash
 complete -W "${CMD[*]}" $LIVEKITNAME-install
 EOF
         fi
@@ -392,16 +392,16 @@ function check_install_dir() {
 function setup_install_dir() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     if [ "$UNATTENDED" = "1" ] && [ "$INSTALL_DIR" = "" ]; then
-        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION"
+        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
         check_install_dir
     else
         if [ "$INSTALL_DIR" = "" ]; then
             if [ ! -f "$SCRIPT_DIR/.install_dir" ]; then
                 echo "Enter the address of the working directory where we will build the system"
-                read -r -p "$(echo -e "(Default is ${MAGENTA}$BUILD_DIR/$DISTRIBUTION${ENDCOLOUR}): ")" response
+                read -r -p "$(echo -e "(Default is ${MAGENTA}$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH${ENDCOLOUR}): ")" response
                 INSTALL_DIR=${response,,}
                 if [ "$INSTALL_DIR" = "" ]; then
-                    INSTALL_DIR=$BUILD_DIR/$DISTRIBUTION
+                    INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
                 fi
                 check_install_dir
             else
@@ -411,10 +411,10 @@ function setup_install_dir() {
                 response=${response,,}
                 if [[ "$response" =~ ^(no|n)$ ]]; then
                     echo "Enter the address of the working directory where we will build the system"
-                    read -r -p "$(echo -e "(Default is ${MAGENTA}$BUILD_DIR/$DISTRIBUTION${ENDCOLOUR}): ")" response
+                    read -r -p "$(echo -e "(Default is ${MAGENTA}$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH${ENDCOLOUR}): ")" response
                     INSTALL_DIR=${response,,}
                     if [ "$INSTALL_DIR" = "" ]; then
-                        INSTALL_DIR=$BUILD_DIR/$DISTRIBUTION
+                        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
                     fi
                     check_install_dir
                 else
@@ -454,7 +454,31 @@ function cleanup() {
                 exit 1
             fi
         fi
+    elif [ "${CMD[ii]}" = "remove_sources" ]; then
+        if [ $REMOVE_SOURCES = "true" ]; then
+            if [ "$UNATTENDED" = "1" ]; then
+                check_mounted
+                rm -rf $INSTALL_DIR
+                if [ -d "$INSTALL_DIR" ]; then
+                    cleanup
+                fi
+            else
+                read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
+                response=${response,,}
+                if [[ "$response" =~ ^(yes|y)$ ]]; then
+                    check_mounted
+                    rm -rf $INSTALL_DIR
+                    if [ -d "$INSTALL_DIR" ]; then
+                        cleanup
+                    fi
+                else
+                    echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} should be empty to continue."
+                    exit 1
+                fi
+            fi
+        fi
     fi
+
 }
 
 # =================================================================
@@ -605,8 +629,11 @@ function new_run() {
     echo "=================================================================" >>$OUTPUT 2>&1
     echo "========== Distributution: $DISTRIBUTION" >>$OUTPUT 2>&1
     echo "========== Desktop Environment: $DESKTOP_ENVIRONMENT" >>$OUTPUT 2>&1
+    echo "========== Package Variant: $PACKAGE_VARIANT" >>$OUTPUT 2>&1
     echo "========== Arch: $DISTRIBUTION_ARCH" >>$OUTPUT 2>&1
     echo "========== Compression: $COMP_TYPE" >>$OUTPUT 2>&1
+    echo "=================================================================" >>$OUTPUT 2>&1
+    echo "=================================================================" >>$OUTPUT 2>&1
     echo ""
 }
 
@@ -1059,7 +1086,7 @@ function build_live() {
 
     build_boot
 
-    if [ $DISTRIBUTION = "stretch" ]; then
+    if [ $DISTRIBUTION_ARCH = "i386" ]; then
         MKMOD="bin etc home lib opt root sbin srv usr var"
     fi
 
@@ -1228,7 +1255,7 @@ function build_iso() {
     check_install_dir
 
     if [ "$UNATTENDED" = "1" ]; then
-        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION"
+        INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
     fi
     if [ "$INSTALL_DIR" = "" ]; then
         LAST_INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir") >>$OUTPUT 2>&1
@@ -1278,11 +1305,13 @@ function build_iso() {
     VER="$SYSTEMNAME"
 
     if [ $REMOVE_OLD_ISO = "1" ]; then
+        set +e
         rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-*.iso >>$OUTPUT 2>&1
         while [ -f $ISO_DIR/$LIVEKITNAME.iso ]; do
             rm $ISO_DIR/$LIVEKITNAME.iso >>$OUTPUT 2>&1
             sleep 1
         done
+        set -e
         #rm -f $ISO_DIR/*
     fi
 
@@ -1315,6 +1344,14 @@ function build_iso() {
         if ln $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$DATE.iso $ISO_DIR/$LIVEKITNAME.iso; then
             echo ">>> $ISO_DIR/$LIVEKITNAME.iso created"
         fi
+    fi
+
+    #exit 0
+}
+
+function remove_sources() {
+    if [ $REMOVE_SOURCES = "true" ]; then
+        cleanup
     fi
     exit 0
 }

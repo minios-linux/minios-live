@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+. /etc/minios.conf
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+# install packages
+$APT_CMD update >>$OUTPUT 2>&1 &&
+    $APT_CMD install $APT_OPTIONS \
+        qemu-kvm \
+        libvirt-clients \
+        libvirt-daemon-system \
+        bridge-utils \
+        virt-manager \
+        gir1.2-spiceclientgtk-3.0 >>$OUTPUT 2>&1
+
+usermod -aG libvirt $USER_NAME

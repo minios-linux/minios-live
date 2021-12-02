@@ -2,11 +2,11 @@
 
 # distribution type
 # тип дистрибутива
-DISTRIBUTION_TYPE=ubuntu
+DISTRIBUTION_TYPE=debian
 
 # distribution
 # дистрибутив
-DISTRIBUTION=focal
+DISTRIBUTION=buster
 
 # distribution arch
 # note: stretch only works with amd64
@@ -32,7 +32,7 @@ DISTRIBUTION_VARIANT="minbase"
 
 # system variant, indicates the used list of packages in modules
 # вариант системы, указывает на используемый список пакетов в модулях
-PACKAGE_VARIANT="standard"
+PACKAGE_VARIANT=minimal
 
 # путь файла лога
 LOGPATH="/var/log"
@@ -80,9 +80,4 @@ USE_BOOTSTRAP="1"
 # использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
 USE_ROOTFS="1"
 
-#ROOT_PASSWORD="uG5TYt5sIzHe"
-#ROOT_PASSWORD="toor"
-#USER_NAME="live"
-#USER_PASSWORD="evil"
-
-# CMDLINE_PARSER="true"
+REMOVE_SOURCES="false"

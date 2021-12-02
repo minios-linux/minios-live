@@ -14,11 +14,12 @@ function build() {
     sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=$DISTRIBUTION_ARCH/" $SCRIPT_DIR/linux-live/buildconfig
     sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=$DESKTOP_ENVIRONMENT/" $SCRIPT_DIR/linux-live/buildconfig
     sed -i -e "/COMP_TYPE=/s/=.*/=$COMP_TYPE/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=$PACKAGE_VARIANT/" $SCRIPT_DIR/linux-live/buildconfig
     $SCRIPT_DIR/install -
 }
 
 # bullseye xfce
-: 'DISTRIBUTION_TYPE="debian"
+DISTRIBUTION_TYPE="debian"
 DISTRIBUTION="bullseye"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
@@ -98,7 +99,7 @@ DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="slax"
 PACKAGE_VARIANT="minimal"
 COMP_TYPE="xz"
-build'
+build
 
 # stretch xfce
 DISTRIBUTION_TYPE="debian"
@@ -108,14 +109,14 @@ DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
 COMP_TYPE="xz"
 build
-: '
+
 DISTRIBUTION_TYPE="debian"
 DISTRIBUTION="stretch"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
 COMP_TYPE="xz"
-build'
+build
 
 DISTRIBUTION_TYPE="debian"
 DISTRIBUTION="stretch"
