@@ -66,11 +66,11 @@ For installation use **install** - script for guided installation, **autoinstall
 - enter one command to run a specific command
 - enter '-' as the only argument to run all commands
 
-        Examples: ./ install build_bootstrap - build_chroot
-                ./install - build_chroot
-                ./install build_bootstrap -
-                ./install build_iso
-                ./install -
+        Examples: ./install build_bootstrap - build_chroot
+                  ./install - build_chroot
+                  ./install build_bootstrap -
+                  ./install build_iso
+                  ./install -
 
 To build with docker, create a build folder in your home folder, put minios-slax there, run 01-runme.sh from the docker folder. This action will install the required programs and create an image. To start the build, edit for yourself and run 02-build.sh. Sample file content:
 
