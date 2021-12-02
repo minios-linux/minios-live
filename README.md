@@ -41,25 +41,25 @@
 
 These scripts build a bootable MiniOS ISO image.
 
-For installation use ** install ** - script for guided installation, ** autoinstall ** - script for automatic installation.
+For installation use **install** - script for guided installation, **autoinstall** - script for automatic installation.
 
-** Never run scripts from linux-live! They will break your system. **
+**Never run scripts from linux-live! They will break your system.**
 
-** Supported commands: ** `setup_host build_bootstrap build_chroot build_live build_modules build_iso`
+**Supported commands:** `setup_host build_bootstrap build_chroot build_live build_modules build_iso`
 
-* setup_host * - installing packages required for building on the host
+*setup_host* - installing packages required for building on the host
 
-* build_bootstrap * - install a minimal system using debootstrap
+*build_bootstrap* - install a minimal system using debootstrap
 
-* build_chroot * - installation of the rest of the components required to start the system
+*build_chroot* - installation of the rest of the components required to start the system
 
-* build_live * - build initramfs and squashfs image
+*build_live* - build initramfs and squashfs image
 
-* build_modules_chroot * - building modules
+*build_modules_chroot* - building modules
 
-* build_iso * - build the final ISO image
+*build_iso* - build the final ISO image
 
-** Syntax: ** `./install [start_cmd] [-] [end_cmd]`
+**Syntax:** `./install [start_cmd] [-] [end_cmd]`
 - launch from start_cmd to end_cmd
 - if start_cmd is omitted, all commands are executed starting from the first
 - if end_cmd is omitted, all commands up to the last are executed
