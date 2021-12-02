@@ -37,6 +37,11 @@
 
 `docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-slax/install -`
 
+<<<<<<< HEAD
+=======
+# MiniOS
+
+>>>>>>> 87824b6859e2e1b685e34e17647b16d4ad378c96
 These scripts build a bootable MiniOS ISO image.
 
 For installation use **install** - script for guided installation, **autoinstall** - script for automatic installation.
