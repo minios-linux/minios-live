@@ -1,6 +1,6 @@
 # MiniOS
 
-🇺🇸
+:us:
 These scripts build a bootable MiniOS ISO image.
 
 For installation use **install** - script for guided installation, **autoinstall** - script for automatic installation.
@@ -40,7 +40,7 @@ To build with docker, create a build folder in your home folder, put minios-slax
 
 Author: crims0n <http://minios.ru>
 
-🇷🇺
+:ru:
 Эти скрипты собирают загружаемый ISO образ MiniOS.
 
 Для установки используйте **install** - скрипт для управляемой установки, **autoinstall** - скрипт для автоматической установки.
