@@ -9,14 +9,16 @@ DISTRIBUTION_TYPE=debian
 DISTRIBUTION=buster
 
 # distribution arch
-# note: stretch only works with amd64
 # архитектура дистрибутива
-# заметка: stretch работает только с amd64
-DISTRIBUTION_ARCH=amd64
+DISTRIBUTION_ARCH=i386
 
 # окружение рабочего стола
 # desktop environment
 DESKTOP_ENVIRONMENT=slax
+
+# system variant, indicates the used list of packages in modules
+# вариант системы, указывает на используемый список пакетов в модулях
+PACKAGE_VARIANT=minimal
 
 # тип сжатия
 # compresssion type
@@ -30,16 +32,14 @@ DISTRIBUTION_VARIANT="minbase"
 # если core, то выполнение скриптов не будет собирать модули.
 #SYSTEM_TYPE="core"
 
-# system variant, indicates the used list of packages in modules
-# вариант системы, указывает на используемый список пакетов в модулях
-PACKAGE_VARIANT=minimal
-
+# path of the log file
 # путь файла лога
 LOGPATH="/var/log"
 
-# default is output to log. you can use OUTPUT="/dev/stdout" if you want to route events to standard output.
-#OUTPUT="$LOGPATH/$LIVEKITNAME.log"
+# default is output to stdout. you can use OUTPUT="$LOGPATH/$LIVEKITNAME.log" if you want to route events to log file.
+# по умолчанию выводится на стандартный вывод. вы можете использовать OUTPUT="$LOGPATH/$LIVEKITNAME.log", если хотите направлять события в файл журнала.
 OUTPUT="/dev/stdout"
+#OUTPUT="$LOGPATH/$LIVEKITNAME.log"
 #OUTPUT="/dev/null"
 
 # if = "1", creates a second iso with a constant filename
@@ -64,10 +64,12 @@ DEBIAN_FRONTEND_TYPE="noninteractive"
 APT_CMD="apt-get"
 APT_OPTIONS="-y"
 
+# iso type
 # тип iso
 BOOT_TYPE="hybrid"
 #BOOT_TYPE=""
 
+# union type used to build the system
 # тип union, используемый для сборки системы
 UNION_BUILD_TYPE="overlayfs"
 #UNION_BUILD_TYPE="aufs"
@@ -75,9 +77,14 @@ UNION_BUILD_TYPE="overlayfs"
 # Used when assigned to the ISO name when building Minios-Live
 SYSTEMNAME="MiniOS"
 
+# using a ready-made bootstrap file during installation. If absent, then it is downloaded and packaged. Subsequent builds unpack the existing bootstrap.
 # использование готового файла bootstrap при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл bootstrap.
 USE_BOOTSTRAP="1"
+
+# using a ready-made rootfs file during installation. If absent, then it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
 # использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
 USE_ROOTFS="1"
 
+# deleting sources after building
+# удаление исходников после сборки
 REMOVE_SOURCES="false"
