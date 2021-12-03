@@ -73,3 +73,7 @@ $APT_CMD update >>$OUTPUT 2>&1 &&
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     $APT_CMD autoremove $APT_OPTIONS linux-modules-extra-* linux-firmware
 fi
+
+if [ -f /bin/ping ]; then
+    chmod +s /bin/ping
+fi

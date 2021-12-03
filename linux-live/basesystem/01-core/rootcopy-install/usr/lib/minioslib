@@ -258,6 +258,7 @@ remove_broken_links() {
 }
 
 function add_chroot_configuration_files() {
+	set +u
 	cat <<EOF >$1/$LIVEKITNAME.conf
 OUTPUT=$OUTPUT
 LOGPATH=$LOGPATH
@@ -375,6 +376,7 @@ remove_broken_links() {
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 EOF
+	set -u
 }
 
 function remove_chroot_configuration_files() {
