@@ -1,4 +1,4 @@
-# MiniOS
+![MiniOS](images/minios.png)
 
 :us:
 
