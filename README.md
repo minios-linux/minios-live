@@ -1,4 +1,4 @@
-![MiniOS](images/minios.png)
+[![MiniOS](images/minios.png)](http://t.me/minios_news)
 
 :us:
 
