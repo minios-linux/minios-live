@@ -34,9 +34,9 @@ For installation use **install** - script for guided installation, **autoinstall
                   ./install build_iso
                   ./install -
 
-To build with docker, create a build folder in your home folder, put minios-slax there, run 01-runme.sh from the docker folder. This action will install the required programs and create an image. To start the build, edit for yourself and run 02-build.sh. Sample file content:
+To build with docker, create a build folder in your home folder, put minios-live there, run 01-runme.sh from the docker folder. This action will install the required programs and create an image. To start the build, edit for yourself and run 02-build.sh. Sample file content:
 
-`docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-slax/install -`
+`docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-live/install -`
 
 Author: crims0n <http://minios.ru>
 
@@ -74,8 +74,8 @@ Author: crims0n <http://minios.ru>
                 ./install build_iso
                 ./install -
 
-Для сборки с помошью докера создайте в домашней папке папку build, поместите туда minios-slax, запустите 01-runme.sh из папки docker. Данное действие установит необходимые программы и создаст образ. Для запуска сборки отредактируйте под себя и запустите 02-build.sh. Пример содержимого файла:
+Для сборки с помошью докера создайте в домашней папке папку build, поместите туда minios-live, запустите 01-runme.sh из папки docker. Данное действие установит необходимые программы и создаст образ. Для запуска сборки отредактируйте под себя и запустите 02-build.sh. Пример содержимого файла:
 
-`docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-slax/install -`
+`docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-live/install -`
 
 Автор: crims0n <http://minios.ru>
