@@ -39,7 +39,7 @@ To build with docker, create a build folder in your home folder, put minios-live
 
 `docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-live/install -`
 
-Author: crims0n <http://minios.ru>
+Author: crims0n <https://t.me/minios_news>
 
 :ru:
 
@@ -80,4 +80,4 @@ Author: crims0n <http://minios.ru>
 
 `docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-live/install -`
 
-Автор: crims0n <http://minios.ru>
+Автор: crims0n <https://t.me/minios_news>
