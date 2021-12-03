@@ -73,3 +73,5 @@ For installation use **install** - script for guided installation, **autoinstall
 To build with docker, create a build folder in your home folder, put minios-slax there, run 01-runme.sh from the docker folder. This action will install the required programs and create an image. To start the build, edit for yourself and run 02-build.sh. Sample file content:
 
 `docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-slax/install -`
+
+Author: crims0n <http://minios.ru>
