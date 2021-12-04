@@ -11,8 +11,8 @@ logging.root.addHandler(logging.StreamHandler(sys.stdout))
 class DockerFile(pydocker.DockerFile):
     """   add here your custom features   """
 
-#d = DockerFile(base_img='ubuntu:focal', name='local/mlc-focal:latest')
-d = DockerFile(base_img='ubuntu:bionic', name='local/mlc-bionic:latest')
+d = DockerFile(base_img='ubuntu:focal', name='local/mlc-focal:latest')
+#d = DockerFile(base_img='ubuntu:bionic', name='local/mlc-bionic:latest')
 #d = DockerFile(base_img='debian:buster', name='local/mlc-bullseye:latest')
 #d = DockerFile(base_img='debian:buster', name='local/mlc-buster:latest')
 
@@ -61,9 +61,8 @@ rm -f /var/lib/dpkg/*-old
 ''')
 
 d.VOLUME = '/build'
-d.WORKDIR = '/build/minios'
-#d.WORKDIR = '/build/minios-slax'
+d.WORKDIR = '/build/minios-live'
 
-#d.CMD = ["/build/minios-slax/install", "-"]
+d.CMD = ["/build/minios-live/install", "-"]
 
 d.build_img()

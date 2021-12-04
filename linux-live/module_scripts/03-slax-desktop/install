@@ -18,3 +18,7 @@ apt-get install --no-install-recommends --yes \
     scrot >>$OUTPUT 2>&1
 
 (cd /rootcopy-install && cp --parents -afr * /)
+
+if [ $DISTRIBUTION = "stretch" ]; then
+    sed -i "s,chromium chromium-sandbox,chromium,g" /usr/bin/fbliveapp
+fi
