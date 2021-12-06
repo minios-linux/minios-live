@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /etc/minios/config
+
 function read_cmdline() {
     for i in $@; do
         case $i in
@@ -19,16 +21,12 @@ function read_cmdline() {
     done
 }
 
-media_source="/mediasource"
-playing_source="/playingsource"
-local_source="/localsource"
-
 if [ -f /run/initramfs/memory/toram/mediaplayer.config ]; then
     . /run/initramfs/memory/toram/mediaplayer.config
     cp /run/initramfs/memory/toram/mediaplayer.config /mediaplayer.config
-elif [ -f /run/initramfs/memory/data/minios/mediaplayer.config ]; then
-    . /run/initramfs/memory/data/minios/mediaplayer.config
-    cp /run/initramfs/memory/data/minios/mediaplayer.config /mediaplayer.config
+elif [ -f /run/initramfs/memory/data/$LIVEKITNAME/mediaplayer.config ]; then
+    . /run/initramfs/memory/data/$LIVEKITNAME/mediaplayer.config
+    cp /run/initramfs/memory/data/$LIVEKITNAME/mediaplayer.config /mediaplayer.config
 else
     . /mediaplayer.config
 fi
