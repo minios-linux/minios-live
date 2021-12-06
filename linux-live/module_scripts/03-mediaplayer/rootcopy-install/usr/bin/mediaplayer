@@ -1,4 +1,48 @@
 #!/bin/bash
+
+function read_cmdline() {
+    for i in $@; do
+        case $i in
+        user_name=*)
+            USER_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        user_password=*)
+            USER_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        root_password=*)
+            ROOT_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        host_name=*)
+            HOST_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        default_target=*)
+            DEFAULT_TARGET="${i#*=}"
+            shift # past argument=value
+            ;;
+        ssh)
+            SSH=true
+            shift # past argument with no value
+            ;;
+        ssh_key=*)
+            SSH_KEY="${i#*=}"
+            shift # past argument=value
+            ;;
+        cloud)
+            CLOUD=true
+            shift # past argument with no value
+            ;;
+        *)
+            UNKNOWN=true
+            # unknown option
+            ;;
+        esac
+    done
+}
+
 if [ -f /run/initramfs/memory/toram/mediaplayer.config ]; then
     . /run/initramfs/memory/toram/mediaplayer.config
     cp /run/initramfs/memory/toram/mediaplayer.config /mediaplayer.config
@@ -8,6 +52,8 @@ elif [ -f /run/initramfs/memory/data/minios/mediaplayer.config ]; then
 else
     . /mediaplayer.config
 fi
+
+read_cmdline /proc/cmdline
 
 sudo x11vnc -storepasswd "$x11vnc_password" /etc/x11vnc.pass >/dev/null 2>&1
 echo -e "$samba_password\n$samba_password" | (sudo smbpasswd -a -s $USER_NAME)
