@@ -4,35 +4,11 @@ function read_cmdline() {
     for i in $@; do
         case $i in
         user_name=*)
-            USER_NAME="${i#*=}"
+            user_name="${i#*=}"
             shift # past argument=value
             ;;
-        user_password=*)
-            USER_PASSWORD="${i#*=}"
-            shift # past argument=value
-            ;;
-        root_password=*)
-            ROOT_PASSWORD="${i#*=}"
-            shift # past argument=value
-            ;;
-        host_name=*)
-            HOST_NAME="${i#*=}"
-            shift # past argument=value
-            ;;
-        default_target=*)
-            DEFAULT_TARGET="${i#*=}"
-            shift # past argument=value
-            ;;
-        ssh)
-            SSH=true
-            shift # past argument with no value
-            ;;
-        ssh_key=*)
-            SSH_KEY="${i#*=}"
-            shift # past argument=value
-            ;;
-        cloud)
-            CLOUD=true
+        playlocally)
+            playlocally=true
             shift # past argument with no value
             ;;
         *)
@@ -42,6 +18,10 @@ function read_cmdline() {
         esac
     done
 }
+
+media_source="/mediasource"
+playing_source="/playingsource"
+local_source="/localsource"
 
 if [ -f /run/initramfs/memory/toram/mediaplayer.config ]; then
     . /run/initramfs/memory/toram/mediaplayer.config
@@ -55,40 +35,62 @@ fi
 
 read_cmdline /proc/cmdline
 
+if [ $user_name = "root" ]; then
+    user_name=guest
+fi
+
 sudo x11vnc -storepasswd "$x11vnc_password" /etc/x11vnc.pass >/dev/null 2>&1
-echo -e "$samba_password\n$samba_password" | (sudo smbpasswd -a -s $USER_NAME)
+echo -e "$samba_password\n$samba_password" | (sudo smbpasswd -a -s $user_name)
 sudo systemctl restart ssh
 sudo systemctl restart x11vnc
 sudo systemctl restart novnc
 sudo systemctl restart smbd
+
+if [ $playlocally = "true" ]; then
+    if mount -L $local_source_label /mnt >/dev/null 2>&1; then
+        media_source=/mnt$media_source
+        playing_source=/mnt$playing_source
+        local_source=/mnt
+        local_mounted="true"
+    fi
+fi
+
 if [ ! -d "$media_source" ]; then
     sudo mkdir -p $media_source
-    sudo chown $USER_NAME:$USER_NAME $media_source
+    sudo chown $user_name:$user_name $media_source
 fi
 if [ ! -d "$playing_source" ]; then
     sudo mkdir -p $playing_source
-    sudo chown $USER_NAME:$USER_NAME $playing_source
+    sudo chown $user_name:$user_name $playing_source
 fi
 if [ ! -d "$local_source" ]; then
     sudo mkdir -p $local_source
-    sudo chown $USER_NAME:$USER_NAME $local_source
+    sudo chown $user_name:$user_name $local_source
 fi
 if [ ! -d "/tmp/mediaplayer" ]; then
     sudo mkdir -p /tmp/mediaplayer
-    sudo chown $USER_NAME:$USER_NAME /tmp/mediaplayer
+    sudo chown $user_name:$user_name /tmp/mediaplayer
 fi
-if mount -L $local_source_label $local_source >/dev/null 2>&1; then
+
+if [ $playlocally != "true" ]; then
+    if mount -L $local_source_label $local_source ] >/dev/null 2>&1; then
+        local_mounted="true"
+    fi
+fi
+
+if [ $local_mounted = "true" ]; then
     if [ ! -d "$local_source/media" ]; then
         sudo mkdir -p "$local_source/media"
-        sudo chown $USER_NAME:$USER_NAME "$local_source/media"
+        sudo chown $user_name:$user_name "$local_source/media"
         sudo mkdir -p "$local_source/mediaplayer"
-        sudo chown $USER_NAME:$USER_NAME "$local_source/mediaplayer"
+        sudo chown $user_name:$user_name "$local_source/mediaplayer"
     fi
     if [ -f "$local_source/mediaplayer/lastplayed" ]; then
         cp $(cat $local_source/mediaplayer/lastplayed) $playing_source/
         cp $local_source/mediaplayer/lastplayed /tmp/mediaplayer/lastplayed
     fi
 fi
+
 if [ -f "/tmp/mediaplayer/lastplayed" ]; then
     /usr/bin/$vlc_name $vlc_options $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
 fi
