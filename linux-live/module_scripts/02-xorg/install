@@ -16,6 +16,16 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
+if [ $DISTRIBUTION_VARIANT != "minimal" ]; then
+    if [ $DISTRIBUTION = "stretch" ]; then
+        wget -c http://ftp.debian.org/debian/pool/main/f/fonts-noto-color-emoji/fonts-noto-color-emoji_0~20180810-1_all.deb
+        dpkg -i ./fonts-noto-color-emoji_0~20180810-1_all.deb
+        rm -f ./fonts-noto-color-emoji_0~20180810-1_all.deb
+    else
+        $APT_CMD install $APT_OPTIONS fonts-noto-color-emoji
+    fi
+fi
+
 cat <<EOF >/usr/lib/systemd/system/xorg.service
 [Unit]
 Description=X-Window
