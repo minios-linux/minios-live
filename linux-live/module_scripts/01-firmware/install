@@ -13,13 +13,14 @@ $APT_CMD update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "bionic" ]; then
+    if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ]; then
         $APT_CMD install $APT_OPTIONS \
             linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
     else
         $APT_CMD install $APT_OPTIONS \
             #linux-firmware >>$OUTPUT 2>&1 #firmware-b43-installer
-            linux-image-generic
+            #linux-image-generic-hwe-20.04 >>$OUTPUT 2>&1
+            linux-image-generic >>$OUTPUT 2>&1
     fi
 else
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
