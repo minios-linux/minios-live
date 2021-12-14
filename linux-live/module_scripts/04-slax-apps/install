@@ -10,7 +10,25 @@ apt-get install --no-install-recommends --yes \
     qalculate-gtk \
     pcmanfm \
     lxtask \
-    xarchiver xdg-utils libgconf-2-4 \
-    network-manager-gnome >>$OUTPUT 2>&1
+    xarchiver xdg-utils libgconf-2-4 >>$OUTPUT 2>&1
+
+apt-mark manual pcmanfm libfm-gtk4
+
+if [ $PACKAGE_VARIANT = "minimal" ]; then
+    if [[ $DISTRIBUTION != "bullseye" || $DISTRIBUTION != "kali-rolling" ]]; then
+        apt-get install --no-install-recommends --yes \
+            wicd >>$OUTPUT 2>&1
+    else
+        apt-get install --no-install-recommends --yes \
+            network-manager-gnome >>$OUTPUT 2>&1
+        rm -f /usr/share/applications/6wicd.desktop
+    fi
+fi
+
+if [ $PACKAGE_VARIANT = "standard" ]; then
+    apt-get install --no-install-recommends --yes \
+        network-manager-gnome >>$OUTPUT 2>&1
+    rm -f /usr/share/applications/6wicd.desktop
+fi
 
 (cd /rootcopy-install && cp --parents -afr * /)
