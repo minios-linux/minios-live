@@ -11,11 +11,11 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 . $SCRIPT_DIR/config || exit 1
 set +u
 if [ -z $OUTPUT ]; then
-    . $SCRIPT_DIR/buildconfig || exit 1
+	. $SCRIPT_DIR/buildconfig || exit 1
 fi
 set -u
 
-CMD=(chroot_setup_host chroot_pkg_install chroot_configure chroot_finish_up)
+CMD=(chroot_setup_host chroot_pkg_install chroot_finish_up)
 
 # =============   main  ================
 
