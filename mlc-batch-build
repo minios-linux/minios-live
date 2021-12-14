@@ -1,0 +1,132 @@
+#!/bin/bash
+# Note: MLC - MiniOS Live Container
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+function docker_run() {
+    if [ ! "$(docker ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$(docker ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+            # cleanup
+            docker rm -f $CONTAINER_NAME
+        fi
+        # run your container
+        docker run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /build:/build \
+            -e DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
+            -e DISTRIBUTION="$DISTRIBUTION" \
+            -e DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT" \
+            -e PACKAGE_VARIANT="$PACKAGE_VARIANT" \
+            -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
+            -e COMP_TYPE="$COMP_TYPE" \
+            -e DISTRIBUTION_VARIANT="minbase" \
+            -e LOGPATH="/var/log" \
+            -e OUTPUT="/dev/stdout" \
+            -e BUILD_TEST_ISO="false" \
+            -e CREATE_BACKUP="false" \
+            -e DEV_SYSTEM="false" \
+            -e DEBIAN_FRONTEND_TYPE="noninteractive" \
+            -e APT_CMD="apt-get" \
+            -e APT_OPTIONS="-y" \
+            -e BOOT_TYPE="hybrid" \
+            -e UNION_BUILD_TYPE="overlayfs" \
+            -e SYSTEMNAME="MiniOS" \
+            -e USE_BOOTSTRAP="true" \
+            -e USE_ROOTFS="true" \
+            -e REMOVE_OLD_ISO="true" \
+            -e REMOVE_SOURCES="true" \
+            local/mlc-rolling /build/minios-live/install -
+    fi
+}
+
+function check_container_status() {
+    RUN=$(docker inspect $CONTAINER_NAME --format='{{.State.Status}}')
+}
+
+function finish_build() {
+    if [ ! -d $SCRIPT_DIR/logs ]; then
+        mkdir -p $SCRIPT_DIR/logs
+    fi
+    docker logs $CONTAINER_NAME >&$SCRIPT_DIR/logs/$CONTAINER_NAME.log
+    #cd $SCRIPT_DIR/logs
+    #gzip $CONTAINER_NAME.log
+    if [ "$(docker ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        # cleanup
+        docker rm -f $CONTAINER_NAME
+    fi
+    if [ -d /build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
+        echo "/build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
+    fi
+}
+
+function build_run() {
+
+    DISTRIBUTION_TYPE="debian"
+    DISTRIBUTION="$1"
+    DESKTOP_ENVIRONMENT="$2"
+    PACKAGE_VARIANT="$3"
+    DISTRIBUTION_ARCH="$4"
+    COMP_TYPE="$5"
+    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ]; then
+        DISTRIBUTION_TYPE="ubuntu"
+    fi
+
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE"
+
+    docker_run
+
+    check_container_status
+    if [ "$RUN" = "running" ]; then
+        echo "Container $CONTAINER_NAME has been started."
+    fi
+
+    while check_container_status; do
+        if [ "$RUN" = "running" ]; then
+            printf "."
+            sleep 5
+        else
+            if [ "$(docker inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')" != "0" ] 2>/dev/null; then
+                printf "\nERROR: Container $CONTAINER_NAME stopped with error. Exit code $(docker inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')\n"
+                finish_build
+            else
+                printf "\nContainer $CONTAINER_NAME stopped, proceeding...\n"
+                finish_build
+            fi
+            break
+        fi
+    done
+
+}
+
+: 'build_run bullseye core standard amd64 xz
+build_run bullseye core standard i386 xz
+build_run bullseye core minimal amd64 xz
+build_run bullseye core minimal i386 xz
+build_run buster core standard amd64 xz
+build_run buster core standard i386 xz
+build_run buster core minimal amd64 xz
+build_run buster core minimal i386 xz
+build_run stretch core standard amd64 xz
+build_run stretch core standard i386 xz
+build_run stretch core minimal amd64 xz
+build_run stretch core minimal i386 xz
+build_run focal core standard amd64 xz
+build_run focal core minimal amd64 xz'
+build_run bullseye xfce standard amd64 xz
+build_run bullseye xfce standard i386 xz
+build_run bullseye xfce minimal amd64 xz
+build_run bullseye xfce minimal i386 xz
+build_run buster xfce standard amd64 xz
+build_run buster xfce standard i386 xz
+build_run buster xfce minimal amd64 xz
+build_run buster xfce minimal i386 xz
+build_run buster slax minimal amd64 xz
+build_run buster slax minimal i386 xz
+build_run stretch xfce standard amd64 xz
+build_run stretch xfce standard i386 xz
+build_run stretch xfce minimal amd64 xz
+build_run stretch xfce minimal i386 xz
+build_run stretch slax minimal amd64 xz
+build_run stretch slax minimal i386 xz
+build_run focal xfce standard amd64 xz
+build_run focal xfce minimal amd64 xz
+build_run kali-rolling xfce standard amd64 xz
+build_run kali-rolling xfce minimal amd64 xz
