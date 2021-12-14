@@ -1,21 +1,14 @@
 #!/bin/bash
 
 . /etc/minios/config
+. /etc/minios.conf
 
 function read_cmdline() {
     for i in $@; do
         case $i in
-        user_name=*)
-            user_name="${i#*=}"
-            shift # past argument=value
-            ;;
         playlocally)
             playlocally=true
             shift # past argument with no value
-            ;;
-        *)
-            UNKNOWN=true
-            # unknown option
             ;;
         esac
     done
@@ -33,18 +26,13 @@ fi
 
 read_cmdline /proc/cmdline
 
-if [ $user_name = "root" ]; then
+if [ $USER_NAME = "root" ]; then
     user_name=guest
+else
+    user_name=$USER_NAME
 fi
 
-sudo x11vnc -storepasswd "$x11vnc_password" /etc/x11vnc.pass >/dev/null 2>&1
-echo -e "$samba_password\n$samba_password" | (sudo smbpasswd -a -s $user_name)
-sudo systemctl restart ssh
-sudo systemctl restart x11vnc
-sudo systemctl restart novnc
-sudo systemctl restart smbd
-
-if [ $playlocally = "true" ]; then
+if [ "$playlocally" = "true" ]; then
     if mount -L $local_source_label /mnt >/dev/null 2>&1; then
         media_source=/mnt$media_source
         playing_source=/mnt$playing_source
@@ -52,6 +40,38 @@ if [ $playlocally = "true" ]; then
         local_mounted="true"
     fi
 fi
+
+sudo bash -c "sudo cat >/etc/samba/smb.conf <<EOF
+[global]
+        dos charset = cp866
+        server string = Samba Server
+        unix charset = UTF8
+        log file = /var/log/samba/%m.log
+        max log size = 50
+        disable spoolss = Yes
+        load printers = No
+        printcap name = /dev/null
+        show add printer wizard = No
+        unix extensions = No
+        map to guest = Bad User
+        security = USER
+        dns proxy = No
+        idmap config * : backend = tdb
+        wide links = Yes
+[media]
+        comment = Media Folder
+        path = $media_source
+        locking = No
+        read only = No
+        valid users = $user_name
+EOF"
+
+echo -e "$root_password\n$root_password" | (sudo passwd root >/dev/null 2>&1)
+echo -e "$user_password\n$user_password" | (sudo passwd $user_name >/dev/null 2>&1)
+sudo x11vnc -storepasswd "$x11vnc_password" /etc/vncpasswd >/dev/null 2>&1
+echo -e "$samba_password\n$samba_password" | (sudo smbpasswd -a -s $user_name)
+sudo systemctl restart x11vnc
+sudo systemctl restart smbd
 
 if [ ! -d "$media_source" ]; then
     sudo mkdir -p $media_source
@@ -70,13 +90,13 @@ if [ ! -d "/tmp/mediaplayer" ]; then
     sudo chown $user_name:$user_name /tmp/mediaplayer
 fi
 
-if [ $playlocally != "true" ]; then
-    if mount -L $local_source_label $local_source ] >/dev/null 2>&1; then
+if [ "$playlocally" != "true" ]; then
+    if mount -L $local_source_label $local_source >/dev/null 2>&1; then
         local_mounted="true"
     fi
 fi
 
-if [ $local_mounted = "true" ]; then
+if [ "$local_mounted" = "true" ]; then
     if [ ! -d "$local_source/media" ]; then
         sudo mkdir -p "$local_source/media"
         sudo chown $user_name:$user_name "$local_source/media"
@@ -103,8 +123,13 @@ inotifywait -m $media_source -e close_write |
         find $playing_source ! -name "$file" -type f -exec rm -f {""} +
         if [ -d "$local_source/media" ] && [ -d "$local_source/mediaplayer" ]; then
             cp "$playing_source/$file" "$local_source/media/$file"
+            chown $user_name "$local_source/media/$file"
             echo "$local_source/media/$file" >$local_source/mediaplayer/lastplayed
             find $local_source/media ! -name "$file" -type f -exec rm -f {""} +
         fi
-        /usr/bin/$vlc_name $vlc_options $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
+        if [ $USER_NAME = "root" ]; then
+            exec su -c "/usr/bin/$vlc_name $vlc_options '$(cat /tmp/mediaplayer/lastplayed)'" $user_name >/dev/null 2>&1 &
+        else
+            /usr/bin/$vlc_name $vlc_options $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
+        fi
     done
