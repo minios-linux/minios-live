@@ -6,7 +6,7 @@ DISTRIBUTION_TYPE=debian
 
 # distribution
 # дистрибутив
-DISTRIBUTION=buster
+DISTRIBUTION=kali-rolling
 
 # distribution arch
 # архитектура дистрибутива
@@ -14,11 +14,11 @@ DISTRIBUTION_ARCH=amd64
 
 # окружение рабочего стола
 # desktop environment
-DESKTOP_ENVIRONMENT=mediaplayer
+DESKTOP_ENVIRONMENT=xfce
 
 # system variant, indicates the used list of packages in modules
 # вариант системы, указывает на используемый список пакетов в модулях
-PACKAGE_VARIANT=minimal
+PACKAGE_VARIANT=standard
 
 # тип сжатия
 # compresssion type
@@ -42,20 +42,20 @@ OUTPUT="/dev/stdout"
 #OUTPUT="$LOGPATH/$LIVEKITNAME.log"
 #OUTPUT="/dev/null"
 
-# if = "1", creates a second iso with a constant filename
-# если ="1", создаёт второй iso с постоянным именем файла
-BUILD_TEST_ISO="1"
+# if ="true", creates a second iso with a constant filename
+# если ="true", создаёт второй iso с постоянным именем файла
+BUILD_TEST_ISO="true"
 
 # удаляет старые файлы iso для данного типа сборки
-REMOVE_OLD_ISO="1"
+REMOVE_OLD_ISO="true"
 
-# if = "1", creates a copy of minios-live in chroot /opt
-# если ="1", создаёт копию minios-live в chroot /opt
-DEV_SYSTEM="0"
+# if ="true", creates a copy of minios-live in chroot /opt
+# если ="true", создаёт копию minios-live в chroot /opt
+DEV_SYSTEM="false"
 
-# if ="1", creates backup in parent folder
-# если ="1", создаёт резервную копию в родительской папке
-CREATE_BACKUP="0"
+# if ="true", creates backup in parent folder
+# если ="true", создаёт резервную копию в родительской папке
+CREATE_BACKUP="false"
 
 DEBIAN_FRONTEND_TYPE="noninteractive"
 #DEBIAN_FRONTEND_TYPE="dialog"
@@ -79,11 +79,11 @@ SYSTEMNAME="MiniOS"
 
 # using a ready-made bootstrap file during installation. If absent, then it is downloaded and packaged. Subsequent builds unpack the existing bootstrap.
 # использование готового файла bootstrap при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл bootstrap.
-USE_BOOTSTRAP="1"
+USE_BOOTSTRAP="true"
 
 # using a ready-made rootfs file during installation. If absent, then it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
 # использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
-USE_ROOTFS="1"
+USE_ROOTFS="true"
 
 # deleting sources after building
 # удаление исходников после сборки
