@@ -1,14 +1,16 @@
 [![MiniOS](images/minios.png)](http://t.me/minios_news)
 
-:us:
+The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface. We love [Slax](https://www.slax.org/) and want to keep its legacy alive.
+
+Why is MiniOS bigger than Slax? We use some packages that give more convenience when using, for example, network-manager, without which it will be problematic for you to configure a wireless network in the console. We can make the system smaller, like Slax or even smaller. But why, if it will be uncomfortable?
 
 These scripts build a bootable MiniOS ISO image.
 
 Using minios-live, you can build:
 
-*Debian 9, 10 with Fluxbox environment (analogous to Slax <https://www.slax.org/>).*
+*Debian 9, 10 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
 
-*Debian 9, 10, 11 and Ubuntu 20.04 with Xfce4 environment.*
+*Debian 9, 10, 11, Kali Linux and Ubuntu 20.04 with Xfce4 environment.*
 
 *Experimentally added support for the Cinnamon environment for all versions of distributions.*
 
