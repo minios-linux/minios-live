@@ -14,43 +14,25 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-cat >/etc/samba/smb.conf <<'EOF'
-[global]
-        dos charset = cp866
-        server string = Samba Server
-        unix charset = UTF8
-        log file = /var/log/samba/%m.log
-        max log size = 50
-        disable spoolss = Yes
-        load printers = No
-        printcap name = /dev/null
-        show add printer wizard = No
-        unix extensions = No
-        map to guest = Bad User
-        security = USER
-        dns proxy = No
-        idmap config * : backend = tdb
-        wide links = Yes
-[media]
-        comment = Media Folder
-        path = /mediasource
-        locking = No
-        read only = No
-        valid users = guest
-EOF
-
-cat >/lib/systemd/system/x11vnc.service <<'EOF'
+cat >/usr/lib/systemd/system/x11vnc.service <<'EOF'
 [Unit]
-Description=Start x11vnc at startup.
-After=multi-user.target
+Description=x11vnc server
+After=display-manager.service
+
 [Service]
-Type=simple
-ExecStart=/usr/bin/x11vnc -auth guess -forever -loop -noxdamage -repeat -rfbauth /etc/x11vnc.pass -rfbport 5900 -shared
+ExecStart=/usr/bin/x11vnc -many -shared -auth guess -noxdamage -rfbauth /etc/vncpasswd -rfbport 5900 -o /var/log/x11vnc.log
+User=root
+
+Restart=on-failure
+RestartSec=3
+
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
 EOF
 
-cat >/lib/systemd/system/novnc.service <<'EOF'
+useradd -r novnc
+
+cat >/usr/lib/systemd/system/novnc.service <<'EOF'
 [Unit]
 Description=NoVNC
 After=network.target
@@ -66,6 +48,8 @@ WantedBy=multi-user.target
 EOF
 
 cat >/mediaplayer.config <<'EOF'
+root_password=P1ayMyVide0
+user_password=P1ayMyVide0
 x11vnc_password=P1ayMyVide0
 samba_password=P1ayMyVide0
 vlc_password=P1ayMyVide0
@@ -79,8 +63,6 @@ vlc_options=" -f -R --no-video-title --extraintf=http --http-password $vlc_passw
 play_pause=1
 EOF
 
-chmod +x /usr/bin/mediaplayer
-
 systemctl disable smbd
-systemctl disable x11vnc
-systemctl disable novnc
+#systemctl disable x11vnc
+#systemctl disable novnc
