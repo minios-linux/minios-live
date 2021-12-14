@@ -12,12 +12,38 @@ class DockerFile(pydocker.DockerFile):
     """   add here your custom features   """
 
 d = DockerFile(base_img='ubuntu:rolling', name='local/mlc-rolling:latest')
-d = DockerFile(base_img='ubuntu:rolling', name='local/mlc:latest')
+#d = DockerFile(base_img='ubuntu:focal', name='local/mlc-focal:latest')
+#d = DockerFile(base_img='ubuntu:bionic', name='local/mlc-bionic:latest')
+#d = DockerFile(base_img='debian:buster', name='local/mlc-bullseye:latest')
+#d = DockerFile(base_img='debian:buster', name='local/mlc-buster:latest')
 
 d.RUN_bash_script('/opt/install.sh', r'''
 touch /.minios-live-container
 apt-get update -y
 apt-get install -y wget sudo debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd
+: 'apt-get install -y patch
+cd /opt/
+wget -c http://ru.archive.ubuntu.com/ubuntu/pool/main/d/debootstrap/debootstrap_1.0.123ubuntu2_all.deb
+dpkg -i /opt/debootstrap_1.0.123ubuntu2_all.deb
+rm -f /opt/debootstrap_1.0.123ubuntu2_all.deb
+cat <<'EOF' >/usr/share/debootstrap/functions.diff
+--- functions	2020-10-23 20:42:16.000000000 +0300
++++ functions.new	2021-01-16 23:22:25.612064306 +0300
+@@ -1176,7 +1176,9 @@
+ 		umount_on_exit /dev/shm
+ 		umount_on_exit /proc
+ 		umount_on_exit /proc/bus/usb
+-		umount "$TARGET/proc" 2>/dev/null || true
++		if [ ! -h "$TARGET/proc" ]; then
++			umount "$TARGET/proc" 2>/dev/null || true
++		fi
+ 
+ 		# some container environment are used at second-stage, it already treats /proc and so on
+ 		if [ -z "$(ls -A "$TARGET/proc")" ]; then
+
+EOF
+cd /usr/share/debootstrap/
+patch </usr/share/debootstrap/functions.diff '
 apt-get clean
 find /var/log/ -type f | xargs rm -f
 rm -f /var/backups/*
