@@ -517,6 +517,10 @@ if [ -f /minios-modules.tar.xz ]; then
     rm /minios-modules.tar.xz
 fi
 
+if [ -f /usr/bin/x11vnc ]; then
+    x11vnc -storepasswd "$ROOT_PASSWORD" /etc/vncpassword
+fi
+
 systemctl enable minios-configure
 
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
