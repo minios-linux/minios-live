@@ -17,7 +17,7 @@ d = DockerFile(base_img='ubuntu:rolling', name='local/mlc:latest')
 d.RUN_bash_script('/opt/install.sh', r'''
 touch /.minios-live-container
 apt-get update -y
-apt-get install -y wget sudo debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd
+apt-get install -y wget sudo debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd git
 apt-get clean
 find /var/log/ -type f | xargs rm -f
 rm -f /var/backups/*

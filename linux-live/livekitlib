@@ -804,6 +804,8 @@ minios_configure() {
    SSH_KEY=$(cmdline_value ssh_key)
 
    cp /bin/minios-configure $1/
+   cp /lib/config $1/
+   cp /lib/buildconfig $1/
    cat /proc/cmdline >$1/cmdline
 
    touch "$2/$LIVEKITNAME/.empty" 2>/dev/null && rm -f "$2/$LIVEKITNAME/.empty" 2>/dev/null
@@ -852,7 +854,7 @@ minios_configure() {
       fi
    fi
 
-   echo "LIVEKITNAME=$LIVEKITNAME" >$1/livekit.conf
+   #echo "LIVEKITNAME=$LIVEKITNAME" >$1/livekit.conf
 
    mkdir $1/var/log/minios
    chroot $1 /bin/bash -c "/minios-configure" >>/dev/null 2>&1
@@ -868,8 +870,10 @@ EOF'
 
    rm -f $1/cmdline
    mv -f $1/minios-configure $1/usr/bin/minios-configure
+   rm -f $1/config
+   rm -f $1/buildconfig
    chmod 755 $1/usr/bin/minios-configure
-   rm -f $1/livekit.conf
+   #rm -f $1/livekit.conf
 }
 
 # Change root and execute init
