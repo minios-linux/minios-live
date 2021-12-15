@@ -31,10 +31,10 @@ function common_variables() {
         OUTPUT="/dev/stdout"
         #CONTAINER="docker"
     fi'
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ] && [ ! -d /opt/minios-live ] && [ ! -f /.minios-live-container ]; then
+    if [[ (-f /.dockerenv || "$container" = "podman") && ! -f /.minios-live-container ]]; then
         CONTAINER_TYPE="1"
     fi
-    if [[ (-f /.dockerenv || "$container" = "podman") && (-d /opt/minios-live || -f /.minios-live-container) ]]; then
+    if [[ (-f /.dockerenv || "$container" = "podman") && -f /.minios-live-container ]]; then
         CONTAINER_TYPE="2"
     fi
 
@@ -1000,7 +1000,7 @@ EOF
                 DISTRIBUTION="testing"
                 create_apt_list
                 cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
-                if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+                if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
@@ -1021,7 +1021,7 @@ EOF
 
             : 'if [ $DISTRIBUTION = "kali-rolling" ]; then
                 (cd $SCRIPT_DIR/gnupg && cp --parents -afr * $INSTALL_DIR/tmp/)
-                if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+                if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $INSTALL_DIR /bin/bash -c "$APT_CMD install $APT_OPTIONS --allow-downgrades /tmp/*.deb"
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
@@ -1035,7 +1035,7 @@ EOF
                 fi
             fi'
 
-            if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+            if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                     chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
                 else
@@ -1045,7 +1045,7 @@ EOF
                 chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
             fi
 
-            if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+            if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                     chroot_run $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS
                 else
@@ -1056,7 +1056,7 @@ EOF
             fi
 
             if [ -f $SCRIPT_DIR/linux-live/pkglists/prereq.list ]; then
-                if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+                if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ")
@@ -1070,8 +1070,8 @@ EOF
                 fi
             fi
 
-            if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
-                if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+            if [ -f /.minios-live-container ]; then
+                if [ -f /.minios-live-container ]; then
                     chroot_run $INSTALL_DIR $APT_CMD clean $APT_OPTIONS
                 else
                     chroot_run $INSTALL_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
@@ -1129,16 +1129,21 @@ function copy_build_scripts() {
                 fi
             done
         fi
-        if [ -d $INSTALL_DIR/opt/minios-live/.git ]; then
-            rm -rf $INSTALL_DIR/opt/minios-live/.git >>$OUTPUT 2>&1
-        fi
     else
-        if [ ! -d $INSTALL_DIR/opt ]; then
+        if [ ! -d $INSTALL_DIR/opt/minios-live ]; then
             mkdir -p $INSTALL_DIR/opt
+            cd $INSTALL_DIR/opt
+            git clone https://github.com/crim50n/minios-live.git >>$OUTPUT 2>&1
         fi
-        cd $INSTALL_DIR/opt
-        git clone https://github.com/crim50n/minios-live.git >>$OUTPUT 2>&1
     fi
+
+    if [ -d $INSTALL_DIR/opt/minios-live/.git ]; then
+        rm -rf $INSTALL_DIR/opt/minios-live/.git >>$OUTPUT 2>&1
+    fi
+    if [ -f $INSTALL_DIR/opt/minios-live/.gitignore ]; then
+        rm -f $INSTALL_DIR/opt/minios-live/.gitignore >>$OUTPUT 2>&1
+    fi
+
 }
 
 # =================================================================
@@ -1173,7 +1178,7 @@ function build_chroot() {
 
     cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
 
-    if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+    if [ -f /.minios-live-container ]; then
         chroot_run $INSTALL_DIR /linux-live/install_chroot -
     else
         chroot $INSTALL_DIR /linux-live/install_chroot -
