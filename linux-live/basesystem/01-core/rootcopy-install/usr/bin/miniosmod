@@ -10,30 +10,26 @@ CURRENT_DIR="$(pwd)"
 ISO_DIR=$CURRENT_DIR/iso
 TMP_DIR="/tmp/"
 
-if [ -f $SCRIPT_DIR/minioslib ]; then
-    . $SCRIPT_DIR/minioslib || exit 1
-else
-    . /usr/lib/minioslib || exit 1
+if [ -f /run/initramfs/lib/minioslib ]; then
+    . /run/initramfs/lib/minioslib || exit 1
+elif [ -f /opt/minios-live/linux-live/minioslib ]; then
+    . /opt/minios-live/linux-live/minioslib || exit 1
 fi
-if [ -f $SCRIPT_DIR/config ]; then
-    . $SCRIPT_DIR/config || exit 1
-elif [ -f /etc/minios/config ]; then
-    . /etc/minios/config || exit 1
-else
+if [ -f /run/initramfs/lib/config ]; then
     . /run/initramfs/lib/config || exit 1
 fi
-if [ -f $CURRENT_DIR/config ]; then
-    . $CURRENT_DIR/config
+if [ -f /run/initramfs/lib/buildconfig ]; then
+    . /run/initramfs/lib/buildconfig || exit 1
 fi
 
-# don't change! use ./autoinstall instead
-UNATTENDED="0"
+# change this for unattended installation
+UNATTENDED="false"
 
-CMD=(build_modules repack_system)
+CMD=(build_modules repack_modules)
 
 # =============   main  ================
 
-BUILD_DIR=""
+INSTALL_DIR=""
 
 common_variables
 

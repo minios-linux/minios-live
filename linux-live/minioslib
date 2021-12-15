@@ -114,62 +114,129 @@ function console_colours() {
 # =================================================================
 
 function help() {
-    # if $1 is set, use $1 as headline message in help()
-    if [ -f /etc/default/locale ]; then
-        if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-            if [ -z ${1+x} ]; then
-                echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
+    if [ $SCRIPT_DIR != "/usr/bin" ]; then
+        # if $1 is set, use $1 as headline message in help()
+        if [ -f /etc/default/locale ]; then
+            if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
+                if [ -z ${1+x} ]; then
+                    echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
+                    echo -e
+                else
+                    echo -e $1
+                    echo
+                fi
+                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
                 echo -e
+                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                fi
+                echo -e "\tзапуск от start_cmd до end_cmd"
+                echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
+                echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
+                echo -e "\tвведите одну команду, чтобы запустить определенную команду"
+                echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
+                echo -e "\t"
+                echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+                exit 0
             else
-                echo -e $1
-                echo
-            fi
-            echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
-            echo -e
-            echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-            if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-            fi
-            echo -e "\tзапуск от start_cmd до end_cmd"
-            echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
-            echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
-            echo -e "\tвведите одну команду, чтобы запустить определенную команду"
-            echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
-            echo -e "\t"
-            echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
-            exit 0
-        else
-            if [ -z ${1+x} ]; then
-                echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOUR}"
+                if [ -z ${1+x} ]; then
+                    echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOUR}"
+                    echo -e
+                else
+                    echo -e $1
+                    echo
+                fi
+                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
                 echo -e
+                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                fi
+                echo -e "\trun from start_cmd to end_cmd"
+                echo -e "\tif start_cmd is omitted, start from first command"
+                echo -e "\tif end_cmd is omitted, end with last command"
+                echo -e "\tenter single cmd to run the specific command"
+                echo -e "\tenter '-' as only argument to run all commands"
+                echo -e "\t"
+                echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+                exit 0
+            fi
+        fi
+    else
+        # if $1 is set, use $1 as headline message in help()
+        if [ -f /etc/default/locale ]; then
+            if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
+                if [ -z ${1+x} ]; then
+                    echo -e "${LIGHTYELLOW}Этот скрипт собирает модули для $SYSTEMNAME.${ENDCOLOUR}"
+                    echo -e
+                else
+                    echo -e $1
+                    echo
+                fi
+                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+                echo -e
+                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                fi
+                echo -e "\tзапуск от start_cmd до end_cmd"
+                echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
+                echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
+                echo -e "\tвведите одну команду, чтобы запустить определенную команду"
+                echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
+                echo -e "\t"
+                echo -e "\tСкрипты установки должны находиться в папке с именем будущего модуля."
+                echo -e "\tНапример, чтобы собрать модуль с именем 06-vscode, скрипты сборки"
+                echo -e "\tдолжны находиться по следующему пути: ${LIGHTYELLOW}$CURRENT_DIR/modules/06-vscode${ENDCOLOUR}"
+                echo -e "\tПримеры:"
+                echo -e "\t${LIGHTYELLOW}$0 build_modules${ENDCOLOUR} сборка модулей"
+                echo -e "\t${LIGHTYELLOW}$0 repack_modules${ENDCOLOUR} перепаковка системы с типом сжатия, указанным"
+                echo -e "\tв /etc/$LIVEKITNAME/config в переменной COMP_TYPE"
+                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOUR} эта команда запустит обе функции поочерёдно"
+                exit 0
             else
-                echo -e $1
-                echo
+                if [ -z ${1+x} ]; then
+                    echo -e "${LIGHTYELLOW}This script builds modules for $SYSTEMNAME.${ENDCOLOUR}"
+                    echo -e
+                else
+                    echo -e $1
+                    echo
+                fi
+                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+                echo -e
+                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                fi
+                echo -e "\trun from start_cmd to end_cmd"
+                echo -e "\tif start_cmd is omitted, start from first command"
+                echo -e "\tif end_cmd is omitted, end with last command"
+                echo -e "\tenter single cmd to run the specific command"
+                echo -e "\tenter '-' as only argument to run all commands"
+                echo -e "\t"
+                echo -e "\tThe installation scripts must be in the folder with the"
+                echo -e "\tname of the future module. For example, to build a module"
+                echo -e "\tnamed 06-vscode, build scripts should be in the following"
+                echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/06-vscode${ENDCOLOUR}"
+                echo -e "\tExamples:"
+                echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOUR} build modules"
+                echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOUR} repack the system with the"
+                echo -e "\tcompression type specified by /etc/$LIVEKITNAME/config in COMP_TYPE variable"
+                echo -e "\t${LIGHTYELLOW}$0 - ${ENDCOLOUR} this command will run both functions alternately"
+                exit 0
             fi
-            echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
-            echo -e
-            echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-            if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
-            fi
-            echo -e "\trun from start_cmd to end_cmd"
-            echo -e "\tif start_cmd is omitted, start from first command"
-            echo -e "\tif end_cmd is omitted, end with last command"
-            echo -e "\tenter single cmd to run the specific command"
-            echo -e "\tenter '-' as only argument to run all commands"
-            echo -e "\t"
-            echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
-            echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
-            exit 0
         fi
     fi
+
 }
 
 # =================================================================
@@ -326,6 +393,19 @@ function check_is_in_chroot() {
 }
 
 # =================================================================
+#
+#
+# =================================================================
+
+aufs_support() {
+    if ! cat /proc/filesystems | grep aufs >/dev/null; then
+        UNION_BUILD_TYPE="overlayfs"
+    else
+        UNION_BUILD_TYPE="aufs"
+    fi
+}
+
+# =================================================================
 # check if filesystems are unmounted inside chroot
 # проверяем, размонтированы ли файловые системы внутри chroot
 # =================================================================
@@ -393,7 +473,7 @@ function check_install_dir() {
 }
 
 # =================================================================
-# configure the build folder
+# configure build folder
 # настраиваем папку для сборки
 # =================================================================
 
@@ -785,10 +865,14 @@ function remove_chroot_configuration_files() {
 
 function create_apt_list() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
-    if [ ! -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list ] && [ $DISTRIBUTION_TYPE != "debian" ]; then
-        cp -f $SCRIPT_DIR/linux-live/aptsources/sources.list $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
+    if [ ! -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list ]; then
+        if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DISTRIBUTION = "stretch" || $DISTRIBUTION = "buster" ]]; then
+            cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION_TYPE-old.list $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
+        else
+            cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION_TYPE.list $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
+        fi
         sed -i "s,distro,$DISTRIBUTION,g" $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
-        sed -i "s,http://ru.archive.ubuntu.com/ubuntu,$DISTRIBUTION_URL,g" $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
+        sed -i "s,http://archive.ubuntu.com/ubuntu,$DISTRIBUTION_URL,g" $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
     fi
 }
 
@@ -857,14 +941,8 @@ function build_bootstrap() {
             fi
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
-            # Раскомментировать для Ubuntu, но придётся вручную подбирать пакеты до соответсвия bootstrap Debian по пакетам.
-            #if [ $DISTRIBUTION_TYPE != "debian" ]; then
-            #    sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            #        debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            #else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            #fi
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
@@ -882,14 +960,8 @@ function build_bootstrap() {
             fi
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
-            # Раскомментировать для Ubuntu, но придётся вручную подбирать пакеты до соответсвия bootstrap Debian по пакетам.
-            #if [ $DISTRIBUTION_TYPE != "debian" ]; then
-            #    sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            #        debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            #else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            #fi
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
@@ -918,9 +990,6 @@ function build_rootfs() {
 
             chroot_mount_fs
 
-            create_apt_list
-
-            cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
             cat <<'EOF' >$INSTALL_DIR/etc/apt/apt.conf.d/000MiniOS
 APT::Install-Recommends "0";
 APT::Install-Suggests "0";
@@ -928,6 +997,29 @@ Acquire::Languages { "none"; }
 EOF
 
             if [ $DISTRIBUTION = "kali-rolling" ]; then
+                DISTRIBUTION="testing"
+                create_apt_list
+                cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+                if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
+                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg
+                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
+                    else
+                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
+                    fi
+                else
+                    chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
+                fi
+                DISTRIBUTION="kali-rolling"
+            fi
+
+            create_apt_list
+
+            cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+
+            : 'if [ $DISTRIBUTION = "kali-rolling" ]; then
                 (cd $SCRIPT_DIR/gnupg && cp --parents -afr * $INSTALL_DIR/tmp/)
                 if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -941,7 +1033,7 @@ EOF
                     chroot $INSTALL_DIR /bin/bash -c "$APT_CMD install $APT_OPTIONS --allow-downgrades /tmp/*.deb" >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
-            fi
+            fi'
 
             if [ -d /opt/minios-live ] || [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -1662,6 +1754,12 @@ function chroot_pkg_install() {
 
     main_pkg_list
 
+    if [ ! -d $INSTALL_DIR/opt ]; then
+        mkdir -p $INSTALL_DIR/opt
+    fi
+    cd $INSTALL_DIR/opt
+    git clone https://github.com/crim50n/minios-live.git
+
     # remove unused
     $APT_CMD autoremove $APT_OPTIONS >>$OUTPUT 2>&1
 
@@ -1902,11 +2000,20 @@ function module_chroot_mount_fs() {
     if [ -z $BUILD_DKMS ] || [ $BUILD_DKMS != "true" ]; then
         if [ $UNION_BUILD_TYPE = "overlayfs" ]; then
             MODULES_LIST=""
-            MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
+            if [ $SCRIPT_DIR != "/usr/bin" ]; then
+                MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
+            else
+                MODULES=(/run/initramfs/memory/bundles/*.$BEXT)
+            fi
+
             for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
                 MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
                 mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                if [ $SCRIPT_DIR != "/usr/bin" ]; then
+                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                else
+                    mount -o bind ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                fi
                 MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
             done
             MODULES_LIST=${MODULES_LIST:1}
@@ -1916,11 +2023,19 @@ function module_chroot_mount_fs() {
             mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
         elif [ $UNION_BUILD_TYPE = "aufs" ]; then
             MODULES_LIST=""
-            MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
+            if [ $SCRIPT_DIR != "/usr/bin" ]; then
+                MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
+            else
+                MODULES=(/run/initramfs/memory/bundles/*.$BEXT)
+            fi
             for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
                 MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
                 mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                if [ $SCRIPT_DIR != "/usr/bin" ]; then
+                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                else
+                    mount -o bind ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                fi
                 MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
             done
             MODULES_LIST=${MODULES_LIST:1}
@@ -1958,18 +2073,22 @@ function module_chroot_mount_fs() {
 
     mount --bind /dev $MODULE_MERGED_DIR/dev
 
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ]; then
-            mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
-            echo "nameserver 8.8.8.8" >>$MODULE_MERGED_DIR/etc/resolv.conf
-        fi
-        : 'if [ ! -d $MODULE_MERGED_DIR/run/resolvconf ]; then
+    if [ $SCRIPT_DIR = "/usr/bin" ]; then
+        echo "nameserver 8.8.8.8" >$MODULE_MERGED_DIR/etc/resolv.conf
+    else
+        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ]; then
+                mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
+                echo "nameserver 8.8.8.8" >>$MODULE_MERGED_DIR/etc/resolv.conf
+            fi
+            : 'if [ ! -d $MODULE_MERGED_DIR/run/resolvconf ]; then
             mkdir -p $MODULE_MERGED_DIR/run/resolvconf
             touch $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
             mount --bind /etc/resolv.conf $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
-        fi'
-    else
-        mount --bind /run $MODULE_MERGED_DIR/run
+            fi'
+        else
+            mount --bind /run $MODULE_MERGED_DIR/run
+        fi
     fi
     mount none -t proc $MODULE_MERGED_DIR/proc
     mount none -t sysfs $MODULE_MERGED_DIR/sys
@@ -1994,24 +2113,32 @@ function module_chroot_umount_fs() {
         umount $MODULE_MERGED_DIR/dev/pts
         umount $MODULE_MERGED_DIR/tmp
         umount $MODULE_MERGED_DIR/dev
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
-                rm -f $MODULE_MERGED_DIR/etc/resolv.conf
-                mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
-            elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
-                rm -f $MODULE_MERGED_DIR/etc/resolv.conf.bak
-            fi
-            : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
-            rm -f $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
-            rmdir $MODULE_MERGED_DIR/run/resolvconf'
-        else
-            umount $MODULE_MERGED_DIR/run
-        fi
-        umount $MODULE_MERGED_DIR
-
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+        if [ $SCRIPT_DIR = "/usr/bin" ]; then
             rm -f $MODULE_UPPER_DIR/etc/resolv.conf
-            rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
+            umount $MODULE_MERGED_DIR
+            umount $MODULES_DIR/lower/*
+            umount $MODULES_DIR
+        else
+            if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
+                    rm -f $MODULE_MERGED_DIR/etc/resolv.conf
+                    mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
+                elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+                    rm -f $MODULE_MERGED_DIR/etc/resolv.conf.bak
+                fi
+                : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
+                rm -f $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
+                rmdir $MODULE_MERGED_DIR/run/resolvconf'
+            else
+                umount $MODULE_MERGED_DIR/run
+            fi
+
+            umount $MODULE_MERGED_DIR
+
+            if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+                rm -f $MODULE_UPPER_DIR/etc/resolv.conf
+                rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
+            fi
         fi
     else
         umount $MODULE_MERGED_DIR/proc >>$OUTPUT 2>&1
@@ -2019,24 +2146,34 @@ function module_chroot_umount_fs() {
         umount $MODULE_MERGED_DIR/dev/pts >>$OUTPUT 2>&1
         umount $MODULE_MERGED_DIR/tmp >>$OUTPUT 2>&1
         umount $MODULE_MERGED_DIR/dev >>$OUTPUT 2>&1
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch"]; then
-                rm -f $MODULE_UPPER_DIR/etc/resolv.conf
-                mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
-            elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
-                rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
-            fi
-            : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf >>$OUTPUT 2>&1
+        if [ $SCRIPT_DIR = "/usr/bin" ]; then
+            rm -f $MODULE_UPPER_DIR/etc/resolv.conf >>$OUTPUT 2>&1
+
+            umount $MODULE_MERGED_DIR >>$OUTPUT 2>&1
+
+            umount $MODULES_DIR/lower/* >>$OUTPUT 2>&1
+
+            umount $MODULES_DIR >>$OUTPUT 2>&1
+        else
+            if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch"]; then
+                    rm -f $MODULE_UPPER_DIR/etc/resolv.conf
+                    mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
+                elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+                    rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
+                fi
+                : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf >>$OUTPUT 2>&1
             rm -f $MODULE_UPPER_DIR/run/resolvconf/resolv.conf
             rmdir $MODULE_UPPER_DIR/run/resolvconf'
-        else
-            umount $MODULE_MERGED_DIR/run >>$OUTPUT 2>&1
-        fi
-        umount $MODULE_MERGED_DIR >>$OUTPUT 2>&1
+            else
+                umount $MODULE_MERGED_DIR/run >>$OUTPUT 2>&1
+            fi
+            umount $MODULE_MERGED_DIR >>$OUTPUT 2>&1
 
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            rm -f $MODULE_UPPER_DIR/etc/resolv.conf >>$OUTPUT 2>&1
-            rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak >>$OUTPUT 2>&1
+            if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+                rm -f $MODULE_UPPER_DIR/etc/resolv.conf >>$OUTPUT 2>&1
+                rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak >>$OUTPUT 2>&1
+            fi
         fi
     fi
 
@@ -2106,6 +2243,13 @@ EOF
     rm /sbin/initctl >>$OUTPUT 2>&1
     dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>&1
 EOF
+    fi
+
+    if [ $SCRIPT_DIR = "/usr/bin" ]; then
+        if [ -d $MODULE_UPPER_DIR/home/live ]; then
+            chown 1000:1000 $MODULE_UPPER_DIR/home/live
+            chown -R 1000:1000 $MODULE_UPPER_DIR/home/live
+        fi
     fi
 }
 
@@ -2375,20 +2519,26 @@ function build_modules() {
                 module_chroot_cleanup
 
                 if [ ! -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
-                    if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
+                    if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                            if [ $COMP_TYPE = "zstd" ]; then
-                                mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
-                            else
+                            mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                        else
+                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} ${RED}is empty${ENDCOLOUR}. Nothing to do."
+                        fi
+
+                        module_chroot_umount_fs
+                    else
+                        if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
+                            if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                                 mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                            else
+                                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
                             fi
                         else
-                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
+                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+                            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
+                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
                         fi
-                    else
-                        echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-                        echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
-                        echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
                     fi
                 fi
 
@@ -2440,33 +2590,62 @@ function build_modules_live() {
 }
 
 function repack_module() {
+    if [ $SCRIPT_DIR = "/usr/bin" ]; then
+        cd $CURRENT_DIR
+    fi
     OLD_MODULE=$MODULE
     MODULE=${MODULE%"-$OLD_COMP_TYPE.$BEXT"}
     if [ $COMP_TYPE = $OLD_COMP_TYPE ]; then
         echo "The module is already in the required compression format." && exit
     fi
-    unsquashfs $OLD_MODULE
+    if [ $SCRIPT_DIR != "/usr/bin" ]; then
+        unsquashfs $OLD_MODULE
 
-    mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
 
-    rm -rf squashfs-root
-    rm -f $OLD_MODULE
+        rm -rf squashfs-root
+        rm -f $OLD_MODULE
+    else
+        if (ls $CURRENT_DIR/*.$BEXT | grep -q $MODULE 2>/dev/null); then
+            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+            echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
+            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+        else
+            mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        fi
+    fi
 }
 
 function repack_modules() {
     current_process
 
-    cd $WORK_DIR/image/$LIVEKITNAME/
-    for MODULE in *; do
-        if (ls ./*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-            OLD_COMP_TYPE="xz"
-            repack_module
-        elif (ls ./*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-            OLD_COMP_TYPE="lz4"
-            repack_module
-        elif (ls ./*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-            OLD_COMP_TYPE="zstd"
-            repack_module
-        fi
-    done
+    if [ $SCRIPT_DIR != "/usr/bin" ]; then
+        cd $WORK_DIR/image/$LIVEKITNAME/
+        for MODULE in *; do
+            if (ls ./*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="xz"
+                repack_module
+            elif (ls ./*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="lz4"
+                repack_module
+            elif (ls ./*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="zstd"
+                repack_module
+            fi
+        done
+    else
+        cd /run/initramfs/memory/bundles/
+        for MODULE in *; do
+            if (ls /run/initramfs/memory/bundles/*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="xz"
+                repack_module
+            elif (ls /run/initramfs/memory/bundles/*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="lz4"
+                repack_module
+            elif (ls /run/initramfs/memory/bundles/*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="zstd"
+                repack_module
+            fi
+        done
+    fi
 }
