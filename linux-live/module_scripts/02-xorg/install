@@ -16,7 +16,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION_VARIANT != "minimal" ]; then
+if [ $PACKAGE_VARIANT != "minimal" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         wget -c http://ftp.debian.org/debian/pool/main/f/fonts-noto-color-emoji/fonts-noto-color-emoji_0~20180810-1_all.deb
         dpkg -i ./fonts-noto-color-emoji_0~20180810-1_all.deb
@@ -37,4 +37,12 @@ ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" live
 
 EOF
 
+if [ -d /etc/systemd/system ]; then
+    mkdir -p /etc/systemd/system
+fi
 ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
+if [ -L /etc/systemd/system/display-manager.service ]; then
+    echo "Display manager link exists."
+else
+    exit 1
+fi
