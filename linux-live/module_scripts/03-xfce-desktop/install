@@ -11,11 +11,11 @@ GTKUI="2"
 $APT_CMD update >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION = "buster" ] && [ $GTKUI = "3" ]; then
-  $APT_CMD install $APT_OPTIONS \
-    gnupg curl >>$OUTPUT 2>&1
-  echo "deb http://mxrepo.com/mx/repo/ temp main" >>/etc/apt/sources.list
-  curl -L https://cyber-x.ru/wp-content/upload/mx19/mx19.gpg | sudo apt-key add -
-  $APT_CMD update >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS \
+        gnupg curl >>$OUTPUT 2>&1
+    echo "deb http://mxrepo.com/mx/repo/ temp main" >>/etc/apt/sources.list
+    curl -L https://cyber-x.ru/wp-content/upload/mx19/mx19.gpg | sudo apt-key add -
+    $APT_CMD update >>$OUTPUT 2>&1
 fi
 
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
@@ -23,41 +23,41 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-  if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
-    $APT_CMD install $APT_OPTIONS \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
-  elif [ $DISTRIBUTION = "kali-rolling" ]; then
-    $APT_CMD install $APT_OPTIONS \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | sed "s/slim//g" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
-  else
-    $APT_CMD install $APT_OPTIONS \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
-  fi
+    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
+        $APT_CMD install $APT_OPTIONS \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+        $APT_CMD install $APT_OPTIONS \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | sed "s/slim//g" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+    else
+        $APT_CMD install $APT_OPTIONS \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    fi
 fi
 
 # install packages
 if [ $DISTRIBUTION = "stretch" ]; then
-  wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.15.2-1_all.deb
-  $APT_CMD install $APT_OPTIONS \
-    ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
-  rm -f ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
+    wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.15.2-1_all.deb
+    $APT_CMD install $APT_OPTIONS \
+        ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
+    rm -f ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
 else
-  $APT_CMD install $APT_OPTIONS \
-    elementary-xfce-icon-theme >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS \
+        elementary-xfce-icon-theme >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION = "buster" ] && [ $GTKUI = "3" ]; then
-  sed -i "s,deb http://mxrepo.com/mx/repo/ temp main,#deb http://mxrepo.com/mx/repo/ temp main,g" /etc/apt/sources.list
-  $APT_CMD update >>$OUTPUT 2>&1
+    sed -i "s,deb http://mxrepo.com/mx/repo/ temp main,#deb http://mxrepo.com/mx/repo/ temp main,g" /etc/apt/sources.list
+    $APT_CMD update >>$OUTPUT 2>&1
 fi
 
 if grep xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-  if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
-    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-  elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
-    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-  fi
-  cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
+        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    fi
+    cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
 button-single-row=false
@@ -140,7 +140,7 @@ regex=true
 
 EOF
 else
-  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -234,14 +234,14 @@ EOF
 fi
 
 if [ $PACKAGE_VARIANT = "minimal" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
 WebBrowser=
 
 EOF
 elif [ $PACKAGE_VARIANT = "standard" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
 WebBrowser=

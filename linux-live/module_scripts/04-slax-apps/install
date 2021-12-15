@@ -15,7 +15,7 @@ apt-get install --no-install-recommends --yes \
 apt-mark manual pcmanfm libfm-gtk4
 
 if [ $PACKAGE_VARIANT = "minimal" ]; then
-    if [[ $DISTRIBUTION != "bullseye" || $DISTRIBUTION != "kali-rolling" ]]; then
+    if [ $DISTRIBUTION != "bullseye" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ]; then
         apt-get install --no-install-recommends --yes \
             wicd >>$OUTPUT 2>&1
     else

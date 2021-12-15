@@ -58,7 +58,6 @@ function finish_build() {
 }
 
 function build_run() {
-
     DISTRIBUTION_TYPE="debian"
     DISTRIBUTION="$1"
     DESKTOP_ENVIRONMENT="$2"
@@ -93,7 +92,6 @@ function build_run() {
             break
         fi
     done
-
 }
 
 : 'build_run bullseye core standard amd64 xz
@@ -136,3 +134,7 @@ build_run kali-rolling xfce standard amd64 xz
 build_run kali-rolling xfce standard i386 xz
 build_run kali-rolling xfce minimal amd64 xz
 build_run kali-rolling xfce minimal i386 xz
+build_run bookworm xfce standard amd64 xz
+build_run bookworm xfce standard i386 xz
+build_run bookworm xfce minimal amd64 xz
+build_run bookworm xfce minimal i386 xz
