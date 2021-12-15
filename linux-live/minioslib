@@ -1129,6 +1129,15 @@ function copy_build_scripts() {
                 fi
             done
         fi
+        if [ -d $INSTALL_DIR/opt/minios-live/.git ]; then
+            rm -rf $INSTALL_DIR/opt/minios-live/.git >>$OUTPUT 2>&1
+        fi
+    else
+        if [ ! -d $INSTALL_DIR/opt ]; then
+            mkdir -p $INSTALL_DIR/opt
+        fi
+        cd $INSTALL_DIR/opt
+        git clone https://github.com/crim50n/minios-live.git >>$OUTPUT 2>&1
     fi
 }
 
@@ -1753,12 +1762,6 @@ function chroot_pkg_install() {
     current_process
 
     main_pkg_list
-
-    if [ ! -d $INSTALL_DIR/opt ]; then
-        mkdir -p $INSTALL_DIR/opt
-    fi
-    cd $INSTALL_DIR/opt
-    git clone https://github.com/crim50n/minios-live.git
 
     # remove unused
     $APT_CMD autoremove $APT_OPTIONS >>$OUTPUT 2>&1
