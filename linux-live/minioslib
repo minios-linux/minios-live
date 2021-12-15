@@ -929,7 +929,7 @@ remove_broken_links() {
 function build_bootstrap() {
     current_process
 
-    if [ $CONTAINER_TYPE = "true" ]; then
+    if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
@@ -982,7 +982,7 @@ function build_rootfs() {
 
     if [ $USE_ROOTFS = "true" ]; then
         if [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
-            if [ $CONTAINER_TYPE = "true" ]; then
+            if [ $CONTAINER_TYPE = "1" ]; then
                 if [ ! -f /.minios-live ]; then
                     setup_host
                 fi
@@ -1153,7 +1153,7 @@ function copy_build_scripts() {
 function build_chroot() {
     current_process
 
-    if [ $CONTAINER_TYPE = "true" ]; then
+    if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
@@ -1201,7 +1201,7 @@ function build_chroot() {
 function build_live() {
     current_process
 
-    if [ $CONTAINER_TYPE = "true" ]; then
+    if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
@@ -1249,7 +1249,7 @@ function build_boot() {
     #current_process
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
 
-    if [ $CONTAINER_TYPE = "true" ]; then
+    if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
@@ -1378,7 +1378,7 @@ EOF
 function build_iso() {
     current_process
 
-    if [ $CONTAINER_TYPE = "true" ]; then
+    if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
@@ -2350,18 +2350,31 @@ function build_modules() {
 
     if [[ $DESKTOP_ENVIRONMENT != "core" ]] && [ "${CMD[ii]}" != "build_dkms" ]; then
 
-        if [ $CONTAINER_TYPE = "true" ]; then
+        if [ $CONTAINER_TYPE = "1" ]; then
             if [ ! -f /.minios-live ]; then
                 setup_host
             fi
         fi
 
-        MODULES_DIR=$WORK_DIR/modules
+        if [ $SCRIPT_DIR = "/usr/bin" ]; then
+            WORK_DIR=$CURRENT_DIR
+            SOURCE_MODULES_DIR=$CURRENT_DIR/modules
+            MODULES_DIR=$CURRENT_DIR/build
 
-        cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT
+            if [ -d $SOURCE_MODULES_DIR ]; then
+                cd $SOURCE_MODULES_DIR
+            else
+                help
+            fi
+        else
+            SOURCE_MODULES_DIR=$SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT
+            MODULES_DIR=$WORK_DIR/modules
+
+            cd $SOURCE_MODULES_DIR
+        fi
 
         for MODULE in *; do
-            if (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
+            if [ $SCRIPT_DIR != "/usr/bin" ] && (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
                 echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
@@ -2375,52 +2388,52 @@ function build_modules() {
                 module_chroot_mount_fs
 
                 # run pre-install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/preinstall ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/preinstall ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                        cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
                         chmod +x $MODULE_MERGED_DIR/preinstall
                         chroot_run $MODULE_MERGED_DIR /preinstall
                     else
-                        cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                        cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
                         chmod +x $MODULE_MERGED_DIR/preinstall
                         chroot_run $MODULE_MERGED_DIR /preinstall >>$OUTPUT 2>&1
                     fi
                 fi
 
                 # copy files
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install)" != "" ]; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     fi
                 else
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install)" != "" ]; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-install
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-install
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
                         fi
                     fi
                 fi
 
                 # run install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/install ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/install $MODULE_MERGED_DIR/install
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/install ]; then
+                    cp $SOURCE_MODULES_DIR/$MODULE/install $MODULE_MERGED_DIR/install
                     chmod +x $MODULE_MERGED_DIR/install
-                    if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/cleanup ]; then
-                        cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/cleanup ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
                     fi
-                    if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/$PACKAGE_VARIANT.list ]; then
-                        cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /install
@@ -2429,7 +2442,7 @@ function build_modules() {
                     fi
                 fi
 
-                if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     module_chroot_umount_fs
 
                     module_build_cleanup
@@ -2452,12 +2465,12 @@ function build_modules() {
                 fi
 
                 # run install2 script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/install2 ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/install2 $MODULE_MERGED_DIR/install2
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/install2 ]; then
+                    cp $SOURCE_MODULES_DIR/$MODULE/install2 $MODULE_MERGED_DIR/install2
                     chmod +x $MODULE_MERGED_DIR/install2
-                    if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
+                    if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
                         mkdir $MODULE_MERGED_DIR/patches
-                        (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                        (cd $SOURCE_MODULES_DIR/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /install2
@@ -2467,33 +2480,33 @@ function build_modules() {
                 fi
 
                 # copy files
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall)" != "" ]; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     fi
                 else
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall)" != "" ]; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
                         fi
                     else
-                        if [ "$(ls -A $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
-                            (cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
                         fi
                     fi
                 fi
 
                 # run post-install script
-                if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/postinstall ]; then
-                    cp $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/postinstall ]; then
+                    cp $SOURCE_MODULES_DIR/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
                     chmod +x $MODULE_MERGED_DIR/postinstall
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /postinstall
@@ -2502,7 +2515,7 @@ function build_modules() {
                     fi
                 fi
 
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     set +e
                     chroot_run $MODULE_MERGED_DIR uncompress_files /etc/alternatives
                     chroot_run $MODULE_MERGED_DIR uncompress_files /usr/share/man
@@ -2512,7 +2525,7 @@ function build_modules() {
                 fi
 
                 # run external actions
-                if [ -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                 fi
 
@@ -2520,13 +2533,13 @@ function build_modules() {
 
                 module_chroot_umount_fs
 
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     module_build_cleanup
                 fi
 
                 module_chroot_cleanup
 
-                if [ ! -f $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
@@ -2562,7 +2575,7 @@ function build_modules() {
 function build_modules_live() {
     current_process
     echo "here 2"
-    if [ $CONTAINER_TYPE = "true" ]; then
+    if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
@@ -2570,7 +2583,7 @@ function build_modules_live() {
 
     MODULES_DIR=$WORK_DIR/modules
 
-    cd $SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT
+    cd $SOURCE_MODULES_DIR
 
     for MODULE in *; do
 
