@@ -9,9 +9,10 @@ ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xf
 
 if [ $PACKAGE_VARIANT = "standard" ]; then
     rm -f /usr/share/applications/pavucontrol.desktop
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION != "kali-rolling" ]; then
+if [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ]; then
     if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
         sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
         sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf

@@ -31,7 +31,7 @@ fi
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "kali-rolling" ]; then
+    if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
         DEBIAN_FRONTEND=noninteractive \
             $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g" | sed "s/davfs2//g" | tr "\n" " ") >>$OUTPUT 2>&1
@@ -64,7 +64,7 @@ else
         network-manager >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
     $APT_CMD install $APT_OPTIONS \
         selinux-policy-default >>$OUTPUT 2>&1
     sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
@@ -84,8 +84,6 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
             KERNEL_IMAGE="$(apt-cache depends linux-image-generic-hwe-18.04 | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
         elif [ $DISTRIBUTION = "focal" ]; then
             KERNEL_IMAGE="$(apt-cache depends linux-image-generic-hwe-20.04 | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
-        elif [ $DISTRIBUTION = "kali" ]; then
-            KERNEL_IMAGE="$(apt-cache depends linux-image-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
         fi
     else
         KERNEL_IMAGE="$(apt-cache depends linux-image-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
