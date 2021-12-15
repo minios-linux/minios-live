@@ -161,7 +161,7 @@ fi
 CURRENT_USER_NAME=$(id -nu 1000)
 CURRENT_USER_GROUP=$(id -ng 1000)
 
-cat <<EOF >/etc/issue
+: 'cat <<EOF >/etc/issue
 
 
                                                                           \\l
@@ -182,15 +182,71 @@ cat <<EOF >/etc/issue
     [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
     [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
 
-EOF
+EOF'
 
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+    cat <<EOF >/etc/issue
+
+
+                                                                          \\l
+
+
+
+
+
+                        Thank you for using MiniOS.
+EOF
+
+    if [ -f /buildconfig ]; then
+        read_config /buildconfig DISTRIBUTION_TYPE DISTRIBUTION DESKTOP_ENVIRONMENT
+        if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+            cat <<EOF >>/etc/issue
+                        Based on [1;33mUbuntu[0;29m.
+EOF
+        elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION = "kali-rolling" ]; then
+            cat <<EOF >>/etc/issue
+                        Based on [1;36mKali Linux[0;29m.
+EOF
+        elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION != "kali-rolling" ]; then
+            cat <<EOF >>/etc/issue
+                        Based on [1;31mDebian GNU/Linux[0;29m.
+EOF
+        else
+            cat <<EOF >>/etc/issue
+                        Based on ^[[0;31mDebian GNU/Linux[0;29m.
+EOF
+        fi
+        if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+            cat <<EOF >>/etc/issue
+                        Powered by [1;32mSlax[0;29m.
+EOF
+        fi
+    else
+        cat <<EOF >>/etc/issue
+                        Based on Debian GNU/Linux.
+                        Powered by [1;32mSlax[0;29m.
+EOF
+    fi
+
+    cat <<EOF >>/etc/issue
+
+    [1;1m::::    ::::  ::::::::::: ::::    ::: ::::::::::: ::::::::   ::::::::  [0;29m
+    [1;1m+:+:+: :+:+:+     :+:     :+:+:   :+:     :+:    :+:    :+: :+:    :+: [0;29m
+    [1;1m+:+ +:+:+ +:+     +:+     :+:+:+  +:+     +:+    +:+    +:+ +:+        [0;29m
+    [1;1m+#+  +:+  +#+     +#+     +#+ +:+ +#+     +#+    +#+    +:+ +#++:++#++ [0;29m
+    [1;1m+#+       +#+     +#+     +#+  +#+#+#     +#+    +#+    +#+        +#+ [0;29m
+    [1;1m#+#       #+#     #+#     #+#   #+#+#     #+#    #+#    #+# #+#    #+# [0;29m
+    [1;1m###       ### ########### ###    #### ########### ########   ########  [0;29m 
+
+EOF
     if [ -f /cmdline ]; then
         CMDLINE=$(cat /cmdline)
         read_cmdline $CMDLINE
     fi
     if [ -f /livekit.conf ]; then
         read_config /livekit.conf LIVEKITNAME
+    elif [ -f /config ]; then
+        read_config /config LIVEKITNAME
     else
         LIVEKITNAME="minios"
     fi
@@ -468,6 +524,10 @@ EOF
     fi
     if [ -f /etc/slim.conf ]; then
         sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
+    fi
+    if [ -f /etc/lightdm/lightdm.conf ]; then
+        sed -i "s/#autologin-user=/autologin-user=$USER_NAME/g" /etc/lightdm/lightdm.conf
+        sed -i "s/#autologin-user-timeout=0/autologin-user-timeout=0/g" /etc/lightdm/lightdm.conf
     fi
 fi
 
