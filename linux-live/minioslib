@@ -2003,6 +2003,11 @@ function module_chroot_mount_fs() {
 
     module_check_mounted
 
+    if [ $SCRIPT_DIR = "/usr/bin" ]; then
+        mkdir -p $MODULES_DIR
+        mount -t tmpfs none $MODULES_DIR
+    fi
+
     set +u
 
     if [ -z $BUILD_DKMS ] || [ $BUILD_DKMS != "true" ]; then
