@@ -2005,7 +2005,7 @@ function module_chroot_mount_fs() {
 
     if [ $SCRIPT_DIR = "/usr/bin" ]; then
         mkdir -p $MODULES_DIR
-        mount -t tmpfs none $MODULES_DIR
+        #mount -t tmpfs none $MODULES_DIR
     fi
 
     set +u
@@ -2015,46 +2015,39 @@ function module_chroot_mount_fs() {
             MODULES_LIST=""
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
-            else
-                MODULES=(/run/initramfs/memory/bundles/*.$BEXT)
-            fi
-
-            for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                if [ $SCRIPT_DIR != "/usr/bin" ]; then
+                for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
+                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
                     mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                else
-                    mount -o bind ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                fi
-                MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
-            done
-            MODULES_LIST=${MODULES_LIST:1}
-
+                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
+                done
+                MODULES_LIST=${MODULES_LIST:1}
+            else
+                MODULES=/run/initramfs/memory/bundles/
+                ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
+                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v "0[5-9]" | tr '\n' ':')
+                MODULES_LIST=${MODULES_LIST/%:/}
+            fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
-
             mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
         elif [ $UNION_BUILD_TYPE = "aufs" ]; then
             MODULES_LIST=""
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
-            else
-                MODULES=(/run/initramfs/memory/bundles/*.$BEXT)
-            fi
-            for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                if [ $SCRIPT_DIR != "/usr/bin" ]; then
+                for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
+                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
                     mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                else
-                    mount -o bind ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                fi
-                MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
-            done
-            MODULES_LIST=${MODULES_LIST:1}
-
+                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
+                done
+                MODULES_LIST=${MODULES_LIST:1}
+            else
+                MODULES=/run/initramfs/memory/bundles/
+                ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
+                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v "0[5-9]" | tr '\n' ':')
+                MODULES_LIST=${MODULES_LIST/%:/}
+            fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
-
             mount -t aufs -o br:$MODULE_UPPER_DIR=rw:$MODULES_LIST aufs $MODULE_MERGED_DIR
         fi
     else
@@ -2364,7 +2357,7 @@ function build_modules() {
         if [ $SCRIPT_DIR = "/usr/bin" ]; then
             WORK_DIR=$CURRENT_DIR
             SOURCE_MODULES_DIR=$CURRENT_DIR/modules
-            MODULES_DIR=$CURRENT_DIR/build
+            MODULES_DIR=/tmp/build
 
             if [ -d $SOURCE_MODULES_DIR ]; then
                 cd $SOURCE_MODULES_DIR
