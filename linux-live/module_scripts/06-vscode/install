@@ -12,7 +12,5 @@ sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packag
 rm -f packages.microsoft.gpg
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     $APT_CMD update >>$OUTPUT 2>&1 &&
         $APT_CMD install $APT_OPTIONS code >>$OUTPUT 2>&1
-fi
