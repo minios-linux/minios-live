@@ -919,6 +919,8 @@ change_root() {
 
    mkdir -p run
    mount -t tmpfs tmpfs run
+   mkdir -p tmp
+   mount -t tmpfs tmpfs tmp
    mkdir -p run/initramfs
    mount -n -o remount,ro aufs .
    pivot_root . run/initramfs
