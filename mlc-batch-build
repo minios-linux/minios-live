@@ -9,6 +9,15 @@ function docker_run() {
             # cleanup
             docker rm -f $CONTAINER_NAME
         fi
+        cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
+        cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
+        sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
+        sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         # run your container
         docker run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /build:/build \
             -e DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
@@ -33,7 +42,7 @@ function docker_run() {
             -e USE_ROOTFS="true" \
             -e REMOVE_OLD_ISO="true" \
             -e REMOVE_SOURCES="true" \
-            local/mlc-rolling /build/minios-live/install -
+            local/mlc /build/minios-live/install -
     fi
 }
 
@@ -42,6 +51,12 @@ function check_container_status() {
 }
 
 function finish_build() {
+    if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
+        rm -f $SCRIPT_DIR/linux-live/container_buildconfig
+    fi
+    if [ -f $SCRIPT_DIR/linux-live/container_config ]; then
+        rm -f $SCRIPT_DIR/linux-live/container_config
+    fi
     if [ ! -d $SCRIPT_DIR/logs ]; then
         mkdir -p $SCRIPT_DIR/logs
     fi
