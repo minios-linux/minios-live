@@ -1002,13 +1002,16 @@ EOF
                 cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
                 if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
                         chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
                     else
+                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
                         chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                     fi
                 else
+                    chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
@@ -1999,7 +2002,9 @@ function module_check_install_dir() {
 function module_chroot_mount_fs() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
 
-    local MODULES MODULE_LOWER_DIR
+    local MODULES MODULE_LOWER_DIR FILTER
+
+    FILTER="0[5-9]"
 
     module_check_mounted
 
@@ -2016,16 +2021,18 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
+                    if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
+                        MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+                        mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                        mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                        MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
+                    fi
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
                 MODULES=/run/initramfs/memory/bundles/
                 ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
-                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v "0[5-9]" | tr '\n' ':')
+                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v $FILTER | tr '\n' ':')
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -2035,16 +2042,18 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
+                    if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
+                        MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+                        mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                        mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                        MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
+                    fi
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
                 MODULES=/run/initramfs/memory/bundles/
                 ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
-                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v "0[5-9]" | tr '\n' ':')
+                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v $FILTER | tr '\n' ':')
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
