@@ -91,6 +91,7 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 $APT_CMD install $APT_OPTIONS $KERNEL_IMAGE >>$OUTPUT 2>&1
+apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     $APT_CMD autoremove $APT_OPTIONS linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
