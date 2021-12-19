@@ -2018,12 +2018,13 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
-                        MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                        mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                        mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                        MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
-                    fi
+                    # when the filter is activated, it stops to build modules altogether :(
+                    #if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
+                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
+                    #fi
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
@@ -2039,12 +2040,13 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
-                        MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                        mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                        mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                        MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
-                    fi
+                    # when the filter is activated, it stops to build modules altogether :(
+                    #if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
+                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
+                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
+                    #fi
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
