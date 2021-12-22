@@ -13,8 +13,8 @@ echo "locales locales/locales_to_be_generated multiselect en_US.UTF-8 UTF-8" | d
 echo "locales locales/default_environment_locale select en_US.UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
 #echo "console-setup   console-setup/codeset47 select  Guess optimal character set" | debconf-set-selections -v >>$OUTPUT 2>&1
 #echo "console-setup   console-setup/charmap47 select  UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
-#echo "console-setup   console-setup/fontsize-fb47     select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
-#echo "console-setup   console-setup/fontface47        select  Fixed" | debconf-set-selections -v >>$OUTPUT 2>&1
+#echo "console-setup   console-setup/fontsize-fb47 select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
+#echo "console-setup   console-setup/fontface47select  Fixed" | debconf-set-selections -v >>$OUTPUT 2>&1
 #echo "console-setup   console-setup/fontsize-text47   select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
 
 $APT_CMD update >>$OUTPUT 2>&1
@@ -201,12 +201,12 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-    #if [ $CLOUD != "true" ]; then
-    #    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
-    #    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
-    #fi
-    #systemctl enable ssh-keygen >>$OUTPUT 2>&1
-    #systemctl enable ssh >>$OUTPUT 2>&1
+#if [ $CLOUD != "true" ]; then
+#sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
+#sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
+#fi
+#systemctl enable ssh-keygen >>$OUTPUT 2>&1
+#systemctl enable ssh >>$OUTPUT 2>&1
 fi
 
 if [ ! -f /usr/share/sudo ]; then
