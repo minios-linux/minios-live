@@ -476,8 +476,8 @@ function check_install_dir() {
 
 function setup_install_dir() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
     if [ "$UNATTENDED" = "true" ] && [ "$INSTALL_DIR" = "" ]; then
-        WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
         INSTALL_DIR="$WORK_DIR/basesystem"
         check_install_dir
     else
