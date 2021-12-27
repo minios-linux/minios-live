@@ -1285,7 +1285,7 @@ function build_boot() {
         echo $SYSTEMNAME >$WORK_DIR/image/.disk/info
     fi
 
-    if [ $CLOUD = "true" ]; then
+    if [ $CLOUD = "true" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         cat <<'EOF' | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/minios/boot/syslinux.cfg
 UI /minios/boot/vesamenu.c32
 
@@ -1353,6 +1353,10 @@ menuentry "Run MiniOS (Copy to RAM)"{
     initrd $initrd_img
 }
 EOF
+    fi
+    if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
+        sed -i "s/ssh/ssh hide_credentials quiet/g" $WORK_DIR/image/minios/boot/syslinux.cfg
+        sed -i "s/ssh/ssh hide_credentials quiet/g" $WORK_DIR/image/boot/grub/grub.cfg
     fi
 
     if [ $PACKAGE_VARIANT = "minimal" ]; then
@@ -1753,6 +1757,9 @@ function build_dkms() {
         set +e
         if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
             (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/usr/lib/modules/$KERNEL/)
+        fi
+        if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
+            (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/lib/modules/$KERNEL/)
         fi
         set -e
     fi
@@ -2483,6 +2490,43 @@ function build_modules() {
                     else
                         chroot_run $MODULE_MERGED_DIR /install2 >>$OUTPUT 2>&1
                     fi
+                fi
+
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
+                    echo "lol"
+                    read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+                    if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
+                        rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
+                    fi
+                    if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
+                        rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
+                    fi
+                    if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/build ]; then
+                        rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/build
+                    fi
+                    if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/source ]; then
+                        rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/source
+                    fi
+                    set +e
+                    if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
+                        if [ ! -d $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL ]; then
+                            mkdir -p $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL
+                        fi
+                        (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL/)
+                    fi
+                    if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
+                        if [ ! -d $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL ]; then
+                            mkdir -p $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL
+                        fi
+                        (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL/)
+                    fi
+                    set -e
+                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                        chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.sb
+                    else
+                        chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.sb >>$OUTPUT 2>&1
+                    fi
+                    rm -f $MODULE_UPPER_DIR/livekit.conf
                 fi
 
                 # copy files
