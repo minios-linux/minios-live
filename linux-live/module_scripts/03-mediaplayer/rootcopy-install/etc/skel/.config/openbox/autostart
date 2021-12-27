@@ -3,4 +3,21 @@ export DISPLAY=:0.0
 xset dpms force on
 xset -dpms
 xset s off
+if xrandr -q | grep LVDS | grep connected | grep + >/dev/null; then
+    LVDS=$(xrandr -q | grep LVDS)
+    LVDS=${LVDS% connected*}
+    if xrandr -q | grep HDMI | grep connected | grep + >/dev/null; then
+        SCREEN=$(xrandr -q | grep HDMI)
+        SCREEN=${SCREEN% connected*}
+    elif xrandr -q | grep DVI | grep connected | grep + >/dev/null; then
+        SCREEN=$(xrandr -q | grep DVI)
+        SCREEN=${SCREEN% connected*}
+    elif xrandr -q | grep VGA | grep connected | grep + >/dev/null; then
+        SCREEN=$(xrandr -q | grep VGA)
+        SCREEN=${SCREEN% connected*}
+    fi
+    if [ ! -z $SCREEN ]; then
+        xrandr --output $LVDS --off --output $SCREEN --auto
+    fi
+fi
 /usr/bin/mediaplayer

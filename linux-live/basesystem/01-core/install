@@ -105,7 +105,7 @@ fi
 
 (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
-if [ $PACKAGE_VARIANT = "minimal" ]; then
+if [ $PACKAGE_VARIANT = "minimal" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
     sed -i "s/💀/@/g" /etc/skel/.bashrc
     sed -i "s/💻/@/g" /etc/skel/.bashrc
     sed -i "s/🎄/@/g" /etc/skel/.bashrc
