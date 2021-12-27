@@ -74,7 +74,7 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
     #if [ $PACKAGE_VARIANT = "cloud" ]; then
     #    KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
     #else
-        KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
+    KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
     #fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     if [ $UBUNTU_IMAGE_HWE = "true" ]; then
@@ -185,7 +185,7 @@ if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service
     systemctl disable grub-initrd-fallback.service
 fi
 
-if grep openssh-server $SCRIPT_DIR/basesystem/01-core/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep openssh-server $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
     cat <<EOF >/usr/lib/systemd/system/ssh-keygen.service
 [Unit]
@@ -241,11 +241,11 @@ XKBOPTIONS=""
 
 BACKSPACE="guess"
 EOF
-
     dpkg-reconfigure -f noninteractive keyboard-configuration >>$OUTPUT 2>&1
 fi
 
-cat >/etc/default/console-setup <<'EOF'
+if grep console-setup $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    cat >/etc/default/console-setup <<'EOF'
 # CONFIGURATION FILE FOR SETUPCON
 
 # Consult the console-setup(5) manual page.
@@ -263,5 +263,5 @@ VIDEOMODE=
 # The following is an example how to use a braille font
 # FONT='lat9w-08.psf.gz brl-8x8.psf'
 EOF
-
-dpkg-reconfigure -f noninteractive console-setup >>$OUTPUT 2>&1
+    dpkg-reconfigure -f noninteractive console-setup >>$OUTPUT 2>&1
+fi
