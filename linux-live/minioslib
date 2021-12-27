@@ -17,9 +17,6 @@ function common_variables() {
     if [ -z $container ]; then
         container=""
     fi
-    if [ -z $CLOUD ]; then
-        CLOUD=false
-    fi
     if [ -z $MODULE ]; then
         MODULE=""
     fi
@@ -50,7 +47,7 @@ function common_variables() {
         PACKAGE_VARIANT="minimal"
     fi
 
-    if [ $CLOUD = "true" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
         PACKAGE_VARIANT="cloud"
     fi
 
@@ -1273,7 +1270,7 @@ function build_boot() {
     cp -r $SCRIPT_DIR/linux-live/bootfiles/* $WORK_DIR/image/$LIVEKITNAME
     #fi
 
-    if [ $CLOUD = "true" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
         BOOT_TYPE="hybrid"
     fi
     if [ $BOOT_TYPE = "hybrid" ]; then
@@ -1285,7 +1282,7 @@ function build_boot() {
         echo $SYSTEMNAME >$WORK_DIR/image/.disk/info
     fi
 
-    if [ $CLOUD = "true" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         cat <<'EOF' | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/minios/boot/syslinux.cfg
 UI /minios/boot/vesamenu.c32
 
@@ -2363,7 +2360,7 @@ function module_build_cleanup() {
 function build_modules() {
     current_process
 
-    if [[ $DESKTOP_ENVIRONMENT != "core" ]] && [ "${CMD[ii]}" != "build_dkms" ]; then
+    if [[ $DESKTOP_ENVIRONMENT != "core" || $DESKTOP_ENVIRONMENT != "cloud" ]] && [ "${CMD[ii]}" != "build_dkms" ]; then
 
         if [ $CONTAINER_TYPE = "1" ]; then
             if [ ! -f /.minios-live ]; then
