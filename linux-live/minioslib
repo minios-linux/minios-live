@@ -2575,8 +2575,11 @@ function build_modules() {
                 fi
 
                 # run external actions
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
                     cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                elif [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
+                    cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                    chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                 fi
 
                 module_chroot_finish_up
@@ -2593,6 +2596,7 @@ function build_modules() {
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                            chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} ${RED}is empty${ENDCOLOUR}. Nothing to do."
                         fi
