@@ -2359,8 +2359,7 @@ function module_build_cleanup() {
 # =================================================================
 function build_modules() {
     current_process
-
-    if [[ $DESKTOP_ENVIRONMENT != "core" || $DESKTOP_ENVIRONMENT != "cloud" ]] && [ "${CMD[ii]}" != "build_dkms" ]; then
+    if ! { [ $DESKTOP_ENVIRONMENT = "core" ] || [ $DESKTOP_ENVIRONMENT = "cloud" ]; } && [ "${CMD[ii]}" != "build_dkms" ]; then
 
         if [ $CONTAINER_TYPE = "1" ]; then
             if [ ! -f /.minios-live ]; then
