@@ -2037,7 +2037,9 @@ function module_chroot_mount_fs() {
             else
                 MODULES=/run/initramfs/memory/bundles/
                 ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
-                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v $FILTER | tr '\n' ':')
+                #MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v $FILTER | tr '\n' ':')
+                ## We are not using a filter as this will break the dpkg base.
+                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* tr '\n' ':')
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
