@@ -55,7 +55,7 @@ union_append_bundles "$BUNDLES" "$UNION"
 copy_rootcopy_content "$DATA" "$UNION"
 
 # configure
-minios_configure "$UNION" "$DATAMNT"
+minios_configure "$UNION" "$DATA" "$DATAMNT"
                                                                                                                                                       debug_shell
 # create fstab
 fstab_create "$UNION" "$DATAMNT"
