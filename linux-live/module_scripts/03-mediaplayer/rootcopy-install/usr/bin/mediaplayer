@@ -3,18 +3,29 @@
 . /etc/minios/config
 . /etc/minios.conf
 
+X11VNC_PASSWORD=$ROOT_PASSWORD
+SAMBA_PASSWORD=$USER_PASSWORD
+VLC_PASSWORD=$USER_PASSWORD
+MEDIA_SOURCE="/source/media"
+PLAYING_SOURCE="/source/playing"
+LOCAL_SOURCE="/source/local"
+LOCAL_SOURCE_LABEL="LOCALSOURCE"
+VLC_NAME=cvlc
+VLC_OPTIONS=" -f -R --no-video-title --extraintf=http --http-password $VLC_PASSWORD"
+PLAY_PAUSE=1
+
 function read_cmdline() {
     for i in $@; do
         case $i in
         playlocally)
-            playlocally=true
+            PLAYLOCALLY=true
             shift # past argument with no value
             ;;
         esac
     done
 }
 
-if [ -f /run/initramfs/memory/toram/mediaplayer.config ]; then
+: 'if [ -f /run/initramfs/memory/toram/mediaplayer.config ]; then
     . /run/initramfs/memory/toram/mediaplayer.config
     cp /run/initramfs/memory/toram/mediaplayer.config /mediaplayer.config
 elif [ -f /run/initramfs/memory/data/$LIVEKITNAME/mediaplayer.config ]; then
@@ -22,26 +33,24 @@ elif [ -f /run/initramfs/memory/data/$LIVEKITNAME/mediaplayer.config ]; then
     cp /run/initramfs/memory/data/$LIVEKITNAME/mediaplayer.config /mediaplayer.config
 else
     . /mediaplayer.config
-fi
+fi'
 
 read_cmdline /proc/cmdline
 
 if [ $USER_NAME = "root" ]; then
-    user_name=guest
-else
-    user_name=$USER_NAME
+    USER_NAME=guest
 fi
 
-if [ "$playlocally" = "true" ]; then
-    if mount -L $local_source_label /mnt >/dev/null 2>&1; then
-        media_source=/mnt$media_source
-        playing_source=/mnt$playing_source
-        local_source=/mnt
+if [ "$PLAYLOCALLY" = "true" ]; then
+    if mount -L $LOCAL_SOURCE_LABEL /mnt >/dev/null 2>&1; then
+        MEDIA_SOURCE=/mnt$MEDIA_SOURCE
+        PLAYING_SOURCE=/mnt$PLAYING_SOURCE
+        LOCAL_SOURCE=/mnt
         local_mounted="true"
     fi
 fi
 
-sudo bash -c "sudo cat >/etc/samba/smb.conf <<EOF
+sudo /bin/bash -c "cat >/etc/samba/smb.conf <<EOF
 [global]
         dos charset = cp866
         server string = Samba Server
@@ -58,78 +67,93 @@ sudo bash -c "sudo cat >/etc/samba/smb.conf <<EOF
         dns proxy = No
         idmap config * : backend = tdb
         wide links = Yes
+        client ipc min protocol = SMB2_02
+        client min protocol = SMB2_02
+        server min protocol = SMB2_02
 [media]
         comment = Media Folder
-        path = $media_source
+        path = $MEDIA_SOURCE
         locking = No
         read only = No
-        valid users = $user_name
+        valid users = $USER_NAME
+[playing]
+        comment = Playing Source
+        path = $PLAYING_SOURCE
+        locking = No
+        read only = No
+        valid users = $USER_NAME
+[local]
+        comment = Local Source
+        path = $LOCAL_SOURCE
+        locking = No
+        read only = No
+        valid users = $USER_NAME
 EOF"
 
-echo -e "$root_password\n$root_password" | (sudo passwd root >/dev/null 2>&1)
-echo -e "$user_password\n$user_password" | (sudo passwd $user_name >/dev/null 2>&1)
-sudo x11vnc -storepasswd "$x11vnc_password" /etc/vncpasswd >/dev/null 2>&1
-echo -e "$samba_password\n$samba_password" | (sudo smbpasswd -a -s $user_name)
+#echo -e "$root_password\n$root_password" | (sudo passwd root >/dev/null 2>&1)
+#echo -e "$user_password\n$user_password" | (sudo passwd $USER_NAME >/dev/null 2>&1)
+sudo x11vnc -storepasswd "$X11VNC_PASSWORD" /etc/vncpasswd >/dev/null 2>&1
+echo -e "$SAMBA_PASSWORD\n$SAMBA_PASSWORD" | (sudo smbpasswd -a -s $USER_NAME)
 sudo systemctl restart x11vnc
 sudo systemctl restart smbd
 
-if [ ! -d "$media_source" ]; then
-    sudo mkdir -p $media_source
-    sudo chown $user_name:$user_name $media_source
+if [ ! -d "$MEDIA_SOURCE" ]; then
+    sudo mkdir -p $MEDIA_SOURCE
+    sudo chown $USER_NAME:$USER_NAME $MEDIA_SOURCE
 fi
-if [ ! -d "$playing_source" ]; then
-    sudo mkdir -p $playing_source
-    sudo chown $user_name:$user_name $playing_source
+if [ ! -d "$PLAYING_SOURCE" ]; then
+    sudo mkdir -p $PLAYING_SOURCE
+    sudo chown $USER_NAME:$USER_NAME $PLAYING_SOURCE
 fi
-if [ ! -d "$local_source" ]; then
-    sudo mkdir -p $local_source
-    sudo chown $user_name:$user_name $local_source
+if [ ! -d "$LOCAL_SOURCE" ]; then
+    sudo mkdir -p $LOCAL_SOURCE
+    sudo chown $USER_NAME:$USER_NAME $LOCAL_SOURCE
 fi
 if [ ! -d "/tmp/mediaplayer" ]; then
     sudo mkdir -p /tmp/mediaplayer
-    sudo chown $user_name:$user_name /tmp/mediaplayer
+    sudo chown $USER_NAME:$USER_NAME /tmp/mediaplayer
 fi
 
-if [ "$playlocally" != "true" ]; then
-    if mount -L $local_source_label $local_source >/dev/null 2>&1; then
+if [ "$PLAYLOCALLY" != "true" ]; then
+    if mount -L $LOCAL_SOURCE_LABEL $LOCAL_SOURCE >/dev/null 2>&1; then
         local_mounted="true"
     fi
 fi
 
 if [ "$local_mounted" = "true" ]; then
-    if [ ! -d "$local_source/media" ]; then
-        sudo mkdir -p "$local_source/media"
-        sudo chown $user_name:$user_name "$local_source/media"
-        sudo mkdir -p "$local_source/mediaplayer"
-        sudo chown $user_name:$user_name "$local_source/mediaplayer"
+    if [ ! -d "$LOCAL_SOURCE/media" ]; then
+        sudo mkdir -p "$LOCAL_SOURCE/media"
+        sudo chown $USER_NAME:$USER_NAME "$LOCAL_SOURCE/media"
+        sudo mkdir -p "$LOCAL_SOURCE/mediaplayer"
+        sudo chown $USER_NAME:$USER_NAME "$LOCAL_SOURCE/mediaplayer"
     fi
-    if [ -f "$local_source/mediaplayer/lastplayed" ]; then
-        cp $(cat $local_source/mediaplayer/lastplayed) $playing_source/
-        cp $local_source/mediaplayer/lastplayed /tmp/mediaplayer/lastplayed
+    if [ -f "$LOCAL_SOURCE/mediaplayer/lastplayed" ]; then
+        cp $(cat $LOCAL_SOURCE/mediaplayer/lastplayed) $PLAYING_SOURCE/
+        cp $LOCAL_SOURCE/mediaplayer/lastplayed /tmp/mediaplayer/lastplayed
     fi
 fi
 
 if [ -f "/tmp/mediaplayer/lastplayed" ]; then
-    /usr/bin/$vlc_name $vlc_options $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
+    /usr/bin/$VLC_NAME $VLC_OPTIONS $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
 fi
-inotifywait -m $media_source -e close_write |
+inotifywait -m $MEDIA_SOURCE -e close_write |
     while read path action file; do
         echo "The file $file appeared in directory $path via $action"
-        sleep $play_pause
+        sleep $PLAY_PAUSE
         xhost + >/dev/null 2>/dev/null
-        mv "$path$file" "$playing_source/$file"
+        mv "$path$file" "$PLAYING_SOURCE/$file"
         kill -9 $(pidof vlc)
-        echo "$playing_source/$file" >/tmp/mediaplayer/lastplayed
-        find $playing_source ! -name "$file" -type f -exec rm -f {""} +
-        if [ -d "$local_source/media" ] && [ -d "$local_source/mediaplayer" ]; then
-            cp "$playing_source/$file" "$local_source/media/$file"
-            chown $user_name "$local_source/media/$file"
-            echo "$local_source/media/$file" >$local_source/mediaplayer/lastplayed
-            find $local_source/media ! -name "$file" -type f -exec rm -f {""} +
+        echo "$PLAYING_SOURCE/$file" >/tmp/mediaplayer/lastplayed
+        find $PLAYING_SOURCE ! -name "$file" -type f -exec rm -f {""} +
+        if [ -d "$LOCAL_SOURCE/media" ] && [ -d "$LOCAL_SOURCE/mediaplayer" ]; then
+            cp "$PLAYING_SOURCE/$file" "$LOCAL_SOURCE/media/$file"
+            chown $USER_NAME "$LOCAL_SOURCE/media/$file"
+            echo "$LOCAL_SOURCE/media/$file" >$LOCAL_SOURCE/mediaplayer/lastplayed
+            find $LOCAL_SOURCE/media ! -name "$file" -type f -exec rm -f {""} +
         fi
         if [ $USER_NAME = "root" ]; then
-            exec su -c "/usr/bin/$vlc_name $vlc_options '$(cat /tmp/mediaplayer/lastplayed)'" $user_name >/dev/null 2>&1 &
+            exec su -c "/usr/bin/$VLC_NAME $VLC_OPTIONS '$(cat /tmp/mediaplayer/lastplayed)'" $USER_NAME >/dev/null 2>&1 &
         else
-            /usr/bin/$vlc_name $vlc_options $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
+            /usr/bin/$VLC_NAME $VLC_OPTIONS $(cat /tmp/mediaplayer/lastplayed) >/dev/null 2>&1 &
         fi
     done
