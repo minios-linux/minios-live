@@ -2,7 +2,7 @@
 
 apt-get remove --yes vim* grub* debconf-i18n installation-report >>$OUTPUT 2>&1
 
-if [[ $DISTRIBUTION_TYPE != "ubuntu" ]]; then
+if [[ $DISTRIBUTION_TYPE != "ubuntu" || $PACKAGE_VARIANT != "cloud" ]]; then
 
     cd /tmp
     apt -y update >>$OUTPUT 2>&1
