@@ -12,9 +12,9 @@ else
     KERNEL=$(uname -r)
 fi
 
-if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "focal" ]; then
-    exit 0
-fi
+#if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "focal" ]; then
+#    exit 0
+#fi
 
 $APT_CMD update >>$OUTPUT 2>&1
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
@@ -25,6 +25,23 @@ fi
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
     $APT_CMD install $APT_OPTIONS aufs-dkms >>$OUTPUT 2>&1
+fi
+
+if [ $PACKAGE_VARIANT = "standard" ]; then
+    $APT_CMD install $APT_OPTIONS broadcom-sta-dkms >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "kali-rolling" ]; then
+        $APT_CMD install $APT_OPTIONS realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
+    else
+        $APT_CMD install $APT_OPTIONS git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
+        git clone https://github.com/aircrack-ng/rtl8812au
+        cd rtl8812au
+        make dkms_install
+        cd -
+    fi
+    git clone https://github.com/EntropicEffect/rtl8822bu
+    cd rtl8822bu
+    make
+    make install
 fi
 
 if [ $PACKAGE_VARIANT = "standard!" ]; then
