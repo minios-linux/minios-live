@@ -18,9 +18,9 @@ fi
 
 $APT_CMD update >>$OUTPUT 2>&1
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
@@ -32,7 +32,7 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
     if [ $DISTRIBUTION = "kali-rolling" ]; then
         $APT_CMD install $APT_OPTIONS realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
     else
-        $APT_CMD install $APT_OPTIONS git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
+        #$APT_CMD install $APT_OPTIONS git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
         git clone https://github.com/aircrack-ng/rtl8812au
         cd rtl8812au
         make dkms_install
