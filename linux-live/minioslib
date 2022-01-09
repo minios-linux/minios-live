@@ -2491,7 +2491,6 @@ function build_modules() {
                 fi
 
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
-                    echo "lol"
                     read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
                     if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
                         rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
