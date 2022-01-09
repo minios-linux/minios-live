@@ -28,7 +28,7 @@ if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
 fi
 
 if [ $PACKAGE_VARIANT = "standard" ]; then
-    $APT_CMD install $APT_OPTIONS broadcom-sta-dkms >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS git broadcom-sta-dkms >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "kali-rolling" ]; then
         $APT_CMD install $APT_OPTIONS realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
     else
