@@ -11,55 +11,10 @@ if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
 else
     KERNEL=$(uname -r)
 fi
-
-#if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "focal" ]; then
-#    exit 0
-#fi
-
-$APT_CMD update >>$OUTPUT 2>&1
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
-elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
-fi
+echo "KERNEL=$KERNEL" >/livekit.conf
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+    $APT_CMD update >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
     $APT_CMD install $APT_OPTIONS aufs-dkms >>$OUTPUT 2>&1
 fi
-
-if [ $PACKAGE_VARIANT = "standard" ]; then
-    $APT_CMD install $APT_OPTIONS git broadcom-sta-dkms >>$OUTPUT 2>&1
-    if [ $DISTRIBUTION = "kali-rolling" ]; then
-        $APT_CMD install $APT_OPTIONS realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
-    else
-        #$APT_CMD install $APT_OPTIONS git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
-        git clone https://github.com/aircrack-ng/rtl8812au
-        cd rtl8812au
-        make dkms_install
-        cd -
-    fi
-    git clone https://github.com/EntropicEffect/rtl8822bu
-    cd rtl8822bu
-    make
-    make install
-    cd -
-fi
-
-if [ $PACKAGE_VARIANT = "standard!" ]; then
-    TARGET_VER=$KERNEL
-    export TARGET_VER
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2F683C52980AECF
-    echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
-    if [ $PACKAGE_VARIANT = "standard" ]; then
-        $APT_CMD update >>$OUTPUT 2>&1 &&
-            $APT_CMD install $APT_OPTIONS virtualbox-guest-additions-iso >>$OUTPUT 2>&1
-    fi
-    cd /tmp
-    isoinfo -f -R -i /usr/share/virtualbox/VBoxGuestAdditions.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
-    chmod +x /tmp/VBoxLinuxAdditions.run
-    set +e
-    /tmp/VBoxLinuxAdditions.run
-    set -e
-fi
-
-echo "KERNEL=$KERNEL" >/livekit.conf
