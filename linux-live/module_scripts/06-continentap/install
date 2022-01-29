@@ -10,9 +10,10 @@ cd $SCRIPT_DIR
 wget -c https://cdimage.ch2.minios.ru/cap/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb >>$OUTPUT 2>&1
 # install packages
 $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS $SCRIPT_DIR/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb libnss3-tools >>$OUTPUT 2>&1
+    $APT_CMD install $APT_OPTIONS $SCRIPT_DIR/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb libnss3-tools iptables >>$OUTPUT 2>&1
 rm -f $SCRIPT_DIR/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb >>$OUTPUT 2>&1
 
+rm -f /etc/cts/.csum
 rm -f /etc/cts/filelist.current
 touch /etc/cts/filelist.current
 /usr/share/cts/bin/ctsic compute >>$OUTPUT 2>&1
