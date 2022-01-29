@@ -112,6 +112,17 @@ if [ $PACKAGE_VARIANT = "minimal" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ];
 fi
 
 # minios-install setup
+if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+    if [ ! -d /usr/lib/usev/rules.d ]; then
+        mkdir -p /usr/lib/usev/rules.d
+    fi
+    cat /usr/lib/usev/rules.d/90-slax-automount.rules <<EOF
+# we don't care about loop* and ram* devices
+KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/slax-automount %r/%k"
+
+EOF
+fi
+
 if [ ! -d /etc/$LIVEKITNAME ]; then
     mkdir -p /etc/$LIVEKITNAME
 fi
@@ -265,3 +276,7 @@ VIDEOMODE=
 EOF
     dpkg-reconfigure -f noninteractive console-setup >>$OUTPUT 2>&1
 fi
+
+#if grep busybox $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+#    busybox --install
+#fi
