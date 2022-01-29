@@ -8,14 +8,20 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 #export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true
 
-debconf-set-selections preseed.txt
+#debconf-set-selections /preseed.txt
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        $APT_CMD install $APT_OPTIONS locales >>$OUTPUT 2>&1
-fi
+$APT_CMD update >>$OUTPUT 2>&1 &&
+    $APT_CMD install --reinstall $APT_OPTIONS locales >>$OUTPUT 2>&1
 
 dpkg-reconfigure locales >>$OUTPUT 2>&1
 dpkg-reconfigure keyboard-configuration >>$OUTPUT 2>&1
 dpkg-reconfigure tzdata >>$OUTPUT 2>&1
+
+if [ ! -d /etc/systemd/system/console-setup.service.d ]; then
+    mkdir -p /etc/systemd/system/console-setup.service.d
+fi
+cat >/etc/systemd/system/console-setup.service.d/override.conf <<EOF
+[Unit]
+After=systemd-tmpfiles-setup.service
+EOF
