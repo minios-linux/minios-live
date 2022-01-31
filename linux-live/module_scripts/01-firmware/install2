@@ -31,20 +31,22 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
         #sed -i "1140s/.*/KVER  := $KERNEL/g" ./Makefile
         sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
         sed -i "s/uname -m/echo $DISTRIBUTION_ARCH/g" ./Makefile
-        sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile 
+        sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile
         sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
         make dkms_install
         cd -
     fi
-    git clone https://github.com/EntropicEffect/rtl8822bu
-    cd rtl8822bu
-    sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
-    sed -i "s/uname -m/echo $DISTRIBUTION_ARCH/g" ./Makefile
-    sed -i "s/dkms add -m 8812au -v \$(DRIVER_VERSION)/dkms add -m 8812au -v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile 
-    sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
-    make
-    make install
-    cd -
+    if [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "bookworm" ]; then
+        git clone https://github.com/EntropicEffect/rtl8822bu
+        cd rtl8822bu
+        sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
+        sed -i "s/uname -m/echo $DISTRIBUTION_ARCH/g" ./Makefile
+        sed -i "s/dkms add -m 8812au -v \$(DRIVER_VERSION)/dkms add -m 8812au -v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile
+        sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
+        make
+        make install
+        cd -
+    fi
 fi
 
 if [ $PACKAGE_VARIANT = "standard!" ]; then
