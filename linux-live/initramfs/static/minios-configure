@@ -659,7 +659,3 @@ else
         sed -i -e "/HIDE_CREDENTIALS=/s/=.*/=$HIDE_CREDENTIALS/" /etc/$LIVEKITNAME.conf
     fi
 fi
-
-if [ -f /bin/busybox ]; then
-    busybox --install
-fi
