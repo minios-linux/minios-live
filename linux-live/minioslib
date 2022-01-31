@@ -61,6 +61,10 @@ function common_variables() {
         DISTRIBUTION_URL="http://archive.kali.org/kali"
     fi
 
+    if [ $DISTRIBUTION = "orel" ]; then
+        DISTRIBUTION_URL="http://mirror.yandex.ru/astra/stable/orel/repository"
+    fi
+
 }
 
 # =================================================================
