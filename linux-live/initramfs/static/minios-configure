@@ -456,6 +456,11 @@ if [ ! -z "$USER_NAME" ]; then
 # It needs passwordless sudo functionality.
 $USER_NAME ALL=(ALL) NOPASSWD:ALL
 EOF
+        if which virtualbox; then
+            if ! groups live | grep vboxusers; then
+                sudo usermod -a -G vboxusers $USER_NAME
+            fi
+        fi
     fi
 fi
 
