@@ -56,7 +56,7 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
 fi
 
 # install packages
-if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $PACKAGE_VARIANT = "minimal" ]; then
+if ([ $DESKTOP_ENVIRONMENT = "slax" ] && [ $PACKAGE_VARIANT = "minimal" ]) || [ $DISTRIBUTION = "stretch" ]; then
     $APT_CMD install $APT_OPTIONS \
         isc-dhcp-client >>$OUTPUT 2>&1
 else
@@ -105,18 +105,18 @@ fi
 
 (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
-if [ $PACKAGE_VARIANT = "minimal" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
+if [ $PACKAGE_VARIANT = "minimal" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ] || [ $DISTRIBUTION = "stretch" ]; then
     sed -i "s/💀/@/g" /etc/skel/.bashrc
     sed -i "s/💻/@/g" /etc/skel/.bashrc
     sed -i "s/🎄/@/g" /etc/skel/.bashrc
 fi
 
 # minios-install setup
-if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+if [ $PACKAGE_VARIANT = "minimal" ]; then
     if [ ! -d /usr/lib/usev/rules.d ]; then
-        mkdir -p /usr/lib/usev/rules.d
+        mkdir -p /usr/lib/udev/rules.d
     fi
-    cat /usr/lib/usev/rules.d/90-slax-automount.rules <<EOF
+    cat <<EOF >/usr/lib/udev/rules.d/90-slax-automount.rules
 # we don't care about loop* and ram* devices
 KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/slax-automount %r/%k"
 
