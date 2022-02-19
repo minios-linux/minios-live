@@ -1543,7 +1543,7 @@ function chroot_setup_host() {
 
     echo $LIVEKITNAME >/etc/hostname
 
-    prereq_pkg_list
+    install_prerequesited_packages
 
     #configure machine id
     dbus-uuidgen >/etc/machine-id >>$OUTPUT 2>&1
@@ -1674,7 +1674,7 @@ function hostreq_pkg_list() {
 #
 #
 # =================================================================
-function prereq_pkg_list() {
+function install_prerequesited_packages() {
     echo -e "${YELLOW}=====> installing prerequested software for chroot system ...${ENDCOLOUR}"
 
     if [ ! -f /etc/apt/apt.conf.d/000MiniOS ]; then
@@ -1710,7 +1710,7 @@ EOF
 #
 #
 # =================================================================
-function main_pkg_list() {
+function install_core_packages() {
     echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOUR}"
 
     get_vars
@@ -1796,7 +1796,7 @@ function build_dkms() {
 function chroot_pkg_install() {
     current_process
 
-    main_pkg_list
+    install_core_packages
 
     # remove unused
     $APT_CMD autoremove $APT_OPTIONS >>$OUTPUT 2>&1
