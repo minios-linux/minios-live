@@ -1014,6 +1014,28 @@ EOF
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
                 DISTRIBUTION="kali-rolling"
+            elif [ $DISTRIBUTION = "orel" ]; then
+                DISTRIBUTION="stretch"
+                create_apt_list
+                cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+                if [ -f /.minios-live-container ]; then
+                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
+                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg
+                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
+                    else
+                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
+                    fi
+                else
+                    chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR wget -c https://mirror.yandex.ru/astra/stable/orel/repository/pool/main/a/apt/apt_1.4.11%2Bci202104261713_amd64.deb
+                    chroot $INSTALL_DIRdpkg -i ./apt_1.4.11+ci202104261713_amd64.deb
+                    chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
+                fi
+                DISTRIBUTION="orel"
             fi
 
             create_apt_list
