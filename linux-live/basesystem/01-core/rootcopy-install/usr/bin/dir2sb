@@ -47,11 +47,8 @@ fi
 if [ "$P2" = "" ]; then
    TARGET="$P1".sb
    while [ -e "$TARGET" ]; do TARGET="$TARGET"x; done
-   if [ $COMP_TYPE = "zstd" ]; then
-      mksquashfs "$P1" "$TARGET" -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments $KEEP >/dev/null || exit 3
-   else
-      mksquashfs "$P1" "$TARGET" -comp $COMP_TYPE -b 1024K -always-use-fragments $KEEP >/dev/null || exit 3
-   fi
+   mksquashfs "$P1" "$TARGET" -comp $COMP_TYPE -b 1024K -always-use-fragments $KEEP >/dev/null || exit 3
+
    umount "$P1" 2>/dev/null
    rm -Rf "$P1"
    mv "$TARGET" "$P1"
@@ -61,9 +58,6 @@ else
       exit 4
    fi
 
-   if [ $COMP_TYPE = "zstd" ]; then
-      mksquashfs "$P1" "$P2" -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments $KEEP
-   else
-      mksquashfs "$P1" "$P2" -comp $COMP_TYPE -b 1024K -always-use-fragments $KEEP >/dev/null
-   fi
+   mksquashfs "$P1" "$P2" -comp $COMP_TYPE -b 1024K -always-use-fragments $KEEP >/dev/null
+
 fi
