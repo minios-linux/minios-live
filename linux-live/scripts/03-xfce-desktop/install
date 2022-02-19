@@ -29,6 +29,9 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
         $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | sed "s/slim//g" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "stretch" ]; then
+        $APT_CMD install $APT_OPTIONS \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/network-manager-gnome//g" | tr "\n" " ") wicd >>$OUTPUT 2>&1
     else
         $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1

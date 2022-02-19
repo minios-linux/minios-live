@@ -14,6 +14,9 @@ fi
 
 VBOX_VERSION=$(wget -O- https://download.virtualbox.org/virtualbox/LATEST.TXT)
 
+#$APT_CMD update >>$OUTPUT 2>&1
+#$APT_CMD install $APT_OPTIONS dirmngr apt-transport-https >>$OUTPUT 2>&1
+
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2F683C52980AECF
 
 echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
