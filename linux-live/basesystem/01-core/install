@@ -71,11 +71,7 @@ if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRI
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    #if [ $PACKAGE_VARIANT = "cloud" ]; then
-    #    KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
-    #else
     KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
-    #fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     if [ $UBUNTU_IMAGE_HWE = "true" ]; then
         if [ $DISTRIBUTION = "xenial" ]; then
@@ -280,3 +276,7 @@ fi
 #if grep busybox $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
 #    busybox --install
 #fi
+
+# user setup
+adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
+usermod -a -G sudo $USER_NAME

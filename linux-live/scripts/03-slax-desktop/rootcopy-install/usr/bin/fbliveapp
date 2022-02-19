@@ -77,7 +77,7 @@ if [ -f "$EXECUTABLE" ]; then
 
    if [ "$GUEST" = "true" -a "$EUID" -eq 0 ]; then
       xhost + >/dev/null 2>/dev/null
-      exec su -c "$EXECUTABLE "$@"" guest
+      exec su -c "$EXECUTABLE "$@"" $USER_NAME
    fi
 
    exec "$EXECUTABLE" "$@"
