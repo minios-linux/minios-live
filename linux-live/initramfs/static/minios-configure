@@ -44,7 +44,7 @@ function help() {
         echo -e "\t${CYAN}$LIVEKITNAME-configure${ENDCOLOUR} parameter=value"
     fi
     echo -e "root_password - root password."
-    echo -e "user_name - username. If you specify the username root , then the user profile will not be created, the user_password parameter will be ignored."
+    echo -e "user_name - username. If you specify the username root, then the user profile will not be used, the user_password parameter will be ignored."
     echo -e "user_password - user password."
     echo -e "host_name - hostname of the system."
     echo -e "default_target - target of systemd. For loading GUI - graphical, for loading in command line mode - multi-user, for loading in emergency mode - emergency."
@@ -53,7 +53,7 @@ function help() {
     echo -e "cloud - special mode to run as a cloud-init host."
     echo -e "hide_credentials - hide credentials displayed as a prompt in the console at system startup."
     echo -e ""
-    echo -e "Example: ${LIGHTYELLOW}$0${ENDCOLOUR} root_password=toor user_name=live user_password=evil"
+    echo -e "Example: ${LIGHTYELLOW}$0${ENDCOLOUR} root_password=toor user_name=root user_password=evil"
     exit 0
 }
 
@@ -298,17 +298,10 @@ if [ -z "$CLOUD" ]; then
 fi
 sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME.conf
 if [ "$CLOUD" != "true" ]; then
-    if [ -z "$USER_NAME" ] || [ "$USER_NAME" != "root" ]; then
-        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-            if [ -z "$USER_NAME" ]; then
-                USER_NAME="live"
-                USER_GROUP="live"
-            fi
-        fi
-    fi
-
     if [ "$USER_NAME" != "root" ]; then
         # Set up user
+        USER_NAME="live"
+        USER_GROUP="live"
         if [ -z "$USER_PASSWORD" ]; then
             if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
                 if [ -f /etc/$LIVEKITNAME.conf ]; then
@@ -332,6 +325,7 @@ fi
 
 if [ ! -f /etc/$LIVEKITNAME.conf ]; then
     if [ "$USER_NAME" != "root" ]; then
+        cp -rT /etc/skel /home/$USER_NAME
         # create user directories
         if [ -d /home/$USER_NAME ]; then
             for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do

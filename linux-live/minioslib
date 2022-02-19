@@ -1042,22 +1042,6 @@ EOF
 
             cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
 
-            : 'if [ $DISTRIBUTION = "kali-rolling" ]; then
-                (cd $SCRIPT_DIR/gnupg && cp --parents -afr * $INSTALL_DIR/tmp/)
-                if [ -f /.minios-live-container ]; then
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $INSTALL_DIR /bin/bash -c "$APT_CMD install $APT_OPTIONS --allow-downgrades /tmp/*.deb"
-                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
-                    else
-                        chroot_run $INSTALL_DIR /bin/bash -c "$APT_CMD install $APT_OPTIONS --allow-downgrades /tmp/*.deb" >>$OUTPUT 2>&1
-                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
-                    fi
-                else
-                    chroot $INSTALL_DIR /bin/bash -c "$APT_CMD install $APT_OPTIONS --allow-downgrades /tmp/*.deb" >>$OUTPUT 2>&1
-                    chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
-                fi
-            fi'
-
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                     chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
@@ -1119,7 +1103,7 @@ function copy_build_scripts() {
         mkdir -p $INSTALL_DIR/linux-live
         (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $INSTALL_DIR/linux-live)
     else
-        find $SCRIPT_DIR/linux-live -type f -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
+        find $SCRIPT_DIR/linux-live -type f -not -path "*.git/*" -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
             if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                 if ! cmp $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file"; then
                     echo -e "$file has been modified since last build run."
@@ -1156,7 +1140,8 @@ function copy_build_scripts() {
         if [ ! -d $INSTALL_DIR/opt/minios-live ]; then
             mkdir -p $INSTALL_DIR/opt
             cd $INSTALL_DIR/opt
-            git clone https://github.com/crim50n/minios-live.git >>$OUTPUT 2>&1
+            git clone --depth=1 https://github.com/crim50n/minios-live.git >>$OUTPUT 2>&1
+            rm -rf minios-live/.git
         fi
     fi
 
@@ -1253,12 +1238,6 @@ function build_live() {
             COREFS="$COREFS $i"
         fi
     done
-
-    : 'if [ $COMP_TYPE = "zstd" ]; then
-        mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
-    else
-        mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
-    fi'
 
     mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
 
@@ -2209,8 +2188,8 @@ function module_chroot_umount_fs() {
                     rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
                 fi
                 : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf >>$OUTPUT 2>&1
-            rm -f $MODULE_UPPER_DIR/run/resolvconf/resolv.conf
-            rmdir $MODULE_UPPER_DIR/run/resolvconf'
+                rm -f $MODULE_UPPER_DIR/run/resolvconf/resolv.conf
+                rmdir $MODULE_UPPER_DIR/run/resolvconf'
             else
                 umount $MODULE_MERGED_DIR/run >>$OUTPUT 2>&1
             fi
