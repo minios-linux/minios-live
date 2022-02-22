@@ -21,7 +21,7 @@ if [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ]; then
     fi
 fi
 
-if [ $PACKAGE_VARIANT = "minimal" ]; then
+if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >>/usr/share/applications/taskmanager.desktop
 [Desktop Entry]
 Name=Task Manager

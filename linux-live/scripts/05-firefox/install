@@ -17,14 +17,14 @@ elif [ $DISTRIBUTION_TYPE = "debian" ]; then
         firefox-esr >>$OUTPUT 2>&1
 fi
 
-if [ $PACKAGE_VARIANT = "min" ]; then
+if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
 WebBrowser=firefox
 
 EOF
-elif [ $PACKAGE_VARIANT = "std" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

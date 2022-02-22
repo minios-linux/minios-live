@@ -43,7 +43,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
-if [ $PACKAGE_VARIANT = "std" ]; then
+if [ $PACKAGE_VARIANT = "standard" ]; then
     $APT_CMD install $APT_OPTIONS \
         zstd >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
@@ -56,7 +56,7 @@ if [ $PACKAGE_VARIANT = "std" ]; then
 fi
 
 # install packages
-if ([ $DESKTOP_ENVIRONMENT = "slax" ] && [ $PACKAGE_VARIANT = "min" ]) || [ $DISTRIBUTION = "stretch" ]; then
+if ([ $DESKTOP_ENVIRONMENT = "slax" ] && [ $PACKAGE_VARIANT = "minimum" ]) || [ $DISTRIBUTION = "stretch" ]; then
     $APT_CMD install $APT_OPTIONS \
         isc-dhcp-client >>$OUTPUT 2>&1
 else
@@ -101,14 +101,14 @@ fi
 
 (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
 
-if [ $PACKAGE_VARIANT = "min" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ] || [ $DISTRIBUTION = "stretch" ]; then
+if [ $PACKAGE_VARIANT = "minimum" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ] || [ $DISTRIBUTION = "stretch" ]; then
     sed -i "s/💀/@/g" /etc/skel/.bashrc
     sed -i "s/💻/@/g" /etc/skel/.bashrc
     sed -i "s/🎄/@/g" /etc/skel/.bashrc
 fi
 
 # minios-install setup
-if [ $PACKAGE_VARIANT = "min" ]; then
+if [ $PACKAGE_VARIANT = "minimum" ]; then
     if [ ! -d /usr/lib/usev/rules.d ]; then
         mkdir -p /usr/lib/udev/rules.d
     fi

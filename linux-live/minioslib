@@ -38,13 +38,13 @@ function common_variables() {
     elif [ $DISTRIBUTION_ARCH = "i386" ]; then
         KERNEL_ARCH="686-pae"
         #KERNEL_ARCH="686"
-        #PACKAGE_VARIANT="minimal"
+        #PACKAGE_VARIANT="minimum"
     elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
         KERNEL_ARCH="arm64"
     fi
 
     if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-        PACKAGE_VARIANT="minimal"
+        PACKAGE_VARIANT="minimum"
     fi
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
@@ -1362,7 +1362,7 @@ EOF
         sed -i "s/ssh/ssh hide_credentials quiet/g" $WORK_DIR/image/boot/grub/grub.cfg
     fi
 
-    if [ $PACKAGE_VARIANT = "minimal" ]; then
+    if [ $PACKAGE_VARIANT = "minimum" ]; then
         sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
         sed -i 's/minios.flags= /minios.flags=automount /g' $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
         if [[ $DESKTOP_ENVIRONMENT =~ "slax" ]]; then

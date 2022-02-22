@@ -236,14 +236,14 @@ else
 EOF
 fi
 
-if [ $PACKAGE_VARIANT = "min" ]; then
+if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
 WebBrowser=
 
 EOF
-elif [ $PACKAGE_VARIANT = "std" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
