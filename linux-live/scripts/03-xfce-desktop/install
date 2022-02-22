@@ -243,7 +243,7 @@ FileManager=pcmanfm
 WebBrowser=
 
 EOF
-elif [ $PACKAGE_VARIANT = "standard" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "standard" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar

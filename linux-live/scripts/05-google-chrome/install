@@ -29,7 +29,7 @@ FileManager=pcmanfm
 WebBrowser=google-chrome
 
 EOF
-    elif [ $PACKAGE_VARIANT = "standard" ]; then
+    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

@@ -13,7 +13,7 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
   $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+      locales dbus-x11 slim cinnamon-core gvfs-backends samba-common avahi-daemon faenza-icon-theme >>$OUTPUT 2>&1
 fi
 
 if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
