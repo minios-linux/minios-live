@@ -26,6 +26,7 @@ function docker_run() {
             -e PACKAGE_VARIANT="$PACKAGE_VARIANT" \
             -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
             -e COMP_TYPE="$COMP_TYPE" \
+            -e USER_NAME="live" \
             -e DISTRIBUTION_VARIANT="minbase" \
             -e LOGPATH="/var/log" \
             -e OUTPUT="/dev/stdout" \
@@ -109,47 +110,47 @@ function build_run() {
     done
 }
 
-: 'build_run bullseye core standard amd64 xz
-build_run bullseye core standard i386 xz
-build_run bullseye core minimal amd64 xz
-build_run bullseye core minimal i386 xz
-build_run buster core standard amd64 xz
-build_run buster core standard i386 xz
-build_run buster core minimal amd64 xz
-build_run buster core minimal i386 xz
-build_run stretch core standard amd64 xz
-build_run stretch core standard i386 xz
-build_run stretch core minimal amd64 xz
-build_run stretch core minimal i386 xz
-build_run focal core standard amd64 xz
-build_run focal core minimal amd64 xz
-build_run kali-rolling core standard amd64 xz
-build_run kali-rolling core standard i386 xz
-build_run kali-rolling core minimal amd64 xz
-build_run kali-rolling core minimal i386 xz'
-build_run bullseye xfce standard amd64 xz
-build_run bullseye xfce standard i386 xz
-build_run bullseye xfce minimal amd64 xz
-build_run bullseye xfce minimal i386 xz
-build_run buster xfce standard amd64 xz
-build_run buster xfce standard i386 xz
-build_run buster xfce minimal amd64 xz
-build_run buster xfce minimal i386 xz
-build_run buster slax minimal amd64 xz
-build_run buster slax minimal i386 xz
-build_run stretch xfce standard amd64 xz
-build_run stretch xfce standard i386 xz
-build_run stretch xfce minimal amd64 xz
-build_run stretch xfce minimal i386 xz
-build_run stretch slax minimal amd64 xz
-build_run stretch slax minimal i386 xz
-build_run focal xfce standard amd64 xz
-build_run focal xfce minimal amd64 xz
-build_run kali-rolling xfce standard amd64 xz
-build_run kali-rolling xfce standard i386 xz
-build_run kali-rolling xfce minimal amd64 xz
-build_run kali-rolling xfce minimal i386 xz
-build_run bookworm xfce standard amd64 xz
-build_run bookworm xfce standard i386 xz
-build_run bookworm xfce minimal amd64 xz
-build_run bookworm xfce minimal i386 xz
+: 'build_run bullseye core std amd64 xz
+build_run bullseye core std i386 xz
+build_run bullseye core min amd64 xz
+build_run bullseye core min i386 xz
+build_run buster core std amd64 xz
+build_run buster core std i386 xz
+build_run buster core min amd64 xz
+build_run buster core min i386 xz
+build_run stretch core std amd64 xz
+build_run stretch core std i386 xz
+build_run stretch core min amd64 xz
+build_run stretch core min i386 xz
+build_run focal core std amd64 xz
+build_run focal core min amd64 xz
+build_run kali-rolling core std amd64 xz
+build_run kali-rolling core std i386 xz
+build_run kali-rolling core min amd64 xz
+build_run kali-rolling core min i386 xz'
+build_run bullseye xfce std amd64 xz
+build_run bullseye xfce std i386 xz
+build_run bullseye xfce min amd64 xz
+build_run bullseye xfce min i386 xz
+build_run buster xfce std amd64 xz
+build_run buster xfce std i386 xz
+build_run buster xfce min amd64 xz
+build_run buster xfce min i386 xz
+build_run buster slax min amd64 xz
+build_run buster slax min i386 xz
+build_run stretch xfce std amd64 xz
+build_run stretch xfce std i386 xz
+build_run stretch xfce min amd64 xz
+build_run stretch xfce min i386 xz
+build_run stretch slax min amd64 xz
+build_run stretch slax min i386 xz
+build_run focal xfce std amd64 xz
+build_run focal xfce min amd64 xz
+build_run kali-rolling xfce std amd64 xz
+build_run kali-rolling xfce std i386 xz
+build_run kali-rolling xfce min amd64 xz
+build_run kali-rolling xfce min i386 xz
+build_run bookworm xfce std amd64 xz
+build_run bookworm xfce std i386 xz
+build_run bookworm xfce min amd64 xz
+build_run bookworm xfce min i386 xz

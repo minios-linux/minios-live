@@ -22,14 +22,14 @@ fi
 echo 'export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1"' >>/etc/chromium.d/default-flags
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
-    if [ $PACKAGE_VARIANT = "minimal" ]; then
+    if [ $PACKAGE_VARIANT = "min" ]; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
 WebBrowser=chromium
 
 EOF
-    elif [ $PACKAGE_VARIANT = "standard" ]; then
+    elif [ $PACKAGE_VARIANT = "std" ]; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
