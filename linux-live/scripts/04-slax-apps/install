@@ -14,7 +14,7 @@ apt-get install --no-install-recommends --yes \
 
 apt-mark manual pcmanfm libfm-gtk4
 
-if [ $PACKAGE_VARIANT = "minimal" ]; then
+if [ $PACKAGE_VARIANT = "min" ]; then
     if [ $DISTRIBUTION != "bullseye" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ]; then
         apt-get install --no-install-recommends --yes \
             wicd >>$OUTPUT 2>&1
@@ -25,7 +25,7 @@ if [ $PACKAGE_VARIANT = "minimal" ]; then
     fi
 fi
 
-if [ $PACKAGE_VARIANT = "standard" ]; then
+if [ $PACKAGE_VARIANT = "std" ]; then
     apt-get install --no-install-recommends --yes \
         network-manager-gnome >>$OUTPUT 2>&1
     rm -f /usr/share/applications/6wicd.desktop
