@@ -13,7 +13,7 @@ if [ $DISTRIBUTION = "stretch" ]; then
 elif [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     $APT_CMD update >>$OUTPUT 2>&1 &&
         $APT_CMD install $APT_OPTIONS \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+            chromium chromium-sandbox >>$OUTPUT 2>&1
 fi
 
 if [ ! -d /etc/chromium.d/ ]; then
@@ -29,7 +29,7 @@ FileManager=pcmanfm
 WebBrowser=chromium
 
 EOF
-    elif [ $PACKAGE_VARIANT = "standard" ]; then
+    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

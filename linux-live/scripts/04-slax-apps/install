@@ -14,20 +14,12 @@ apt-get install --no-install-recommends --yes \
 
 apt-mark manual pcmanfm libfm-gtk4
 
-if [ $PACKAGE_VARIANT = "minimum" ]; then
-    if [ $DISTRIBUTION != "bullseye" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ]; then
-        apt-get install --no-install-recommends --yes \
-            wicd >>$OUTPUT 2>&1
-    else
-        apt-get install --no-install-recommends --yes \
-            network-manager-gnome >>$OUTPUT 2>&1
-        rm -f /usr/share/applications/6wicd.desktop
-    fi
-fi
-
-if [ $PACKAGE_VARIANT = "standard" ]; then
+if [ $DISTRIBUTION != "bullseye" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ]; then
     apt-get install --no-install-recommends --yes \
-        network-manager-gnome >>$OUTPUT 2>&1
+        wicd >>$OUTPUT 2>&1
+else
+    apt-get install --no-install-recommends --yes \
+        connman-gtk >>$OUTPUT 2>&1
     rm -f /usr/share/applications/6wicd.desktop
 fi
 

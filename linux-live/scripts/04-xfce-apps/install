@@ -14,7 +14,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-if [ $PACKAGE_VARIANT = "standard" ]; then
+if [ $PACKAGE_VARIANT = "maximum" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         echo 'deb http://ftp.debian.org/debian stretch-backports main' | sudo tee --append /etc/apt/sources.list.d/stretch-backports.list >>$OUTPUT 2>&1
         $APT_CMD update >>$OUTPUT 2>&1
@@ -34,7 +34,7 @@ FileManager=pcmanfm
 WebBrowser=firefox
 
 EOF
-elif [ $PACKAGE_VARIANT = "standard" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

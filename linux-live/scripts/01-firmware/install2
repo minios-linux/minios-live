@@ -13,7 +13,7 @@ else
 fi
 echo "KERNEL=$KERNEL" >/livekit.conf
 
-if [ $PACKAGE_VARIANT = "standard" ]; then
+if [ $PACKAGE_VARIANT = "maximum" ]; then
     $APT_CMD update >>$OUTPUT 2>&1
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
@@ -49,15 +49,13 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
     fi
 fi
 
-if [ $PACKAGE_VARIANT = "standard!" ]; then
+if [ $PACKAGE_VARIANT = "maximum" ]; then
     TARGET_VER=$KERNEL
     export TARGET_VER
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2F683C52980AECF
     echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
-    if [ $PACKAGE_VARIANT = "standard" ]; then
-        $APT_CMD update >>$OUTPUT 2>&1 &&
-            $APT_CMD install $APT_OPTIONS virtualbox-guest-additions-iso >>$OUTPUT 2>&1
-    fi
+    $APT_CMD update >>$OUTPUT 2>&1 &&
+        $APT_CMD install $APT_OPTIONS virtualbox-guest-additions-iso >>$OUTPUT 2>&1
     cd /tmp
     isoinfo -f -R -i /usr/share/virtualbox/VBoxGuestAdditions.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
     chmod +x /tmp/VBoxLinuxAdditions.run
