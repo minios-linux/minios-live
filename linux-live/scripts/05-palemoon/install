@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ $DISTRIBUTION = "debian" ]; then
+    echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | sudo tee /etc/apt/sources.list.d/home:stevenpusser.list
+    curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/Debian_10/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_stevenpusser.gpg >/dev/null
+elif [ $DISTRIBUTION = "ubuntu" ]; then
+    echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/xUbuntu_20.04/ /' | sudo tee /etc/apt/sources.list.d/home:stevenpusser.list
+    curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/xUbuntu_20.04/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_stevenpusser.gpg >/dev/null
+fi
+
+# install packages
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+    $APT_CMD update >>$OUTPUT 2>&1 &&
+        $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
+fi
+
+if [ $PACKAGE_VARIANT = "minimum" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=palemoon
+
+EOF
+
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=palemoon
+
+EOF
+fi
