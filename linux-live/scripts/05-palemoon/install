@@ -1,18 +1,16 @@
 #!/bin/bash
 
-if [ $DISTRIBUTION = "debian" ]; then
-    echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | sudo tee /etc/apt/sources.list.d/home:stevenpusser.list
-    curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/Debian_10/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_stevenpusser.gpg >/dev/null
-elif [ $DISTRIBUTION = "ubuntu" ]; then
-    echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/xUbuntu_20.04/ /' | sudo tee /etc/apt/sources.list.d/home:stevenpusser.list
-    curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/xUbuntu_20.04/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_stevenpusser.gpg >/dev/null
+if [ $DISTRIBUTION_TYPE = "debian" ]; then
+    echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | tee /etc/apt/sources.list.d/home:stevenpusser.list
+    curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/Debian_10/Release.key | gpg --dearmor >/etc/apt/trusted.gpg.d/home_stevenpusser.gpg
+elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:stevenpusser.list
+    curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/xUbuntu_20.04/Release.key | gpg --dearmor >/etc/apt/trusted.gpg.d/home_stevenpusser.gpg
 fi
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
-fi
+$APT_CMD update >>$OUTPUT 2>&1 &&
+    $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
