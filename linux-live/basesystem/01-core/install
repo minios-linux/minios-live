@@ -19,22 +19,16 @@ echo "locales locales/default_environment_locale select en_US.UTF-8" | debconf-s
 
 $APT_CMD update >>$OUTPUT 2>&1
 
-if [ $PACKAGE_VARIANT != "cloud" ]; then
-    if [ $DISTRIBUTION_TYPE = "debian" ]; then
-        $APT_CMD install $APT_OPTIONS \
-            acpi-support-base >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        $APT_CMD install $APT_OPTIONS --no-install-suggests \
-            acpi-support >>$OUTPUT 2>&1
-    fi
-fi
-
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
         DEBIAN_FRONTEND=noninteractive \
             $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g" | sed "s/davfs2//g" | tr "\n" " ") >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            $APT_CMD install $APT_OPTIONS \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") >>$OUTPUT 2>&1       
     else
         DEBIAN_FRONTEND=noninteractive \
             $APT_CMD install $APT_OPTIONS \
@@ -56,7 +50,7 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
 fi
 
 # install packages
-if ([ $DESKTOP_ENVIRONMENT = "slax" ] && [ $PACKAGE_VARIANT = "minimum" ]) || [ $DISTRIBUTION = "stretch" ]; then
+if [ $DESKTOP_ENVIRONMENT = "slax" ] || [ $PACKAGE_VARIANT = "minimum" ] || [ $DISTRIBUTION = "stretch" ]; then
     $APT_CMD install $APT_OPTIONS \
         isc-dhcp-client >>$OUTPUT 2>&1
 else

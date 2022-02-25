@@ -941,7 +941,9 @@ function build_bootstrap() {
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+            #    debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
@@ -1033,7 +1035,7 @@ EOF
                     chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR wget -c https://mirror.yandex.ru/astra/stable/orel/repository/pool/main/a/apt/apt_1.4.11%2Bci202104261713_amd64.deb
-                    chroot $INSTALL_DIRdpkg -i ./apt_1.4.11+ci202104261713_amd64.deb
+                    chroot $INSTALL_DIR dpkg -i ./apt_1.4.11+ci202104261713_amd64.deb
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
                 DISTRIBUTION="orel"
@@ -1507,10 +1509,12 @@ function remove_sources() {
 #
 # =================================================================
 function setup_host() {
-    current_process
+    if [ $SKIP_SETUP_HOST != "true" ]; then
+        current_process
 
-    if [ $CONTAINER_TYPE != "2" ]; then
-        hostreq_pkg_list
+        if [ $CONTAINER_TYPE != "2" ]; then
+            hostreq_pkg_list
+        fi
     fi
 }
 

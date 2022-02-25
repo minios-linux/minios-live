@@ -1,9 +1,9 @@
 #!/bin/bash
 
-apt-get remove --yes vim* grub* debconf-i18n installation-report >>$OUTPUT 2>&1
+apt-get purge -y vim* grub* debconf-i18n installation-report >>$OUTPUT 2>&1
+apt-get autoremove -y
 
 if [[ $DISTRIBUTION_TYPE != "ubuntu" || $PACKAGE_VARIANT != "cloud" ]]; then
-
     cd /tmp
     apt -y update >>$OUTPUT 2>&1
     apt-get download acpi-support >>$OUTPUT 2>&1
