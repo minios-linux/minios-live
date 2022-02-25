@@ -50,7 +50,7 @@ if [ $PACKAGE_VARIANT = "standard" ]; then
 fi
 
 # install packages
-if [ $DESKTOP_ENVIRONMENT = "slax" ] || [ $PACKAGE_VARIANT = "minimum" ] || [ $DISTRIBUTION = "stretch" ]; then
+if [ $DESKTOP_ENVIRONMENT = "slax" ] || [ $DISTRIBUTION = "stretch" ]; then
     $APT_CMD install $APT_OPTIONS \
         isc-dhcp-client >>$OUTPUT 2>&1
 else
