@@ -1,5 +1,5 @@
 #!/bin/bash
-# Note: MLC - MiniOS Live Container
+# Note: MLC - minimumiOS Live Container
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -27,9 +27,9 @@ function docker_run() {
             -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
             -e COMP_TYPE="$COMP_TYPE" \
             -e USER_NAME="live" \
-            -e DISTRIBUTION_VARIANT="minbase" \
+            -e DISTRIBUTION_VARIANT="minimumbase" \
             -e LOGPATH="/var/log" \
-            -e OUTPUT="/dev/stdout" \
+            -e OUTPUT="/dev/standardout" \
             -e BUILD_TEST_ISO="false" \
             -e CREATE_BACKUP="false" \
             -e DEV_SYSTEM="false" \
@@ -38,12 +38,13 @@ function docker_run() {
             -e APT_OPTIONS="-y" \
             -e BOOT_TYPE="hybrid" \
             -e UNION_BUILD_TYPE="overlayfs" \
-            -e SYSTEMNAME="MiniOS" \
+            -e SYSTEMNAME="minimumiOS" \
             -e USE_BOOTSTRAP="true" \
             -e USE_ROOTFS="true" \
             -e REMOVE_OLD_ISO="true" \
             -e REMOVE_SOURCES="true" \
-            local/mlc /build/minios-live/install -
+            -e SKIP_SETUP_HOST="true" \
+            local/mlc /build/minimumios-live/install -
     fi
 }
 
@@ -68,8 +69,8 @@ function finish_build() {
         # cleanup
         docker rm -f $CONTAINER_NAME
     fi
-    if [ -d /build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
-        echo "/build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
+    if [ -d /build/minimumios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
+        echo "/build/minimumios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
     fi
 }
 
@@ -110,47 +111,58 @@ function build_run() {
     done
 }
 
-: 'build_run bullseye core std amd64 xz
-build_run bullseye core std i386 xz
-build_run bullseye core min amd64 xz
-build_run bullseye core min i386 xz
-build_run buster core std amd64 xz
-build_run buster core std i386 xz
-build_run buster core min amd64 xz
-build_run buster core min i386 xz
-build_run stretch core std amd64 xz
-build_run stretch core std i386 xz
-build_run stretch core min amd64 xz
-build_run stretch core min i386 xz
-build_run focal core std amd64 xz
-build_run focal core min amd64 xz
-build_run kali-rolling core std amd64 xz
-build_run kali-rolling core std i386 xz
-build_run kali-rolling core min amd64 xz
-build_run kali-rolling core min i386 xz'
-build_run bullseye xfce std amd64 xz
-build_run bullseye xfce std i386 xz
-build_run bullseye xfce min amd64 xz
-build_run bullseye xfce min i386 xz
-build_run buster xfce std amd64 xz
-build_run buster xfce std i386 xz
-build_run buster xfce min amd64 xz
-build_run buster xfce min i386 xz
-build_run buster slax min amd64 xz
-build_run buster slax min i386 xz
-build_run stretch xfce std amd64 xz
-build_run stretch xfce std i386 xz
-build_run stretch xfce min amd64 xz
-build_run stretch xfce min i386 xz
-build_run stretch slax min amd64 xz
-build_run stretch slax min i386 xz
-build_run focal xfce std amd64 xz
-build_run focal xfce min amd64 xz
-build_run kali-rolling xfce std amd64 xz
-build_run kali-rolling xfce std i386 xz
-build_run kali-rolling xfce min amd64 xz
-build_run kali-rolling xfce min i386 xz
-build_run bookworm xfce std amd64 xz
-build_run bookworm xfce std i386 xz
-build_run bookworm xfce min amd64 xz
-build_run bookworm xfce min i386 xz
+: 'build_run bullseye core standard amd64 xz
+build_run bullseye core standard i386 xz
+build_run bullseye core minimum amd64 xz
+build_run bullseye core minimum i386 xz
+build_run buster core standard amd64 xz
+build_run buster core standard i386 xz
+build_run buster core minimum amd64 xz
+build_run buster core minimum i386 xz
+build_run stretch core standard amd64 xz
+build_run stretch core standard i386 xz
+build_run stretch core minimum amd64 xz
+build_run stretch core minimum i386 xz
+build_run focal core standard amd64 xz
+build_run focal core minimum amd64 xz
+build_run kali-rolling core standard amd64 xz
+build_run kali-rolling core standard i386 xz
+build_run kali-rolling core minimum amd64 xz
+build_run kali-rolling core minimum i386 xz'
+build_run bullseye xfce maximum amd64 xz
+build_run bullseye xfce maximum i386 xz
+build_run bullseye xfce standard amd64 xz
+build_run bullseye xfce standard i386 xz
+build_run bullseye xfce minimum amd64 xz
+build_run bullseye xfce minimum i386 xz
+build_run buster xfce maximum amd64 xz
+build_run buster xfce maximum i386 xz
+build_run buster xfce standard amd64 xz
+build_run buster xfce standard i386 xz
+build_run buster xfce minimum amd64 xz
+build_run buster xfce minimum i386 xz
+build_run buster slax minimum amd64 xz
+build_run buster slax minimum i386 xz
+build_run stretch xfce maximum amd64 xz
+build_run stretch xfce maximum i386 xz
+build_run stretch xfce standard amd64 xz
+build_run stretch xfce standard i386 xz
+build_run stretch xfce minimum amd64 xz
+build_run stretch xfce minimum i386 xz
+build_run stretch slax minimum amd64 xz
+build_run stretch slax minimum i386 xz
+build_run focal xfce maximum amd64 xz
+build_run focal xfce standard amd64 xz
+build_run focal xfce minimum amd64 xz
+build_run kali-rolling xfce maximum amd64 xz
+build_run kali-rolling xfce maximum i386 xz
+build_run kali-rolling xfce standard amd64 xz
+build_run kali-rolling xfce standard i386 xz
+build_run kali-rolling xfce minimum amd64 xz
+build_run kali-rolling xfce minimum i386 xz
+build_run bookworm xfce maximum amd64 xz
+build_run bookworm xfce maximum i386 xz
+build_run bookworm xfce standard amd64 xz
+build_run bookworm xfce standard i386 xz
+build_run bookworm xfce minimum amd64 xz
+build_run bookworm xfce minimum i386 xz
