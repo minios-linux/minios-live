@@ -55,15 +55,5 @@ CONFIG_AUFS_BDEV_LOOP=y
 # CONFIG_AUFS_DEBUG is not set" >>.config
 
 make olddefconfig
-make -j$(nproc) modules
-make -j$(nproc) bzImage
-make modules_install INSTALL_MOD_STRIP=1
 
-TMP=/aaa-kernel
-mkdir -p $TMP/usr/lib/modules
-cp -aR /usr/lib/modules/$KERNELVERSION $TMP/usr/lib/modules
-rm -f $TMP/usr/lib/modules/$KERNELVERSION/{build,source}
-mkdir -p $TMP/boot
-cp arch/x86/boot/bzImage $TMP/boot/vmlinuz-$KERNELVERSION
-cd $TMP
-tar -c * | gzip -f >/$KERNEL.tar.gz
+make -j$(nproc)
