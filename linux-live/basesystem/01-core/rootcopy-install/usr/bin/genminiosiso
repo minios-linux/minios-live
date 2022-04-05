@@ -89,6 +89,22 @@ fi
 VER="$SYSTEMNAME"
 
 echo $SYSTEMNAME >/tmp/info
+cat <<EOF >/tmp/README
+################################### README ####################################
+* To install MiniOS, copy the contents of the ISO to the root of the media,
+  then run minios\boot\bootinst.bat on Windows, or minios/boot/bootinst.sh
+  on Linux.
+* When installed on media with fat32 and ntfs file systems, changes in
+  persistent changes mode will be saved in the minios\changes\changes.dat file,
+  the file expands dynamically, the maximum file size is 4 GB (can be changed
+  with the changes_size parameter in the boot options, for example
+  changes_size=2000 will set the maximum file size to 2 GB).
+* When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
+  the persistent changes mode will be saved in the minios\changes folder with
+  no size limit.
+###############################################################################
+
+EOF
 
 GRAFT=$(
     cd "$MINIOS"
@@ -104,6 +120,7 @@ GRAFT=$(
         echo "boot/$LINE=$BOOT/$LINE"
     done
     echo ".disk/info=/tmp/info"
+    echo "README=/tmp/README"
 )
 
 # add all modules
