@@ -24,10 +24,18 @@ VMLINUZ="/vmlinuz"
 
 # Kernel version. Change it to "3.2.28" for example, if you are building
 # Live Kit with a different kernel than the one you are actually running
+KERNEL_TYPE="default"
+
 if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
 	KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* | head -n 1 | sed 's/linux-image-//')
 else
 	KERNEL=$(uname -r)
+fi
+
+if echo $KERNEL | grep -q 'pve'; then
+	KERNEL=${KERNEL::-6}
+elif [ $KERNEL_TYPE = "custom-aufs" ]; then
+	KERNEL="5.10.106"
 fi
 
 # List of directories for root filesystem
