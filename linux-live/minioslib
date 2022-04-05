@@ -1284,7 +1284,8 @@ function build_boot() {
     fi
     if [ $BOOT_TYPE = "hybrid" ]; then
         cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image
-        #cp -r $SCRIPT_DIR/linux-live/bootfiles-hybrid/ $DIR
+        mkdir $WORK_DIR/image/$LIVEKITNAME/boot/grub
+        cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image/$LIVEKITNAME/boot/grub
         if [ ! -d $WORK_DIR/image/.disk ]; then
             mkdir -p $WORK_DIR/image/.disk
         fi
