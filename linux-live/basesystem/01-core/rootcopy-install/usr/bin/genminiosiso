@@ -7,6 +7,10 @@ if [ -f /run/initramfs/lib/config ]; then
     . /run/initramfs/lib/config || exit 1
 fi
 
+if [ -f /run/initramfs/lib/buildconfig ]; then
+    . /run/initramfs/lib/buildconfig || exit 1
+fi
+
 CWD=$(pwd)
 SOURCE=/run/initramfs/memory
 TEMP=/tmp/"$LIVEKITNAME"iso.$$
@@ -55,10 +59,7 @@ if [ "$MINIOS" = "" ]; then
 fi
 
 EFI="$SOURCE/data/EFI"
-
 BOOT="$SOURCE/data/boot"
-
-BOOT_TYPE="hybrid"
 
 B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 

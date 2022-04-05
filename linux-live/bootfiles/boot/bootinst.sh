@@ -149,8 +149,7 @@ if [ "$DEV" != "$PART" ]; then
 fi
 
 # UEFI boot loader
-#mkdir -p "$BOOT/../../EFI"
-#mv "EFI/Boot" "$BOOT/../../EFI/"
+cp -r "grub/*" "$BOOT/../../"
 
 echo "Boot installation finished."
 echo "Press Enter..."
