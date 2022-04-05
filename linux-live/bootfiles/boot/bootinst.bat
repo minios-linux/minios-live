@@ -64,8 +64,8 @@ if %ERRORLEVEL% == 0 goto setupEFI
 goto errorFound
 
 :setupEFI
-mkdir %DISK%:\EFI\Boot
-copy \minios\boot\EFI\Boot\* %DISK%:\EFI\Boot
+rem mkdir %DISK%:\EFI\Boot
+rem copy \minios\boot\EFI\Boot\* %DISK%:\EFI\Boot
 goto setupDone
 
 :setupDone
