@@ -58,8 +58,8 @@ if [ "$MINIOS" = "" ]; then
     exit 2
 fi
 
-EFI="$SOURCE/data/EFI"
-BOOT="$SOURCE/data/boot"
+EFI="$MINIOS/boot/grub/EFI"
+BOOT="$SOURCE/boot/grub/boot"
 
 B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 
@@ -88,6 +88,8 @@ fi
 
 VER="$SYSTEMNAME"
 
+echo $SYSTEMNAME >/tmp/info
+
 GRAFT=$(
     cd "$MINIOS"
     find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^boot/isohdpfx.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
@@ -101,6 +103,7 @@ GRAFT=$(
     find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
         echo "boot/$LINE=$BOOT/$LINE"
     done
+    echo ".disk/info=/tmp/info"
 )
 
 # add all modules
