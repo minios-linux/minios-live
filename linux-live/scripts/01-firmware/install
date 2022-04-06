@@ -25,6 +25,9 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
     $APT_CMD install $APT_OPTIONS \
         pve-kernel-5.15 >>$OUTPUT 2>&1
+elif [ $DISTRIBUTION = "orel" ]; then
+    $APT_CMD install $APT_OPTIONS \
+        linux-firmware >>$OUTPUT 2>&1
 else
     # install packages
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then

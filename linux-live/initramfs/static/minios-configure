@@ -190,6 +190,10 @@ EOF
             cat <<EOF >>/etc/issue
                         Based on [1;36mKali Linux[0;29m.
 EOF
+        elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION = "orel" ]; then
+            cat <<EOF >>/etc/issue
+                        Based on [1;34mAstra Linux[0;29m.
+EOF
         elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION != "kali-rolling" ]; then
             cat <<EOF >>/etc/issue
                         Based on [1;31mDebian GNU/Linux[0;29m.

@@ -72,6 +72,9 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         $APT_CMD update >>$OUTPUT 2>&1
         #KERNEL_IMAGE="pve-kernel-5.15"
         KERNEL_IMAGE=$(apt-cache depends pve-kernel-5.15 | grep -m 2 'Depends:' | tail -n1 | sed 's/  Depends: //g')
+    elif [ $DISTRIBUTION = "orel" ]; then
+        #KERNEL_IMAGE="linux-image-5.10-generic"
+        KERNEL_IMAGE="$(apt-cache depends linux-image-5.10-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
     else
         KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
     fi

@@ -39,7 +39,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
-if [ $DISTRIBUTION = "stretch" ]; then
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
     wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.15.2-1_all.deb
     $APT_CMD install $APT_OPTIONS \
         ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
