@@ -1,8 +1,0 @@
-#!/bin/bash
-
-echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | sudo tee /etc/apt/sources.list.d/home:stevenpusser.list
-curl -fsSL http://download.opensuse.org/repositories/home:stevenpusser/Debian_10/Release.key | apt-key add
-apt-get update >>$OUTPUT 2>&1
-apt-get -y install palemoon >>$OUTPUT 2>&1
-
-rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
