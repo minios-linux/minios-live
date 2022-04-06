@@ -94,7 +94,7 @@ if [ "$(fdisk -l "$DEV" | fgrep "$DEV" | fgrep "*")" != "" ]; then
    echo ""
    echo "Partition $PART seems to be located on a physical disk,"
    echo "which is already bootable. If you continue, your drive $DEV"
-   echo "will boot only Slax by default."
+   echo "will boot only MiniOS by default."
    echo "Press [Enter] to continue, or [Ctrl+C] to abort..."
    read junk
 fi
@@ -149,7 +149,7 @@ if [ "$DEV" != "$PART" ]; then
 fi
 
 # UEFI boot loader
-cp -r "grub/*" "$BOOT/../../"
+cp -r $BOOT/grub/* $BOOT/../../
 
 echo "Boot installation finished."
 echo "Press Enter..."
