@@ -21,4 +21,6 @@ cp -aR * / >>$OUTPUT 2>&1
 
 rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
 
-update-alternatives --set x-terminal-emulator /usr/bin/xterm >>$OUTPUT 2>&1
+if [ $DISTRIBUTION != "orel" ]; then
+    update-alternatives --set x-terminal-emulator /usr/bin/xterm >>$OUTPUT 2>&1
+fi

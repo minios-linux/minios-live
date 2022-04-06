@@ -941,8 +941,13 @@ function build_bootstrap() {
             fi
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
-            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            if [ $DISTRIBUTION = "orel" ]; then
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            else
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            fi
             #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
             #    debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
@@ -962,16 +967,26 @@ function build_bootstrap() {
             fi
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
-            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            if [ $DISTRIBUTION = "orel" ]; then
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            else
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            fi
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
             tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR .
         fi
     else
-        sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+        if [ $DISTRIBUTION = "orel" ]; then
+            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+        else
+            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+        fi
     fi
 
     build_rootfs
@@ -1018,28 +1033,6 @@ EOF
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
                 DISTRIBUTION="kali-rolling"
-            elif [ $DISTRIBUTION = "orel" ]; then
-                DISTRIBUTION="stretch"
-                create_apt_list
-                cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
-                if [ -f /.minios-live-container ]; then
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
-                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg
-                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
-                    else
-                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
-                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
-                        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
-                    fi
-                else
-                    chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
-                    chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
-                    chroot $INSTALL_DIR wget -c https://mirror.yandex.ru/astra/stable/orel/repository/pool/main/a/apt/apt_1.4.11%2Bci202104261713_amd64.deb
-                    chroot $INSTALL_DIR dpkg -i ./apt_1.4.11+ci202104261713_amd64.deb
-                    chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
-                fi
-                DISTRIBUTION="orel"
             fi
 
             create_apt_list
@@ -1189,6 +1182,10 @@ function build_chroot() {
     fi
 
     cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+
+    if [ $DISTRIBUTION = "orel" ]; then
+        cat $SCRIPT_DIR/linux-live/aptsources/stretch.list >>$INSTALL_DIR/etc/apt/sources.list
+    fi
 
     if [ -f /.minios-live-container ]; then
         chroot_run $INSTALL_DIR /linux-live/install_chroot -
@@ -2417,6 +2414,8 @@ function build_modules() {
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
                 echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+            #elif [ $DISTRIBUTION = "orel" ] && [ $MODULE = "01-firmware" ]; then
+            #    echo "Astra Linux does not contain firmware in the repository"
             else
                 MODULE_UPPER_DIR="$MODULES_DIR/$MODULE-upper"
                 MODULE_WORK_DIR="$MODULES_DIR/$MODULE-work"

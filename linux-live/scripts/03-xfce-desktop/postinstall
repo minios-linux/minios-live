@@ -4,8 +4,14 @@ rm -f /usr/share/backgrounds/xfce/*
 if [ ! -d /usr/share/backgrounds/xfce ]; then
     mkdir -p /usr/share/backgrounds/xfce
 fi
-ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-ln -s /usr/share/backgrounds/MiniOS-wallpaper.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+
+if [ $DISTRIBUTION = "orel" ]; then
+    ln -s /usr/share/backgrounds/MiniOS-wallpaper-blue.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s /usr/share/backgrounds/MiniOS-wallpaper-blue.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+else
+    ln -s /usr/share/backgrounds/MiniOS-wallpaper-green.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s /usr/share/backgrounds/MiniOS-wallpaper-green.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+fi
 
 if [ $PACKAGE_VARIANT = "standard" ]; then
     rm -f /usr/share/applications/pavucontrol.desktop
