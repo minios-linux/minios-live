@@ -11,12 +11,21 @@ if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
 else
     KERNEL=$(uname -r)
 fi
+
+if [ $DISTRIBUTION_ARCH = "amd64" ] && [ $DISTRIBUTION = "orel" ]; then
+    DISTRIBUTION_ARCH="x86_64"
+fi
+
 echo "KERNEL=$KERNEL" >/livekit.conf
 
 if [ $PACKAGE_VARIANT = "maximum" ]; then
     $APT_CMD update >>$OUTPUT 2>&1
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
-        $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+        if [ $DISTRIBUTION = "orel" ]; then
+            $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+        else
+            $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+        fi
     elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
     fi
@@ -52,12 +61,11 @@ fi
 if [ $PACKAGE_VARIANT = "maximum" ]; then
     TARGET_VER=$KERNEL
     export TARGET_VER
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2F683C52980AECF
-    echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        $APT_CMD install $APT_OPTIONS virtualbox-guest-additions-iso >>$OUTPUT 2>&1
+    VBOX_VER=$(curl https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT)
     cd /tmp
-    isoinfo -f -R -i /usr/share/virtualbox/VBoxGuestAdditions.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
+    wget -c https://download.virtualbox.org/virtualbox/$VBOX_VER/VBoxGuestAdditions_$VBOX_VER.iso
+    cd /tmp
+    isoinfo -f -R -i /tmp/VBoxGuestAdditions_$VBOX_VER.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
     chmod +x /tmp/VBoxLinuxAdditions.run
     set +e
     /tmp/VBoxLinuxAdditions.run
