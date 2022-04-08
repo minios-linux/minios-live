@@ -1133,12 +1133,17 @@ function copy_build_scripts() {
                 fi
             done
         fi
-    else
+    elif [ $DOWNLOAD_SOURCES = "true" ]; then
         if [ ! -d $INSTALL_DIR/opt/minios-live ]; then
             mkdir -p $INSTALL_DIR/opt
             cd $INSTALL_DIR/opt
-            git clone --depth=1 https://github.com/crim50n/minios-live.git >>$OUTPUT 2>&1
-            rm -rf minios-live/.git
+            git clone --depth=1 https://github.com/minios-linux/minios-live.git >>$OUTPUT 2>&1
+            if [ -d $INSTALL_DIR/opt/minios-live/.git ]; then
+                rm -rf $INSTALL_DIR/opt/minios-live/.git >>$OUTPUT 2>&1
+            fi
+            if [ -f $INSTALL_DIR/opt/minios-live/.gitignore ]; then
+                rm -f $INSTALL_DIR/opt/minios-live/.gitignore >>$OUTPUT 2>&1
+            fi
         fi
     fi
 
@@ -1184,7 +1189,7 @@ function build_chroot() {
     cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
 
     if [ $DISTRIBUTION = "orel" ]; then
-        cat $SCRIPT_DIR/linux-live/aptsources/stretch.list >>$INSTALL_DIR/etc/apt/sources.list
+        cp -f $SCRIPT_DIR/linux-live/aptsources/stretch.list $INSTALL_DIR/etc/apt/sources.list.d/stretch.list
     fi
 
     if [ -f /.minios-live-container ]; then
@@ -2030,8 +2035,6 @@ function module_chroot_mount_fs() {
 
     local MODULES MODULE_LOWER_DIR FILTER
 
-    FILTER="0[5-9]"
-
     module_check_mounted
 
     if [ $SCRIPT_DIR = "/usr/bin" ]; then
@@ -2047,21 +2050,19 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    # when the filter is activated, it stops to build modules altogether :(
-                    #if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
                     MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
                     mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
                     mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
                     MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
-                    #fi
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
                 MODULES=/run/initramfs/memory/bundles/
-                ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
-                #MODULES_LIST=$(ls -1dr $MODULES[0-1]* | grep -v $FILTER | tr '\n' ':')
-                ## We are not using a filter as this will break the dpkg base.
-                MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
+                if [ $FILTER_MODULES = "true" ]; then
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-4]" | tr '\n' ':')
+                else
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
+                fi
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -2071,19 +2072,19 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    # when the filter is activated, it stops to build modules altogether :(
-                    #if [[ ! $MODULE_LOWER_DIR =~ $FILTER ]]; then
                     MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
                     mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
                     mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
                     MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
-                    #fi
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
                 MODULES=/run/initramfs/memory/bundles/
-                ## Filter out all modules with numbers 05-09, so that any module can be used with the base system with modules 01-04.
-                MODULES_LIST=$(\ls -1dr $MODULES[0-1]* | grep -v $FILTER | tr '\n' ':')
+                if [ $FILTER_MODULES = "true" ]; then
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-4]" | tr '\n' ':')
+                else
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
+                fi
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -2333,6 +2334,9 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/postinstall
         rm -rf $MODULE_UPPER_DIR/rootcopy
         rm -f $MODULE_UPPER_DIR/machine-id
+        if [ $REMOVE_DPKG_DB = "true" ]; then
+            rm -rf $MODULE_UPPER_DIR/var/lib/dpkg
+        fi
     else
         rm -rf $MODULE_UPPER_DIR/boot $MODULE_UPPER_DIR/dev $MODULE_UPPER_DIR/proc $MODULE_UPPER_DIR/sys $MODULE_UPPER_DIR/rmp $MODULE_UPPER_DIR/run
         rm -f $MODULE_UPPER_DIR/root/.bash_history >>$OUTPUT 2>&1
@@ -2360,6 +2364,9 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
         rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/machine-id >>$OUTPUT 2>&1
+        if [ $REMOVE_DPKG_DB = "true" ]; then
+            rm -rf $MODULE_UPPER_DIR/var/lib/dpkg >>$OUTPUT 2>&1
+        fi
         set -e
     fi
 }
@@ -2746,5 +2753,25 @@ function repack_modules() {
                 repack_module
             fi
         done
+    fi
+}
+
+function download_sources() {
+    current_process
+
+    if [ ! -d /opt/minios-live ]; then
+        $APT_CMD update >>$OUTPUT 2>&1 &&
+            $APT_CMD install $APT_OPTIONS git >>$OUTPUT 2>&1
+        mkdir -p /opt
+        cd /opt
+        git clone --depth=1 https://github.com/minios-linux/minios-live.git >>$OUTPUT 2>&1
+        if [ -d /opt/minios-live/.git ]; then
+            rm -rf /opt/minios-live/.git >>$OUTPUT 2>&1
+        fi
+        if [ -f /opt/minios-live/.gitignore ]; then
+            rm -f /opt/minios-live/.gitignore >>$OUTPUT 2>&1
+        fi
+        ln -s /opt/minios-live/install /usr/bin/$LIVEKITNAME-install
+        create_completion
     fi
 }
