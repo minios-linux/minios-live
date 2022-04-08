@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+if [ $DESKTOP_ENVIRONMENT = "slax" ] || grep 'LIVEKITNAME="slax"' /run/initramfs/lib/config >/dev/null; then
     rm -Rf /usr/share/applications/chromium.desktop >>$OUTPUT 2>&1
 fi
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1

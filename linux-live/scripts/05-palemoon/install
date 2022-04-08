@@ -1,5 +1,8 @@
 #!/bin/bash
 
+$APT_CMD update >>$OUTPUT 2>&1 &&
+    $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | tee /etc/apt/sources.list.d/home:stevenpusser.list
     curl -fsSL https://download.opensuse.org/repositories/home:stevenpusser/Debian_10/Release.key | gpg --dearmor >/etc/apt/trusted.gpg.d/home_stevenpusser.gpg
