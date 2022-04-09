@@ -15,19 +15,21 @@ fi
 $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
 
-if [ $PACKAGE_VARIANT = "minimum" ]; then
-    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+    if [ $PACKAGE_VARIANT = "minimum" ]; then
+        cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
 WebBrowser=palemoon
 
 EOF
 
-elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
-    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+        cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
 WebBrowser=palemoon
 
 EOF
+    fi
 fi
