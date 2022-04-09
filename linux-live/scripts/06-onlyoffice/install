@@ -8,7 +8,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS \
-        software-properties-common >>$OUTPUT 2>&1
+        software-properties-common gnupg >>$OUTPUT 2>&1
 
 apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5
 add-apt-repository 'deb https://download.onlyoffice.com/repo/debian squeeze main'

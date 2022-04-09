@@ -41,3 +41,64 @@ WebBrowser=google-chrome
 EOF
     fi
 fi
+
+if [ -f /usr/bin/fbliveapp ]; then
+    FBLIVEAPP="google-chrome"
+    FBLIVEAPPNAME="Google Chrome"
+    FBLIVEAPPEXECUTABLE="google-chrome-stable"
+    MODULENUMBER="5"
+
+    cat <<EOF >/usr/bin/fblive-add-$FBLIVEAPP.sh
+#!/bin/bash
+if [ -f /var/cache/fblive-add-$FBLIVEAPP.addon ]; then
+    if ! grep $FBLIVEAPPEXECUTABLE /usr/bin/fbliveapp >/dev/null; then
+        cp /usr/bin/fbliveapp /usr/bin/fbliveapp.$FBLIVEAPP.bak
+        sed -i "/shift/ e cat /var/cache/fblive-add-$FBLIVEAPP.addon" /usr/bin/fbliveapp
+        #rm /var/cache/fblive-add-$FBLIVEAPP.addon
+        rm /usr/share/applications/$FBLIVEAPP.desktop
+    fi
+fi
+
+EOF
+    chmod +x /usr/bin/fblive-add-$FBLIVEAPP.sh
+    cat <<EOF >/usr/lib/systemd/system/fblive-add-$FBLIVEAPP.service
+[Unit]
+Description=Adding $FBLIVEAPPNAME to fbliveapp
+#After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/fblive-add-$FBLIVEAPP.sh
+RemainAfterExit=true
+ExecStop=
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+    cat <<EOF >/usr/share/applications/$MODULENUMBER$FBLIVEAPP.desktop
+[Desktop Entry]
+Version=1.0
+Name=$FBLIVEAPPNAME
+GenericName=$FBLIVEAPPNAME
+Exec=fbliveapp $FBLIVEAPPEXECUTABLE %U
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=$FBLIVEAPP.png
+Categories=Network;WebBrowser;
+MimeType=audio/*;image/*;video/*;application/pdf;application/x-pdf;text/html;text/xml;application/xhtml_xml;application/x-mimearchive;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=$FBLIVEAPP
+StartupNotify=true
+
+EOF
+    cat <<EOF >/var/cache/fblive-add-$FBLIVEAPP.addon
+if [ "\$1" = "$FBLIVEAPPEXECUTABLE" ]; then
+   NAME="$FBLIVEAPPNAME"
+   EXECUTABLE="/usr/bin/$FBLIVEAPPEXECUTABLE"
+   GUEST=true
+fi
+
+EOF
+fi
