@@ -17,4 +17,6 @@ $APT_CMD update >>$OUTPUT 2>&1 &&
         virt-manager \
         gir1.2-spiceclientgtk-3.0 >>$OUTPUT 2>&1
 
-usermod -aG libvirt $USER_NAME
+if [ $(id -nu 1000) = "live" ]; then
+    usermod -a -G libvirt $(id -nu 1000)
+fi
