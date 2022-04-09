@@ -1,5 +1,8 @@
 #!/bin/bash
 
+$APT_CMD autoremove $APT_OPTIONS \
+    software-properties-common >>$OUTPUT 2>&1
+
 rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
 rm -Rf /usr/share/icons/hicolor/512x512 >>$OUTPUT 2>&1
 rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
