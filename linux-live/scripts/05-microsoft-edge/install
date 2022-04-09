@@ -100,4 +100,5 @@ if [ "\$1" = "$FBLIVEAPPEXECUTABLE" ]; then
 fi
 
 EOF
+systemctl enable fblive-add-$FBLIVEAPP.service >>$OUTPUT 2>&1
 fi
