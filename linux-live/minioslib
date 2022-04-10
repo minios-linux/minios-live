@@ -2802,8 +2802,12 @@ function download_sources() {
         chmod 666 /opt/minios-live/linux-live/buildconfig
         chmod 666 /opt/minios-live/linux-live/config
         if id -nu 1000 >/dev/null && [ -d /home/$(id -nu 1000)/Desktop ]; then
-            ln -s /opt/minios-live/linux-live/buildconfig /home/$(id -nu 1000)/Desktop/buildconfig
-            ln -s /opt/minios-live/linux-live/config /home/$(id -nu 1000)/Desktop/config
+            if [ ! -L /home/$(id -nu 1000)/Desktop/buildconfig ]; then
+                ln -s /opt/minios-live/linux-live/buildconfig /home/$(id -nu 1000)/Desktop/buildconfig
+            fi
+            if [ ! -L /home/$(id -nu 1000)/Desktop/config ]; then
+                ln -s /opt/minios-live/linux-live/config /home/$(id -nu 1000)/Desktop/config
+            fi
         fi
         if [ $(stat -c %s /opt/minios-live/linux-live/minioslib) -ne $(stat -c %s /run/initramfs/lib/minioslib) ]; then
             cp /opt/minios-live/linux-live/minioslib /run/initramfs/lib/ >>$OUTPUT 2>&1
