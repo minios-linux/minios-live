@@ -2084,7 +2084,7 @@ function module_chroot_mount_fs() {
             else
                 MODULES=/run/initramfs/memory/bundles/
                 if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-2]" | tr '\n' ':')
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
                 else
                     MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
                 fi
