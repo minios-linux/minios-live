@@ -392,6 +392,21 @@ EOF
                 echo -e
             fi
         fi
+        if [ ! -f /etc/bash_completion.d/minios-modules ] || ! grep "${CMD[*]}" /etc/bash_completion.d/minios-modules >/dev/null 2>&1; then
+            cat <<EOF >/etc/bash_completion.d/minios-modules
+#!/usr/bin/env bash
+complete -W "build_modules repack_modules download_sources" minios-modules
+EOF
+        fi
+        if [ "$0" != "/usr/bin/minios-modules" ]; then
+            if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
+                echo -e "Дополнение команд работает только при использовании команды ${CYAN}minios-modules${ENDCOLOUR}."
+                echo -e
+            else
+                echo -e "Command completion only works when using the ${CYAN}minios-modules${ENDCOLOUR} command."
+                echo -e
+            fi
+        fi
     fi
 }
 
@@ -2803,7 +2818,6 @@ function download_sources() {
         if [ -f /opt/minios-live/.gitignore ]; then
             rm -f /opt/minios-live/.gitignore >>$OUTPUT 2>&1
         fi
-        ln -s /opt/minios-live/install /usr/bin/$LIVEKITNAME-install
-        create_completion
+        /opt/minios-live/install
     fi
 }
