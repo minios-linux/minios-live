@@ -20,6 +20,7 @@ echo "deb [signed-by=/usr/share/keyrings/opera-browser.gpg] https://deb.opera.co
 $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS opera-stable >>$OUTPUT 2>&1
 
+# Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
     mkdir /etc/$APP.d
 fi
