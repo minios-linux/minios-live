@@ -2805,6 +2805,9 @@ function download_sources() {
             ln -s /opt/minios-live/linux-live/buildconfig /home/$(id -nu 1000)/Desktop/buildconfig
             ln -s /opt/minios-live/linux-live/config /home/$(id -nu 1000)/Desktop/config
         fi
+        if [ $(stat -c %s /opt/minios-live/linux-live/minioslib) -ne $(stat -c %s /run/initramfs/lib/minioslib) ]; then
+            cp /opt/minios-live/linux-live/minioslib /run/initramfs/lib/ >>$OUTPUT 2>&1
+        fi
         /opt/minios-live/install
     fi
 }
