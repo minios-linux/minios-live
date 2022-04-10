@@ -46,7 +46,7 @@ EOF
     fi
 fi
 
-if [ -f /usr/bin/fbliveapp ]; then
+if grep slax /etc/hostname >/dev/null; then
     cat <<EOF >/usr/bin/fblive-add-$APP.sh
 #!/bin/bash
 if [ -f /var/cache/fblive-add-$APP.addon ]; then
