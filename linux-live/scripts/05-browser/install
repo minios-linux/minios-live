@@ -20,6 +20,9 @@ if [ $PACKAGE_VARIANT = "minimum" ]; then
         $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
 
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+        if [ ! -d /etc/skel/.config/xfce4 ]; then
+            mkdir -p /etc/skel/.config/xfce4
+        fi
         if [ $PACKAGE_VARIANT = "minimum" ]; then
             cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
@@ -50,6 +53,9 @@ else
     fi
 
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+        if [ ! -d /etc/skel/.config/xfce4 ]; then
+            mkdir -p /etc/skel/.config/xfce4
+        fi
         if [ $PACKAGE_VARIANT = "minimum" ]; then
             cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
