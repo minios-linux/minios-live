@@ -337,34 +337,12 @@ function create_livekitname_install_symlink() {
         fi
     fi
     if [ ! -f /usr/bin/minios-modules ]; then
-        if [ -L /usr/bin/minios-modules ]; then
-            if [ "$(readlink /usr/bin/minios-modules)" != "$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules" ]; then
-                rm -f /usr/bin/minios-modules
-                ln -s $SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules /usr/bin/minios-modules
-                if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                    echo -e "Символическая ссылка ${MAGENTA}/usr/bin/minios-modules${ENDCOLOUR} была обновлена."
-                    echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules${ENDCOLOUR}."
-                else
-                    echo -e "The ${MAGENTA}/usr/bin/minios-modules${ENDCOLOUR} symbolic link has been updated."
-                    echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules${ENDCOLOUR}."
-                fi
-            fi
-            if [ "$0" != "/usr/bin/minios-modules" ]; then
-                if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                    echo -e "Вы можете использовать команду ${CYAN}minios-modules${ENDCOLOUR} для запуска программы сборки модулей."
-                else
-                    echo -e "You can use the ${CYAN}minios-modules${ENDCOLOUR} command to run the module build program."
-                fi
-            fi
-        else
-            ln -s $SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules /usr/bin/minios-modules
+        cp "$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules" /usr/bin/minios-modules
+        if [ "$0" != "/usr/bin/minios-modules" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Символическая ссылка ${MAGENTA}/usr/bin/minios-modules${ENDCOLOUR} была добавлена"
-                echo -e "для ${MAGENTA}$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules${ENDCOLOUR}."
-
+                echo -e "Вы можете использовать команду ${CYAN}minios-modules${ENDCOLOUR} для запуска программы сборки модулей."
             else
-                echo -e "The ${MAGENTA}/usr/bin/minios-modules${ENDCOLOUR} symbolic link has been added"
-                echo -e "for ${MAGENTA}$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules${ENDCOLOUR}."
+                echo -e "You can use the ${CYAN}minios-modules${ENDCOLOUR} command to run the module build program."
             fi
         fi
     fi
