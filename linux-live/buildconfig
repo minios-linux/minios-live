@@ -45,6 +45,7 @@ OUTPUT="/dev/stdout"
 # если ="true", создаёт второй iso с постоянным именем файла
 BUILD_TEST_ISO="true"
 
+# removes old iso files for this build type
 # удаляет старые файлы iso для данного типа сборки
 REMOVE_OLD_ISO="true"
 
@@ -52,6 +53,8 @@ REMOVE_OLD_ISO="true"
 # если ="true", создаёт копию minios-live в chroot /opt
 DEV_SYSTEM="false"
 
+# if true, when building the system installs the sources in /opt/minios-live
+# если истина, при сборке системы устанавливает исходные коды в /opt/minios-live
 DOWNLOAD_SOURCES="false"
 
 # if ="true", creates backup in parent folder
@@ -75,7 +78,8 @@ BOOT_TYPE="hybrid"
 UNION_BUILD_TYPE="overlayfs"
 #UNION_BUILD_TYPE="aufs"
 
-# Used when assigned to the ISO name when building Minios-Live
+# Used when assigned to the ISO name when building minios-live
+# Используется при назначении имени ISO при сборке minios-live
 SYSTEMNAME="MiniOS"
 
 # using a ready-made bootstrap file during installation. If absent, then it is downloaded and packaged. Subsequent builds unpack the existing bootstrap.
@@ -86,14 +90,26 @@ USE_BOOTSTRAP="true"
 # использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
 USE_ROOTFS="true"
 
+# if true, then the installation of packages required for the build is skipped
+# если истина, то пропускается установка пакетов, необходимых для сборки
 SKIP_SETUP_HOST="false"
 
 # deleting sources after building
 # удаление исходников после сборки
 REMOVE_SOURCES="false"
 
+# if true, then removes the dpkg base from the module (it is necessary so that additional modules do not break the common base if they do not use the cumulative structure of modules and are built relative to a certain level, and not relative to all system modules)
+# если истина, то удаляет базу dpkg из модуля (нужно для того, чтобы дополнительные модули не ломали общую базу, если они не используют накопительную структуру модулей и собираются относительно определённого уровня, а не относительно всех модулей системы)
 REMOVE_DPKG_DB="false"
 
+# ! применяется только если модули собираются изнутри запущенной системы
+# если истина, то при сборке модулей изнутри системы позволяет установить максимальный уровень, на котором будут собраны модули
+# например, уровень 4 - это сборка относительно модулей 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. Если модуль собран так, то он не будет конфликтовать с любым модулем, собранным на 4 уровне, если все модули 01-04 присутствуют в системе.
+# ! only applies if modules are built from within a running system
+# if true, then when building modules from within the system, allows you to set the maximum level at which modules will be built
+# for example, level 4 is a build relative to modules 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. If the module is built like this, then it will not conflict with any module built at level 4, if all modules 01-04 are present in the system.
 FILTER_MODULES="false"
 
-FILTER_LEVEL="2"
+# уровень модуля, см. выше
+# module level, see above
+FILTER_LEVEL="4"
