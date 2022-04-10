@@ -10,20 +10,20 @@ CURRENT_DIR="$(pwd)"
 ISO_DIR=$CURRENT_DIR/iso
 TMP_DIR="/tmp/"
 
-if [ -f /run/initramfs/lib/minioslib ]; then
-    . /run/initramfs/lib/minioslib || exit 1
-elif [ -f /opt/minios-live/linux-live/minioslib ]; then
+if [ -f /opt/minios-live/linux-live/minioslib ]; then
     . /opt/minios-live/linux-live/minioslib || exit 1
+elif [ -f /run/initramfs/lib/minioslib ]; then
+    . /run/initramfs/lib/minioslib || exit 1
 fi
-if [ -f /run/initramfs/lib/config ] && grep COMP_TYPE /run/initramfs/lib/config >/dev/null; then
-    . /run/initramfs/lib/config || exit 1
-elif [ -f /opt/minios-live/linux-live/config ]; then
+if [ -f /opt/minios-live/linux-live/config ]; then
     . /opt/minios-live/linux-live/config || exit 1
+elif [ -f /run/initramfs/lib/config ] && grep COMP_TYPE /run/initramfs/lib/config >/dev/null; then
+    . /run/initramfs/lib/config || exit 1
 fi
-if [ -f /run/initramfs/lib/buildconfig ]; then
-    . /run/initramfs/lib/buildconfig || exit 1
-elif [ -f /opt/minios-live/linux-live/buildconfig ]; then
+if [ -f /opt/minios-live/linux-live/buildconfig ]; then
     . /opt/minios-live/linux-live/buildconfig || exit 1
+elif [ -f /run/initramfs/lib/buildconfig ]; then
+    . /run/initramfs/lib/buildconfig || exit 1
 fi
 
 # change this for unattended installation
