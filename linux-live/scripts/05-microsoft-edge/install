@@ -22,6 +22,7 @@ rm -f packages.microsoft.gpg
 $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS microsoft-edge-stable >>$OUTPUT 2>&1
 
+# Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
     mkdir /etc/$APP.d
 fi

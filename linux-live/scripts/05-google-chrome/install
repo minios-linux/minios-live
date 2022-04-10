@@ -23,6 +23,7 @@ sh -c 'echo "deb [arch=amd64,i386,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/p
 $APT_CMD update >>$OUTPUT 2>&1 &&
     $APT_CMD install $APT_OPTIONS google-chrome-stable >>$OUTPUT 2>&1
 
+# Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
     mkdir /etc/$APP.d
 fi
