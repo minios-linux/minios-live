@@ -2796,6 +2796,13 @@ function download_sources() {
         if [ -f /opt/minios-live/.gitignore ]; then
             rm -f /opt/minios-live/.gitignore >>$OUTPUT 2>&1
         fi
+        # allow user to edit configs
+        chmod 666 /opt/minios-live/linux-live/buildconfig
+        chmod 666 /opt/minios-live/linux-live/config
+        if grep $(id -nu 1000) >/dev/null && [ -d /home/$(id -nu 1000)/Desktop ]; then
+            ln -s /opt/minios-live/linux-live/buildconfig /home/$(id -nu 1000)/Desktop/buildconfig
+            ln -s /opt/minios-live/linux-live/config /home/$(id -nu 1000)/Desktop/config
+        fi
         /opt/minios-live/install
     fi
 }
