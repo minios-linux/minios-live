@@ -18,6 +18,10 @@ elif [ $DISTRIBUTION_TYPE = "debian" ]; then
 fi
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+    if [ ! -d /etc/skel/.config/xfce4 ]; then
+        mkdir -p /etc/skel/.config/xfce4
+    fi
+
     if [ $PACKAGE_VARIANT = "minimum" ]; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
