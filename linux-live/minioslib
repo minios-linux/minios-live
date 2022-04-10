@@ -2358,7 +2358,8 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
         rm -f $MODULE_UPPER_DIR/postinstall
         rm -rf $MODULE_UPPER_DIR/rootcopy
-        rm -f $MODULE_UPPER_DIR/machine-id
+        rm -f $MODULE_UPPER_DIR/etc/machine-id
+        rm -rf $MODULE_UPPER_DIR/var/cache
         if [ $REMOVE_DPKG_DB = "true" ]; then
             rm -rf $MODULE_UPPER_DIR/var/lib/dpkg
         fi
@@ -2388,7 +2389,8 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
         rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/machine-id >>$OUTPUT 2>&1
+        rm -f $MODULE_UPPER_DIR/etc/machine-id >>$OUTPUT 2>&1
+        rm -rf $MODULE_UPPER_DIR/var/cache >>$OUTPUT 2>&1
         if [ $REMOVE_DPKG_DB = "true" ]; then
             rm -rf $MODULE_UPPER_DIR/var/lib/dpkg >>$OUTPUT 2>&1
         fi
@@ -2799,7 +2801,7 @@ function download_sources() {
         # allow user to edit configs
         chmod 666 /opt/minios-live/linux-live/buildconfig
         chmod 666 /opt/minios-live/linux-live/config
-        if grep $(id -nu 1000) >/dev/null && [ -d /home/$(id -nu 1000)/Desktop ]; then
+        if id -nu 1000 >/dev/null && [ -d /home/$(id -nu 1000)/Desktop ]; then
             ln -s /opt/minios-live/linux-live/buildconfig /home/$(id -nu 1000)/Desktop/buildconfig
             ln -s /opt/minios-live/linux-live/config /home/$(id -nu 1000)/Desktop/config
         fi
