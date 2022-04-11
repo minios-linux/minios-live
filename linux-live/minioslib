@@ -2815,3 +2815,119 @@ function download_sources() {
         /opt/minios-live/install
     fi
 }
+
+# =================================================================
+# =================================================================
+# ===================== CONTAINER FUNCTIONS =======================
+# =================================================================
+# =================================================================
+
+function container_run() {
+    if [ ! "$(docker ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$(docker ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+            # cleanup
+            docker rm -f $CONTAINER_NAME
+        fi
+        cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
+        cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
+        sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
+        sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        # run your container
+        docker run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /build:/build \
+            -e DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
+            -e DISTRIBUTION="$DISTRIBUTION" \
+            -e DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT" \
+            -e PACKAGE_VARIANT="$PACKAGE_VARIANT" \
+            -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
+            -e COMP_TYPE="$COMP_TYPE" \
+            -e USER_NAME="live" \
+            -e DISTRIBUTION_VARIANT="minimumbase" \
+            -e LOGPATH="/var/log" \
+            -e OUTPUT="/dev/standardout" \
+            -e BUILD_TEST_ISO="false" \
+            -e CREATE_BACKUP="false" \
+            -e DEV_SYSTEM="false" \
+            -e DEBIAN_FRONTEND_TYPE="noninteractive" \
+            -e APT_CMD="apt-get" \
+            -e APT_OPTIONS="-y" \
+            -e BOOT_TYPE="hybrid" \
+            -e UNION_BUILD_TYPE="overlayfs" \
+            -e SYSTEMNAME="minimumiOS" \
+            -e USE_BOOTSTRAP="true" \
+            -e USE_ROOTFS="true" \
+            -e REMOVE_OLD_ISO="true" \
+            -e REMOVE_SOURCES="true" \
+            -e SKIP_SETUP_HOST="true" \
+            -e DOWNLOAD_SOURCES="false" \
+            -e REMOVE_DPKG_DB="false" \
+            -e FILTER_MODULES="false" \
+            -e FILTER_LEVEL="4" \
+            local/mlc /build/minios-live/install -
+    fi
+}
+
+function container_status_check() {
+    RUN=$(docker inspect $CONTAINER_NAME --format='{{.State.Status}}')
+}
+
+function container_build_finish() {
+    if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
+        rm -f $SCRIPT_DIR/linux-live/container_buildconfig
+    fi
+    if [ -f $SCRIPT_DIR/linux-live/container_config ]; then
+        rm -f $SCRIPT_DIR/linux-live/container_config
+    fi
+    if [ ! -d $SCRIPT_DIR/logs ]; then
+        mkdir -p $SCRIPT_DIR/logs
+    fi
+    docker logs $CONTAINER_NAME >&$SCRIPT_DIR/logs/$CONTAINER_NAME.log
+    if [ "$(docker ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        # cleanup
+        docker rm -f $CONTAINER_NAME
+    fi
+    if [ -d /build/minimumios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
+        echo "/build/minimumios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
+    fi
+}
+
+function container_build_run() {
+    DISTRIBUTION_TYPE="debian"
+    DISTRIBUTION="$1"
+    DESKTOP_ENVIRONMENT="$2"
+    PACKAGE_VARIANT="$3"
+    DISTRIBUTION_ARCH="$4"
+    COMP_TYPE="$5"
+    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ]; then
+        DISTRIBUTION_TYPE="ubuntu"
+    fi
+
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE"
+
+    container_run
+
+    container_status_check
+    if [ "$RUN" = "running" ]; then
+        echo "Container $CONTAINER_NAME has been started."
+    fi
+
+    while container_status_check; do
+        if [ "$RUN" = "running" ]; then
+            printf "."
+            sleep 5
+        else
+            if [ "$(docker inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')" != "0" ] 2>/dev/null; then
+                printf "\nERROR: Container $CONTAINER_NAME stopped with error. Exit code $(docker inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')\n"
+                container_build_finish
+            else
+                printf "\nContainer $CONTAINER_NAME stopped, proceeding...\n"
+                container_build_finish
+            fi
+            break
+        fi
+    done
+}
