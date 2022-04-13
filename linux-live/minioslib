@@ -463,13 +463,13 @@ function check_install_dir() {
         #INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
         INSTALL_DIR="$WORK_DIR/basesystem"
         echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
-        if [ "$(ls -A $INSTALL_DIR)" != "" ]; then
+        if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
             cleanup
             check_mounted
         fi
     else
         # ▼ должно быть только перенаправление ошибки!
-        if [ "$(ls -A $INSTALL_DIR)" != "" ]; then
+        if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
             echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} is not empty."
             cleanup
             check_mounted
@@ -1888,7 +1888,7 @@ WantedBy=multi-user.target
 WantedBy=network-online.target
 EOF
         systemctl enable dhclient >>$OUTPUT 2>&1
-    elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" ]]; then
+    elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" || $DISTRIBUTION = "jammy" ]]; then
         if [ ! -d /etc/netplan/ ]; then
             mkdir -p /etc/netplan/
         fi
@@ -2227,7 +2227,7 @@ function module_chroot_umount_fs() {
             umount $MODULES_DIR >>$OUTPUT 2>&1
         else
             if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch"]; then
+                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
                     rm -f $MODULE_UPPER_DIR/etc/resolv.conf
                     mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
                 elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
@@ -2818,7 +2818,7 @@ function download_sources() {
 
 # =================================================================
 # =================================================================
-# ===================== CONTAINER FUNCTIONS =======================
+# ==================== BATCH BUILD FUNCTIONS ======================
 # =================================================================
 # =================================================================
 
@@ -2838,7 +2838,7 @@ function container_run() {
         sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
         sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         # run your container
-        docker run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /build:/build \
+        docker run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /dev:/dev --device-cgroup-rule 'b 7:* rmw' -v /build:/build \
             -e DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
             -e DISTRIBUTION="$DISTRIBUTION" \
             -e DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT" \
@@ -2846,9 +2846,9 @@ function container_run() {
             -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
             -e COMP_TYPE="$COMP_TYPE" \
             -e USER_NAME="live" \
-            -e DISTRIBUTION_VARIANT="minimumbase" \
+            -e DISTRIBUTION_VARIANT="minbase" \
             -e LOGPATH="/var/log" \
-            -e OUTPUT="/dev/standardout" \
+            -e OUTPUT="/dev/stdout" \
             -e BUILD_TEST_ISO="false" \
             -e CREATE_BACKUP="false" \
             -e DEV_SYSTEM="false" \
@@ -2857,7 +2857,7 @@ function container_run() {
             -e APT_OPTIONS="-y" \
             -e BOOT_TYPE="hybrid" \
             -e UNION_BUILD_TYPE="overlayfs" \
-            -e SYSTEMNAME="minimumiOS" \
+            -e SYSTEMNAME="MiniOS" \
             -e USE_BOOTSTRAP="true" \
             -e USE_ROOTFS="true" \
             -e REMOVE_OLD_ISO="true" \
@@ -2869,6 +2869,49 @@ function container_run() {
             -e FILTER_LEVEL="4" \
             local/mlc /build/minios-live/install -
     fi
+}
+
+function live_run() {
+    cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
+    cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
+    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
+    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    # run
+    /usr/bin/env \
+        DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
+        DISTRIBUTION="$DISTRIBUTION" \
+        DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT" \
+        PACKAGE_VARIANT="$PACKAGE_VARIANT" \
+        DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
+        COMP_TYPE="$COMP_TYPE" \
+        USER_NAME="live" \
+        DISTRIBUTION_VARIANT="minbase" \
+        LOGPATH="/var/log" \
+        OUTPUT="/dev/stdout" \
+        BUILD_TEST_ISO="false" \
+        CREATE_BACKUP="false" \
+        DEV_SYSTEM="false" \
+        DEBIAN_FRONTEND_TYPE="noninteractive" \
+        APT_CMD="apt-get" \
+        APT_OPTIONS="-y" \
+        BOOT_TYPE="hybrid" \
+        UNION_BUILD_TYPE="overlayfs" \
+        SYSTEMNAME="MiniOS" \
+        USE_BOOTSTRAP="true" \
+        USE_ROOTFS="true" \
+        REMOVE_OLD_ISO="true" \
+        REMOVE_SOURCES="true" \
+        SKIP_SETUP_HOST="true" \
+        DOWNLOAD_SOURCES="false" \
+        REMOVE_DPKG_DB="false" \
+        FILTER_MODULES="false" \
+        FILTER_LEVEL="4" \
+        /build/minios-live/install -
 }
 
 function container_status_check() {
@@ -2890,8 +2933,8 @@ function container_build_finish() {
         # cleanup
         docker rm -f $CONTAINER_NAME
     fi
-    if [ -d /build/minimumios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
-        echo "/build/minimumios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
+    if [ -d /build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
+        echo "/build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
     fi
 }
 
@@ -2902,7 +2945,7 @@ function container_build_run() {
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
     COMP_TYPE="$5"
-    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ]; then
+    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
         DISTRIBUTION_TYPE="ubuntu"
     fi
 
@@ -2930,4 +2973,18 @@ function container_build_run() {
             break
         fi
     done
+}
+
+function live_build_run() {
+    DISTRIBUTION_TYPE="debian"
+    DISTRIBUTION="$1"
+    DESKTOP_ENVIRONMENT="$2"
+    PACKAGE_VARIANT="$3"
+    DISTRIBUTION_ARCH="$4"
+    COMP_TYPE="$5"
+    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
+        DISTRIBUTION_TYPE="ubuntu"
+    fi
+
+    live_run
 }
