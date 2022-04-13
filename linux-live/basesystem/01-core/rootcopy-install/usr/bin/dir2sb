@@ -5,6 +5,9 @@
 if [ -f /run/initramfs/lib/config ]; then
    . /run/initramfs/lib/config || exit 1
 fi
+if [ -f /run/initramfs/lib/buildconfig ]; then
+    . /run/initramfs/lib/buildconfig || exit 1
+fi
 
 usage() {
    echo ""
