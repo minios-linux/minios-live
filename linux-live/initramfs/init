@@ -60,6 +60,9 @@ minios_configure "$UNION" "$DATA" "$DATAMNT"
 # create fstab
 fstab_create "$UNION" "$DATAMNT"
                                                                                                                                                       debug_shell
+# run user custom preinit
+user_preinit "$DATA" "$UNION"
+
 header "Live Kit done, starting $LIVEKITNAME"
 change_root "$UNION"
 
