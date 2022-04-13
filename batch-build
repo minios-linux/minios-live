@@ -1,9 +1,12 @@
 #!/bin/bash
-# Note: MLC - minimumiOS Live Container
+# Note: MLC - MiniOS Live Container
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 . $SCRIPT_DIR/linux-live/minioslib || exit 1
+
+# container_build_run - building the system inside an isolated docker container
+# live_build_run - building of the system directly in the working system
 
 : 'container_build_run bullseye core standard amd64 xz
 container_build_run bullseye core standard i386 xz
