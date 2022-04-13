@@ -23,7 +23,7 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
+    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
         $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
@@ -57,7 +57,7 @@ fi
 if grep xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
         echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
         echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     fi
     cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc

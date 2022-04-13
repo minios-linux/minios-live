@@ -13,7 +13,7 @@ $APT_CMD update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ]; then
+    if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] ||  [ $DISTRIBUTION = "jammy" ]; then
         $APT_CMD install $APT_OPTIONS \
             linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
     else
