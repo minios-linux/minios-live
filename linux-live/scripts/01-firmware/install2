@@ -45,7 +45,7 @@ if [ $PACKAGE_VARIANT = "maximum" ]; then
         make dkms_install
         cd -
     fi
-    if [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "bookworm" ]; then
+    if [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "sid" ]; then
         git clone https://github.com/EntropicEffect/rtl8822bu
         cd rtl8822bu
         sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
