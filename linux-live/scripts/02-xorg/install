@@ -22,6 +22,22 @@ fi
 if [ $PACKAGE_VARIANT = "maximum" ] && [ $DISTRIBUTION != "stretch" ] && [ $DISTRIBUTION !="orel" ]; then
     $APT_CMD install $APT_OPTIONS fonts-noto-color-emoji
 fi
+if [ $PACKAGE_VARIANT = "maximum" ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        cat <<EOF >/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
+#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
+
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
+EOF
+        $APT_CMD update >>$OUTPUT 2>&1
+        $APT_CMD install $APT_OPTIONS \
+            virtualbox-guest-x11 >>$OUTPUT 2>&1
+        rm /etc/apt/sources.list.d/mx.list
+    fi
+fi
 
 if [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "standard" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
     sed -i "s/💀/@/g" /etc/skel/.bashrc

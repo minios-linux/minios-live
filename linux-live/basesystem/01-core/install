@@ -70,6 +70,26 @@ if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRI
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
+    if [ $PACKAGE_VARIANT = "maximum" ]; then
+        wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
+        wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+        $APT_CMD install $APT_OPTIONS ./*.deb
+        rm ./*.deb
+        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+            cat <<EOF >/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
+#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
+
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
+EOF
+            $APT_CMD update >>$OUTPUT 2>&1
+            $APT_CMD install $APT_OPTIONS \
+                virtualbox-guest-utils >>$OUTPUT 2>&1
+            rm /etc/apt/sources.list.d/mx.list
+        fi
+    fi
     if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
         wget http://download.proxmox.com/debian/proxmox-release-bullseye.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bullseye.gpg
         echo "" >>/etc/apt/sources.list
