@@ -19,6 +19,16 @@ fi
 echo "KERNEL=$KERNEL" >/livekit.conf
 
 if [ $PACKAGE_VARIANT = "maximum" ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        cat <<EOF >/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
+#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
+
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
+EOF
+    fi
     $APT_CMD update >>$OUTPUT 2>&1
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         if [ $DISTRIBUTION = "orel" ]; then
@@ -33,6 +43,11 @@ if [ $PACKAGE_VARIANT = "maximum" ]; then
     $APT_CMD install $APT_OPTIONS broadcom-sta-dkms >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "kali-rolling" ]; then
         $APT_CMD install $APT_OPTIONS realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        $APT_CMD install $APT_OPTIONS \
+            rtl8812au-dkms \
+            rtl8821ce-dkms \
+            rtl8821cu-dkms >>$OUTPUT 2>&1
     else
         #$APT_CMD install $APT_OPTIONS git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
         git clone https://github.com/aircrack-ng/rtl8812au
@@ -59,15 +74,19 @@ if [ $PACKAGE_VARIANT = "maximum" ]; then
 fi
 
 if [ $PACKAGE_VARIANT = "maximum" ]; then
-    TARGET_VER=$KERNEL
-    export TARGET_VER
-    VBOX_VER=$(curl https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT)
-    cd /tmp
-    wget -c https://download.virtualbox.org/virtualbox/$VBOX_VER/VBoxGuestAdditions_$VBOX_VER.iso
-    cd /tmp
-    isoinfo -f -R -i /tmp/VBoxGuestAdditions_$VBOX_VER.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
-    chmod +x /tmp/VBoxLinuxAdditions.run
-    set +e
-    /tmp/VBoxLinuxAdditions.run
-    set -e
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        $APT_CMD install $APT_OPTIONS virtualbox-guest-dkms >>$OUTPUT 2>&1
+    else
+        TARGET_VER=$KERNEL
+        export TARGET_VER
+        VBOX_VER=$(curl https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT)
+        cd /tmp
+        wget -c https://download.virtualbox.org/virtualbox/$VBOX_VER/VBoxGuestAdditions_$VBOX_VER.iso
+        cd /tmp
+        isoinfo -f -R -i /tmp/VBoxGuestAdditions_$VBOX_VER.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
+        chmod +x /tmp/VBoxLinuxAdditions.run
+        set +e
+        /tmp/VBoxLinuxAdditions.run
+        set -e
+    fi
 fi
