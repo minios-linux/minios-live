@@ -967,6 +967,8 @@ function build_bootstrap() {
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
             if [ $DISTRIBUTION = "orel" ]; then
+                cd /usr/share/debootstrap/scripts
+                ln -s sid orel
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
@@ -993,6 +995,8 @@ function build_bootstrap() {
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
             if [ $DISTRIBUTION = "orel" ]; then
+                cd /usr/share/debootstrap/scripts
+                ln -s sid orel
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
@@ -1006,6 +1010,8 @@ function build_bootstrap() {
         fi
     else
         if [ $DISTRIBUTION = "orel" ]; then
+            cd /usr/share/debootstrap/scripts
+            ln -s sid orel
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
         else
@@ -2867,6 +2873,7 @@ function container_run() {
             -e REMOVE_DPKG_DB="false" \
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="4" \
+            -e KERNEL_TYPE="default" \
             local/mlc /build/minios-live/install -
     fi
 }
@@ -2911,6 +2918,7 @@ function live_run() {
         REMOVE_DPKG_DB="false" \
         FILTER_MODULES="false" \
         FILTER_LEVEL="4" \
+        KERNEL_TYPE="default" \
         /build/minios-live/install -
 }
 
