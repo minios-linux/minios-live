@@ -21,7 +21,7 @@ $APT_CMD update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+    if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
         DEBIAN_FRONTEND=noninteractive \
             $APT_CMD install $APT_OPTIONS \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g" | sed "s/davfs2//g" | tr "\n" " ") >>$OUTPUT 2>&1
@@ -58,7 +58,12 @@ else
         network-manager >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    $APT_CMD install $APT_OPTIONS \
+        cpio >>$OUTPUT 2>&1
+fi
+
+if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
     $APT_CMD install $APT_OPTIONS \
         selinux-policy-default >>$OUTPUT 2>&1
     sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
