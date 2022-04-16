@@ -71,6 +71,8 @@ fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     if [ $PACKAGE_VARIANT = "maximum" ]; then
+        wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
+        wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
         $APT_CMD install $APT_OPTIONS ./*.deb
