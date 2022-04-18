@@ -17,7 +17,7 @@ elif [ -f /run/initramfs/lib/minioslib ]; then
 fi
 if [ -f /opt/minios-live/linux-live/config ]; then
     . /opt/minios-live/linux-live/config || exit 1
-elif [ -f /run/initramfs/lib/config ] && grep COMP_TYPE /run/initramfs/lib/config >/dev/null; then
+elif [ -f /run/initramfs/lib/config ] && grep MiniOS /run/initramfs/lib/config >/dev/null; then
     . /run/initramfs/lib/config || exit 1
 fi
 if [ -f /opt/minios-live/linux-live/buildconfig ]; then
