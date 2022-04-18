@@ -29,6 +29,14 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "orel" ]; then
+    wget -c http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/bullseye/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
+    $APT_CMD install $APT_OPTIONS \
+        ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+    rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+fi
+
+# install packages
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
     wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.15.2-1_all.deb
     $APT_CMD install $APT_OPTIONS \
