@@ -1024,6 +1024,64 @@ function build_bootstrap() {
 
 }
 
+function mx_repo() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    if [ $USE_MX_REPO = "true" ]; then
+        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+            cd $INSTALL_DIR
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+            if [ -f /.minios-live-container ]; then
+                if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb
+                else
+                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+                fi
+            else
+                chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+            fi
+            rm $INSTALL_DIR/*.deb
+            cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
+#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
+
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
+EOF
+        fi
+    fi
+}
+
+function antix_repo() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    if [ $USE_ANTIX_REPO = "true" ]; then
+        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+            cd $INSTALL_DIR
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+            if [ -f /.minios-live-container ]; then
+                if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb
+                else
+                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+                fi
+            else
+                chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+            fi
+            rm $INSTALL_DIR/*.deb
+            cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/antix.list
+# antiX Community Repos
+deb http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
+EOF
+        fi
+    fi
+}
+
 function build_rootfs() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
     #current_process
@@ -1069,6 +1127,9 @@ EOF
             create_apt_list
 
             cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+
+            mx_repo
+            antix_repo
 
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
