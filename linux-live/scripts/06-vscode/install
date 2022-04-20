@@ -10,7 +10,7 @@ APP_NAME="Visual Studio Code"
 APP_EXECUTABLE="code"
 APP_MODULE_NUMBER="6"
 
-$APT_CMD update >>$OUTPUT 2>&1 &&
+apt-get update >>$OUTPUT 2>&1 &&
     apt-get install -y gnupg apt-transport-https >>$OUTPUT 2>&1
 
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$APT_CMD update >>$OUTPUT 2>&1 &&
+apt-get update >>$OUTPUT 2>&1 &&
     apt-get install -y gnupg >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
@@ -12,7 +12,7 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 # install packages
-$APT_CMD update >>$OUTPUT 2>&1 &&
+apt-get update >>$OUTPUT 2>&1 &&
     apt-get install -y palemoon >>$OUTPUT 2>&1
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then

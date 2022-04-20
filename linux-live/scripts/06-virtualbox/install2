@@ -13,7 +13,7 @@ else
 fi
 
 # install packages
-$APT_CMD update >>$OUTPUT 2>&1
+apt-get update >>$OUTPUT 2>&1
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then

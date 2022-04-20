@@ -10,6 +10,6 @@ wget -qO - https://shop.softmaker.com/repo/linux-repo-public.key | apt-key add -
 echo "deb https://shop.softmaker.com/repo/apt stable non-free" > /etc/apt/sources.list.d/softmaker.list
 
 # install packages
-$APT_CMD update >>$OUTPUT 2>&1 &&
+apt-get update >>$OUTPUT 2>&1 &&
     apt-get install -y \
         softmaker-freeoffice-2021 >>$OUTPUT 2>&1

@@ -17,7 +17,7 @@ echo "locales locales/default_environment_locale select en_US.UTF-8" | debconf-s
 #echo "console-setup   console-setup/fontface47select  Fixed" | debconf-set-selections -v >>$OUTPUT 2>&1
 #echo "console-setup   console-setup/fontsize-text47   select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
 
-$APT_CMD update >>$OUTPUT 2>&1
+apt-get update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
@@ -119,7 +119,7 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     fi
 fi
 
-$APT_CMD install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
+apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
 apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
