@@ -10,10 +10,10 @@ $APT_CMD update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         firefox >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         firefox-esr >>$OUTPUT 2>&1
 fi
 

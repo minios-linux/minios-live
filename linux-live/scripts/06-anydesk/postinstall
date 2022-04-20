@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$APT_CMD autoremove $APT_OPTIONS \
+$APT_CMD autoremove -y \
     gnupg >>$OUTPUT 2>&1
 
 rm -Rf /usr/share/icons/Adwaita/256x256 >>$OUTPUT 2>&1

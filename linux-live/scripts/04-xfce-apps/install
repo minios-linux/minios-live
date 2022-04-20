@@ -10,18 +10,18 @@ $APT_CMD update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
 if [ $PACKAGE_VARIANT = "maximum" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         echo 'deb http://ftp.debian.org/debian stretch-backports main' | sudo tee --append /etc/apt/sources.list.d/stretch-backports.list >>$OUTPUT 2>&1
-        $APT_CMD update >>$OUTPUT 2>&1
-        $APT_CMD install -t stretch-backports $APT_OPTIONS \
+        apt-get update >>$OUTPUT 2>&1
+        apt-get install -t stretch-backports -y \
             remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
     else
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
 
     fi

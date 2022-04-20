@@ -11,8 +11,8 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-  $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS \
+  apt-get update >>$OUTPUT 2>&1 &&
+    apt-get install -y \
       locales dbus-x11 slim cinnamon-core gvfs-backends samba-common avahi-daemon faenza-icon-theme >>$OUTPUT 2>&1
 fi
 

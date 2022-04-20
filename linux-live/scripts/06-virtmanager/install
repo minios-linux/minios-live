@@ -11,7 +11,7 @@ APP_GROUP="libvirt"
 
 # install packages
 $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         qemu-kvm \
         libvirt-clients \
         libvirt-daemon-system \

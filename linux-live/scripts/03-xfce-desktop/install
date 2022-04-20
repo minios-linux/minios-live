@@ -14,16 +14,16 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/wicd//g" | sed "s/slim//g" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "stretch" ]; then
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/network-manager-gnome//g" | tr "\n" " ") wicd >>$OUTPUT 2>&1
     else
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
     fi
 fi
@@ -31,7 +31,7 @@ fi
 # install packages
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "orel" ]; then
     wget -c http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/bullseye/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
     rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
 fi
@@ -39,11 +39,11 @@ fi
 # install packages
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
     wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.15.2-1_all.deb
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
     rm -f ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
 else
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         elementary-xfce-icon-theme >>$OUTPUT 2>&1
 fi
 

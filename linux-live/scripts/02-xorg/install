@@ -12,15 +12,15 @@ $APT_CMD update >>$OUTPUT 2>&1
 
 # install packages
 if [ DESKTOP_ENVIRONMENT = "astra-fly" ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         xorg-all-main >>$OUTPUT 2>&1
 elif [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
 if [ $PACKAGE_VARIANT = "maximum#" ] && ([ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION !="orel" ]); then
-    $APT_CMD install $APT_OPTIONS fonts-noto-color-emoji
+    apt-get install -y fonts-noto-color-emoji
 fi
 if [ $PACKAGE_VARIANT = "maximum" ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
@@ -32,8 +32,8 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
-        $APT_CMD update >>$OUTPUT 2>&1
-        $APT_CMD install $APT_OPTIONS \
+        apt-get update >>$OUTPUT 2>&1
+        apt-get install -y \
             virtualbox-guest-x11 >>$OUTPUT 2>&1
         rm /etc/apt/sources.list.d/mx.list
     fi

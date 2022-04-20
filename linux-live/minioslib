@@ -1035,12 +1035,12 @@ function mx_repo() {
             wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb
+                    chroot_run $INSTALL_DIR apt-get install -y /*.deb
                 else
-                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
                 fi
             else
-                chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+                chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
             fi
             rm $INSTALL_DIR/*.deb
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/mx.list
@@ -1066,12 +1066,12 @@ function antix_repo() {
             wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb
+                    chroot_run $INSTALL_DIR apt-get install -y /*.deb
                 else
-                    chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
                 fi
             else
-                chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS /*.deb >>$OUTPUT 2>&1
+                chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
             fi
             rm $INSTALL_DIR/*.deb
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/antix.list
@@ -1108,17 +1108,17 @@ EOF
                 cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
                 if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
-                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg
+                        chroot_run $INSTALL_DIR apt-get update $APT_OPTIONS
+                        chroot_run $INSTALL_DIR apt-get install -y gnupg
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
                     else
-                        chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
-                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-get install -y gnupg >>$OUTPUT 2>&1
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                     fi
                 else
-                    chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
-                    chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR apt-get install -y gnupg >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
                 DISTRIBUTION="kali-rolling"
@@ -1133,47 +1133,47 @@ EOF
 
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS
+                    chroot_run $INSTALL_DIR apt-get update $APT_OPTIONS
                 else
-                    chroot_run $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
                 fi
             else
-                chroot $INSTALL_DIR $APT_CMD update $APT_OPTIONS >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
             fi
 
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS
+                    chroot_run $INSTALL_DIR apt-get upgrade $APT_OPTIONS
                 else
-                    chroot_run $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get upgrade -y >>$OUTPUT 2>&1
                 fi
             else
-                chroot $INSTALL_DIR $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get upgrade -y >>$OUTPUT 2>&1
             fi
 
             if [ -f $SCRIPT_DIR/linux-live/pkglists/prereq.list ]; then
                 if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
+                        chroot_run $INSTALL_DIR apt-get install -y \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ")
                     else
-                        chroot_run $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
+                        chroot_run $INSTALL_DIR apt-get install -y \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
                     fi
                 else
-                    chroot $INSTALL_DIR $APT_CMD install $APT_OPTIONS \
+                    chroot $INSTALL_DIR apt-get install -y \
                         $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
                 fi
             fi
 
             if [ -f /.minios-live-container ]; then
                 if [ -f /.minios-live-container ]; then
-                    chroot_run $INSTALL_DIR $APT_CMD clean $APT_OPTIONS
+                    chroot_run $INSTALL_DIR apt-get clean $APT_OPTIONS
                 else
-                    chroot_run $INSTALL_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get clean -y >>$OUTPUT 2>&1
                 fi
             else
-                chroot $INSTALL_DIR $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get clean -y >>$OUTPUT 2>&1
             fi
             chroot_umount_fs
 
@@ -1748,20 +1748,20 @@ function chroot_cleanup() {
 # =================================================================
 function hostreq_pkg_list() {
     echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOUR}"
-    $APT_CMD update >>$OUTPUT 2>&1
+    apt-get update >>$OUTPUT 2>&1
 
     if [ -f $SCRIPT_DIR/linux-live/pkglists/hostreq.list ]; then
-        $APT_CMD install -y \
+        apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/hostreq.list | tr "\n" " ") >>$OUTPUT 2>&1
     else
-        $APT_CMD install -y \
+        apt-get install -y \
             sudo debootstrap genisoimage >>$OUTPUT 2>&1
     fi
     if [ $DISTRIBUTION_ARCH = "arm64" ]; then
-        $APT_CMD install -y \
+        apt-get install -y \
             grub-efi-arm64-bin >>$OUTPUT 2>&1
     else
-        $APT_CMD install -y \
+        apt-get install -y \
             grub-efi-amd64-bin grub-pc-bin >>$OUTPUT 2>&1
     fi
 }
@@ -1782,20 +1782,20 @@ EOF
     fi
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         if [ -f $SCRIPT_DIR/pkglists/prereq.list ]; then
-            $APT_CMD update
+            apt-get update
             echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
-                $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1 &&
+                apt-get upgrade -y >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
-                $APT_CMD install $APT_OPTIONS \
+                apt-get install -y \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/pkglists/prereq.list | tr "\n" " ")
         fi
     else
         if [ -f $SCRIPT_DIR/pkglists/prereq.list ]; then
-            $APT_CMD update >>$OUTPUT 2>&1 &&
+            apt-get update >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
-                $APT_CMD upgrade $APT_OPTIONS >>$OUTPUT 2>&1 &&
+                apt-get upgrade -y >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
-                $APT_CMD install $APT_OPTIONS \
+                apt-get install -y \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
     fi
@@ -1895,10 +1895,10 @@ function chroot_pkg_install() {
     install_core_packages
 
     # remove unused
-    $APT_CMD autoremove $APT_OPTIONS >>$OUTPUT 2>&1
+    apt-get autoremove -y >>$OUTPUT 2>&1
 
     # clean up apt cache
-    $APT_CMD clean $APT_OPTIONS >>$OUTPUT 2>&1
+    apt-get clean -y >>$OUTPUT 2>&1
 }
 
 # =================================================================
@@ -2854,8 +2854,8 @@ function download_sources() {
     current_process
 
     if [ ! -d /opt/minios-live ]; then
-        $APT_CMD update >>$OUTPUT 2>&1 &&
-            $APT_CMD install $APT_OPTIONS git >>$OUTPUT 2>&1
+        apt-get update >>$OUTPUT 2>&1 &&
+            apt-get install -y git >>$OUTPUT 2>&1
         mkdir -p /opt
         cd /opt
         git clone --depth=1 https://github.com/minios-linux/minios-live.git >>$OUTPUT 2>&1

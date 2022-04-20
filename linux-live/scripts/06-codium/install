@@ -19,8 +19,8 @@ get_latest_package_url() {
 URL=$(get_latest_package_url VSCodium/vscodium)
 
 wget -c $URL &&
-  $APT_CMD update $APT_OPTIONS &&
-  $APT_CMD install $APT_OPTIONS ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
+  apt-get update -y &&
+  apt-get install -y ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
   rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
 
 if grep slax /etc/hostname >/dev/null; then
