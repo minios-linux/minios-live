@@ -10,7 +10,7 @@ APP_NAME="Microsoft Edge"
 APP_EXECUTABLE="microsoft-edge-stable"
 APP_MODULE_NUMBER="5"
 
-$APT_CMD update >>$OUTPUT 2>&1 &&
+apt-get update >>$OUTPUT 2>&1 &&
     apt-get install -y gnupg >>$OUTPUT 2>&1
 
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
@@ -19,7 +19,7 @@ sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packag
 rm -f packages.microsoft.gpg
 
 # install packages
-$APT_CMD update >>$OUTPUT 2>&1 &&
+apt-get update >>$OUTPUT 2>&1 &&
     apt-get install -y microsoft-edge-stable >>$OUTPUT 2>&1
 
 # Everything below is universal for all browsers on the chromium engine

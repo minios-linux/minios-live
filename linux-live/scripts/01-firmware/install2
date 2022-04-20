@@ -49,7 +49,7 @@ EOF
             rtl8821ce-dkms \
             rtl8821cu-dkms >>$OUTPUT 2>&1
     else
-        #$APT_CMD install -y git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
+        #apt-get install -y git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
         git clone https://github.com/aircrack-ng/rtl8812au
         cd rtl8812au
         #sed -i "1140s/.*/KVER  := $KERNEL/g" ./Makefile
