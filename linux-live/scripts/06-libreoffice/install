@@ -8,5 +8,5 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 # install packages
 $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         libreoffice >>$OUTPUT 2>&1

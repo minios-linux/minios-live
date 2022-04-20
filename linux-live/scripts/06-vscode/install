@@ -11,7 +11,7 @@ APP_EXECUTABLE="code"
 APP_MODULE_NUMBER="6"
 
 $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS gnupg apt-transport-https >>$OUTPUT 2>&1
+    apt-get install -y gnupg apt-transport-https >>$OUTPUT 2>&1
 
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
 install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
@@ -19,8 +19,8 @@ sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packag
 rm -f packages.microsoft.gpg
 
 # install packages
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        $APT_CMD install $APT_OPTIONS code >>$OUTPUT 2>&1
+    apt-get update >>$OUTPUT 2>&1 &&
+        apt-get install -y code >>$OUTPUT 2>&1
 
 if grep slax /etc/hostname >/dev/null; then
     cat <<EOF >/usr/bin/fblive-add-$APP.sh

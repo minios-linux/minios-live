@@ -14,29 +14,29 @@ $APT_CMD update >>$OUTPUT 2>&1
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] ||  [ $DISTRIBUTION = "jammy" ]; then
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
     else
-        $APT_CMD install $APT_OPTIONS
+        apt-get install $APT_OPTIONS
         #linux-firmware >>$OUTPUT 2>&1 #firmware-b43-installer
         #linux-image-generic-hwe-20.04 >>$OUTPUT 2>&1
         linux-image-generic >>$OUTPUT 2>&1
     fi
 elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         pve-kernel-5.15 >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION = "orel" ]; then
-    $APT_CMD install $APT_OPTIONS \
+    apt-get install -y \
         linux-firmware >>$OUTPUT 2>&1
 else
     # install packages
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "bullseye" ]; then
             #Slax 11 no longer uses firmware-nonfree
-            $APT_CMD install $APT_OPTIONS \
+            apt-get install -y \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/firmware-linux-nonfree//g" | tr "\n" " ") >>$OUTPUT 2>&1
         else
-            $APT_CMD install $APT_OPTIONS \
+            apt-get install -y \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
     fi

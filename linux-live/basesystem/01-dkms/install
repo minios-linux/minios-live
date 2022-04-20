@@ -14,7 +14,7 @@ fi
 echo "KERNEL=$KERNEL" >/livekit.conf
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
-    $APT_CMD update >>$OUTPUT 2>&1
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
-    $APT_CMD install $APT_OPTIONS aufs-dkms >>$OUTPUT 2>&1
+    apt-get update >>$OUTPUT 2>&1
+    apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+    apt-get install -y aufs-dkms >>$OUTPUT 2>&1
 fi

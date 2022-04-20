@@ -15,9 +15,9 @@ fi
 # install packages
 $APT_CMD update >>$OUTPUT 2>&1
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+    apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    $APT_CMD install $APT_OPTIONS linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
+    apt-get install -y linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
 fi
 echo "KERNEL=$KERNEL" >/livekit.conf
 

@@ -16,8 +16,8 @@ if [ $PACKAGE_VARIANT = "minimum" ]; then
     fi
 
     # install packages
-    $APT_CMD update >>$OUTPUT 2>&1 &&
-        $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
+    apt-get update >>$OUTPUT 2>&1 &&
+        apt-get install -y palemoon >>$OUTPUT 2>&1
 
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
         if [ ! -d /etc/skel/.config/xfce4 ]; then
@@ -41,14 +41,14 @@ EOF
         fi
     fi
 else
-    $APT_CMD update >>$OUTPUT 2>&1
+    apt-get update >>$OUTPUT 2>&1
 
     # install packages
     if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             firefox >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION_TYPE = "debian" ]; then
-        $APT_CMD install $APT_OPTIONS \
+        apt-get install -y \
             firefox-esr >>$OUTPUT 2>&1
     fi
 

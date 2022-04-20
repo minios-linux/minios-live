@@ -1,7 +1,7 @@
 #!/bin/bash
 
 $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS gnupg >>$OUTPUT 2>&1
+    apt-get install -y gnupg >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | tee /etc/apt/sources.list.d/home:stevenpusser.list
@@ -13,7 +13,7 @@ fi
 
 # install packages
 $APT_CMD update >>$OUTPUT 2>&1 &&
-    $APT_CMD install $APT_OPTIONS palemoon >>$OUTPUT 2>&1
+    apt-get install -y palemoon >>$OUTPUT 2>&1
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
