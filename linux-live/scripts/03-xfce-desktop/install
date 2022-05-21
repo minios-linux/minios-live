@@ -37,11 +37,11 @@ if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUT
 fi
 
 # install packages
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-    wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.15.2-1_all.deb
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+    wget -c http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.16-1_all.deb
     apt-get install -y \
-        ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
-    rm -f ./elementary-xfce-icon-theme_0.15.2-1_all.deb >>$OUTPUT 2>&1
+        ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
+    rm -f ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
 else
     apt-get install -y \
         elementary-xfce-icon-theme >>$OUTPUT 2>&1
