@@ -11,17 +11,17 @@ APP_EXECUTABLE="codium"
 APP_MODULE_NUMBER="6"
 
 get_latest_package_url() {
-  wget -q -O- "https://api.github.com/repos/$1/releases/latest" |      # Get latest release from GitHub api
-    grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" | # Get tag line
-    sed -E 's/.*"([^"]+)".*/\1/'                                       # Pluck JSON value
+    wget -q -O- "https://api.github.com/repos/$1/releases/latest" |        # Get latest release from GitHub api
+        grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" | # Get tag line
+        sed -E 's/.*"([^"]+)".*/\1/'                                       # Pluck JSON value
 }
 
 URL=$(get_latest_package_url VSCodium/vscodium)
 
 wget -c $URL &&
-  apt-get update -y &&
-  apt-get install -y ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
-  rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
+    apt-get update -y &&
+    apt-get install -y ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
+    rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
 
 if grep slax /etc/hostname >/dev/null; then
     cat <<EOF >/usr/bin/fblive-add-$APP.sh
