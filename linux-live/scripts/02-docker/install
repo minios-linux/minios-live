@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+apt-get update >>$OUTPUT 2>&1
+
+apt-get install -y \
+    ca-certificates curl gnupg lsb-release >>$OUTPUT 2>&1
+
+curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list >/dev/null
+
+apt-get update >>$OUTPUT 2>&1
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-compose >>$OUTPUT 2>&1
+
+get_latest_package_url() {
+    wget -q -O- "https://api.github.com/repos/$1/releases/latest" |           # Get latest release from GitHub api
+        grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.tar.gz"\" | # Get tag line
+        sed -E 's/.*"([^"]+)".*/\1/'                                          # Pluck JSON value
+}
+
+URL=$(get_latest_package_url portainer/portainer)
+
+wget -c $URL &&
+    tar -xf ./$(ls portainer*$DISTRIBUTION_ARCH.tar.gz) -C /opt &&
+    rm -f ./$(ls portainer*$DISTRIBUTION_ARCH.tar.gz)
+
+cat <<EOF >/usr/lib/systemd/system/portainer.service
+[Unit]
+Description=Portainer
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+TimeoutStartSec=0
+Restart=always
+ExecStart=/opt/portainer/portainer --no-analytics -H unix:///var/run/docker.sock
+#ExecStop=
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+systemctl enable portainer
