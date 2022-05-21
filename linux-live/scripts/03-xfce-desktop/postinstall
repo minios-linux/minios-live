@@ -1,16 +1,23 @@
 #!/bin/bash
 
 rm -f /usr/share/backgrounds/xfce/*
+rm -f /usr/share/backgrounds/greybird.svg
+rm -f /usr/share/wallpapers/*
 if [ ! -d /usr/share/backgrounds/xfce ]; then
     mkdir -p /usr/share/backgrounds/xfce
 fi
 
+for BACKGROUND in /usr/share/backgrounds/MiniOS*.svg; do
+    ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
+done
 if [ $DISTRIBUTION = "orel" ]; then
-    ln -s /usr/share/backgrounds/MiniOS-wallpaper-blue.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s /usr/share/backgrounds/MiniOS-wallpaper-blue.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+    #sed -i "s,/usr/share/backgrounds/xfce/xfce-verticals.png,/usr/share/backgrounds/xfce/MiniOS-wallpaper-blue.svg,g"
 else
-    ln -s /usr/share/backgrounds/MiniOS-wallpaper-green.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s /usr/share/backgrounds/MiniOS-wallpaper-green.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+    #sed -i "s,/usr/share/backgrounds/xfce/xfce-verticals.png,/usr/share/backgrounds/xfce/MiniOS-wallpaper-green.svg,g"
 fi
 
 if [ $PACKAGE_VARIANT = "standard" ]; then
