@@ -1,8 +1,6 @@
 [![MiniOS](images/minios.png)](http://t.me/minios.ru)
 
-The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface. We love [Slax](https://www.slax.org/) and want to keep its legacy alive.
-
-Why is MiniOS bigger than Slax? We use some packages that give more convenience when using, for example, network-manager, without which it will be problematic for you to configure a wireless network in the console. We can make the system smaller, like Slax or even smaller. But why, if it will be uncomfortable?
+The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface.
 
 These scripts build a bootable MiniOS ISO image.
 
