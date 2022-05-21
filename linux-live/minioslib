@@ -33,13 +33,17 @@ function common_variables() {
     fi
 
     if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+        ISO_ARCH="amd64"
         KERNEL_ARCH="amd64"
-        #PACKAGE_VARIANT="standard"
-    elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+    elif [ $DISTRIBUTION_ARCH = "i386-pae" ]; then
+        ISO_ARCH="i386-pae"
         KERNEL_ARCH="686-pae"
-        #KERNEL_ARCH="686"
-        #PACKAGE_VARIANT="minimum"
+        DISTRIBUTION_ARCH="i386"
+    elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+        ISO_ARCH="i386"
+        KERNEL_ARCH="686"
     elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
+        ISO_ARCH="arm64"
         KERNEL_ARCH="arm64"
     fi
 
@@ -63,6 +67,10 @@ function common_variables() {
 
     if [ $DISTRIBUTION = "orel" ]; then
         DISTRIBUTION_URL="http://mirror.yandex.ru/astra/stable/orel/repository"
+    fi
+
+    if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]) && [ $COMP_TYPE = "zstd" ]; then
+        COMP_TYPE="lz4"
     fi
 
 }
@@ -719,6 +727,20 @@ function create_backup() {
     fi
 }
 
+function add_unofficial_repository() {
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        if [ $USE_UNOFFICIAL_REPOSITORY = "true" ]; then
+            cat <<EOF >$INSTALL_DIR/etc/apt/sources.list
+deb $UNOFFICIAL_REPOSITORY_ADDRESS $DISTRIBUTION main contrib non-free
+EOF
+        fi
+    fi
+}
+
+function remove_unofficial_repository() {
+    cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+}
+
 # =================================================================
 # Displaying information about the start of the build for a more
 # convenient search in the logs
@@ -1284,11 +1306,15 @@ function build_chroot() {
         cp -f $SCRIPT_DIR/linux-live/aptsources/stretch.list $INSTALL_DIR/etc/apt/sources.list.d/stretch.list
     fi
 
+    add_unofficial_repository
+
     if [ -f /.minios-live-container ]; then
         chroot_run $INSTALL_DIR /linux-live/install_chroot -
     else
         chroot $INSTALL_DIR /linux-live/install_chroot -
     fi
+
+    remove_unofficial_repository
 
     chroot_umount_fs
 
@@ -1337,7 +1363,12 @@ function build_live() {
         fi
     done
 
-    mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+    if [ $COMP_TYPE = "zstd" ]; then
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+    else
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+    fi
 
 }
 
@@ -1378,7 +1409,9 @@ function build_boot() {
     fi
     if [ $BOOT_TYPE = "hybrid" ]; then
         cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image
-        mkdir $WORK_DIR/image/$LIVEKITNAME/boot/grub
+        if [ ! -d $WORK_DIR/image/$LIVEKITNAME/boot/grub ]; then
+            mkdir $WORK_DIR/image/$LIVEKITNAME/boot/grub
+        fi
         cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image/$LIVEKITNAME/boot/grub
         if [ ! -d $WORK_DIR/image/.disk ]; then
             mkdir -p $WORK_DIR/image/.disk
@@ -1526,7 +1559,7 @@ function build_iso() {
 
     DIR=$WORK_DIR/image
 
-    ISO=$ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$DATE.iso
+    ISO=$ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$ISO_ARCH-$COMP_TYPE-$DATE.iso
 
     B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 
@@ -1560,7 +1593,7 @@ function build_iso() {
 
     if [ $REMOVE_OLD_ISO = "true" ]; then
         set +e
-        rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-*.iso >>$OUTPUT 2>&1
+        rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$ISO_ARCH-$COMP_TYPE-*.iso >>$OUTPUT 2>&1
         while [ -f $ISO_DIR/$LIVEKITNAME.iso ]; do
             rm $ISO_DIR/$LIVEKITNAME.iso >>$OUTPUT 2>&1
             sleep 1
@@ -1595,7 +1628,7 @@ function build_iso() {
             rm $ISO_DIR/$LIVEKITNAME.iso >>$OUTPUT 2>&1
             sleep 1
         done
-        if ln $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE-$DATE.iso $ISO_DIR/$LIVEKITNAME.iso; then
+        if ln $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$ISO_ARCH-$COMP_TYPE-$DATE.iso $ISO_DIR/$LIVEKITNAME.iso; then
             echo ">>> $ISO_DIR/$LIVEKITNAME.iso created"
         fi
     fi
@@ -2069,6 +2102,25 @@ function chroot_finish_up() {
 # =================================================================
 # =================================================================
 
+function module_add_unofficial_repository() {
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        if [ $USE_UNOFFICIAL_REPOSITORY = "true" ]; then
+            if [ ! -d $MODULE_UPPER_DIR/etc/apt ]; then
+                mkdir -p $MODULE_UPPER_DIR/etc/apt
+            fi
+            cat <<EOF >$MODULE_UPPER_DIR/etc/apt/sources.list
+deb $UNOFFICIAL_REPOSITORY_ADDRESS $DISTRIBUTION main contrib non-free
+EOF
+        fi
+    fi
+}
+
+function module_remove_unofficial_repository() {
+    if [ -f $MODULE_UPPER_DIR/etc/apt/sources.list ]; then
+        rm $MODULE_UPPER_DIR/etc/apt/sources.list
+    fi
+}
+
 # =================================================================
 #
 #
@@ -2526,6 +2578,8 @@ function build_modules() {
 
                 module_chroot_mount_fs
 
+                module_add_unofficial_repository
+
                 # run pre-install script
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/preinstall ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -2586,11 +2640,13 @@ function build_modules() {
 
                     module_build_cleanup
 
+                    module_remove_unofficial_repository
+
                     # run external actions
 
                     if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                         mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
-                        mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
                         mv $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
                         cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
                         unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
@@ -2601,6 +2657,8 @@ function build_modules() {
                     #module_check_install_dir
 
                     module_chroot_mount_fs
+
+                    module_add_unofficial_repository
                 fi
 
                 # run install2 script
@@ -2717,10 +2775,17 @@ function build_modules() {
 
                 module_chroot_cleanup
 
+                module_remove_unofficial_repository
+
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                            mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                            #mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                            if [ $COMP_TYPE = "zstd" ]; then
+                                time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                            else
+                                time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                            fi
                             chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} ${RED}is empty${ENDCOLOUR}. Nothing to do."
@@ -2730,7 +2795,12 @@ function build_modules() {
                     else
                         if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
                             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                                mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                #mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                if [ $COMP_TYPE = "zstd" ]; then
+                                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                                else
+                                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                fi
                             else
                                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
                             fi
@@ -2778,9 +2848,9 @@ function build_modules_live() {
 
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
-                    mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
                 else
-                    mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
             else
                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
@@ -2801,7 +2871,12 @@ function repack_module() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
 
-        mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        if [ $COMP_TYPE = "zstd" ]; then
+            time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+        else
+            time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        fi
 
         rm -rf squashfs-root
         rm -f $OLD_MODULE
@@ -2811,7 +2886,12 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
         else
-            mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            #mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            if [ $COMP_TYPE = "zstd" ]; then
+                time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+            else
+                time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            fi
         fi
     fi
 }
@@ -2935,6 +3015,10 @@ function container_run() {
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="4" \
             -e KERNEL_TYPE="default" \
+            -e USE_MX_REPO="false" \
+            -e USE_ANTIX_REPO="false" \
+            -e USE_UNOFFICIAL_REPOSITORY="false" \
+            -e UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3" \
             local/mlc /build/minios-live/install -
     fi
 }
@@ -2980,6 +3064,10 @@ function live_run() {
         FILTER_MODULES="false" \
         FILTER_LEVEL="4" \
         KERNEL_TYPE="default" \
+        USE_MX_REPO="false" \
+        USE_ANTIX_REPO="false" \
+        USE_UNOFFICIAL_REPOSITORY="false" \
+        UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3" \
         /build/minios-live/install -
 }
 
