@@ -1752,6 +1752,9 @@ function chroot_cleanup() {
 
     rm -Rf $1/usr/share/icons/elementaryXubuntu-dark
     rm -Rf $1/usr/share/icons/gnome/256x256
+    if [ $REMOVE_LARGE_ICONS = "true" ]; then
+        find $1/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf
+    fi
 
     rm $1/usr/share/applications/compton.desktop
     rm $1/usr/share/applications/debian-uxterm.desktop
@@ -2482,6 +2485,9 @@ function module_chroot_cleanup() {
         if [ $REMOVE_DPKG_DB = "true" ]; then
             rm -rf $MODULE_UPPER_DIR/var/lib/dpkg
         fi
+        if [ $REMOVE_LARGE_ICONS = "true" ]; then
+            find $MODULE_UPPER_DIR/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf
+        fi
     else
         rm -rf $MODULE_UPPER_DIR/boot $MODULE_UPPER_DIR/dev $MODULE_UPPER_DIR/proc $MODULE_UPPER_DIR/sys $MODULE_UPPER_DIR/rmp $MODULE_UPPER_DIR/run
         rm -f $MODULE_UPPER_DIR/root/.bash_history >>$OUTPUT 2>&1
@@ -2512,6 +2518,9 @@ function module_chroot_cleanup() {
         rm -rf $MODULE_UPPER_DIR/var/cache >>$OUTPUT 2>&1
         if [ $REMOVE_DPKG_DB = "true" ]; then
             rm -rf $MODULE_UPPER_DIR/var/lib/dpkg >>$OUTPUT 2>&1
+        fi
+        if [ $REMOVE_LARGE_ICONS = "true" ]; then
+            find $MODULE_UPPER_DIR/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf >>$OUTPUT 2>&1
         fi
         set -e
     fi
@@ -3012,6 +3021,7 @@ function container_run() {
             -e SKIP_SETUP_HOST="true" \
             -e DOWNLOAD_SOURCES="false" \
             -e REMOVE_DPKG_DB="false" \
+            -e REMOVE_LARGE_ICONS="true" \
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="4" \
             -e KERNEL_TYPE="default" \
@@ -3061,6 +3071,7 @@ function live_run() {
         SKIP_SETUP_HOST="true" \
         DOWNLOAD_SOURCES="false" \
         REMOVE_DPKG_DB="false" \
+        REMOVE_LARGE_ICONS="true" \
         FILTER_MODULES="false" \
         FILTER_LEVEL="4" \
         KERNEL_TYPE="default" \
