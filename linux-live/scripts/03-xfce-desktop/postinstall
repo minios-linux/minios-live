@@ -13,11 +13,18 @@ done
 if [ $DISTRIBUTION = "orel" ]; then
     ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    #sed -i "s,/usr/share/backgrounds/xfce/xfce-verticals.png,/usr/share/backgrounds/xfce/MiniOS-wallpaper-blue.svg,g"
+elif [ $PACKAGE_VARIANT = "minimum" ]; then
+    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "standard" ]; then
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "maximum" ]; then
+    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
 else
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    #sed -i "s,/usr/share/backgrounds/xfce/xfce-verticals.png,/usr/share/backgrounds/xfce/MiniOS-wallpaper-green.svg,g"
 fi
 
 if [ $PACKAGE_VARIANT = "standard" ]; then
@@ -194,8 +201,8 @@ Categories=System;Utility;
 EOF
 fi
 
-rm -Rf /usr/share/icons/Adwaita/256x256 >>$OUTPUT 2>&1
-rm -Rf /usr/share/icons/Adwaita/512x512 >>$OUTPUT 2>&1
-rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
-rm -Rf /usr/share/icons/hicolor/512x512 >>$OUTPUT 2>&1
-rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
+#rm -Rf /usr/share/icons/Adwaita/256x256 >>$OUTPUT 2>&1
+#rm -Rf /usr/share/icons/Adwaita/512x512 >>$OUTPUT 2>&1
+#rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
+#rm -Rf /usr/share/icons/hicolor/512x512 >>$OUTPUT 2>&1
+#rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
