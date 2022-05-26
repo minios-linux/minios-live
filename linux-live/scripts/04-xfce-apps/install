@@ -25,7 +25,29 @@ if [ $PACKAGE_VARIANT = "maximum" ]; then
             remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
 
     fi
+
+    sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi
+
+if grep -q 'galculator' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s accessories-calculator.png galculator.png
+    done
+fi
+if grep -q 'gsmartcontrol' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s ../../devices/$FOLDER/drive-harddisk.png gsmartcontrol.png
+    done
+fi
+if grep -q 'baobab' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s baobab.png org.gnome.baobab.png
+    done
+fi
+update-icon-caches /usr/share/icons/*
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
