@@ -23,7 +23,7 @@ apt-get update -y
 apt-get install -y wget sudo debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd
 : 'apt-get install -y patch
 cd /opt/
-wget -c http://ru.archive.ubuntu.com/ubuntu/pool/main/d/debootstrap/debootstrap_1.0.123ubuntu2_all.deb
+wget http://ru.archive.ubuntu.com/ubuntu/pool/main/d/debootstrap/debootstrap_1.0.123ubuntu2_all.deb
 dpkg -i /opt/debootstrap_1.0.123ubuntu2_all.deb
 rm -f /opt/debootstrap_1.0.123ubuntu2_all.deb
 cat <<'EOF' >/usr/share/debootstrap/functions.diff
