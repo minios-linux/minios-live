@@ -5,8 +5,10 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 . $SCRIPT_DIR/linux-live/minioslib || exit 1
 
+container_engine="docker"
+
 # container_build_run - building the system inside an isolated docker container
 # live_build_run - building of the system directly in the working system
 
-container_build_run bullseye core standard amd64 xz
-container_build_run bullseye xfce-ultra maximum amd64 zstd
+container_build_run bullseye core standard amd64 aufs xz en_US Etc/UTC
+container_build_run bullseye xfce-ultra maximum amd64 default zstd en_US Etc/UTC
