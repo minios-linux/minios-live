@@ -36,16 +36,13 @@ xset -dpms
 volumeicon &
 
 # preload compton and fluxbox to cache
-(
-   compton --help
-   fluxbox --help
-) >/dev/null 2>&1
+(compton --help; fluxbox --help) >/dev/null 2>&1
 
 # Keep black screen for first second while the sound plays.
 # This slows startup a little, but it is nicer effect.
 SND=/usr/share/sounds/startup.wav
 if [ -r $SND ]; then
-   cat $SND >/dev/null # preload
+   cat $SND > /dev/null # preload
    aplay $SND &
    sleep 1 &
    SOUNDPID=$!
@@ -54,9 +51,9 @@ fi
 # Debian-local change:
 #   - fbautostart has been added with a quick hack to check to see if it
 #     exists. If it does, we'll start it up by default.
-which fbautostart >/dev/null
+which fbautostart > /dev/null
 if [ $? -eq 0 ]; then
-   fbautostart
+    fbautostart
 fi
 
 # We need to postpone compton after fluxbox starts, else it won't set
@@ -76,16 +73,9 @@ rm -f $SIGNAL2 2>/dev/null
    done
    touch $SIGNAL2
 
-   (
-      sleep 1
-      (
-         echo
-         sleep 10
-         echo :quit
-      ) | xlunch --window --xposition 20 --yposition -30 \
-         --width 195 --height 53 --noscroll --noprompt --backgroundcolor ffffff00 \
-         --multiple --desktop --button "/usr/share/fluxbox/styles/Slax/pixmaps/start-here.png;;0,0;fbappselect" &
-   ) &
+   (sleep 1; (echo; sleep 10; echo :quit) | xlunch --window --xposition 20 --yposition -30 \
+   --width 195 --height 53 --noscroll --noprompt --backgroundcolor ffffff00 \
+   --multiple --desktop --button "/usr/share/fluxbox/styles/Slax/pixmaps/start-here.png;;0,0;fbappselect" & ) &
 
    exec compton --sw-opti -e 0.9 --shadow-exclude 'class_g="xlunch-windowed"' --fade-exclude 'role*="fluxbox-toolbar"' --opacity-rule '70:role*="fluxbox-toolbar"' --no-fading-destroyed-argb -D 5 -c -f -l -2 -t -2 -r 0 -o 1 -z --shadow-exclude 'bounding_shaped'
 ) &
@@ -108,15 +98,18 @@ rm -f $SIGNAL2 2>/dev/null
 ) &
 
 # gen screen resolutions to fluxbox menu
-xrandr 2>/dev/null | fgrep x | fgrep . | sort -n | tr -s " " | cut -d " " -f 2 |
-   sed -r "s:(.*):[exec] (\\1) {fbscreensize \\1}:" >~/.fluxbox/menu_resolution
+xrandr 2>/dev/null | fgrep x | fgrep . | sort -n | tr -s " " | cut -d " " -f 2 \
+| sed -r "s:(.*):[exec] (\\1) {fbscreensize \\1}:" > ~/.fluxbox/menu_resolution
 
 # In all cases, wait for the sound sleeper.
 # If startup took longer (sound completed already), no extra wait
 wait $SOUNDPID
 
-if [ -f /usr/bin/nm-applet ]; then
-   exec nm-applet &
+# If we are running inside VirtualBox or vmware,
+# switch to bigger screen size right away
+OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
+if [ "$(virt-what | egrep -i "virtualbox|vmware")" != "" ]; then
+  xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
 fi
 
 # And last but not least we start fluxbox.

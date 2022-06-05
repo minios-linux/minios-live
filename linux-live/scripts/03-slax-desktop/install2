@@ -4,6 +4,13 @@ CWD=$(dirname $(readlink -f $0))
 
 NAME=fluxbox
 VERSION=1.3.5
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+    XLUNCH=4.5.3
+    CBATTICON=1.6.7
+else
+    XLUNCH=4.7.3
+    CBATTICON=1.6.10
+fi
 
 cd /
 
@@ -19,8 +26,8 @@ apt-get source $NAME >>$OUTPUT 2>&1
 
 cd $NAME-$VERSION
 
-cat $CWD/patches/fluxbox-slax.diff > debian/patches/fluxbox-slax.diff
-echo fluxbox-slax.diff >> debian/patches/series
+cat $CWD/patches/fluxbox-slax.diff >debian/patches/fluxbox-slax.diff
+echo fluxbox-slax.diff >>debian/patches/series
 
 dpkg-buildpackage -us -uc >>$OUTPUT 2>&1
 
@@ -30,12 +37,11 @@ rm -Rf debian/$NAME/usr/share/images >>$OUTPUT 2>&1
 
 cp debian/$NAME/usr/bin/fluxbox /squashfs-root/usr/bin >>$OUTPUT 2>&1
 
-
 # add xlunch from sources
-wget -O /tmp/xlunch.tar.gz https://github.com/Tomas-M/xlunch/archive/v4.5.3.tar.gz >>$OUTPUT 2>&1
+wget -O /tmp/xlunch.tar.gz https://github.com/Tomas-M/xlunch/archive/v$XLUNCH.tar.gz >>$OUTPUT 2>&1
 cd /tmp
 tar -xf xlunch.tar.gz >>$OUTPUT 2>&1
-cd xlunch-4.5.3
+cd xlunch-$XLUNCH
 make >>$OUTPUT 2>&1
 cp xlunch /squashfs-root/usr/bin >>$OUTPUT 2>&1
 cp extra/gentriesquick /squashfs-root/usr/bin/xlunch_genquick >>$OUTPUT 2>&1
@@ -51,7 +57,6 @@ apt-get install --yes libgtk2.0-dev >>$OUTPUT 2>&1
 make >>$OUTPUT 2>&1
 cp systrayicon /squashfs-root/usr/bin >>$OUTPUT 2>&1
 
-
 # add gtkdialog
 wget -O /tmp/gtkdialog.tar.gz https://github.com/Tomas-M/GTKdialog/archive/master.tar.gz >>$OUTPUT 2>&1
 cd /tmp
@@ -60,12 +65,11 @@ cd GTKdialog-master
 make >>$OUTPUT 2>&1
 cp gtkdialog /squashfs-root/usr/bin >>$OUTPUT 2>&1
 
-
 # battery icon app
 cd /tmp
-wget https://github.com/valr/cbatticon/archive/1.6.7.tar.gz >>$OUTPUT 2>&1
-tar -xf 1.6.7.tar.gz >>$OUTPUT 2>&1
-cd cbatticon-1.6.7
+wget https://github.com/valr/cbatticon/archive/$CBATTICON.tar.gz >>$OUTPUT 2>&1
+tar -xf $CBATTICON.tar.gz >>$OUTPUT 2>&1
+cd cbatticon-$CBATTICON
 cp -R /usr/include/glib-2.0/* /usr/include >>$OUTPUT 2>&1
 cp -R /usr/include/gtk-2.0/* /usr/include >>$OUTPUT 2>&1
 apt install --yes libnotify-dev >>$OUTPUT 2>&1
@@ -79,7 +83,7 @@ CFLAGS="-O2 \
 -I/usr/include/pango-1.0 \
 -I/usr/include/glib-2.0 \
 -I/usr/include/gtk-2.0" \
-make >>$OUTPUT 2>&1
+    make >>$OUTPUT 2>&1
 cp cbatticon /squashfs-root/usr/bin >>$OUTPUT 2>&1
 
 dir2sb /squashfs-root /$MODULE.sb >>$OUTPUT 2>&1
