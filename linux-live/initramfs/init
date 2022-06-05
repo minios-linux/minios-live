@@ -32,6 +32,9 @@ modprobe_cloud
 # modprobe all devices excluding network drivers
 modprobe_everything -v /drivers/net/
 
+# initialize blkid cache file
+init_blkid_cache
+
 # find data dir with filesystem bundles
 DATA="$(find_data 45 "$DATAMNT")"
 check_data_found "$DATA"
