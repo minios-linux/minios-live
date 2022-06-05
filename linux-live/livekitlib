@@ -273,6 +273,15 @@ mounted_dir() {
    done
 }
 
+# Initialize blkid cache by manually probing all devices
+#
+init_blkid_cache() {
+   local DEV
+   cat /proc/partitions | tr -s " " | cut -d " " -f 5 | while read DEV; do
+      blkid /dev/$DEV >/dev/null 2>/dev/null
+   done
+}
+
 # Get device tag.
 # $1 = device
 # $2 = tag name, such as TYPE, LABEL, UUID, etc
@@ -835,8 +844,8 @@ minios_configure() {
          SSH_KEY="authorized_keys"
       fi
       if [ -f $2/$LIVEKITNAME.conf ]; then
-         if [ ! -f $1/etc/$LIVEKITNAME.conf ]; then
-            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME.conf
+         if [ ! -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
          fi
       fi
       if [ -f $2/$SSH_KEY ]; then
@@ -850,19 +859,19 @@ minios_configure() {
    else
       WRITABLE="true"
       if [ -d $2/$LIVEKITNAME ]; then
-         if [ -f $2/$LIVEKITNAME.conf ] && [ -f $1/etc/$LIVEKITNAME.conf ]; then
-            if [ "$2/$LIVEKITNAME.conf" -nt "$1/etc/$LIVEKITNAME.conf" ]; then
-               cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME.conf
-            elif [ "$2/$LIVEKITNAME.conf" -ot "$1/etc/$LIVEKITNAME.conf" ]; then
-               cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+         if [ -f $2/$LIVEKITNAME.conf ] && [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            if [ "$2/$LIVEKITNAME.conf" -nt "$1/etc/$LIVEKITNAME/$LIVEKITNAME.conf" ]; then
+               cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+            elif [ "$2/$LIVEKITNAME.conf" -ot "$1/etc/$LIVEKITNAME/$LIVEKITNAME.conf" ]; then
+               cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
             fi
          elif [ -f $2/$LIVEKITNAME.conf ]; then
-            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME.conf
-         elif [ -f $1/etc/$LIVEKITNAME.conf ]; then
-            cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+         elif [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
          fi
          if [ -z $SSH_KEY ]; then
-            SSH_KEY=$(config_value $1/etc/$LIVEKITNAME.conf SSH_KEY)
+            SSH_KEY=$(config_value $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf SSH_KEY)
             if [ -z $SSH_KEY ]; then
                SSH_KEY="authorized_keys"
             fi
@@ -890,13 +899,16 @@ minios_configure() {
    chroot $1 /bin/bash -c "/minios-configure" >>/dev/null 2>&1
 
    if [ "$WRITABLE" = "true" ]; then
-      if [ -f $1/etc/$LIVEKITNAME.conf ]; then
-         cp -fp $1/etc/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+      if [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+         cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
       fi
       if [ -f $1/root/.ssh/authorized_keys ]; then
          cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
       fi
    fi
+
+   cp -fp $2/boot/grub/boot/grub/grub.cfg $1/etc/$LIVEKITNAME/grub.cfg
+   cp -fp $2/boot/syslinux.cfg $1/etc/$LIVEKITNAME/syslinux.cfg
 
    rm -f $1/cmdline
    mv -f $1/minios-configure $1/usr/bin/minios-configure
