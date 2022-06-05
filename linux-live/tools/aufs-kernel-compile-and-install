@@ -1,8 +1,8 @@
 #!/bin/bash
 set -x -e
-KERNELVERSION=5.10.106
+KERNELVERSION=5.10.113
 KERNEL=linux-$KERNELVERSION
-CONFIG=/boot/config-5.10.0-13-*
+CONFIG=/boot/config-5.10.0-14-*
 AUFS=aufs5-standalone
 CHECKOUT=origin/aufs5.10.82
 
@@ -66,4 +66,5 @@ rm -f $TMP/usr/lib/modules/$KERNELVERSION/{build,source}
 mkdir -p $TMP/boot
 cp arch/x86/boot/bzImage $TMP/boot/vmlinuz-$KERNELVERSION
 cd $TMP
+#tar -c * | xz -T4 -f >/$KERNEL.tar.xz
 tar -c * | gzip -f >/$KERNEL.tar.gz
