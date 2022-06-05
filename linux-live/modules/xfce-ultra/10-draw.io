@@ -1,1 +1,0 @@
-../../scripts/06-draw.io
