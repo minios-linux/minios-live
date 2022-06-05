@@ -121,6 +121,10 @@ GRAFT=$(
     done
     echo ".disk/info=/tmp/info"
     echo "README=/tmp/README"
+    echo "$LIVEKITNAME/$LIVEKITNAME.conf=/etc/$LIVEKITNAME/$LIVEKITNAME.conf"
+    echo "boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
+    echo "$LIVEKITNAME/boot/grub/boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
+    echo "$LIVEKITNAME/boot/syslinux.cfg=/etc/$LIVEKITNAME/syslinux.cfg"
 )
 
 # add all modules
