@@ -1,10 +1,20 @@
 #!/bin/bash
 # Create initramfs image
 # Author: Tomas M <http://www.linux-live.org/>
-#
+# Author: crims0n <https://minios.ru>
 
-. ../config
-. ../buildconfig
+if [ -f ../container_config ]; then
+   . ../container_config
+else
+   . ../config
+fi
+if [ -f ../container_buildconfig ]; then
+   . ../container_buildconfig
+else
+   . ../buildconfig
+fi
+
+LMK="lib/modules/$KERNEL"
 
 INITRAMFS=/tmp/$LIVEKITNAME-initramfs-$$
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -216,7 +226,7 @@ else
 fi
 
 cd $INITRAMFS
-find . -print | cpio -o -H newc 2>/dev/null | xz -f --extreme --check=crc32 >$INITRAMFS.img
+find . -print | cpio -o -H newc 2>/dev/null | xz -T0 -f --extreme --check=crc32 >$INITRAMFS.img
 echo $INITRAMFS.img
 
 cd ..
