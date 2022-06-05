@@ -9,6 +9,6 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 apt-get update -y &&
   apt-get install -y xdg-utils
 
-wget -c https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/10920/wps-office_11.1.0.10920.XA_amd64.deb &&
+wget https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/10920/wps-office_11.1.0.10920.XA_amd64.deb &&
   apt-get install -y ./$(ls wps-office*.deb) &&
   rm -f ./$(ls wps-office*.deb)
