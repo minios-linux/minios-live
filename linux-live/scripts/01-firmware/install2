@@ -81,7 +81,7 @@ if [ $PACKAGE_VARIANT = "maximum" ]; then
         export TARGET_VER
         VBOX_VER=$(curl https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT)
         cd /tmp
-        wget -c https://download.virtualbox.org/virtualbox/$VBOX_VER/VBoxGuestAdditions_$VBOX_VER.iso
+        wget https://download.virtualbox.org/virtualbox/$VBOX_VER/VBoxGuestAdditions_$VBOX_VER.iso
         cd /tmp
         isoinfo -f -R -i /tmp/VBoxGuestAdditions_$VBOX_VER.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
         chmod +x /tmp/VBoxLinuxAdditions.run

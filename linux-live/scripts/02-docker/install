@@ -21,14 +21,14 @@ apt-get update >>$OUTPUT 2>&1
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-compose >>$OUTPUT 2>&1
 
 get_latest_package_url() {
-    wget -q -O- "https://api.github.com/repos/$1/releases/latest" |           # Get latest release from GitHub api
+    curl --silent "https://api.github.com/repos/$1/releases/latest" |           # Get latest release from GitHub api
         grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.tar.gz"\" | # Get tag line
         sed -E 's/.*"([^"]+)".*/\1/'                                          # Pluck JSON value
 }
 
 URL=$(get_latest_package_url portainer/portainer)
 
-wget -c $URL &&
+wget $URL &&
     tar -xf ./$(ls portainer*$DISTRIBUTION_ARCH.tar.gz) -C /opt &&
     rm -f ./$(ls portainer*$DISTRIBUTION_ARCH.tar.gz)
 
