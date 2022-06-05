@@ -6,6 +6,12 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
+function language_to_array() {
+    local IFS
+    IFS="_"
+    LANG=($LOCALE)
+}
+
 apt-get update >>$OUTPUT 2>&1
 
 # install packages
@@ -15,6 +21,10 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     apt-get install -y \
         firefox-esr >>$OUTPUT 2>&1
+    if [ $LOCALE != "en_US" ]; then
+        language_to_array
+        apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
+    fi
 fi
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
@@ -51,6 +61,9 @@ if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; 
     cat <<'EOF' >>/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
 
 pref("browser.tabs.drawInTitlebar", true);
+pref("general.smoothScroll", false);
+pref("browser.compactmode.show", true);
+pref("browser.uidensity", 1);
 
 EOF
 fi
