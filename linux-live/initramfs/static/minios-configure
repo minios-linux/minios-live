@@ -90,9 +90,13 @@ function read_cmdline() {
             DEFAULT_TARGET="${i#*=}"
             shift # past argument=value
             ;;
-        ssh)
-            SSH=true
-            shift # past argument with no value
+        enable_services=*)
+            ENABLE_SERVICES="${i#*=}"
+            shift # past argument=value
+            ;;
+        disable_services=*)
+            DISABLE_SERVICES="${i#*=}"
+            shift # past argument=value
             ;;
         ssh_key=*)
             SSH_KEY="${i#*=}"
@@ -249,8 +253,8 @@ fi
 
 if [ -z "$SSH_KEY" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f /etc/$LIVEKITNAME.conf ]; then
-            read_config /etc/$LIVEKITNAME.conf SSH_KEY
+        if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf SSH_KEY
             if [ -z "$SSH_KEY" ]; then
                 SSH_KEY="authorized_keys"
             fi
@@ -262,7 +266,7 @@ fi
 
 # Set up user 'root'
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-    if [ ! -f /etc/$LIVEKITNAME.conf ]; then
+    if [ ! -f /var/.minios-configure ]; then
         cp -rT /etc/skel /root
         # create root directories
         if [ -d /root ]; then
@@ -276,8 +280,8 @@ if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
 fi
 if [ -z "$ROOT_PASSWORD" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f /etc/$LIVEKITNAME.conf ]; then
-            read_config /etc/$LIVEKITNAME.conf ROOT_PASSWORD
+        if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf ROOT_PASSWORD
             if [ -z "$ROOT_PASSWORD" ]; then
                 ROOT_PASSWORD="toor"
             fi
@@ -291,8 +295,8 @@ if [ ! -z "$ROOT_PASSWORD" ]; then
 fi
 
 if [ -z "$CLOUD" ]; then
-    if [ -f /etc/$LIVEKITNAME.conf ]; then
-        read_config /etc/$LIVEKITNAME.conf CLOUD
+    if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+        read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf CLOUD
         if [ -z "$CLOUD" ]; then
             CLOUD="false"
         fi
@@ -300,7 +304,7 @@ if [ -z "$CLOUD" ]; then
         CLOUD="false"
     fi
 fi
-sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME.conf
+sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
 if [ "$CLOUD" != "true" ]; then
     if [ "$USER_NAME" != "root" ]; then
         # Set up user
@@ -308,8 +312,8 @@ if [ "$CLOUD" != "true" ]; then
         USER_GROUP="live"
         if [ -z "$USER_PASSWORD" ]; then
             if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-                if [ -f /etc/$LIVEKITNAME.conf ]; then
-                    read_config /etc/$LIVEKITNAME.conf USER_PASSWORD
+                if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+                    read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf USER_PASSWORD
                 fi
                 if [ -z "$USER_PASSWORD" ]; then
                     USER_PASSWORD="evil"
@@ -327,7 +331,7 @@ else
     DEFAULT_TARGET="multi-user"
 fi
 
-if [ ! -f /etc/$LIVEKITNAME.conf ]; then
+if [ ! -f /var/.minios-configure ]; then
     if [ "$USER_NAME" != "root" ]; then
         cp -rT /etc/skel /home/$USER_NAME
         # create user directories
@@ -350,30 +354,42 @@ if [ ! -f /etc/$LIVEKITNAME.conf ]; then
     fi
 fi
 
-if [ -z "$SSH" ]; then
+if [ -z "$ENABLE_SERVICES" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f /etc/$LIVEKITNAME.conf ]; then
-            read_config /etc/$LIVEKITNAME.conf SSH
-            if [ -z "$SSH" ]; then
-                SSH="false"
-            fi
-        else
-            SSH="false"
+        if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf SERVICES
         fi
     fi
 fi
-if [ ! -z "$SSH" ]; then
-    if [ "$SSH" = "true" ]; then
-        #dpkg-reconfigure openssh-server
-        systemctl enable ssh-keygen
-        systemctl enable ssh
-        sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
-        sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
-    else
-        systemctl disable ssh-keygen
-        systemctl disable ssh
-        SSH="false"
+
+if [ ! -z "$ENABLE_SERVICES" ]; then
+    SERVICES=$(echo $ENABLE_SERVICES | tr "," "\n")
+    for SERVICE in $SERVICES; do
+        if [ $SERVICE = "cockpit" ]; then
+            systemctl enable cockpit.socket
+        else
+            systemctl enable $SERVICE
+        fi
+    done
+fi
+
+if [ -z "$DISABLE_SERVICES" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf SERVICES
+        fi
     fi
+fi
+
+if [ ! -z "$DISABLE_SERVICES" ]; then
+    SERVICES=$(echo $DISABLE_SERVICES | tr "," "\n")
+    for SERVICE in $SERVICES; do
+        if [ $SERVICE = "cockpit" ]; then
+            systemctl disable cockpit.socket
+        else
+            systemctl disable $SERVICE
+        fi
+    done
 fi
 
 if [ "$USER_NAME" != "root" ]; then
@@ -447,7 +463,7 @@ Description=MiniOS config file updater
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStop=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then if [ /etc/$LIVEKITNAME.conf -nt /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME.conf /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf; fi; fi"
+ExecStop=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then if [ /etc/$LIVEKITNAME/$LIVEKITNAME.conf -nt /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf; fi; fi"
 
 [Install]
 WantedBy=multi-user.target
@@ -479,8 +495,8 @@ fi
 if [ "$CLOUD" != "true" ]; then
     if [ -z "$HOST_NAME" ]; then
         if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-            if [ -f /etc/$LIVEKITNAME.conf ]; then
-                read_config /etc/$LIVEKITNAME.conf HOST_NAME
+            if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+                read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf HOST_NAME
                 if [ -z "$HOST_NAME" ]; then
                     HOST_NAME="minios"
                 fi
@@ -503,8 +519,8 @@ fi
 
 if [ -z "$DEFAULT_TARGET" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f /etc/$LIVEKITNAME.conf ]; then
-            read_config /etc/$LIVEKITNAME.conf DEFAULT_TARGET
+        if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf DEFAULT_TARGET
             if [ -z "$DEFAULT_TARGET" ]; then
                 DEFAULT_TARGET="graphical"
             fi
@@ -530,7 +546,7 @@ fi
 systemctl enable minios-configure
 
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-    cat <<EOF >/etc/$LIVEKITNAME.conf
+    cat <<EOF >/etc/$LIVEKITNAME/$LIVEKITNAME.conf
 # =================================================================
 # Be careful. If you are using persistent mode, do not change the
 # DEFAULT_TARGET and CLOUD variables, it may break your system.
@@ -540,43 +556,89 @@ if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
 # configuration files ($LIVEKITNAME.conf), the username, password,
 # password of the root user will be replaced with the default ones.
 # =================================================================
+# Attention! If the parameter is specified in the system boot
+# parameters (syslinux.cfg, grub.cfg), it has priority! The
+# settings specified in this file will be ignored.
+# =================================================================
 
+# User name. The USER_NAME variable can only take the values "live"
+# or "root". If you need to boot into the system as root, set the
+# value to "root".
 USER_NAME=$USER_NAME
+
+# User password.
+# If USER_NAME="root" then USER_PASSWORD is ignored.
 USER_PASSWORD=$USER_PASSWORD
+
+# Root password.
 ROOT_PASSWORD=$ROOT_PASSWORD
-HOST_NAME=$HOST_NAME
+
+# Hostname of the system.
+HOST_NAME=$LIVEKITNAME
+
+# Target of systemd. If you want a graphical interface on boot,
+# specify "graphical", if a command line interface, specify
+# "multi-user".
 DEFAULT_TARGET=$DEFAULT_TARGET
-SSH=$SSH
+
+# Services to be enabled when the system boots.
+# Values must be separated by a comma. For example,
+# ENABLE_SERVICES="ssh,cockpit,firewalld" enables the ssh daemon,
+# the system management web interface, and the firewall at startup.
+# When the firewall is enabled, only ports 22 and 9090 will be
+# available.
+ENABLE_SERVICES=$ENABLE_SERVICES
+
+# Services to be disabled when the system boots.
+DISABLE_SERVICES=$DISABLE_SERVICES
+
+# The name of the ssh public key file, which should be located in
+# the system folder on the media (along with the main .sb modules).
+# By default, the system looks for a file named authorized_keys.
 SSH_KEY=$SSH_KEY
+
+# Special mode to run as a cloud-init host.
+# Only available in MiniOS Cloud edition.
 CLOUD=$CLOUD
+
+# Hide credentials displayed as a prompt in the console at system
+# startup.
 HIDE_CREDENTIALS=$HIDE_CREDENTIALS
+
 EOF
 else
     if [ ! -z "$USER_NAME" ]; then
-        sed -i -e "/USER_NAME=/s/=.*/=$USER_NAME/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/USER_NAME=/s/=.*/=$USER_NAME/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$USER_PASSWORD" ]; then
-        sed -i -e "/USER_PASSWORD=/s/=.*/=$USER_PASSWORD/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/USER_PASSWORD=/s/=.*/=$USER_PASSWORD/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$ROOT_PASSWORD" ]; then
-        sed -i -e "/ROOT_PASSWORD=/s/=.*/=$ROOT_PASSWORD/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/ROOT_PASSWORD=/s/=.*/=$ROOT_PASSWORD/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$HOST_NAME" ]; then
-        sed -i -e "/HOST_NAME=/s/=.*/=$HOST_NAME/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/HOST_NAME=/s/=.*/=$HOST_NAME/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$DEFAULT_TARGET" ]; then
-        sed -i -e "/DEFAULT_TARGET=/s/=.*/=$DEFAULT_TARGET/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/DEFAULT_TARGET=/s/=.*/=$DEFAULT_TARGET/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
-    if [ ! -z "$SSH" ]; then
-        sed -i -e "/SSH=/s/=.*/=$SSH/" /etc/$LIVEKITNAME.conf
+    if [ ! -z "$ENABLE_SERVICES" ]; then
+        sed -i -e "/ENABLE_SERVICES=/s/=.*/=$ENABLE_SERVICES/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$DISABLE_SERVICES" ]; then
+        sed -i -e "/DISABLE_SERVICES=/s/=.*/=$DISABLE_SERVICES/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$SSH_KEY" ]; then
-        sed -i -e "/SSH_KEY=/s/=.*/=$SSH_KEY/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/SSH_KEY=/s/=.*/=$SSH_KEY/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$CLOUD" ]; then
-        sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$HIDE_CREDENTIALS" ]; then
-        sed -i -e "/HIDE_CREDENTIALS=/s/=.*/=$HIDE_CREDENTIALS/" /etc/$LIVEKITNAME.conf
+        sed -i -e "/HIDE_CREDENTIALS=/s/=.*/=$HIDE_CREDENTIALS/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
+fi
+
+if [ ! -f /var/.minios-configure ]; then
+    echo "MiniOS setup is completed." >/var/.minios-configure
 fi
