@@ -31,7 +31,7 @@ echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRI
 apt-get update >>$OUTPUT 2>&1
 apt-get install -y virtualbox-6.1 >>$OUTPUT 2>&1
 
-wget -c https://download.virtualbox.org/virtualbox/$VBOX_VERSION/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
+wget https://download.virtualbox.org/virtualbox/$VBOX_VERSION/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
 
 echo y | VBoxManage extpack install --replace $SCRIPT_DIR/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
 
