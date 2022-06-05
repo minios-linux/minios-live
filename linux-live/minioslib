@@ -428,7 +428,7 @@ function check_is_in_chroot() {
 #
 # =================================================================
 
-aufs_support() {
+function aufs_support() {
     if ! cat /proc/filesystems | grep aufs >/dev/null; then
         UNION_BUILD_TYPE="overlayfs"
     else
@@ -765,6 +765,7 @@ function new_run() {
     echo "========== Desktop Environment: $DESKTOP_ENVIRONMENT" >>$OUTPUT 2>&1
     echo "========== Package Variant: $PACKAGE_VARIANT" >>$OUTPUT 2>&1
     echo "========== Arch: $DISTRIBUTION_ARCH" >>$OUTPUT 2>&1
+    echo "========== Kernel Type: $KERNEL_TYPE" >>$OUTPUT 2>&1
     echo "========== Compression: $COMP_TYPE" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
@@ -790,6 +791,8 @@ KERNEL_TYPE=$KERNEL_TYPE
 LIVEKITNAME=$LIVEKITNAME
 SYSTEMNAME=$SYSTEMNAME
 DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
+LOCALE=$LOCALE
+TIMEZONE=$TIMEZONE
 MODULE=$MODULE
 USER_NAME=$USER_NAME
 EOF
@@ -899,6 +902,30 @@ function remove_chroot_configuration_files() {
     rm -f $1/functions
 }
 
+function get_latest_release() {
+    curl --silent "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
+        grep '"tag_name":' |                                          # Get tag line
+        sed -E 's/.*"([^"]+)".*/\1/'                                  # Pluck JSON value
+}
+
+function get_latest_package_url() {
+    curl --silent "https://api.github.com/repos/$1/releases/latest" |      # Get latest release from GitHub api
+        grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" | # Get tag line
+        sed -E 's/.*"([^"]+)".*/\1/'                                       # Pluck JSON value
+}
+
+function timezone_to_array() {
+    local IFS
+    IFS="/"
+    TIMEZONE=($TIMEZONE)
+}
+
+function language_to_array() {
+    local IFS
+    IFS="_"
+    LANG=($LOCALE)
+}
+
 # =================================================================
 # =================================================================
 # ====================== HOST FUNCTIONS ===========================
@@ -928,8 +955,8 @@ function get_vars() {
     set +u
     add_chroot_configuration_files $1
     . /functions
-    read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH MODULE USER_NAME
-    export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH MODULE USER_NAME
+    read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
+    export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
     set -u
 }
 
@@ -938,8 +965,8 @@ function chroot_run() {
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /functions
-read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH MODULE USER_NAME
-export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH MODULE USER_NAME
+read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
+export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
 ${@:2}
 EOF
     remove_chroot_configuration_files $1
@@ -1173,18 +1200,18 @@ EOF
                 chroot $INSTALL_DIR apt-get upgrade -y >>$OUTPUT 2>&1
             fi
 
-            if [ -f $SCRIPT_DIR/linux-live/pkglists/prereq.list ]; then
+            if [ -f $SCRIPT_DIR/linux-live/package_lists/prerequisites.list ]; then
                 if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $INSTALL_DIR apt-get install -y \
-                            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ")
+                            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ")
                     else
                         chroot_run $INSTALL_DIR apt-get install -y \
-                            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
+                            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
                     fi
                 else
                     chroot $INSTALL_DIR apt-get install -y \
-                        $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
+                        $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
                 fi
             fi
 
@@ -1370,6 +1397,67 @@ function build_live() {
         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
     fi
 
+    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/$LIVEKITNAME.conf
+# =================================================================
+# Be careful. If you are using persistent mode, do not change the
+# DEFAULT_TARGET and CLOUD variables, it may break your system.
+# Please do not change the username, password and root password by
+# system tools, they will be automatically replaced with the ones
+# specified here during system reboot/shutdown. If you delete the
+# configuration files ($LIVEKITNAME.conf), the username, password,
+# password of the root user will be replaced with the default ones.
+# =================================================================
+# Attention! If the parameter is specified in the system boot
+# parameters (syslinux.cfg, grub.cfg), it has priority! The
+# settings specified in this file will be ignored.
+# =================================================================
+
+# User name. The USER_NAME variable can only take the values "live"
+# or "root". If you need to boot into the system as root, set the
+# value to "root".
+USER_NAME=$USER_NAME
+
+# User password.
+# If USER_NAME="root" then USER_PASSWORD is ignored.
+USER_PASSWORD=$USER_PASSWORD
+
+# Root password.
+ROOT_PASSWORD=$ROOT_PASSWORD
+
+# Hostname of the system.
+HOST_NAME=$LIVEKITNAME
+
+# Target of systemd. If you want a graphical interface on boot,
+# specify "graphical", if a command line interface, specify
+# "multi-user".
+DEFAULT_TARGET=$DEFAULT_TARGET
+
+# Services to be enabled when the system boots.
+# Values must be separated by a comma. For example,
+# ENABLE_SERVICES="ssh,cockpit,firewalld" enables the ssh daemon,
+# the system management web interface, and the firewall at startup.
+# When the firewall is enabled, only ports 22 and 9090 will be
+# available.
+ENABLE_SERVICES=$ENABLE_SERVICES
+
+# Services to be disabled when the system boots.
+DISABLE_SERVICES=$DISABLE_SERVICES
+
+# The name of the ssh public key file, which should be located in
+# the system folder on the media (along with the main .sb modules).
+# By default, the system looks for a file named authorized_keys.
+SSH_KEY=$SSH_KEY
+
+# Special mode to run as a cloud-init host.
+# Only available in MiniOS Cloud edition.
+CLOUD=$CLOUD
+
+# Hide credentials displayed as a prompt in the console at system
+# startup.
+HIDE_CREDENTIALS=$HIDE_CREDENTIALS
+
+EOF
+
 }
 
 # =================================================================
@@ -1377,8 +1465,10 @@ function build_live() {
 #
 # =================================================================
 function build_boot() {
-    #current_process
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    current_process
+    #echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+
+    local OLD_KERNEL
 
     if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
@@ -1390,6 +1480,21 @@ function build_boot() {
 
     check_install_dir
 
+    if [ $KERNEL_TYPE = "aufs" ]; then
+        KERNEL=$(get_latest_release minios-linux/aufs-kernel)
+        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz ]; then
+            wget -O $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL.tar.xz
+        fi
+        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz ]; then
+            echo "$SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz does not exist. Installation cannot continue."
+            echo "Download the file https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL.tar.xz"
+            echo "and place it in the $SCRIPT_DIR/rootfs folder before running the installation."
+            exit 0
+        fi
+        rm -rf $INSTALL_DIR/usr/lib/modules/*-amd64
+        tar -xf $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz -C $INSTALL_DIR
+    fi
+
     # initramfs generation
     chroot $INSTALL_DIR mount none -t proc /proc
     chmod +x $INSTALL_DIR/linux-live/initrfs
@@ -1397,7 +1502,11 @@ function build_boot() {
     chroot $INSTALL_DIR umount /proc
 
     # copy boot files
-    cp $INSTALL_DIR/boot/vmlinuz-**-**-* $WORK_DIR/image/$LIVEKITNAME/boot/vmlinuz
+    if [ $KERNEL_TYPE = "aufs" ]; then
+        cp $INSTALL_DIR/boot/bzImage $WORK_DIR/image/$LIVEKITNAME/boot/vmlinuz
+    else
+        cp $INSTALL_DIR/boot/vmlinuz-**-**-* $WORK_DIR/image/$LIVEKITNAME/boot/vmlinuz
+    fi
     cp $INSTALL_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
     #if [ $CLOUD != "true" ]; then
@@ -1435,12 +1544,32 @@ function build_boot() {
 ###############################################################################
 EOF
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
-        cat <<'EOF' | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/minios/boot/syslinux.cfg
+    if [ $PACKAGE_VARIANT = "maximum" ]; then
+        ENABLE_SERVICES="ssh,firewalld"
+    elif [ $PACKAGE_VARIANT = "minimum" ]; then
+        ENABLE_SERVICES="ssh"
+    fi
+    DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
+    BOOT_SETTINGS="quiet enable_services=$ENABLE_SERVICES"
+    PERCH_SETTINGS="minios.flags=perch"
+    LIVE_SETTINGS="minios.flags= "
+    RAM_SETTINGS="minios.flags=toram"
+
+    if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
+        BOOT_SETTINGS="hide_credentials enable_services=$ENABLE_SERVICES"
+    elif [ $PACKAGE_VARIANT = "minimum" ]; then
+        if [ $DESKTOP_ENVIRONMENT =~ "slax" ]; then
+            BOOT_SETTINGS="user_name=root enable_services=$ENABLE_SERVICES"
+        fi
+        PERCH_SETTINGS="minios.flags=perch,automount"
+        LIVE_SETTINGS="minios.flags=automount"
+    fi
+
+    cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/minios/boot/syslinux.cfg
 UI /minios/boot/vesamenu.c32
 
 PROMPT 0
-TIMEOUT 40
+TIMEOUT 30
 
 MENU CLEAR
 MENU HIDDEN
@@ -1465,15 +1594,10 @@ F1 help.txt /minios/boot/zblack.png
 MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
 MENU TABMSG [F1] help                                                        [Tab] cmdline >
 
-LABEL default
-MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 selinux=0 minios.flags=toram net.ifnames=0 biosdevname=0 ssh
-
 EOF
-        cat <<'EOF' >$WORK_DIR/image/boot/grub/grub.cfg
+    cat <<EOF >$WORK_DIR/image/boot/grub/grub.cfg
 set default="0"
-set timeout="4"
+set timeout="3"
 set hidden_timeout_quiet=false
 set gfxmode=auto
 insmod efi_gop
@@ -1483,47 +1607,96 @@ terminal_output gfxterm
 set color_normal=white/black
 set color_highlight=black/white
 loadfont /boot/grub/unicode.pf2
-#background_image /boot/grub/bootlogo.png
+background_image /boot/grub/bootlogo.png
 
-set default_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0 ssh"
-set perch_settings="minios.flags=perch"
-set live_settings="minios.flags= "
-set ram_settings="minios.flags=toram"
+set default_settings="$DEFAULT_SETTINGS"
+set perch_settings="$PERCH_SETTINGS"
+set live_settings="$LIVE_SETTINGS"
+set ram_settings="$RAM_SETTINGS"
 set console_settings="console=tty0 console=ttyS0,115200"
-set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0 ssh"
+set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0 enable_services=$ENABLE_SERVICES"
 set linux_64="/minios/boot/vmlinuz"
 set initrd_img="/minios/boot/initrfs.img"
 set default=0
 set message="Loading kernel and ramdisk..."
 
+EOF
+
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/minios/boot/syslinux.cfg
+LABEL default
+MENU LABEL Run MiniOS (Copy to RAM)
+KERNEL /minios/boot/vmlinuz
+APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
+
+EOF
+        cat <<EOF >>$WORK_DIR/image/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
-    echo $message
-    search --set -f $linux_64
-    linux $linux_64 $default_settings $ram_settings $console_settings
-    initrd $initrd_img
+    echo \$message
+    search --set -f \$linux_64
+    linux \$linux_64 \$default_settings \$ram_settings \$console_settings $BOOT_SETTINGS
+    initrd \$initrd_img
 }
+
+EOF
+        sed -i "s/background_image/#background_image/g" $WORK_DIR/image/boot/grub/grub.cfg
+    elif [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/minios/boot/syslinux.cfg
+LABEL default
+MENU LABEL Run MiniOS (Copy to RAM)
+KERNEL /minios/boot/vmlinuz
+APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+
+EOF
+        cat <<EOF >>$WORK_DIR/image/boot/grub/grub.cfg
+menuentry "Run MiniOS (Copy to RAM)"{
+    echo \$message
+    search --set -f \$linux_64
+    linux \$linux_64 \$default_settings \$ram_settings $BOOT_SETTINGS
+    initrd \$initrd_img
+}
+
+EOF
+    else
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/minios/boot/syslinux.cfg
+LABEL default
+MENU LABEL Run MiniOS (Persistent changes)
+KERNEL /minios/boot/vmlinuz
+APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $PERCH_SETTINGS $BOOT_SETTINGS
+
+LABEL live
+MENU LABEL Run MiniOS (Fresh start)
+KERNEL /minios/boot/vmlinuz
+APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $LIVE_SETTINGS $BOOT_SETTINGS
+
+LABEL toram
+MENU LABEL Run MiniOS (Copy to RAM)
+KERNEL /minios/boot/vmlinuz
+APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+
+EOF
+        cat <<EOF >>$WORK_DIR/image/boot/grub/grub.cfg
+menuentry "Run MiniOS (Persistent changes)"{
+    echo \$message
+    search --set -f \$linux_64
+    linux \$linux_64 \$default_settings \$perch_settings $BOOT_SETTINGS
+    initrd \$initrd_img
+}
+menuentry "Run MiniOS (Fresh start)"{
+    echo \$message
+    search --set -f \$linux_64
+    linux \$linux_64 \$default_settings \$live_settings $BOOT_SETTINGS
+    initrd \$initrd_img
+}
+menuentry "Run MiniOS (Copy to RAM)"{
+    echo \$message
+    search --set -f \$linux_64
+    linux \$linux_64 \$default_settings \$ram_settings $BOOT_SETTINGS
+    initrd \$initrd_img
+}
+
 EOF
     fi
-    if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
-        sed -i "s/ssh/ssh hide_credentials quiet/g" $WORK_DIR/image/minios/boot/syslinux.cfg
-        sed -i "s/ssh/ssh hide_credentials quiet/g" $WORK_DIR/image/boot/grub/grub.cfg
-    fi
-
-    if [ $PACKAGE_VARIANT = "minimum" ]; then
-        sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        sed -i 's/minios.flags= /minios.flags=automount /g' $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        if [[ $DESKTOP_ENVIRONMENT =~ "slax" ]]; then
-            sed -i 's/quiet/quiet user_name=root/g' $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        fi
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            sed -i 's/minios.flags=perch/minios.flags=perch,automount/g' $WORK_DIR/image/boot/grub/grub.cfg
-            sed -i 's/minios.flags= /minios.flags=automount /g' $WORK_DIR/image/boot/grub/grub.cfg
-            if [[ $DESKTOP_ENVIRONMENT =~ "slax" ]]; then
-                sed -i 's/quiet/quiet user_name=root/g' $WORK_DIR/image/boot/grub/grub.cfg
-            fi
-        fi
-    fi
-
 }
 # =================================================================
 #
@@ -1559,7 +1732,22 @@ function build_iso() {
 
     DIR=$WORK_DIR/image
 
-    ISO=$ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$ISO_ARCH-$COMP_TYPE-$DATE.iso
+    language_to_array
+
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ]; then
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT
+    else
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT
+    fi
+    if [ $LOCALE != "en_US" ]; then
+        IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH
+    else
+        IMAGE=$IMAGE-$ISO_ARCH
+    fi
+    if [ $KERNEL_TYPE = "aufs" ]; then
+        IMAGE=$IMAGE-aufs
+    fi
+    ISO=$ISO_DIR/$IMAGE-$COMP_TYPE-$DATE.iso
 
     B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 
@@ -1588,18 +1776,16 @@ function build_iso() {
         E=""
     fi
 
-    #VER="$SYSTEMNAME $VER"
     VER="$SYSTEMNAME"
 
     if [ $REMOVE_OLD_ISO = "true" ]; then
         set +e
-        rm $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$ISO_ARCH-$COMP_TYPE-*.iso >>$OUTPUT 2>&1
+        rm $ISO_DIR/$IMAGE-$COMP_TYPE-*.iso >>$OUTPUT 2>&1
         while [ -f $ISO_DIR/$LIVEKITNAME.iso ]; do
             rm $ISO_DIR/$LIVEKITNAME.iso >>$OUTPUT 2>&1
             sleep 1
         done
         set -e
-        #rm -f $ISO_DIR/*
     fi
 
     if [ $BOOT_TYPE = "hybrid" ]; then
@@ -1628,7 +1814,7 @@ function build_iso() {
             rm $ISO_DIR/$LIVEKITNAME.iso >>$OUTPUT 2>&1
             sleep 1
         done
-        if ln $ISO_DIR/$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$ISO_ARCH-$COMP_TYPE-$DATE.iso $ISO_DIR/$LIVEKITNAME.iso; then
+        if ln $ISO $ISO_DIR/$LIVEKITNAME.iso; then
             echo ">>> $ISO_DIR/$LIVEKITNAME.iso created"
         fi
     fi
@@ -1741,12 +1927,33 @@ function chroot_cleanup() {
     rm -f $1/usr/share/images/fluxbox/debian-squared.jpg
     rm -Rf $1/usr/share/fluxbox/nls/??*
     rm -Rf $1/usr/share/gnome/help
-
-    rm -Rf $1/usr/share/locale/??
-    rm -Rf $1/usr/share/locale/??_*
-    rm -Rf $1/usr/share/locale/??@*
-    rm -Rf $1/usr/share/locale/???
-    rm -Rf $1/usr/share/i18n/locales/*_*
+    if [ $LOCALE != "en_US" ]; then
+        language_to_array
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? | sed "/en/d;/${LANG[0]}/d"); do
+            rm -Rf $UNUSED_LOCALE
+        done
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??_* | sed "/en/d;/${LANG[0]}/d"); do
+            rm -Rf $UNUSED_LOCALE
+        done
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??@* | sed "/en/d;/${LANG[0]}/d"); do
+            rm -Rf $UNUSED_LOCALE
+        done
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??? | sed "/en/d;/${LANG[0]}/d"); do
+            rm -Rf $UNUSED_LOCALE
+        done
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* | sed "/en/d;/${LANG[0]}/d"); do
+            UNUSED_LOCALE=$(basename $UNUSED_LOCALE)
+            if [ $UNUSED_LOCALE == "i18n"* ] || [ $UNUSED_LOCALE == "iso14651"* ]; then
+                rm -Rf $1/usr/share/i18n/locales/$UNUSED_LOCALE
+            fi
+        done
+    else
+        rm -Rf $1/usr/share/locale/??
+        rm -Rf $1/usr/share/locale/??_*
+        rm -Rf $1/usr/share/locale/??@*
+        rm -Rf $1/usr/share/locale/???
+        rm -Rf $1/usr/share/i18n/locales/*_*
+    fi
     rm -Rf $1/usr/share/man/??
     rm -Rf $1/usr/share/man/*_*
 
@@ -1786,9 +1993,9 @@ function hostreq_pkg_list() {
     echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOUR}"
     apt-get update >>$OUTPUT 2>&1
 
-    if [ -f $SCRIPT_DIR/linux-live/pkglists/hostreq.list ]; then
+    if [ -f $SCRIPT_DIR/linux-live/package_lists/required_for_host.list ]; then
         apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/pkglists/hostreq.list | tr "\n" " ") >>$OUTPUT 2>&1
+            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/required_for_host.list | tr "\n" " ") >>$OUTPUT 2>&1
     else
         apt-get install -y \
             sudo debootstrap genisoimage >>$OUTPUT 2>&1
@@ -1817,22 +2024,22 @@ Acquire::Languages { "none"; }
 EOF
     fi
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-        if [ -f $SCRIPT_DIR/pkglists/prereq.list ]; then
+        if [ -f $SCRIPT_DIR/package_lists/prerequisites.list ]; then
             apt-get update
             echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
                 apt-get upgrade -y >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
                 apt-get install -y \
-                    $(grep -vE "^\s*#" $SCRIPT_DIR/pkglists/prereq.list | tr "\n" " ")
+                    $(grep -vE "^\s*#" $SCRIPT_DIR/package_lists/prerequisites.list | tr "\n" " ")
         fi
     else
-        if [ -f $SCRIPT_DIR/pkglists/prereq.list ]; then
+        if [ -f $SCRIPT_DIR/package_lists/prerequisites.list ]; then
             apt-get update >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
                 apt-get upgrade -y >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
                 apt-get install -y \
-                    $(grep -vE "^\s*#" $SCRIPT_DIR/pkglists/prereq.list | tr "\n" " ") >>$OUTPUT 2>&1
+                    $(grep -vE "^\s*#" $SCRIPT_DIR/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
     fi
 
@@ -1961,7 +2168,7 @@ DISTRIBUTION="$DISTRIBUTION"
 DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
 PACKAGE_VARIANT="$PACKAGE_VARIANT"
 DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT"
-COMP_TYPE="xz" # Compression method used for the system and modules.
+COMP_TYPE="$COMP_TYPE" # Compression method used for the system and modules.
 OUTPUT="/dev/stdout" # Default is output to /dev/stdout. You can use OUTPUT="/dev/null" if you want to silent installation or OUTPUT="somefilename.log" to route events to log file.
 DEBIAN_FRONTEND_TYPE="noninteractive"
 APT_CMD="apt-get"
@@ -2544,6 +2751,24 @@ function module_build_cleanup() {
 #
 #
 # =================================================================
+function get_kernel_version() {
+    if [ $KERNEL_TYPE = "aufs" ]; then
+        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+        KERNEL=$(get_latest_release minios-linux/aufs-kernel)
+    elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+        KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
+    else
+        KERNEL=$(uname -r)
+    fi
+    if echo $KERNEL | grep -q 'pve'; then
+        KERNEL=${KERNEL::-6}
+    fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
 function build_modules() {
     current_process
     if ! { [ $DESKTOP_ENVIRONMENT = "core" ] || [ $DESKTOP_ENVIRONMENT = "cloud" ]; } && [ "${CMD[ii]}" != "build_dkms" ]; then
@@ -2911,13 +3136,13 @@ function repack_modules() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         cd $WORK_DIR/image/$LIVEKITNAME/
         for MODULE in *; do
-            if (ls ./*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+            if (ls ./*-xz.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="xz"
                 repack_module
-            elif (ls ./*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+            elif (ls ./*-lz4.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="lz4"
                 repack_module
-            elif (ls ./*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+            elif (ls ./*-zstd.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="zstd"
                 repack_module
             fi
@@ -2979,10 +3204,10 @@ function download_sources() {
 # =================================================================
 
 function container_run() {
-    if [ ! "$(docker ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
-        if [ "$(docker ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
             # cleanup
-            docker rm -f $CONTAINER_NAME
+            $container_engine rm -f $CONTAINER_NAME
         fi
         cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
         cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
@@ -2990,18 +3215,29 @@ function container_run() {
         sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
         sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
         # run your container
-        docker run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /dev:/dev --device-cgroup-rule 'b 7:* rmw' -v /build:/build \
+        $container_engine run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /dev:/dev --device-cgroup-rule 'b 7:* rmw' -v /build:/build \
             -e DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
             -e DISTRIBUTION="$DISTRIBUTION" \
             -e DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT" \
             -e PACKAGE_VARIANT="$PACKAGE_VARIANT" \
             -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
             -e COMP_TYPE="$COMP_TYPE" \
+            -e LOCALE="$LOCALE" \
+            -e TIMEZONE="$TIMEZONE" \
             -e USER_NAME="live" \
+            -e USER_PASSWORD="evil" \
+            -e ROOT_PASSWORD="toor" \
+            -e DEFAULT_TARGET="graphical" \
+            -e ENABLE_SERVICES="ssh" \
+            -e DISABLE_SERVICES="" \
+            -e SSH_KEY="authorized_keys" \
+            -e CLOUD="false" \
+            -e HIDE_CREDENTIALS="false" \
             -e DISTRIBUTION_VARIANT="minbase" \
             -e LOGPATH="/var/log" \
             -e OUTPUT="/dev/stdout" \
@@ -3024,7 +3260,7 @@ function container_run() {
             -e REMOVE_LARGE_ICONS="true" \
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="4" \
-            -e KERNEL_TYPE="default" \
+            -e KERNEL_TYPE="$KERNEL_TYPE" \
             -e USE_MX_REPO="false" \
             -e USE_ANTIX_REPO="false" \
             -e USE_UNOFFICIAL_REPOSITORY="false" \
@@ -3040,6 +3276,7 @@ function live_run() {
     sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
     sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
@@ -3051,7 +3288,17 @@ function live_run() {
         PACKAGE_VARIANT="$PACKAGE_VARIANT" \
         DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
         COMP_TYPE="$COMP_TYPE" \
+        LOCALE="$LOCALE" \
+        TIMEZONE="$TIMEZONE" \
         USER_NAME="live" \
+        USER_PASSWORD="evil" \
+        ROOT_PASSWORD="toor" \
+        DEFAULT_TARGET="graphical" \
+        ENABLE_SERVICES="ssh" \
+        DISABLE_SERVICES="" \
+        SSH_KEY="authorized_keys" \
+        CLOUD="false" \
+        HIDE_CREDENTIALS="false" \
         DISTRIBUTION_VARIANT="minbase" \
         LOGPATH="/var/log" \
         OUTPUT="/dev/stdout" \
@@ -3074,7 +3321,7 @@ function live_run() {
         REMOVE_LARGE_ICONS="true" \
         FILTER_MODULES="false" \
         FILTER_LEVEL="4" \
-        KERNEL_TYPE="default" \
+        KERNEL_TYPE="$KERNEL_TYPE" \
         USE_MX_REPO="false" \
         USE_ANTIX_REPO="false" \
         USE_UNOFFICIAL_REPOSITORY="false" \
@@ -3083,7 +3330,7 @@ function live_run() {
 }
 
 function container_status_check() {
-    RUN=$(docker inspect $CONTAINER_NAME --format='{{.State.Status}}')
+    RUN=$($container_engine inspect $CONTAINER_NAME --format='{{.State.Status}}')
 }
 
 function container_build_finish() {
@@ -3096,10 +3343,10 @@ function container_build_finish() {
     if [ ! -d $SCRIPT_DIR/logs ]; then
         mkdir -p $SCRIPT_DIR/logs
     fi
-    docker logs $CONTAINER_NAME >&$SCRIPT_DIR/logs/$CONTAINER_NAME.log
-    if [ "$(docker ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    $container_engine logs $CONTAINER_NAME >&$SCRIPT_DIR/logs/$CONTAINER_NAME.log
+    if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
         # cleanup
-        docker rm -f $CONTAINER_NAME
+        $container_engine rm -f $CONTAINER_NAME
     fi
     if [ -d /build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
         echo "/build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
@@ -3112,14 +3359,27 @@ function container_build_run() {
     DESKTOP_ENVIRONMENT="$2"
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
-    COMP_TYPE="$5"
+    KERNEL_TYPE="$5"
+    COMP_TYPE="$6"
+    LOCALE="$7"
+    TIMEZONE="$8"
+
+    language_to_array
+
     if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
         DISTRIBUTION_TYPE="ubuntu"
     fi
 
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-${LANG[0]}-$COMP_TYPE"
 
-    container_run
+    if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
+            # cleanup
+            $container_engine rm -f $CONTAINER_NAME
+        fi
+        # run your container
+        container_run
+    fi
 
     container_status_check
     if [ "$RUN" = "running" ]; then
@@ -3131,8 +3391,8 @@ function container_build_run() {
             printf "."
             sleep 5
         else
-            if [ "$(docker inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')" != "0" ] 2>/dev/null; then
-                printf "\nERROR: Container $CONTAINER_NAME stopped with error. Exit code $(docker inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')\n"
+            if [ "$($container_engine inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')" != "0" ] 2>/dev/null; then
+                printf "\nERROR: Container $CONTAINER_NAME stopped with error. Exit code $($container_engine inspect $CONTAINER_NAME --format='{{.State.ExitCode}}')\n"
                 container_build_finish
             else
                 printf "\nContainer $CONTAINER_NAME stopped, proceeding...\n"
@@ -3149,7 +3409,10 @@ function live_build_run() {
     DESKTOP_ENVIRONMENT="$2"
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
-    COMP_TYPE="$5"
+    KERNEL_TYPE="$5"
+    COMP_TYPE="$6"
+    LOCALE="$7"
+    TIMEZONE="$8"
     if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
         DISTRIBUTION_TYPE="ubuntu"
     fi
