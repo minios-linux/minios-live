@@ -22,10 +22,10 @@ apt-get source pcmanfm >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION = "stretch" ]; then
     cd pcmanfm-1.2.5
-elif [ $DISTRIBUTION = "bullseye" ]; then
-    cd pcmanfm-1.3.2
 elif [ $DISTRIBUTION = "buster" ]; then
     cd pcmanfm-1.3.1
+elif [ $DISTRIBUTION = "bullseye" ]; then
+    cd pcmanfm-1.3.2
 fi
 dpkg-buildpackage -us -uc >>$OUTPUT 2>&1
 patch -p1 <$CWD/patches/pcmanfm-slax.diff >>$OUTPUT 2>&1
@@ -36,8 +36,10 @@ cp src/pcmanfm /squashfs-root/usr/bin >>$OUTPUT 2>&1
 
 rm -f /squashfs-root/usr/share/applications/mousepad.desktop >>$OUTPUT 2>&1
 rm -f /squashfs-root/usr/share/applications/qalculate-gtk.desktop >>$OUTPUT 2>&1
+rm -f /squashfs-root/usr/share/applications/galculator.desktop >>$OUTPUT 2>&1
 rm -f /squashfs-root/usr/share/applications/pcmanfm.desktop >>$OUTPUT 2>&1
 rm -f /squashfs-root/usr/share/applications/wicd.desktop >>$OUTPUT 2>&1
+rm -f /squashfs-root/usr/share/applications/connman-gtk.desktop >>$OUTPUT 2>&1
 rm -f /squashfs-root/usr/share/applications/nm-applet.desktop >>$OUTPUT 2>&1
 rm -f /squashfs-root/usr/share/applications/nm-connection-editor.desktop >>$OUTPUT 2>&1
 rm -f /squashfs-root/usr/share/applications/lxtask.desktop >>$OUTPUT 2>&1

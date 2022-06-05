@@ -7,20 +7,30 @@ echo "wicd-daemon	wicd/users	multiselect	live" | debconf-set-selections
 apt-get update >>$OUTPUT 2>&1
 apt-get install --no-install-recommends --yes \
     mousepad \
-    qalculate-gtk \
+    galculator \
     pcmanfm \
     lxtask \
     xarchiver xdg-utils libgconf-2-4 >>$OUTPUT 2>&1
 
 apt-mark manual pcmanfm libfm-gtk4
 
-if [ $DISTRIBUTION != "bullseye" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "sid" ]; then
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
     apt-get install --no-install-recommends --yes \
         wicd >>$OUTPUT 2>&1
 else
+    echo "Installing Connman..."
     apt-get install --no-install-recommends --yes \
         connman-gtk >>$OUTPUT 2>&1
-    rm -f /usr/share/applications/6wicd.desktop
 fi
 
 (cd /rootcopy-install && cp --parents -afr * /)
+
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+    rm -f /usr/share/applications/6connman.desktop
+else
+    rm -f /usr/share/applications/6wicd.desktop
+    rm -rf /etc/wicd
+    rm -f /etc/systemd/system/suspend.target.wants/resume_wifi.service
+    rm -f /usr/bin/wicd-manager
+    rm -f /lib/systemd/system/resume_wifi.service
+fi
