@@ -24,8 +24,37 @@ PACKAGE_VARIANT="standard"
 # compresssion type
 COMP_TYPE="zstd"
 
+# If you need aufs on Debian 11 and up, set KERNEL_TYPE="aufs"
+KERNEL_TYPE="default"
+#KERNEL_TYPE="aufs"
+
+if [ $KERNEL_TYPE = "aufs" ]; then
+    #KERNEL=$(get_latest_release minios-linux/aufs-kernel)
+    KERNEL="5.10.113"
+elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+    KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
+else
+    KERNEL=$(uname -r)
+fi
+if echo $KERNEL | grep -q 'pve'; then
+    KERNEL=${KERNEL::-6}
+fi
+
 # user setup
 USER_NAME="live"
+USER_PASSWORD="evil"
+ROOT_PASSWORD="toor"
+DEFAULT_TARGET="graphical"
+ENABLE_SERVICES="ssh,firewalld"
+DISABLE_SERVICES=""
+SSH_KEY="authorized_keys"
+CLOUD="false"
+HIDE_CREDENTIALS="false"
+
+#LOCALE="en_US"
+LOCALE="ru_RU"
+#TIMEZONE="Etc/UTC"
+TIMEZONE="Europe/Moscow"
 
 # bootstrap variant (used to build Ubuntu)
 # вариант bootstrap (используется для сборки Ubuntu)
