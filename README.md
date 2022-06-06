@@ -1,4 +1,4 @@
-[![MiniOS](images/minios.png)](http://t.me/minios.ru)
+[![MiniOS](images/minios.png)](http://t.me/minios_news)
 
 The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface.
 
