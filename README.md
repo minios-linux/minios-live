@@ -1,4 +1,4 @@
-[![MiniOS](images/minios.png)](http://t.me/minios.ru)
+[![MiniOS](images/minios.png)](https://t.me/minios_news)
 
 The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface.
 
@@ -6,7 +6,7 @@ These scripts build a bootable MiniOS ISO image.
 
 Using minios-live, you can build:
 
-*Debian 9, 10 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
+*Debian 9, 10, 11 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
 
 *Debian 9, 10, 11, Kali Linux and Ubuntu 20.04 with Xfce4 environment.*
 
