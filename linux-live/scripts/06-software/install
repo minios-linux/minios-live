@@ -21,7 +21,7 @@ apt-get update >>$OUTPUT 2>&1
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
 if grep -q 'imagemagick' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
