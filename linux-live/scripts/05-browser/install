@@ -37,7 +37,7 @@ WebBrowser=palemoon
 
 EOF
 
-        elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+        elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
             cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
@@ -46,6 +46,7 @@ WebBrowser=palemoon
 EOF
         fi
     fi
+    rm -rf /usr/share/minios/html
 else
     apt-get update >>$OUTPUT 2>&1
 
@@ -73,7 +74,7 @@ FileManager=pcmanfm
 WebBrowser=firefox
 
 EOF
-        elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+        elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
             cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
@@ -92,7 +93,7 @@ if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; 
     fi
     sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
     sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
-    #sed -i "s,about:welcome,https://github.com/minios-linux/minios-live/wiki,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
+    sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
     cat <<'EOF' >>/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
 
 pref("browser.tabs.drawInTitlebar", true);

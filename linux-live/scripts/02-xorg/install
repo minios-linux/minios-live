@@ -22,7 +22,7 @@ fi
 if [ $PACKAGE_VARIANT = "maximum#" ] && ([ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION !="orel" ]); then
     apt-get install -y fonts-noto-color-emoji
 fi
-if [ $PACKAGE_VARIANT = "maximum" ]; then
+if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] ; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         cat <<EOF >/etc/apt/sources.list.d/mx.list
 # MX Community Main and Test Repos
