@@ -20,15 +20,29 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-if [ $PACKAGE_VARIANT = "maximum" ]; then
+if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         echo 'deb http://ftp.debian.org/debian stretch-backports main' | sudo tee --append /etc/apt/sources.list.d/stretch-backports.list >>$OUTPUT 2>&1
         apt-get update >>$OUTPUT 2>&1
         apt-get install -t stretch-backports -y \
             remmina/stretch-backports remmina-plugin-rdp/stretch-backports remmina-plugin-vnc/stretch-backports >>$OUTPUT 2>&1
+
+        curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
+            apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
+            rm -f ./rescuezilla*.deb
+        if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+            rm -f /usr/share/applications/yad-icon-browser.desktop
+        fi
     else
         apt-get install -y \
             remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
+
+        curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
+            apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
+            rm -f ./rescuezilla*.deb
+        if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+            rm -f /usr/share/applications/yad-icon-browser.desktop
+        fi
 
         #        wget $(curl -s https://api.github.com/repos/iongion/podman-desktop-companion/releases | grep browser_download_url | grep '\.deb' | head -n1 | cut -d '"' -f 4)
         #        apt-get install -y ./podman-desktop-companion-amd64-*.deb >>$OUTPUT 2>&1 &&
@@ -74,7 +88,7 @@ FileManager=pcmanfm
 WebBrowser=firefox
 
 EOF
-elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
