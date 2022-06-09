@@ -1392,7 +1392,7 @@ function build_live() {
 
     #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
     else
         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
     fi
@@ -1544,7 +1544,7 @@ function build_boot() {
 ###############################################################################
 EOF
 
-    if [ $PACKAGE_VARIANT = "maximum" ]; then
+    if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
         ENABLE_SERVICES="ssh,firewalld"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
         ENABLE_SERVICES="ssh"
@@ -1558,7 +1558,7 @@ EOF
     if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         BOOT_SETTINGS="hide_credentials enable_services=$ENABLE_SERVICES"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
-        if [ $DESKTOP_ENVIRONMENT =~ "slax" ]; then
+        if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
             BOOT_SETTINGS="user_name=root enable_services=$ENABLE_SERVICES"
         fi
         PERCH_SETTINGS="minios.flags=perch,automount"
@@ -1887,6 +1887,7 @@ function chroot_cleanup() {
     rm -f $1/install2
     rm -f $1/cleanup
     rm -f $1/$PACKAGE_VARIANT.list
+    rm -f $1/package.list
     rm -f $1/postinstall
     rm -rf $1/rootcopy-install
     rm -rf $1/rootcopy
@@ -2685,6 +2686,7 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/install2
         rm -f $MODULE_UPPER_DIR/cleanup
         rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
+        rm -f $MODULE_UPPER_DIR/package.list
         rm -f $MODULE_UPPER_DIR/postinstall
         rm -rf $MODULE_UPPER_DIR/rootcopy
         rm -f $MODULE_UPPER_DIR/etc/machine-id
@@ -2719,6 +2721,7 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
+        rm -f $MODULE_UPPER_DIR/package.list >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/postinstall >>$OUTPUT 2>&1
         rm -rf $MODULE_UPPER_DIR/rootcopy-install >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/etc/machine-id >>$OUTPUT 2>&1
@@ -2861,6 +2864,9 @@ function build_modules() {
                     fi
                     if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list ]; then
                         cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+                    fi
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/package.list ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/package.list $MODULE_MERGED_DIR/package.list
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         chroot_run $MODULE_MERGED_DIR /install
@@ -3016,7 +3022,7 @@ function build_modules() {
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             #mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                             if [ $COMP_TYPE = "zstd" ]; then
-                                time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                                time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                             else
                                 time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                             fi
@@ -3031,7 +3037,7 @@ function build_modules() {
                             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                                 #mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                 else
                                     time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
@@ -3082,7 +3088,7 @@ function build_modules_live() {
 
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
-                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                 else
                     time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
@@ -3107,7 +3113,7 @@ function repack_module() {
 
         #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         if [ $COMP_TYPE = "zstd" ]; then
-            time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
         else
             time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         fi
@@ -3122,7 +3128,7 @@ function repack_module() {
         else
             #mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
-                time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 22 -b 1024K -always-use-fragments -noappend || exit
+                time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
             else
                 time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             fi
