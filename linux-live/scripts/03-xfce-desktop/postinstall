@@ -32,11 +32,6 @@ else
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
 fi
 
-if [ $PACKAGE_VARIANT = "standard" ]; then
-    rm -f /usr/share/applications/pavucontrol.desktop
-    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal >>$OUTPUT 2>&1
-fi
-
 if [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "sid" ]; then
     if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
         sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
