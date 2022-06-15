@@ -12,50 +12,38 @@ function language_to_array() {
     LANG=($LOCALE)
 }
 language_to_array
-if [ $LOCALE != "en_US" ]; then
-    sed -i "s/doublecmd.en.po/doublecmd.${LANG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
-fi
 
 apt-get update >>$OUTPUT 2>&1
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+if [ -f $SCRIPT_DIR/package.list ]; then
     apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
-if grep -q 'imagemagick' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if grep -q 'imagemagick' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
     rm -f /usr/share/applications/display-im6.q16.desktop
 fi
-
-if grep -q 'obs-studio' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    convert /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png -resize 128x128 /usr/share/icons/hicolor/128x128/apps/com.obsproject.Studio.png
+if grep -q 'obs-studio' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
+    mv /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png /usr/share/pixmaps/
+    #convert /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png -resize 128x128 /usr/share/icons/hicolor/128x128/apps/com.obsproject.Studio.png
 fi
-
-if grep -q 'pdfmod' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if grep -q 'pdfmod' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s postscript-viewer.png pdfmod.png
+        ln -s pdfshuffler.png pdfmod.png
     done
 fi
-if grep -q 'guake' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if grep -q 'guake' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s utilities-terminal.png guake.png
     done
 fi
-if grep -q 'drawio' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if grep -q 'drawio' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s libreoffice-draw.png drawio.png
     done
 fi
 update-icon-caches /usr/share/icons/*
-
-sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
-sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
-
-rm /usr/share/backgrounds/xfce/xfce-verticals.png
-rm /usr/share/backgrounds/xfce/xfce-teal.jpg
-ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
