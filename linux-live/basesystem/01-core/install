@@ -32,7 +32,7 @@ if [ $LOCALE != "en_US" ]; then
     #echo "keyboard-configuration  keyboard-configuration/switch   select  No temporary switch" | debconf-set-selections -v >>$OUTPUT 2>&1
     echo "keyboard-configuration  keyboard-configuration/layoutcode       string  us,${LANG[0]}" | debconf-set-selections -v >>$OUTPUT 2>&1
     #echo "keyboard-configuration  keyboard-configuration/model    select  Generic 105-key PC (intl.)" | debconf-set-selections -v >>$OUTPUT 2>&1
-    echo "keyboard-configuration  keyboard-configuration/variant  select  Russian" | debconf-set-selections -v >>$OUTPUT 2>&1
+    echo "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
     #echo "keyboard-configuration  keyboard-configuration/xkb-keymap       select  us" | debconf-set-selections -v >>$OUTPUT 2>&1
     #echo "keyboard-configuration  keyboard-configuration/ctrl_alt_bksp    boolean false" | debconf-set-selections -v >>$OUTPUT 2>&1
     #echo "keyboard-configuration  keyboard-configuration/altgr    select  The default for the keyboard layout" | debconf-set-selections -v >>$OUTPUT 2>&1
@@ -48,8 +48,10 @@ else
 fi
 # Locales settings
 echo "locales locales/default_environment_locale      select  $LOCALE.UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
-# Keyboard settings
-echo "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
+if [ $DISTRIBUTION != "buster" ]; then
+    # Keyboard settings
+    echo "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
+fi
 # webdav settings
 echo "davfs2 davfs2/suid_file boolean true" | debconf-set-selections -v >>$OUTPUT 2>&1
 # Console settings
@@ -82,7 +84,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
-if [ $PACKAGE_VARIANT = "standard" ]; then
+if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     apt-get install -y \
         zstd >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
@@ -98,7 +100,7 @@ fi
 if [ $DISTRIBUTION = "stretch" ]; then
     apt-get install -y \
         isc-dhcp-client >>$OUTPUT 2>&1
-elif [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+elif [ $DESKTOP_ENVIRONMENT = "slax" ] || [ $PACKAGE_VARIANT = "minimum" ]; then
     apt-get install -y \
         connman >>$OUTPUT 2>&1
 else
@@ -118,7 +120,7 @@ if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRI
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $PACKAGE_VARIANT = "maximum" ]; then
+    if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
@@ -174,12 +176,18 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     apt-get autoremove -y linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
 fi
 
-if ([ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]) && [ $DISTRIBUTION = "bullseye" ]; then
+if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
     apt-get install -y wireguard wireguard-tools
 fi
 
 if [ -f /bin/ping ]; then
     chmod +s /bin/ping
+fi
+
+if [ $PACKAGE_VARIANT = "ultra" ]; then
+    systemctl disable docker.socket
+    systemctl disable libvirtd
+    systemctl disable iscsid
 fi
 
 # configuration
