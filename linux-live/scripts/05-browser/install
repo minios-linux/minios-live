@@ -11,6 +11,7 @@ function language_to_array() {
     IFS="_"
     LANG=($LOCALE)
 }
+language_to_array
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
@@ -58,7 +59,6 @@ else
         apt-get install -y \
             firefox-esr >>$OUTPUT 2>&1
         if [ $LOCALE != "en_US" ]; then
-            language_to_array
             apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
         fi
     fi
@@ -85,14 +85,7 @@ EOF
     fi
 fi
 
-if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
-    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
-        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
-    else
-        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
-    fi
-    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
-    sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
+echo "application/pdf=firefox-esr.desktop" >> /usr/share/applications/mimeapps.list
     if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]; then
         sed -i "s,about:welcome,file:///usr/share/minios/html/${LANG[0]}.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
     else
@@ -101,10 +94,18 @@ if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; 
     cat <<'EOF' >>/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
 
 pref("browser.tabs.drawInTitlebar", true);
-pref("browser.toolbars.bookmarks.visibility", "never");
 pref("general.smoothScroll", false);
 pref("browser.compactmode.show", true);
 pref("browser.uidensity", 1);
 
 EOF
+
+if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
+    else
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
+    fi
+    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
+    sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
 fi
