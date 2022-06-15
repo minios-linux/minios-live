@@ -1544,7 +1544,7 @@ function build_boot() {
 ###############################################################################
 EOF
 
-    if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+    if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         ENABLE_SERVICES="ssh,firewalld"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
         ENABLE_SERVICES="ssh"
