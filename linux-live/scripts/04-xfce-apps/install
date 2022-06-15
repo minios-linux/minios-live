@@ -11,6 +11,7 @@ function language_to_array() {
     IFS="_"
     LANG=($LOCALE)
 }
+language_to_array
 
 apt-get update >>$OUTPUT 2>&1
 
@@ -52,33 +53,60 @@ if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi
 
-if grep -q 'galculator' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s accessories-calculator.png galculator.png
-    done
-fi
-if grep -q 'gsmartcontrol' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
+if grep -q "gsmartcontrol" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s ../../devices/$FOLDER/drive-harddisk.png gsmartcontrol.png
     done
 fi
-if grep -q 'baobab' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
+if grep -q "grsync" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s ../../status/$FOLDER/sync-synchronizing.png grsync.png
+    done
+    sed -i "s/grsync.png/grsync/g" /usr/share/applications/grsync.desktop
+fi
+if grep -q "imagemagick" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    rm -f /usr/share/applications/display-im6.q16.desktop
+fi
+if grep -q "galculator" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s accessories-calculator.png galculator.png
+    done
+fi
+if grep -q "baobab" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s baobab.png org.gnome.baobab.png
     done
 fi
-if grep -q 'imagemagick' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    rm -f /usr/share/applications/display-im6.q16.desktop
+
+if grep -q "pdfarranger" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s pdfshuffler.png com.github.jeromerobert.pdfarranger.png
+    done
+fi
+if grep -q "pdfmod" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
+        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
+        ln -s pdfshuffler.png pdfmod.png
+    done
 fi
 update-icon-caches /usr/share/icons/*
-if grep -q 'vlc' $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+
+if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     if [ $LOCALE != "en_US" ]; then
-        language_to_array
         apt-get install -y vlc-l10n >>$OUTPUT 2>&1
     fi
+fi
+if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    sed -i "15i Name[ru]=Настройки менеджера буфера обмена" //usr/share/applications/xfce4-clipman-settings.desktop &&
+        sed -i "29i Comment[ru]=Настройте свой буфер обмена" //usr/share/applications/xfce4-clipman-settings.desktop
+fi
+if [ $LOCALE != "en_US" ]; then
+    sed -i "s/doublecmd.en.po/doublecmd.${LANG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
