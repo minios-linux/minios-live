@@ -82,7 +82,7 @@ function common_variables() {
 # =================================================================
 
 function current_process() {
-    echo -e "${LIGHTYELLOW}=====> running ${CYAN}${CMD[ii]}${ENDCOLOUR}${LIGHTYELLOW} ...${ENDCOLOUR}"
+    echo -e "${LIGHTYELLOW}=====> running ${CYAN}${CMD[ii]}${ENDCOLOR}${LIGHTYELLOW} ...${ENDCOLOR}"
 }
 
 # =================================================================
@@ -90,7 +90,7 @@ function current_process() {
 # красивая консоль
 # =================================================================
 
-function console_colours() {
+function console_colors() {
     RED="\e[31m"
     GREEN="\e[32m"
     YELLOW="\e[33m"
@@ -111,7 +111,7 @@ function console_colours() {
     BLINK="\e[5m"
     REVERSE="\e[7m"
     HIDDEN="\e[8m"
-    ENDCOLOUR="\e[0m"
+    ENDCOLOR="\e[0m"
 }
 
 # =================================================================
@@ -125,17 +125,17 @@ function help() {
         if [ -f /etc/default/locale ]; then
             if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
                 if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOUR}"
+                    echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOR}"
                     echo -e
                 else
                     echo -e $1
                     echo
                 fi
-                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOR}"
                 echo -e
-                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 fi
                 echo -e "\tзапуск от start_cmd до end_cmd"
                 echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
@@ -143,25 +143,25 @@ function help() {
                 echo -e "\tвведите одну команду, чтобы запустить определенную команду"
                 echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
                 echo -e "\t"
-                echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+                echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
                 exit 0
             else
                 if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOUR}"
+                    echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOR}"
                     echo -e
                 else
                     echo -e $1
                     echo
                 fi
-                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}"
                 echo -e
-                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 fi
                 echo -e "\trun from start_cmd to end_cmd"
                 echo -e "\tif start_cmd is omitted, start from first command"
@@ -169,11 +169,11 @@ function help() {
                 echo -e "\tenter single cmd to run the specific command"
                 echo -e "\tenter '-' as only argument to run all commands"
                 echo -e "\t"
-                echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOUR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOUR}"
+                echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
                 exit 0
             fi
         fi
@@ -182,17 +182,17 @@ function help() {
         if [ -f /etc/default/locale ]; then
             if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
                 if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}Этот скрипт собирает модули для $SYSTEMNAME.${ENDCOLOUR}"
+                    echo -e "${LIGHTYELLOW}Этот скрипт собирает модули для $SYSTEMNAME.${ENDCOLOR}"
                     echo -e
                 else
                     echo -e $1
                     echo
                 fi
-                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOR}"
                 echo -e
-                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 fi
                 echo -e "\tзапуск от start_cmd до end_cmd"
                 echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
@@ -202,26 +202,26 @@ function help() {
                 echo -e "\t"
                 echo -e "\tСкрипты установки должны находиться в папке с именем будущего модуля."
                 echo -e "\tНапример, чтобы собрать модуль с именем 05-vscode, скрипты сборки"
-                echo -e "\tдолжны находиться по следующему пути: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOUR}"
+                echo -e "\tдолжны находиться по следующему пути: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
                 echo -e "\tПримеры:"
-                echo -e "\t${LIGHTYELLOW}$0 build_modules${ENDCOLOUR} сборка модулей"
-                echo -e "\t${LIGHTYELLOW}$0 repack_modules${ENDCOLOUR} перепаковка системы с типом сжатия, указанным"
+                echo -e "\t${LIGHTYELLOW}$0 build_modules${ENDCOLOR} сборка модулей"
+                echo -e "\t${LIGHTYELLOW}$0 repack_modules${ENDCOLOR} перепаковка системы с типом сжатия, указанным"
                 echo -e "\tв /etc/$LIVEKITNAME/config в переменной COMP_TYPE"
-                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOUR} эта команда запустит обе функции поочерёдно"
+                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR} эта команда запустит обе функции поочерёдно"
                 exit 0
             else
                 if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}This script builds modules for $SYSTEMNAME.${ENDCOLOUR}"
+                    echo -e "${LIGHTYELLOW}This script builds modules for $SYSTEMNAME.${ENDCOLOR}"
                     echo -e
                 else
                     echo -e $1
                     echo
                 fi
-                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOUR}"
+                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}"
                 echo -e
-                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOUR} [start_cmd] [-] [end_cmd]"
+                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
                 fi
                 echo -e "\trun from start_cmd to end_cmd"
                 echo -e "\tif start_cmd is omitted, start from first command"
@@ -232,17 +232,76 @@ function help() {
                 echo -e "\tThe installation scripts must be in the folder with the"
                 echo -e "\tname of the future module. For example, to build a module"
                 echo -e "\tnamed 05-vscode, build scripts should be in the following"
-                echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOUR}"
+                echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
                 echo -e "\tExamples:"
-                echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOUR} build modules"
-                echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOUR} repack the system with the"
+                echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOR} build modules"
+                echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOR} repack the system with the"
                 echo -e "\tcompression type specified by /etc/$LIVEKITNAME/config in COMP_TYPE variable"
-                echo -e "\t${LIGHTYELLOW}$0 - ${ENDCOLOUR} this command will run both functions alternately"
+                echo -e "\t${LIGHTYELLOW}$0 - ${ENDCOLOR} this command will run both functions alternately"
                 exit 0
             fi
         fi
     fi
 
+}
+
+function read_cmdline() {
+    for i in $@; do
+        case $i in
+        user_name=*)
+            USER_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        user_password=*)
+            USER_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        root_password=*)
+            ROOT_PASSWORD="${i#*=}"
+            shift # past argument=value
+            ;;
+        host_name=*)
+            HOST_NAME="${i#*=}"
+            shift # past argument=value
+            ;;
+        default_target=*)
+            DEFAULT_TARGET="${i#*=}"
+            shift # past argument=value
+            ;;
+        enable_services=*)
+            ENABLE_SERVICES="${i#*=}"
+            shift # past argument=value
+            ;;
+        disable_services=*)
+            DISABLE_SERVICES="${i#*=}"
+            shift # past argument=value
+            ;;
+        ssh_key=*)
+            SSH_KEY="${i#*=}"
+            shift # past argument=value
+            ;;
+        $LIVEKITNAME.flags=*)
+            FLAGS="${i#*=}"
+            shift # past argument=value
+            ;;
+        scripts=*)
+            SCRIPTS="${i#*=}"
+            shift # past argument=value
+            ;;
+        cloud)
+            CLOUD=true
+            shift # past argument with no value
+            ;;
+        hide_credentials)
+            HIDE_CREDENTIALS=true
+            shift # past argument with no value
+            ;;
+        *)
+            UNKNOWN=true
+            # unknown option
+            ;;
+        esac
+    done
 }
 
 # =================================================================
@@ -319,38 +378,38 @@ function create_livekitname_install_symlink() {
             rm -f /usr/bin/$LIVEKITNAME-install
             ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была обновлена."
-                echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+                echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} была обновлена."
+                echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
             else
-                echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} symbolic link has been updated."
-                echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+                echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been updated."
+                echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
             fi
         fi
         if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Вы можете использовать команду ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} для запуска этой программы."
+                echo -e "Вы можете использовать команду ${CYAN}$LIVEKITNAME-install${ENDCOLOR} для запуска этой программы."
             else
-                echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} command to run this program."
+                echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOR} command to run this program."
             fi
         fi
     else
         ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
         if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-            echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} была добавлена"
-            echo -e "для ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+            echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} была добавлена"
+            echo -e "для ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
 
         else
-            echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOUR} symbolic link has been added"
-            echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOUR}."
+            echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been added"
+            echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
         fi
     fi
     if [ ! -f /usr/bin/minios-modules ]; then
         cp "$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules" /usr/bin/minios-modules
         if [ "$0" != "/usr/bin/minios-modules" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Вы можете использовать команду ${CYAN}minios-modules${ENDCOLOUR} для запуска программы сборки модулей."
+                echo -e "Вы можете использовать команду ${CYAN}minios-modules${ENDCOLOR} для запуска программы сборки модулей."
             else
-                echo -e "You can use the ${CYAN}minios-modules${ENDCOLOUR} command to run the module build program."
+                echo -e "You can use the ${CYAN}minios-modules${ENDCOLOR} command to run the module build program."
             fi
         fi
     fi
@@ -371,10 +430,10 @@ EOF
         fi
         if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Дополнение команд работает только при использовании команды ${CYAN}$LIVEKITNAME-install${ENDCOLOUR}."
+                echo -e "Дополнение команд работает только при использовании команды ${CYAN}$LIVEKITNAME-install${ENDCOLOR}."
                 echo -e
             else
-                echo -e "Command completion only works when using the ${CYAN}$LIVEKITNAME-install${ENDCOLOUR} command."
+                echo -e "Command completion only works when using the ${CYAN}$LIVEKITNAME-install${ENDCOLOR} command."
                 echo -e
             fi
         fi
@@ -386,10 +445,10 @@ EOF
         fi
         if [ "$0" != "/usr/bin/minios-modules" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Дополнение команд работает только при использовании команды ${CYAN}minios-modules${ENDCOLOUR}."
+                echo -e "Дополнение команд работает только при использовании команды ${CYAN}minios-modules${ENDCOLOR}."
                 echo -e
             else
-                echo -e "Command completion only works when using the ${CYAN}minios-modules${ENDCOLOUR} command."
+                echo -e "Command completion only works when using the ${CYAN}minios-modules${ENDCOLOR} command."
                 echo -e
             fi
         fi
@@ -403,7 +462,7 @@ EOF
 
 function allow_root_only() {
     if [ $(id -u) -ne 0 ]; then
-        echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOUR}"
+        echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOR}"
         exit 1
     fi
 
@@ -418,7 +477,7 @@ function allow_root_only() {
 
 function check_is_in_chroot() {
     if [ $(stat -c %i /)="2" ]; then
-        echo -e "${BOLD}${RED}This script should be run inside chroot only!${ENDCOLOUR}"
+        echo -e "${BOLD}${RED}This script should be run inside chroot only!${ENDCOLOR}"
         exit 1
     fi
 }
@@ -442,13 +501,13 @@ function aufs_support() {
 # =================================================================
 
 function check_mounted() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if grep -qs "$INSTALL_DIR/dev" /proc/mounts || grep -qs "$INSTALL_DIR/run" /proc/mounts || grep -qs "$INSTALL_DIR/proc" /proc/mounts || grep -qs "$INSTALL_DIR/sys" /proc/mounts || grep -qs "$INSTALL_DIR/dev/pts" /proc/mounts || grep -qs "$INSTALL_DIR/tmp" /proc/mounts; then
-        echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOUR}"
+        echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
         if [ "$UNATTENDED" = "true" ]; then
             chroot_umount_fs
         else
-            read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOUR}? [${BOLD}${GREEN}Y${ENDCOLOUR}/n])" response
+            read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOR}? [${BOLD}${GREEN}Y${ENDCOLOR}/n])" response
             response=${response,,}
             if [[ "$response" =~ ^(no|n)$ ]]; then
                 exit 1
@@ -465,12 +524,12 @@ function check_mounted() {
 # =================================================================
 
 function check_install_dir() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ "$UNATTENDED" = "true" ]; then
-        #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOUR}"
+        #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
         #INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
         INSTALL_DIR="$WORK_DIR/basesystem"
-        echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
+        echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
         if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
             cleanup
             check_mounted
@@ -478,7 +537,7 @@ function check_install_dir() {
     else
         # ▼ должно быть только перенаправление ошибки!
         if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
-            echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} is not empty."
+            echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} is not empty."
             cleanup
             check_mounted
             if [ ! -d "$INSTALL_DIR" ]; then
@@ -489,7 +548,7 @@ function check_install_dir() {
                 pwd
             )"
             echo $INSTALL_DIR >$SCRIPT_DIR/.install_dir && chmod 644 $SCRIPT_DIR/.install_dir
-            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
+            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
         else
             mkdir -p $INSTALL_DIR
             check_mounted
@@ -498,7 +557,7 @@ function check_install_dir() {
                 pwd
             )"
             echo $INSTALL_DIR >$SCRIPT_DIR/.install_dir && chmod 644 $SCRIPT_DIR/.install_dir
-            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}."
+            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
         fi
     fi
 }
@@ -509,7 +568,7 @@ function check_install_dir() {
 # =================================================================
 
 function setup_install_dir() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
     if [ "$UNATTENDED" = "true" ] && [ "$INSTALL_DIR" = "" ]; then
         INSTALL_DIR="$WORK_DIR/basesystem"
@@ -518,7 +577,7 @@ function setup_install_dir() {
         if [ "$INSTALL_DIR" = "" ]; then
             if [ ! -f "$SCRIPT_DIR/.install_dir" ]; then
                 echo "Enter the address of the working directory where we will build the system"
-                read -r -p "$(echo -e "(Default is ${MAGENTA}$WORK_DIR/basesystem${ENDCOLOUR}): ")" response
+                read -r -p "$(echo -e "(Default is ${MAGENTA}$WORK_DIR/basesystem${ENDCOLOR}): ")" response
                 INSTALL_DIR=${response,,}
                 if [ "$INSTALL_DIR" = "" ]; then
                     INSTALL_DIR="$WORK_DIR/basesystem"
@@ -526,12 +585,12 @@ function setup_install_dir() {
                 check_install_dir
             else
                 LAST_INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir")
-                echo -e "Last time you used the build directory ${MAGENTA}$LAST_INSTALL_DIR${ENDCOLOUR}."
-                read -r -p "$(echo -e ""Do you want to use it again? [${BOLD}${GREEN}Y${ENDCOLOUR}/n])" response
+                echo -e "Last time you used the build directory ${MAGENTA}$LAST_INSTALL_DIR${ENDCOLOR}."
+                read -r -p "$(echo -e ""Do you want to use it again? [${BOLD}${GREEN}Y${ENDCOLOR}/n])" response
                 response=${response,,}
                 if [[ "$response" =~ ^(no|n)$ ]]; then
                     echo "Enter the address of the working directory where we will build the system"
-                    read -r -p "$(echo -e "(Default is ${MAGENTA}$WORK_DIR/basesystem${ENDCOLOUR}): ")" response
+                    read -r -p "$(echo -e "(Default is ${MAGENTA}$WORK_DIR/basesystem${ENDCOLOR}): ")" response
                     INSTALL_DIR=${response,,}
                     if [ "$INSTALL_DIR" = "" ]; then
                         INSTALL_DIR="$WORK_DIR/basesystem"
@@ -552,7 +611,7 @@ function setup_install_dir() {
 # =================================================================
 
 function cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ "${CMD[ii]}" = "setup_host" ] || [ "${CMD[ii]}" = "build_bootstrap" ] || [ "${CMD[ii]}" = "build_chroot" ]; then
         if [ "$UNATTENDED" = "true" ]; then
             check_mounted
@@ -561,7 +620,7 @@ function cleanup() {
                 cleanup
             fi
         else
-            read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$INSTALL_DIR${ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
+            read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOR} of ${MAGENTA}$INSTALL_DIR${ENDCOLOR}? [y/${BOLD}${GREEN}N${ENDCOLOR}])" response
             response=${response,,}
             if [[ "$response" =~ ^(yes|y)$ ]]; then
                 check_mounted
@@ -570,7 +629,7 @@ function cleanup() {
                     cleanup
                 fi
             else
-                echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} should be empty to continue."
+                echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} should be empty to continue."
                 exit 1
             fi
         fi
@@ -583,7 +642,7 @@ function cleanup() {
                     cleanup
                 fi
             else
-                read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$WORK_DIR{ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
+                read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOR} of ${MAGENTA}$WORK_DIR{ENDCOLOR}? [y/${BOLD}${GREEN}N${ENDCOLOR}])" response
                 response=${response,,}
                 if [[ "$response" =~ ^(yes|y)$ ]]; then
                     check_mounted
@@ -592,7 +651,7 @@ function cleanup() {
                         cleanup
                     fi
                 else
-                    echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOUR} should be empty to continue."
+                    echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} should be empty to continue."
                     exit 1
                 fi
             fi
@@ -607,7 +666,7 @@ function cleanup() {
 # =================================================================
 
 function chroot_mount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     check_mounted
 
@@ -636,7 +695,7 @@ function chroot_mount_fs() {
 # =================================================================
 
 function chroot_umount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     set +e
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -673,7 +732,7 @@ function chroot_umount_fs() {
 # =================================================================
 
 function remove_log_file() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ -f $LOGPATH/$LIVEKITNAME.log ]; then
         rm -f $LOGPATH/$LIVEKITNAME.log
     fi
@@ -691,7 +750,7 @@ function remove_log_file() {
 
 function create_backup() {
     if [ $CREATE_BACKUP = "true" ]; then
-        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
         if [ ! -f $SCRIPT_DIR/.script_version ]; then
             cat "1" >$SCRIPT_DIR/.script_version >>$OUTPUT 2>&1
             chmod 644 $SCRIPT_DIR/.script_version >>$OUTPUT 2>&1
@@ -804,7 +863,7 @@ EOF
 # beautiful console
 # красивая консоль
 # =================================================================
-function console_colours() {
+function console_colors() {
     RED="\e[31m"
     GREEN="\e[32m"
     YELLOW="\e[33m"
@@ -825,7 +884,7 @@ function console_colours() {
     BLINK="\e[5m"
     REVERSE="\e[7m"
     HIDDEN="\e[8m"
-    ENDCOLOUR="\e[0m"
+    ENDCOLOR="\e[0m"
 }
 
 # =================================================================
@@ -876,7 +935,7 @@ function read_config() { # read_config file.cfg var_name1 var_name2
 # First we fix symlinks, then uncompress files
 # $1 = search directory
 uncompress_files() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     local LINK LINE
 
     find "$1" -type l -name "*.gz" | while read LINE; do
@@ -891,7 +950,7 @@ uncompress_files() {
 # remove broken links
 # $1 = search directory
 remove_broken_links() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 EOF
@@ -938,7 +997,7 @@ function language_to_array() {
 # =================================================================
 
 function create_apt_list() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ ! -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list ]; then
         if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DISTRIBUTION = "stretch" || $DISTRIBUTION = "buster" ]]; then
             cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION_TYPE-old.list $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
@@ -951,7 +1010,7 @@ function create_apt_list() {
 }
 
 function get_vars() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     set +u
     add_chroot_configuration_files $1
     . /functions
@@ -961,7 +1020,7 @@ function get_vars() {
 }
 
 function chroot_run() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /functions
@@ -976,7 +1035,7 @@ EOF
 # First we fix symlinks, then uncompress files
 # $1 = search directory
 uncompress_files() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     local LINK LINE
 
     find "$1" -type l -name "*.gz" | while read LINE; do
@@ -991,7 +1050,7 @@ uncompress_files() {
 # remove broken links
 # $1 = search directory
 remove_broken_links() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 
@@ -1074,7 +1133,7 @@ function build_bootstrap() {
 }
 
 function mx_repo() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ $USE_MX_REPO = "true" ]; then
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
             cd $INSTALL_DIR
@@ -1105,7 +1164,7 @@ EOF
 }
 
 function antix_repo() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ $USE_ANTIX_REPO = "true" ]; then
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
             cd $INSTALL_DIR
@@ -1132,7 +1191,7 @@ EOF
 }
 
 function build_rootfs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     #current_process
 
     if [ $USE_ROOTFS = "true" ]; then
@@ -1236,7 +1295,7 @@ EOF
 #
 # =================================================================
 function copy_build_scripts() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ ! -d $INSTALL_DIR/linux-live ]; then
         mkdir -p $INSTALL_DIR/linux-live
         (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $INSTALL_DIR/linux-live)
@@ -1348,7 +1407,7 @@ function build_chroot() {
     if [ "$OUTPUT"="$LOGPATH/$LIVEKITNAME.log" ] && [ -f $INSTALL_DIR/$LIVEKITNAME.log ]; then
         mv -f $INSTALL_DIR/$LIVEKITNAME.log $SCRIPT_DIR/$LIVEKITNAME.log
         if [ -f $SCRIPT_DIR/$LIVEKITNAME.log ]; then
-            echo -e "Installation log was saved to ${MAGENTA}$SCRIPT_DIR/$LIVEKITNAME.log${ENDCOLOUR}"
+            echo -e "Installation log was saved to ${MAGENTA}$SCRIPT_DIR/$LIVEKITNAME.log${ENDCOLOR}"
         fi
     fi
 }
@@ -1466,7 +1525,7 @@ EOF
 # =================================================================
 function build_boot() {
     current_process
-    #echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    #echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     local OLD_KERNEL
 
@@ -1876,7 +1935,7 @@ function chroot_setup_host() {
 #
 # =================================================================
 function chroot_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     set +eu
 
@@ -1991,7 +2050,7 @@ function chroot_cleanup() {
 #
 # =================================================================
 function hostreq_pkg_list() {
-    echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOUR}"
+    echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOR}"
     apt-get update >>$OUTPUT 2>&1
 
     if [ -f $SCRIPT_DIR/linux-live/package_lists/required_for_host.list ]; then
@@ -2015,7 +2074,7 @@ function hostreq_pkg_list() {
 #
 # =================================================================
 function install_prerequesited_packages() {
-    echo -e "${YELLOW}=====> installing prerequested software for chroot system ...${ENDCOLOUR}"
+    echo -e "${YELLOW}=====> installing prerequested software for chroot system ...${ENDCOLOR}"
 
     if [ ! -f /etc/apt/apt.conf.d/000MiniOS ]; then
         cat <<'EOF' >/etc/apt/apt.conf.d/000MiniOS
@@ -2027,18 +2086,18 @@ EOF
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         if [ -f $SCRIPT_DIR/package_lists/prerequisites.list ]; then
             apt-get update
-            echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
+            echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}" &&
                 apt-get upgrade -y >>$OUTPUT 2>&1 &&
-                echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
+                echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}" &&
                 apt-get install -y \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/package_lists/prerequisites.list | tr "\n" " ")
         fi
     else
         if [ -f $SCRIPT_DIR/package_lists/prerequisites.list ]; then
             apt-get update >>$OUTPUT 2>&1 &&
-                echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOUR}" &&
+                echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}" &&
                 apt-get upgrade -y >>$OUTPUT 2>&1 &&
-                echo -e "${YELLOW}=====> installing packages ...${ENDCOLOUR}" &&
+                echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}" &&
                 apt-get install -y \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
@@ -2051,7 +2110,7 @@ EOF
 #
 # =================================================================
 function install_core_packages() {
-    echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOUR}"
+    echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOR}"
 
     get_vars
 
@@ -2079,7 +2138,7 @@ function install_core_packages() {
 #
 # =================================================================
 function build_dkms() {
-    echo -e "${YELLOW}=====> building dkms packages for chroot system ...${ENDCOLOUR}"
+    echo -e "${YELLOW}=====> building dkms packages for chroot system ...${ENDCOLOR}"
 
     local LOWER_DIR MODULE_UPPER_DIR MODULE_WORK_DIR MODULE_MERGED_DIR KERNEL BUILD_DKMS
 
@@ -2337,13 +2396,13 @@ function module_remove_unofficial_repository() {
 #
 # =================================================================
 function module_check_mounted() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if grep -qs "$MODULE_MERGED_DIR" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/run" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/proc" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/sys" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev/pts" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/tmp" /proc/mounts; then
-        echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOUR}"
+        echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
         if [ "$UNATTENDED" = "true" ]; then
             module_chroot_umount_fs
         else
-            read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOUR}? [${BOLD}${GREEN}Y${ENDCOLOUR}/n])" response
+            read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOR}? [${BOLD}${GREEN}Y${ENDCOLOR}/n])" response
             response=${response,,}
             if [[ "$response" =~ ^(no|n)$ ]]; then
                 exit 1
@@ -2359,10 +2418,10 @@ function module_check_mounted() {
 #
 # =================================================================
 function module_check_install_dir() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ "$UNATTENDED" = "true" ]; then
-        #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOUR}"
-        echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR}."
+        #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
+        echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}."
         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
             module_cleanup
             module_check_mounted
@@ -2370,13 +2429,13 @@ function module_check_install_dir() {
     else
         # ▼ должно быть только перенаправление ошибки!
         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is not empty."
+            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is not empty."
             module_cleanup
             module_check_mounted
-            echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOUR}."
+            echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOR}."
         else
             module_check_mounted
-            echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOUR}."
+            echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOR}."
         fi
     fi
 }
@@ -2386,7 +2445,7 @@ function module_check_install_dir() {
 #
 # =================================================================
 function module_chroot_mount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     local MODULES MODULE_LOWER_DIR FILTER
 
@@ -2502,7 +2561,7 @@ function module_chroot_mount_fs() {
 #
 # =================================================================
 function module_chroot_umount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     local MODULES MODULE_LOWER_DIR
 
@@ -2598,7 +2657,7 @@ function module_chroot_umount_fs() {
 #
 # =================================================================
 function module_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ "$UNATTENDED" = "true" ]; then
         module_check_mounted
         rm -rf $MODULE_UPPER_DIR
@@ -2606,7 +2665,7 @@ function module_cleanup() {
             module_cleanup
         fi
     else
-        read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOUR} of ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR}? [y/${BOLD}${GREEN}N${ENDCOLOUR}])" response
+        read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOR} of ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}? [y/${BOLD}${GREEN}N${ENDCOLOR}])" response
         response=${response,,}
         if [[ "$response" =~ ^(yes|y)$ ]]; then
             module_check_mounted
@@ -2615,7 +2674,7 @@ function module_cleanup() {
                 module_cleanup
             fi
         else
-            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} should be empty to continue."
+            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} should be empty to continue."
             exit 1
         fi
     fi
@@ -2626,7 +2685,7 @@ function module_cleanup() {
 #
 # =================================================================
 function module_chroot_finish_up() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     # truncate machine id (why??)
     chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
@@ -2659,7 +2718,7 @@ EOF
 #
 # =================================================================
 function module_chroot_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     set +e
     # clean up useless stuff
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -2741,7 +2800,7 @@ function module_chroot_cleanup() {
 #
 # =================================================================
 function module_build_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         chroot_cleanup $MODULE_UPPER_DIR
@@ -2756,7 +2815,7 @@ function module_build_cleanup() {
 # =================================================================
 function get_kernel_version() {
     if [ $KERNEL_TYPE = "aufs" ]; then
-        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOUR} function is executing ..."
+        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
         KERNEL=$(get_latest_release minios-linux/aufs-kernel)
     elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
         KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
@@ -2801,9 +2860,9 @@ function build_modules() {
 
         for MODULE in *; do
             if [ $SCRIPT_DIR != "/usr/bin" ] && (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
-                echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-                echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
-                echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+                echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
+                echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
+                echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
             #elif [ $DISTRIBUTION = "orel" ] && [ $MODULE = "01-firmware" ]; then
             #    echo "Astra Linux does not contain firmware in the repository"
             else
@@ -2891,7 +2950,7 @@ function build_modules() {
                         cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
                         unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
                     else
-                        echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
+                        echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                     fi
 
                     #module_check_install_dir
@@ -3028,7 +3087,7 @@ function build_modules() {
                             fi
                             chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                         else
-                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} ${RED}is empty${ENDCOLOUR}. Nothing to do."
+                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} ${RED}is empty${ENDCOLOR}. Nothing to do."
                         fi
 
                         module_chroot_umount_fs
@@ -3042,12 +3101,12 @@ function build_modules() {
                                     time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
                             else
-                                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
+                                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                             fi
                         else
-                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-                            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
-                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
+                            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
+                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
                         fi
                     fi
                 fi
@@ -3077,9 +3136,9 @@ function build_modules_live() {
     for MODULE in *; do
 
         if (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
-            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
-            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
+            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
+            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
 
             MODULE_UPPER_DIR="$MODULES_DIR/$MODULE-upper"
@@ -3093,7 +3152,7 @@ function build_modules_live() {
                     time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
             else
-                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOUR} is empty. Nothing to do."
+                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
             fi
         fi
     done
@@ -3122,9 +3181,9 @@ function repack_module() {
         rm -f $OLD_MODULE
     else
         if (ls $CURRENT_DIR/*.$BEXT | grep -q $MODULE 2>/dev/null); then
-            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
-            echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOUR} if you want to build ${MAGENTA}$MODULE${ENDCOLOUR}."
-            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOUR}"
+            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
+            echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
+            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
             #mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
