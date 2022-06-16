@@ -896,7 +896,11 @@ minios_configure() {
       fi
    fi
 
-   chroot $1 /bin/bash -c "/minios-configure" >>/dev/null 2>&1
+   if [ "$(ls -A $2/scripts 2>/dev/null)" ]; then
+      chroot $1 /bin/bash -c "/minios-configure $2" >>/dev/null 2>&1
+   else
+      chroot $1 /bin/bash -c "/minios-configure" >>/dev/null 2>&1
+   fi
 
    if [ "$WRITABLE" = "true" ]; then
       if [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then

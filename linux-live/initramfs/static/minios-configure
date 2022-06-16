@@ -6,7 +6,7 @@
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function console_colours() {
+function console_colors() {
     RED="\e[31m"
     GREEN="\e[32m"
     YELLOW="\e[33m"
@@ -27,21 +27,21 @@ function console_colours() {
     BLINK="\e[5m"
     REVERSE="\e[7m"
     HIDDEN="\e[8m"
-    ENDCOLOUR="\e[0m"
+    ENDCOLOR="\e[0m"
 }
 
 function help() {
     # if $1 is set, use $1 as headline message in help()
     if [ -z ${1+x} ]; then
-        echo -e "${LIGHTYELLOW}This script allows you to configure some parameters of $SYSTEMNAME.${ENDCOLOUR}"
+        echo -e "${LIGHTYELLOW}This script allows you to configure some parameters of $SYSTEMNAME.${ENDCOLOR}"
         echo -e
     else
         echo -e $1
         echo
     fi
-    echo -e "Syntax: ${MAGENTA}$0${ENDCOLOUR} parameter=value"
+    echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} parameter=value"
     if [ -L /usr/bin/$LIVEKITNAME-configure ] && [ "$0" != "/usr/bin/$LIVEKITNAME-configure" ]; then
-        echo -e "\t${CYAN}$LIVEKITNAME-configure${ENDCOLOUR} parameter=value"
+        echo -e "\t${CYAN}$LIVEKITNAME-configure${ENDCOLOR} parameter=value"
     fi
     echo -e "root_password - root password."
     echo -e "user_name - username. If you specify the username root, then the user profile will not be used, the user_password parameter will be ignored."
@@ -53,13 +53,13 @@ function help() {
     echo -e "cloud - special mode to run as a cloud-init host."
     echo -e "hide_credentials - hide credentials displayed as a prompt in the console at system startup."
     echo -e ""
-    echo -e "Example: ${LIGHTYELLOW}$0${ENDCOLOUR} root_password=toor user_name=root user_password=evil"
+    echo -e "Example: ${LIGHTYELLOW}$0${ENDCOLOR} root_password=toor user_name=root user_password=evil"
     exit 0
 }
 
 function allow_root_only() {
     if [ $(id -u) -ne 0 ]; then
-        echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOUR}"
+        echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOR}"
         exit 1
     fi
 
@@ -100,6 +100,14 @@ function read_cmdline() {
             ;;
         ssh_key=*)
             SSH_KEY="${i#*=}"
+            shift # past argument=value
+            ;;
+        $LIVEKITNAME.flags=*)
+            FLAGS="${i#*=}"
+            shift # past argument=value
+            ;;
+        scripts=*)
+            SCRIPTS="${i#*=}"
             shift # past argument=value
             ;;
         cloud)
@@ -157,7 +165,7 @@ function read_config() { # read_config file.cfg var_name1 var_name2
     shopt -u extglob # Switching it back off after use
 }
 
-console_colours
+console_colors
 allow_root_only
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -517,6 +525,51 @@ EOF
     fi
 fi
 
+if [ -z "$SCRIPTS" ]; then
+    SCRIPTS="interactive"
+fi
+if [ -n "$1" ] && [ "$SCRIPTS" != "false" ]; then
+    if [ "$SCRIPTS" = "background" ]; then
+        cat <<EOF >/usr/lib/systemd/system/minios-script-launcher.service
+[Unit]
+Description=MiniOS script launcher service
+After=minios-configure.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/minios-script-launcher
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    elif [ "$SCRIPTS" = "interactive" ]; then
+        cat <<EOF >/usr/lib/systemd/system/minios-script-launcher.service
+[Unit]
+Description=MiniOS script launcher service
+After=minios-configure.service
+
+[Service]
+Type=oneshot
+TTYPath=/dev/tty2
+ExecStartPre=/usr/bin/chvt 2
+ExecStart=/usr/bin/minios-script-launcher
+ExecStartPost=/usr/bin/chvt 1
+TimeoutStartSec=0
+StandardInput=tty
+TTYVHangup=yes
+TTYVTDisallocate=yes
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        DEFAULT_TARGET="multi-user"
+    fi
+    systemctl enable minios-script-launcher
+fi
+
 if [ -z "$DEFAULT_TARGET" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
         if [ -f /etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
@@ -597,6 +650,17 @@ DISABLE_SERVICES=$DISABLE_SERVICES
 # By default, the system looks for a file named authorized_keys.
 SSH_KEY=$SSH_KEY
 
+Scripts are run when the multi-user target (init 3) is reached. To
+run scripts, they must be located in the $LIVEKITNAME/scripts folder.
+The SCRIPTS variable can be set to interactive, background, or
+false. By default, when scripts are found in the specified folder,
+the system only boots up to the multi-user target, after which it
+interactively runs the scripts in alphabetical order. With
+SCRIPTS=background, the system boots as usual, scripts are executed
+in the background. When SCRIPTS=false, scripts are not loaded, even
+if they are located in the scripts folder.
+SCRIPTS=$SCRIPTS
+
 # Special mode to run as a cloud-init host.
 # Only available in MiniOS Cloud edition.
 CLOUD=$CLOUD
@@ -630,6 +694,9 @@ else
     fi
     if [ ! -z "$SSH_KEY" ]; then
         sed -i -e "/SSH_KEY=/s/=.*/=$SSH_KEY/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
+    fi
+    if [ ! -z "$SSH_KEY" ]; then
+        sed -i -e "/SCRIPTS=/s/=.*/=$SCRIPTS/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
     if [ ! -z "$CLOUD" ]; then
         sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
