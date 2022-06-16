@@ -33,7 +33,7 @@ if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
     new_run
 fi
 
-console_colours
+console_colors
 
 allow_root_only
 
@@ -72,4 +72,4 @@ for ((ii = $start_index; ii < $end_index; ii++)); do
     ${CMD[ii]}
 done
 
-echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOUR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOUR}"
+echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
