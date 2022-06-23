@@ -58,8 +58,7 @@ if [ "$MINIOS" = "" ]; then
     exit 2
 fi
 
-EFI="$MINIOS/boot/grub/EFI"
-BOOT="$MINIOS/boot/grub/boot"
+EFI="$MINIOS/boot/EFI"
 
 B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
 
@@ -81,7 +80,7 @@ elif [ -x "$(which genisoimage 2>/dev/null)" ]; then
     fi
 fi
 if [ $BOOT_TYPE = "hybrid" ]; then
-    E="/EFI/boot/efiboot.img -no-emul-boot -isohybrid-gpt-basdat"
+    E="/$LIVEKITNAME/boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
 else
     E=""
 fi
@@ -103,7 +102,6 @@ cat <<EOF >/tmp/README
   the persistent changes mode will be saved in the minios\changes folder with
   no size limit.
 ###############################################################################
-
 EOF
 
 GRAFT=$(
@@ -115,15 +113,10 @@ GRAFT=$(
     find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
         echo "EFI/$LINE=$EFI/$LINE"
     done
-    cd "$BOOT"
-    find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
-        echo "boot/$LINE=$BOOT/$LINE"
-    done
     echo ".disk/info=/tmp/info"
     echo "README=/tmp/README"
     echo "$LIVEKITNAME/$LIVEKITNAME.conf=/etc/$LIVEKITNAME/$LIVEKITNAME.conf"
-    echo "boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
-    echo "$LIVEKITNAME/boot/grub/boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
+    echo "$LIVEKITNAME/boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
     echo "$LIVEKITNAME/boot/syslinux.cfg=/etc/$LIVEKITNAME/syslinux.cfg"
 )
 
@@ -140,7 +133,7 @@ while [ "$2" != "" ]; do
 done
 
 (
-    mkdir -p $TEMP/$LIVEKITNAME/{boot,modules,changes}
+    mkdir -p $TEMP/$LIVEKITNAME/{boot,modules,changes,scripts}
     cp "$MINIOS/boot/isolinux.bin" "$TEMP/$LIVEKITNAME/boot"
     cp "$MINIOS/boot/isohdpfx.bin" "$TEMP/$LIVEKITNAME/boot"
     cd "$TEMP"
