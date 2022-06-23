@@ -18,7 +18,7 @@ fi
 
 echo "KERNEL=$KERNEL" >/livekit.conf
 
-if [ $PACKAGE_VARIANT = "maximum" ]; then
+if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         cat <<EOF >/etc/apt/sources.list.d/mx.list
 # MX Community Main and Test Repos
@@ -60,7 +60,10 @@ EOF
         make dkms_install
         cd -
     fi
-    if [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "sid" ]; then
+    if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
+        echo
+    else
+        echo "DISTRIBUTION=$DISTRIBUTION"
         git clone https://github.com/EntropicEffect/rtl8822bu
         cd rtl8822bu
         sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
@@ -71,9 +74,6 @@ EOF
         make install
         cd -
     fi
-fi
-
-if [ $PACKAGE_VARIANT = "maximum" ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         apt-get install -y virtualbox-guest-dkms >>$OUTPUT 2>&1
     else
