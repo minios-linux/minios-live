@@ -54,6 +54,9 @@ function common_variables() {
     if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
         PACKAGE_VARIANT="cloud"
     fi
+    if [ $DESKTOP_ENVIRONMENT = "pve" ]; then
+        PACKAGE_VARIANT="pve"
+    fi
 
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         DISTRIBUTION_URL="http://ftp.debian.org/debian"
@@ -1079,6 +1082,9 @@ function build_bootstrap() {
                 ln -s sid orel
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            elif [ $PACKAGE_VARIANT = "minimum" ]; then
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
@@ -1107,6 +1113,9 @@ function build_bootstrap() {
                 ln -s sid orel
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            elif [ $PACKAGE_VARIANT = "minimum" ]; then
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
@@ -1122,6 +1131,9 @@ function build_bootstrap() {
             ln -s sid orel
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+        elif [ $PACKAGE_VARIANT = "minimum" ]; then
+            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
         else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
@@ -1576,29 +1588,58 @@ function build_boot() {
         BOOT_TYPE="hybrid"
     fi
     if [ $BOOT_TYPE = "hybrid" ]; then
-        cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image
-        if [ ! -d $WORK_DIR/image/$LIVEKITNAME/boot/grub ]; then
-            mkdir $WORK_DIR/image/$LIVEKITNAME/boot/grub
+        if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+            rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi
+            rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi32.img
+            rm $WORK_DIR/image/$LIVEKITNAME/boot/EFI/boot/*32.efi
+            mv $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi.img
+            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/EFI/debian/grub.cfg
+search --file --set=root /.disk/info
+set prefix=(\$root)/minios/boot/grub
+source \$prefix/x86_64-efi/grub.cfg
+EOF
+        elif [[ $DISTRIBUTION_ARCH == *"i386"* ]]; then
+            rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/x86_64-efi
+            rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img
+            rm $WORK_DIR/image/$LIVEKITNAME/boot/EFI/boot/*64.efi
+            mv $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi32.img $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi.img
+            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/EFI/debian/grub.cfg
+search --file --set=root /.disk/info
+set prefix=(\$root)/minios/boot/grub
+source \$prefix/i386-efi/grub.cfg
+EOF
         fi
-        cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image/$LIVEKITNAME/boot/grub
+
+        if [ ! -d $WORK_DIR/image/EFI ]; then
+            mkdir -p $WORK_DIR/image/EFI
+        fi
+        cp -r $WORK_DIR/image/$LIVEKITNAME/boot/EFI/* $WORK_DIR/image/EFI
+        #cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image
+        #if [ ! -d $WORK_DIR/image/$LIVEKITNAME/boot/grub ]; then
+        #    mkdir $WORK_DIR/image/$LIVEKITNAME/boot/grub
+        #fi
+        #cp -r $SCRIPT_DIR/linux-live/bootfiles-grub/* $WORK_DIR/image/$LIVEKITNAME/boot/grub
         if [ ! -d $WORK_DIR/image/.disk ]; then
             mkdir -p $WORK_DIR/image/.disk
         fi
         echo $SYSTEMNAME >$WORK_DIR/image/.disk/info
+    else
+        rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub
+        rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/EFI
     fi
 
     cat <<EOF >$WORK_DIR/image/README
 ################################### README ####################################
 * To install MiniOS, copy the contents of the ISO to the root of the media,
-  then run minios\boot\bootinst.bat on Windows, or minios/boot/bootinst.sh
+  then run $LIVEKITNAME\boot\bootinst.bat on Windows, or $LIVEKITNAME/boot/bootinst.sh
   on Linux.
 * When installed on media with fat32 and ntfs file systems, changes in
-  persistent changes mode will be saved in the minios\changes\changes.dat file,
+  persistent changes mode will be saved in the $LIVEKITNAME\changes\changes.dat file,
   the file expands dynamically, the maximum file size is 4 GB (can be changed
   with the changes_size parameter in the boot options, for example
   changes_size=2000 will set the maximum file size to 2 GB).
 * When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
-  the persistent changes mode will be saved in the minios\changes folder with
+  the persistent changes mode will be saved in the $LIVEKITNAME\changes folder with
   no size limit.
 ###############################################################################
 EOF
@@ -1624,8 +1665,8 @@ EOF
         LIVE_SETTINGS="minios.flags=automount"
     fi
 
-    cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/minios/boot/syslinux.cfg
-UI /minios/boot/vesamenu.c32
+    cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+UI /$LIVEKITNAME/boot/vesamenu.c32
 
 PROMPT 0
 TIMEOUT 30
@@ -1633,7 +1674,7 @@ TIMEOUT 30
 MENU CLEAR
 MENU HIDDEN
 MENU HIDDENKEY Enter default
-MENU BACKGROUND /minios/boot/bootlogo.png
+MENU BACKGROUND /$LIVEKITNAME/boot/bootlogo.png
 
 MENU WIDTH 80
 MENU MARGIN 20
@@ -1648,25 +1689,29 @@ MENU COLOR SEL     47;30      #FF000000 #FFFFFFFF none
 MENU COLOR UNSEL   37;40      #FFFFFFFF #FF000000 none
 MENU COLOR TABMSG  32;40      #FF60CA00 #FF000000 none
 
-F1 help.txt /minios/boot/zblack.png
+F1 help.txt /$LIVEKITNAME/boot/zblack.png
 
 MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
 MENU TABMSG [F1] help                                                        [Tab] cmdline >
 
 EOF
-    cat <<EOF >$WORK_DIR/image/boot/grub/grub.cfg
-set default="0"
-set timeout="3"
-set hidden_timeout_quiet=false
-set gfxmode=auto
-insmod efi_gop
-insmod efi_uga
-insmod gfxterm
-terminal_output gfxterm
+    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+if loadfont \$prefix/font.pf2 ; then
+  set default="0"
+  set timeout="4"
+  set hidden_timeout_quiet=false
+  set gfxmode=auto
+  insmod efi_gop
+  insmod efi_uga
+  insmod video_bochs
+  insmod video_cirrus
+  insmod gfxterm
+  insmod png
+  terminal_output gfxterm
+fi
 set color_normal=white/black
 set color_highlight=black/white
-loadfont /boot/grub/unicode.pf2
-background_image /boot/grub/bootlogo.png
+background_image \$prefix/bootlogo.png
 
 set default_settings="$DEFAULT_SETTINGS"
 set perch_settings="$PERCH_SETTINGS"
@@ -1674,22 +1719,22 @@ set live_settings="$LIVE_SETTINGS"
 set ram_settings="$RAM_SETTINGS"
 set console_settings="console=tty0 console=ttyS0,115200"
 set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0 enable_services=$ENABLE_SERVICES"
-set linux_64="/minios/boot/vmlinuz"
-set initrd_img="/minios/boot/initrfs.img"
+set linux_64="/$LIVEKITNAME/boot/vmlinuz"
+set initrd_img="/$LIVEKITNAME/boot/initrfs.img"
 set default=0
 set message="Loading kernel and ramdisk..."
 
 EOF
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/minios/boot/syslinux.cfg
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/boot/grub/grub.cfg
+        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_64
@@ -1698,16 +1743,16 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
-        sed -i "s/background_image/#background_image/g" $WORK_DIR/image/boot/grub/grub.cfg
+        sed -i "s/background_image/#background_image/g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
     elif [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/minios/boot/syslinux.cfg
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/boot/grub/grub.cfg
+        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_64
@@ -1717,24 +1762,24 @@ menuentry "Run MiniOS (Copy to RAM)"{
 
 EOF
     else
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/minios/boot/syslinux.cfg
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Persistent changes)
-KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $PERCH_SETTINGS $BOOT_SETTINGS
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $PERCH_SETTINGS $BOOT_SETTINGS
 
 LABEL live
 MENU LABEL Run MiniOS (Fresh start)
-KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $LIVE_SETTINGS $BOOT_SETTINGS
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $LIVE_SETTINGS $BOOT_SETTINGS
 
 LABEL toram
 MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /minios/boot/vmlinuz
-APPEND vga=normal initrd=/minios/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/boot/grub/grub.cfg
+        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Persistent changes)"{
     echo \$message
     search --set -f \$linux_64
@@ -1756,6 +1801,10 @@ menuentry "Run MiniOS (Copy to RAM)"{
 
 EOF
     fi
+
+    #if [ $BOOT_TYPE = "hybrid" ]; then
+    #    cp $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg $WORK_DIR/image/$LIVEKITNAME/boot/grub/boot/grub
+    #fi
 }
 # =================================================================
 #
@@ -1793,7 +1842,7 @@ function build_iso() {
 
     language_to_array
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT
     else
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT
@@ -1830,7 +1879,7 @@ function build_iso() {
         fi
     fi
     if [ $BOOT_TYPE = "hybrid" ]; then
-        E="EFI/boot/efiboot.img -no-emul-boot"
+        E="$LIVEKITNAME/boot/grub/efi.img -no-emul-boot"
     else
         E=""
     fi
