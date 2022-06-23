@@ -16,13 +16,13 @@ language_to_array
 apt-get update >>$OUTPUT 2>&1
 
 # install packages
-if [ -f $SCRIPT_DIR/package.list ]; then
-    if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-        apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,/bullseye-backports,,g" | tr "\n" " ") >>$OUTPUT 2>&1
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        apt-get install -t $DISTRIBUTION-backports -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
     else
         apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
     fi
 fi
 

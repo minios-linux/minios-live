@@ -17,38 +17,25 @@ apt-get update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        apt-get install -t $DISTRIBUTION-backports -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    else
+        apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    fi
 fi
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    if [ $DISTRIBUTION = "stretch" ]; then
-        echo 'deb http://ftp.debian.org/debian stretch-backports main' | sudo tee --append /etc/apt/sources.list.d/stretch-backports.list >>$OUTPUT 2>&1
-        apt-get update >>$OUTPUT 2>&1
-        apt-get install -t stretch-backports -y \
-            remmina/stretch-backports remmina-plugin-rdp/stretch-backports remmina-plugin-vnc/stretch-backports >>$OUTPUT 2>&1
-
-        curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
-            apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
-            rm -f ./rescuezilla*.deb
-        if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-            rm -f /usr/share/applications/yad-icon-browser.desktop
-        fi
-    else
-        apt-get install -y \
-            remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
-
-        curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
-            apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
-            rm -f ./rescuezilla*.deb
-        if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-            rm -f /usr/share/applications/yad-icon-browser.desktop
-        fi
-
-        #        wget $(curl -s https://api.github.com/repos/iongion/podman-desktop-companion/releases | grep browser_download_url | grep '\.deb' | head -n1 | cut -d '"' -f 4)
-        #        apt-get install -y ./podman-desktop-companion-amd64-*.deb >>$OUTPUT 2>&1 &&
-        #            rm -f ./podman-desktop-companion-amd64-*.deb
+    curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
+        apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
+        rm -f ./rescuezilla*.deb
+    if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+        rm -f /usr/share/applications/yad-icon-browser.desktop
     fi
+    #        wget $(curl -s https://api.github.com/repos/iongion/podman-desktop-companion/releases | grep browser_download_url | grep '\.deb' | head -n1 | cut -d '"' -f 4)
+    #        apt-get install -y ./podman-desktop-companion-amd64-*.deb >>$OUTPUT 2>&1 &&
+    #            rm -f ./podman-desktop-companion-amd64-*.deb
 fi
 
 if grep -q "gsmartcontrol" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
@@ -79,11 +66,11 @@ if grep -q "baobab" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
         ln -s baobab.png org.gnome.baobab.png
     done
 fi
-
 if grep -q "pdfarranger" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s pdfshuffler.png com.github.jeromerobert.pdfarranger.png
+        ln -s pdfshuffler.png pdfarranger.png
     done
 fi
 if grep -q "pdfmod" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
@@ -121,5 +108,5 @@ FileManager=Thunar
 WebBrowser=
 
 EOF
-sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
+    sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi
