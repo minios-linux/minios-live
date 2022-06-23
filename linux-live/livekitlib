@@ -393,7 +393,7 @@ init_network_ip() {
    echo "* Setting up network" >&2
 
    if [ "$IP" != "" ]; then
-      # set IP address as given by boot paramter
+      # set IP address as given by boot parameter
       echo "$IP" | while IFS=":" read CLIENT SERVER GW MASK; do
          ifconfig $ETH "$CLIENT" netmask "$MASK"
          route add default gw "$GW"
@@ -911,7 +911,7 @@ minios_configure() {
       fi
    fi
 
-   cp -fp $2/boot/grub/boot/grub/grub.cfg $1/etc/$LIVEKITNAME/grub.cfg
+   cp -fp $2/boot/grub/grub.cfg $1/etc/$LIVEKITNAME/grub.cfg
    cp -fp $2/boot/syslinux.cfg $1/etc/$LIVEKITNAME/syslinux.cfg
 
    rm -f $1/cmdline
