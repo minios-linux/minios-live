@@ -68,7 +68,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g;/davfs2/d" | tr "\n" " ") >>$OUTPUT 2>&1
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g;/davfs2/d;s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "buster" ]; then
         apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/cockpit-podman/cockpit-docker/g;s/podman/docker/g" | tr "\n" " ") >>$OUTPUT 2>&1
@@ -97,10 +97,10 @@ if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $P
 fi
 
 # install packages
-if [ $DISTRIBUTION = "stretch" ]; then
+if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "stretch" ]; then
     apt-get install -y \
         isc-dhcp-client >>$OUTPUT 2>&1
-elif [ $DESKTOP_ENVIRONMENT = "slax" ] || [ $PACKAGE_VARIANT = "minimum" ]; then
+elif [ $DESKTOP_ENVIRONMENT = "slax" ]; then
     apt-get install -y \
         connman >>$OUTPUT 2>&1
 else
@@ -144,9 +144,9 @@ EOF
     fi
     if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
         wget http://download.proxmox.com/debian/proxmox-release-bullseye.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bullseye.gpg
-        echo "" >>/etc/apt/sources.list
-        echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" >>/etc/apt/sources.list
-        apt-get update >>$OUTPUT 2>&1
+        echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" >/etc/apt/sources.list.d/pve-install-repo.list
+        apt-get update >>$OUTPUT 2>&1 &&
+            apt-get full-upgrade -y >>$OUTPUT 2>&1
         #KERNEL_IMAGE="pve-kernel-5.15"
         KERNEL_IMAGE=$(apt-cache depends pve-kernel-5.15 | grep -m 2 'Depends:' | tail -n1 | sed 's/  Depends: //g')
     elif [ $DISTRIBUTION = "orel" ]; then
@@ -171,6 +171,17 @@ fi
 
 apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
 apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
+
+cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timezone
+#!/bin/sh
+case "$2" in
+    up)
+        #tzupdate
+        timedatectl set-timezone "$(curl --fail https://ipapi.co/timezone)"
+    ;;
+esac
+EOF
+chmod +x /etc/NetworkManager/dispatcher.d/09-timezone
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     apt-get autoremove -y linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
