@@ -49,8 +49,6 @@ if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         #        apt-get install -y ./podman-desktop-companion-amd64-*.deb >>$OUTPUT 2>&1 &&
         #            rm -f ./podman-desktop-companion-amd64-*.deb
     fi
-
-    sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi
 
 if grep -q "gsmartcontrol" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
@@ -113,14 +111,15 @@ if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
-WebBrowser=firefox
+WebBrowser=
 
 EOF
 elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
-WebBrowser=firefox
+WebBrowser=
 
 EOF
+sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi
