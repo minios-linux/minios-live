@@ -27,6 +27,17 @@ COMP_TYPE="zstd"
 # If you need aufs on Debian 11 and up, set KERNEL_TYPE="aufs"
 KERNEL_TYPE="default"
 #KERNEL_TYPE="aufs"
+#KERNEL_TYPE="pve"
+
+if [ $PACKAGE_VARIANT = "pve" ]; then
+    KERNEL_TYPE="pve"
+elif [ $PACKAGE_VARIANT = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
+    echo "You can't build PVE with i386"
+    exit 0
+fi
+if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
+    KERNEL_TYPE = "default"
+fi
 
 if [ $KERNEL_TYPE = "aufs" ]; then
     #KERNEL=$(get_latest_release minios-linux/aufs-kernel)
@@ -51,8 +62,8 @@ SSH_KEY="authorized_keys"
 CLOUD="false"
 HIDE_CREDENTIALS="false"
 
-LOCALE="en_US"
-#LOCALE="ru_RU"
+#LOCALE="en_US"
+LOCALE="ru_RU"
 TIMEZONE="Etc/UTC"
 #TIMEZONE="Europe/Moscow"
 
