@@ -19,8 +19,18 @@ fi
 echo "KERNEL=$KERNEL" >/livekit.conf
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        cat <<EOF >/etc/apt/sources.list.d/mx.list
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
+        if [ $DISTRIBUTION = "bookworm" ]; then
+            cat <<EOF >/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ testing main non-free
+#deb http://mxrepo.com/mx/testrepo/ testing test
+
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ testing ahs
+EOF
+        else
+            cat <<EOF >/etc/apt/sources.list.d/mx.list
 # MX Community Main and Test Repos
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
@@ -28,6 +38,7 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
+        fi
     fi
     apt-get update >>$OUTPUT 2>&1
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
@@ -48,7 +59,9 @@ EOF
             rtl8812au-dkms \
             rtl8821ce-dkms \
             rtl8821cu-dkms >>$OUTPUT 2>&1
-    else
+    elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
+        apt-get install -y \
+            rtl8821ce-dkms >>$OUTPUT 2>&1
         #apt-get install -y git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
         git clone https://github.com/aircrack-ng/rtl8812au
         cd rtl8812au
