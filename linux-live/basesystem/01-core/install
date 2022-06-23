@@ -77,9 +77,15 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
             apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") >>$OUTPUT 2>&1
     else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        if [ KERNEL_TYPE = "aufs" ]; then
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/zfsutils-linux/d" | tr "\n" " ") >>$OUTPUT 2>&1
+        else
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        fi
     fi
 fi
 

@@ -19,4 +19,9 @@ if [ KERNEL_TYPE != "aufs" ]; then
         apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
         apt-get install -y aufs-dkms >>$OUTPUT 2>&1
     fi
+    if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+        apt-get update >>$OUTPUT 2>&1
+        apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+        apt-get install -y zfs-dkms >>$OUTPUT 2>&1
+    fi
 fi
