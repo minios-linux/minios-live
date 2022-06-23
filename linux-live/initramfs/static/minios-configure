@@ -706,6 +706,19 @@ else
     fi
 fi
 
+# Specific settings
+if [ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "sid" ]; then
+    if [ "$(virt-what)" = "hyperv" ]; then
+        cat <<EOF >/etc/X11/xorg.conf.d/30-hyperv.conf
+Section "Device"
+    Identifier  "HYPER-V Framebuffer"
+    Driver      "fbdev"
+EndSection
+
+EOF
+    fi
+fi
+
 if [ ! -f /var/.minios-configure ]; then
     echo "MiniOS setup is completed." >/var/.minios-configure
 fi
