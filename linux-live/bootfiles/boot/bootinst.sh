@@ -149,7 +149,7 @@ if [ "$DEV" != "$PART" ]; then
 fi
 
 # UEFI boot loader
-cp -r $BOOT/grub/* $BOOT/../../
+cp -r "EFI" "$BOOT/../../"
 
 echo "Boot installation finished."
 echo "Press Enter..."
