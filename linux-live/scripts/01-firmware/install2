@@ -87,7 +87,7 @@ EOF
         make install
         cd -
     fi
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
         apt-get install -y virtualbox-guest-dkms >>$OUTPUT 2>&1
     else
         TARGET_VER=$KERNEL
