@@ -19,18 +19,8 @@ fi
 echo "KERNEL=$KERNEL" >/livekit.conf
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-        if [ $DISTRIBUTION = "bookworm" ]; then
-            cat <<EOF >/etc/apt/sources.list.d/mx.list
-# MX Community Main and Test Repos
-deb http://mxrepo.com/mx/repo/ testing main non-free
-#deb http://mxrepo.com/mx/testrepo/ testing test
-
-#ahs hardware stack repo
-deb http://mxrepo.com/mx/repo/ testing ahs
-EOF
-        else
-            cat <<EOF >/etc/apt/sources.list.d/mx.list
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        cat <<EOF >/etc/apt/sources.list.d/mx.list
 # MX Community Main and Test Repos
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
@@ -38,14 +28,23 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
-        fi
+    elif [ $DISTRIBUTION = "bookworm" ]; then
+        cat <<EOF >/etc/apt/sources.list.d/antix.list
+deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/testing/ testing main nonfree
+EOF
+    elif [ $DISTRIBUTION = "sid" ]; then
+        cat <<EOF >/etc/apt/sources.list.d/antix.list
+deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
+EOF
     fi
     apt-get update >>$OUTPUT 2>&1
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         if [ $DISTRIBUTION = "orel" ]; then
-            apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
         else
-            apt-get install -y linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
         fi
     elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
@@ -53,15 +52,19 @@ EOF
 
     apt-get install -y broadcom-sta-dkms >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "kali-rolling" ]; then
-        apt-get install -y realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        apt-get install -y \
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             rtl8812au-dkms \
             rtl8821ce-dkms \
             rtl8821cu-dkms >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-        apt-get install -y \
+    elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "#sid" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             rtl8821ce-dkms >>$OUTPUT 2>&1
+            else
         #apt-get install -y git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
         git clone https://github.com/aircrack-ng/rtl8812au
         cd rtl8812au
@@ -87,8 +90,9 @@ EOF
         make install
         cd -
     fi
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-        apt-get install -y virtualbox-guest-dkms >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "#sid" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y virtualbox-guest-dkms >>$OUTPUT 2>&1
     else
         TARGET_VER=$KERNEL
         export TARGET_VER
@@ -102,6 +106,7 @@ EOF
         /tmp/VBoxLinuxAdditions.run
         set -e
     fi
+    if [ -f rm /etc/apt/sources.list.d/mx.list ]; then
+        rm /etc/apt/sources.list.d/mx.list
+    fi
 fi
-
-rm /etc/apt/sources.list.d/mx.list

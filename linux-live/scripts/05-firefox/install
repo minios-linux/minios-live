@@ -17,13 +17,16 @@ apt-get update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         firefox >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         firefox-esr >>$OUTPUT 2>&1
     if [ $LOCALE != "en_US" ]; then
-        apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
     fi
 fi
 
@@ -49,13 +52,13 @@ EOF
     fi
 fi
 
-echo "application/pdf=firefox-esr.desktop" >> /usr/share/applications/mimeapps.list
-    if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]; then
-        sed -i "s,about:welcome,file:///usr/share/minios/html/${LANG[0]}.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
-    else
-        sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
-    fi
-    cat <<'EOF' >>/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
+echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
+if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]; then
+    sed -i "s,about:welcome,file:///usr/share/minios/html/${LANG[0]}.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
+else
+    sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
+fi
+cat <<'EOF' >>/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
 
 pref("browser.tabs.drawInTitlebar", true);
 pref("general.smoothScroll", false);

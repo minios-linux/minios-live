@@ -24,7 +24,8 @@ if [ $PACKAGE_VARIANT = "minimum1" ]; then
 
     # install packages
     apt-get update >>$OUTPUT 2>&1 &&
-        apt-get install -y palemoon >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y palemoon >>$OUTPUT 2>&1
 
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
         if [ ! -d /etc/skel/.config/xfce4 ]; then
@@ -48,10 +49,11 @@ EOF
         fi
     fi
     rm -rf /usr/share/minios/html
-elif [ $PACKAGE_VARIANT = "minimum" ]; then
+elif [ $PACKAGE_VARIANT = "minimum2" ]; then
     apt-get update >>$OUTPUT 2>&1
-    apt-get install -y \
-        epiphany-browser >>$OUTPUT 2>&1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        epiphany-browser gstreamer1.0-plugins-bad >>$OUTPUT 2>&1
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
         if [ ! -d /etc/skel/.config/xfce4 ]; then
             mkdir -p /etc/skel/.config/xfce4
@@ -59,7 +61,7 @@ elif [ $PACKAGE_VARIANT = "minimum" ]; then
         if [ $PACKAGE_VARIANT = "minimum" ]; then
             cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
-FileManager=Thunar
+FileManager=pcmanfm
 WebBrowser=epiphany
 
 EOF
@@ -72,16 +74,36 @@ WebBrowser=epiphany
 EOF
         fi
     fi
+            cat <<EOF >/etc/skel/.config/mimeapps.list
+[Default Applications]
+inode/directory=xfce4-file-manager.desktop
+x-scheme-handler/trash=xfce4-file-manager.desktop
+x-scheme-handler/http=org.gnome.Epiphany.desktop
+x-scheme-handler/https=org.gnome.Epiphany.desktop
+text/html=org.gnome.Epiphany.desktop
+application/xhtml+xml=org.gnome.Epiphany.desktop
+
+[Added Associations]
+inode/directory=xfce4-file-manager.desktop;
+x-scheme-handler/trash=xfce4-file-manager.desktop;
+x-scheme-handler/http=org.gnome.Epiphany.desktop;
+x-scheme-handler/https=org.gnome.Epiphany.desktop;
+text/html=org.gnome.Epiphany.desktop;
+application/xhtml+xml=org.gnome.Epiphany.desktop;
+
+EOF
     rm -rf /usr/share/minios/html
 else
     apt-get update >>$OUTPUT 2>&1
 
     # install packages
     if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        apt-get install -y \
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             firefox >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION_TYPE = "debian" ]; then
-        apt-get install -y \
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             firefox-esr >>$OUTPUT 2>&1
         if [ $LOCALE != "en_US" ]; then
             apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1

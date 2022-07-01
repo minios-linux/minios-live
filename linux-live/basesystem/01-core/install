@@ -91,36 +91,44 @@ fi
 
 # install packages
 if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         zstd >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
-        apt-get install -y \
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             liblz4-tool >>$OUTPUT 2>&1
     else
-        apt-get install -y \
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             lz4 >>$OUTPUT 2>&1
     fi
 fi
 
 # install packages
 if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "stretch" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         isc-dhcp-client >>$OUTPUT 2>&1
 elif [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         connman >>$OUTPUT 2>&1
 else
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         network-manager >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         cpio >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         selinux-policy-default >>$OUTPUT 2>&1
     sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
 fi
@@ -142,12 +150,28 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
-            apt-get update >>$OUTPUT 2>&1
+        elif [ $DISTRIBUTION = "bookworm" ]; then
+            cat <<EOF >/etc/apt/sources.list.d/antix.list
+deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/testing/ testing main nonfree
+EOF
+        elif [ $DISTRIBUTION = "sid" ]; then
+            cat <<EOF >/etc/apt/s
+            ources.list.d/antix.list
+deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
+EOF
+        fi
+        apt-get update >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
-                virtualbox-guest-utils >>$OUTPUT 2>&1
+            virtualbox-guest-utils >>$OUTPUT 2>&1
+        if [ -f /etc/apt/sources.list.d/mx.list ]; then
             rm /etc/apt/sources.list.d/mx.list
         fi
+        if [ -f /etc/apt/sources.list.d/antix.list ]; then
+            rm /etc/apt/sources.list.d/antix.list
+        fi
     fi
+
     if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
         wget http://download.proxmox.com/debian/proxmox-release-bullseye.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bullseye.gpg
         echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" >/etc/apt/sources.list.d/pve-install-repo.list
@@ -175,7 +199,8 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     fi
 fi
 
-apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
+DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
 apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
 
 cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timezone
@@ -194,7 +219,8 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
-    apt-get install -y wireguard wireguard-tools
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y wireguard wireguard-tools
 fi
 
 if [ -f /bin/ping ]; then
