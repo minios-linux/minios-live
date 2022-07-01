@@ -16,13 +16,19 @@ language_to_array
 apt-get update >>$OUTPUT 2>&1
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        apt-get install -t $DISTRIBUTION-backports -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+if [ -f $SCRIPT_DIR/package.list ]; then
+    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,inkscape,inkscape/$DISTRIBUTION-backports,g;/telegram-desktop/d" | tr "\n" " ") >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "bullseye" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,inkscape,inkscape/$DISTRIBUTION-backports,g;s,telegram-desktop,telegram-desktop/$DISTRIBUTION-backports,g" | tr "\n" " ") >>$OUTPUT 2>&1
     else
-        apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
     fi
 fi
 
@@ -30,8 +36,11 @@ if grep -q 'imagemagick' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
     rm -f /usr/share/applications/display-im6.q16.desktop
 fi
 if grep -q 'obs-studio' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
-    mv /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png /usr/share/pixmaps/
-    #convert /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png -resize 128x128 /usr/share/icons/hicolor/128x128/apps/com.obsproject.Studio.png
+    if [ -f /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png ]; then
+        mv /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png /usr/share/pixmaps/
+    elif [ -f /usr/share/icons/hicolor/256x256/apps/obs.png ]; then
+        mv /usr/share/icons/hicolor/256x256/apps/obs.png /usr/share/pixmaps/
+    fi
 fi
 if grep -q 'pdfmod' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do

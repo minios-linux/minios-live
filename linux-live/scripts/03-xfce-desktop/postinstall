@@ -25,8 +25,10 @@ elif [ $PACKAGE_VARIANT = "maximum" ]; then
 elif [ $PACKAGE_VARIANT = "ultra" ]; then
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
-    sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+    if [ $DISTRIBUTION =! "stretch" ] || [ $DISTRIBUTION != "buster" ]; then
+        sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+        sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+    fi
 else
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg

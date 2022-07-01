@@ -13,8 +13,9 @@ apt-get update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] ||  [ $DISTRIBUTION = "jammy" ]; then
-        apt-get install -y \
+    if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
             linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
     else
         apt-get install $APT_OPTIONS
@@ -23,20 +24,24 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         linux-image-generic >>$OUTPUT 2>&1
     fi
 elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         pve-kernel-5.15 >>$OUTPUT 2>&1
 elif [ $DISTRIBUTION = "orel" ]; then
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
         linux-firmware >>$OUTPUT 2>&1
 else
     # install packages
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "bullseye" ]; then
             #Slax 11 no longer uses firmware-nonfree
-            apt-get install -y \
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/firmware-linux-nonfree//g" | tr "\n" " ") >>$OUTPUT 2>&1
         else
-            apt-get install -y \
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
     fi

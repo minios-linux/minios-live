@@ -7,13 +7,13 @@ set -u          # treat unset variable as error
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 function language_to_array() {
-  local IFS
-  IFS="_"
-  LANG=($LOCALE)
+    local IFS
+    IFS="_"
+    LANG=($LOCALE)
 }
 language_to_array
 if [ $LOCALE != "en_US" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="keyboard-layout" version="1.0">
@@ -37,63 +37,66 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-  if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
-    if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
+        if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk >>$OUTPUT 2>&1
+        else
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        fi
+    elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
+        if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/slim/d" | tr "\n" " ") librsvg2-common connman-gtk lightdm >>$OUTPUT 2>&1
+        else
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+        fi
+    #elif [ $DISTRIBUTION = "stretch" ]; then
+    #    apt-get install -y \
+    #        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/network-manager-gnome/d" | tr "\n" " ") wicd >>$OUTPUT 2>&1
     else
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+        else
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y \
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome >>$OUTPUT 2>&1
+        fi
     fi
-  elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
-    if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/slim/d" | tr "\n" " ") librsvg2-common connman-gtk lightdm >>$OUTPUT 2>&1
-    else
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
-    fi
-  #elif [ $DISTRIBUTION = "stretch" ]; then
-  #    apt-get install -y \
-  #        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/network-manager-gnome/d" | tr "\n" " ") wicd >>$OUTPUT 2>&1
-  else
-    if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
-    elif ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]) && ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && grep -q "greybird-gtk-theme" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/greybird-gtk-theme/d" | tr "\n" " ") network-manager-gnome >>$OUTPUT 2>&1
-      wget http://ftp.ru.debian.org/debian/pool/main/g/greybird-gtk-theme/greybird-gtk-theme_3.23.1-1_all.deb
-      apt-get install -y ./greybird-gtk-theme_*.deb
-      rm ./greybird-gtk-theme_*.deb
-    else
-      apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome >>$OUTPUT 2>&1
-    fi
-  fi
 fi
 
 if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-  rm -f /usr/share/applications/yad-icon-browser.desktop
+    rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
 # install packages
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-  wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
-  apt-get install -y \
-    ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-  rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+    wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+    rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
 fi
 
 # install packages
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-  wget http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.16-1_all.deb
-  apt-get install -y \
-    ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
-  rm -f ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
+    wget http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.16-1_all.deb
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
+    rm -f ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
 else
-  apt-get install -y \
-    elementary-xfce-icon-theme >>$OUTPUT 2>&1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        elementary-xfce-icon-theme >>$OUTPUT 2>&1
 fi
 
 #if [ $PACKAGE_VARIANT = "maximum" ]; then
@@ -109,25 +112,25 @@ sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perc
 #fi
 
 if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-  update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
 fi
 if [ -f /usr/share/applications/pavucontrol.desktop ]; then
-  rm -f /usr/share/applications/pavucontrol.desktop
+    rm -f /usr/share/applications/pavucontrol.desktop
 fi
 
 if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
-  if ! grep grep "Name\[ru\]" /usr/share/applications/nm-connection-editor.desktop; then
-    sed -i "7i Name\[ru\]=Расширенная конфигурация сети" /usr/share/applications/nm-connection-editor.desktop
-  fi
+    if ! grep grep "Name\[ru\]" /usr/share/applications/nm-connection-editor.desktop; then
+        sed -i "7i Name\[ru\]=Расширенная конфигурация сети" /usr/share/applications/nm-connection-editor.desktop
+    fi
 fi
 
 if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-  if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
-    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-  elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
-    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-  fi
-  cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
+        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    fi
+    cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
 button-single-row=false
@@ -210,7 +213,7 @@ regex=true
 
 EOF
 else
-  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -304,14 +307,14 @@ EOF
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=pcmanfm
 WebBrowser=
 
 EOF
 elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
 WebBrowser=

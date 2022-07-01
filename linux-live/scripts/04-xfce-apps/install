@@ -17,18 +17,24 @@ apt-get update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        apt-get install -t $DISTRIBUTION-backports -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
-    else
+    DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
-    fi
+        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+fi
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports
+else
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        remmina remmina-plugin-rdp remmina-plugin-vnc
 fi
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
-        apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
         rm -f ./rescuezilla*.deb
     if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
         rm -f /usr/share/applications/yad-icon-browser.desktop
@@ -83,7 +89,8 @@ update-icon-caches /usr/share/icons/*
 
 if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     if [ $LOCALE != "en_US" ]; then
-        apt-get install -y vlc-l10n >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y vlc-l10n >>$OUTPUT 2>&1
     fi
 fi
 if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
