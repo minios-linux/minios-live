@@ -1719,7 +1719,7 @@ set live_settings="$LIVE_SETTINGS"
 set ram_settings="$RAM_SETTINGS"
 set console_settings="console=tty0 console=ttyS0,115200"
 set debug_settings="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0 enable_services=$ENABLE_SERVICES"
-set linux_64="/$LIVEKITNAME/boot/vmlinuz"
+set linux_image="/$LIVEKITNAME/boot/vmlinuz"
 set initrd_img="/$LIVEKITNAME/boot/initrfs.img"
 set default=0
 set message="Loading kernel and ramdisk..."
@@ -1737,8 +1737,8 @@ EOF
         cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
-    search --set -f \$linux_64
-    linux \$linux_64 \$default_settings \$ram_settings \$console_settings $BOOT_SETTINGS
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings \$ram_settings \$console_settings $BOOT_SETTINGS
     initrd \$initrd_img
 }
 
@@ -1755,8 +1755,8 @@ EOF
         cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
-    search --set -f \$linux_64
-    linux \$linux_64 \$default_settings \$ram_settings $BOOT_SETTINGS
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings \$ram_settings $BOOT_SETTINGS
     initrd \$initrd_img
 }
 
@@ -1782,20 +1782,20 @@ EOF
         cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Persistent changes)"{
     echo \$message
-    search --set -f \$linux_64
-    linux \$linux_64 \$default_settings \$perch_settings $BOOT_SETTINGS
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings \$perch_settings $BOOT_SETTINGS
     initrd \$initrd_img
 }
 menuentry "Run MiniOS (Fresh start)"{
     echo \$message
-    search --set -f \$linux_64
-    linux \$linux_64 \$default_settings \$live_settings $BOOT_SETTINGS
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings \$live_settings $BOOT_SETTINGS
     initrd \$initrd_img
 }
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
-    search --set -f \$linux_64
-    linux \$linux_64 \$default_settings \$ram_settings $BOOT_SETTINGS
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings \$ram_settings $BOOT_SETTINGS
     initrd \$initrd_img
 }
 
