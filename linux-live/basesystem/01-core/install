@@ -45,6 +45,9 @@ if [ $LOCALE != "en_US" ]; then
     echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8, $LOCALE.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
 else
     echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "buster" ]; then
+        echo "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
+    fi
 fi
 # Locales settings
 echo "locales locales/default_environment_locale      select  $LOCALE.UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
