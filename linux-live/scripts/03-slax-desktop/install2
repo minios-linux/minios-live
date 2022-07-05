@@ -12,6 +12,11 @@ else
     CBATTICON=1.6.10
 fi
 
+cat <<EOF > /etc/apt/sources.list.d/src.list
+deb-src http://deb.debian.org/debian/ $DISTRIBUTION main contrib non-free
+
+EOF
+
 cd /
 
 REBUILD=/tmp/$NAME-rebuild-$$
