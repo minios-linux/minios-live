@@ -14,7 +14,7 @@ apt-get install --no-install-recommends --yes \
 
 apt-mark manual pcmanfm libfm-gtk4
 
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+if [ $DISTRIBUTION = "stretch" ]; then
     apt-get install --no-install-recommends --yes \
         wicd >>$OUTPUT 2>&1
 else
@@ -25,7 +25,7 @@ fi
 
 (cd /rootcopy-install && cp --parents -afr * /)
 
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+if [ $DISTRIBUTION = "stretch" ]; then
     rm -f /usr/share/applications/6connman.desktop
 else
     rm -f /usr/share/applications/6wicd.desktop
