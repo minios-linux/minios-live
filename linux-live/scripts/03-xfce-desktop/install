@@ -35,27 +35,29 @@ apt-get update >>$OUTPUT 2>&1
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
+wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
+
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
         if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
         else
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
         fi
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
         if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/slim/d" | tr "\n" " ") librsvg2-common connman-gtk lightdm >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/slim/d" | tr "\n" " ") librsvg2-common connman-gtk lightdm ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
         else
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
         fi
     #elif [ $DISTRIBUTION = "stretch" ]; then
     #    apt-get install -y \
@@ -64,26 +66,19 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
         else
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
         fi
     fi
 fi
 
+rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+
 if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
-fi
-
-# install packages
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-    wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-    rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
 fi
 
 # install packages
