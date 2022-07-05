@@ -72,6 +72,10 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g;/davfs2/d;s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "bullseye" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "buster" ]; then
         apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/cockpit-podman/cockpit-docker/g;s/podman/docker/g" | tr "\n" " ") >>$OUTPUT 2>&1
@@ -206,7 +210,8 @@ DEBIAN_FRONTEND=noninteractive \
     apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
 apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
 
-cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timezone
+if [ -d /etc/NetworkManager/dispatcher.d ]; then
+    cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timezone
 #!/bin/sh
 case "$2" in
     up)
@@ -215,7 +220,8 @@ case "$2" in
     ;;
 esac
 EOF
-chmod +x /etc/NetworkManager/dispatcher.d/09-timezone
+    chmod +x /etc/NetworkManager/dispatcher.d/09-timezone
+fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     apt-get autoremove -y linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
@@ -443,4 +449,8 @@ usermod -a -G sudo $USER_NAME
 usermod -a -G netdev $USER_NAME
 if grep -q qemu $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     usermod -a -G libvirt $USER_NAME
+fi
+
+if ! grep -q LANG /etc/default/locale >>$OUTPUT 2>&1; then
+    echo "LANG=\"$LOCALE.UTF-8\"" >>/etc/default/locale
 fi
