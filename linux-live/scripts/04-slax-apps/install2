@@ -12,6 +12,11 @@ cd /
 
 REBUILD=/tmp/pcmanfm-rebuild-$$
 
+cat <<EOF > /etc/apt/sources.list.d/src.list
+deb-src http://deb.debian.org/debian/ $DISTRIBUTION main contrib non-free
+
+EOF
+
 apt-get update >>$OUTPUT 2>&1
 apt-get --yes build-dep pcmanfm >>$OUTPUT 2>&1
 
