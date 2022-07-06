@@ -42,6 +42,16 @@ the famous Chrome browser, developed by Google."
    GUEST=true
 fi
 
+if [ "$1" = "firefox-esr" ]; then
+   NAME="Firefox Web Browser"
+   ABOUT="Firefox is a free and open source browser."
+   EXECUTABLE="/usr/bin/firefox-esr"
+   PREINSTALL="apt update"
+   INSTALL="apt install --yes firefox-esr && minios-firefox-patch"
+   POSTINSTALL="rm -f /usr/share/applications/firefox-esr.desktop"
+   GUEST=false
+fi
+
 shift
 
 # ------------------------------------------------

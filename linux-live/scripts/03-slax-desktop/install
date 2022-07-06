@@ -29,3 +29,5 @@ if [ $DISTRIBUTION = "stretch" ]; then
     sed -i "s,chromium chromium-sandbox,chromium,g" /usr/bin/fbliveapp
     sed -i "s,connman-gtk,wicd-gtk,g" /etc/skel/.fluxbox/menu
 fi
+
+rm -f /usr/share/applications/5chromium.desktop
