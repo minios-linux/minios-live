@@ -70,7 +70,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         else
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb librsvg2-common >>$OUTPUT 2>&1
         fi
     fi
 fi
