@@ -4,21 +4,42 @@ CWD=$(dirname $(readlink -f $0))
 
 echo "wicd-daemon	wicd/users	multiselect	live" | debconf-set-selections
 
+if [ $DISTRIBUTION = "stretch" ]; then
+    PCMANFM="1.2.5-3"
+    MOUSEPAD="0.4.0-4"
+    THUNAR="1.6.11-1"
+elif [ $DISTRIBUTION = "buster" ]; then
+    PCMANFM="1.3.1-1"
+    MOUSEPAD="0.4.1-2"
+    THUNAR="1.8.4-1"
+elif [ $DISTRIBUTION = "bullseye" ]; then
+    PCMANFM="1.3.2-1"
+    MOUSEPAD="0.5.2-1"
+    THUNAR="4.16.8-1"
+else
+    exit 0
+fi
+
 apt-get update >>$OUTPUT 2>&1
+
+wget https://github.com/minios-linux/packages/releases/download/v1.0/mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb
+wget https://github.com/minios-linux/packages/releases/download/v1.0/pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb
 apt-get install --no-install-recommends --yes \
-    mousepad \
+    ./mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb \
+    ./pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb \
     galculator \
-    pcmanfm \
     lxtask \
     xarchiver xdg-utils libgconf-2-4 >>$OUTPUT 2>&1
 
-apt-mark manual pcmanfm libfm-gtk4
+rm -f ./mousepad*.deb ./pcmanfm*.deb
+
+apt-mark manual pcmanfm mousepad libfm-gtk4
+apt-mark hold pcmanfm mousepad
 
 if [ $DISTRIBUTION = "stretch" ]; then
     apt-get install --no-install-recommends --yes \
         wicd >>$OUTPUT 2>&1
 else
-    echo "Installing Connman..."
     apt-get install --no-install-recommends --yes \
         connman-gtk >>$OUTPUT 2>&1
 fi
@@ -34,3 +55,13 @@ else
     rm -f /usr/bin/wicd-manager
     rm -f /lib/systemd/system/resume_wifi.service
 fi
+
+rm -f /usr/share/applications/mousepad.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/qalculate-gtk.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/galculator.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/pcmanfm.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/wicd.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/connman-gtk.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/nm-applet.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/nm-connection-editor.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/lxtask.desktop >>$OUTPUT 2>&1
