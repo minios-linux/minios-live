@@ -1,8 +1,8 @@
 #!/bin/bash
 set -x -e
-KERNELVERSION=5.10.106
+KERNELVERSION=5.10.120
 KERNEL=linux-$KERNELVERSION
-CONFIG=/boot/config-5.10.0-13-*
+CONFIG=/boot/config-5.10.0-15-*
 AUFS=aufs5-standalone
 CHECKOUT=origin/aufs5.10.82
 
@@ -10,8 +10,6 @@ apt update
 apt install --yes git
 apt build-dep linux
 apt source linux
-#wget https://cdn.kernel.org/pub/linux/kernel/v5.x/$KERNEL.tar.xz
-#tar -xf $KERNEL.tar.xz
 
 cd $KERNEL
 rm -Rf $AUFS
