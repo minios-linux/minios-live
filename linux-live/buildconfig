@@ -28,6 +28,11 @@ COMP_TYPE="zstd"
 KERNEL_TYPE="default"
 #KERNEL_TYPE="aufs"
 #KERNEL_TYPE="pve"
+#KERNEL_TYPE="rt"
+#KERNEL_TYPE="cloud"
+
+# Linux kernel from backports
+KERNEL_BPO="false"
 
 if [ $PACKAGE_VARIANT = "pve" ]; then
     KERNEL_TYPE="pve"
