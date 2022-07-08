@@ -53,9 +53,11 @@ function common_variables() {
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
         PACKAGE_VARIANT="cloud"
+        KERNEL_TYPE="cloud"
     fi
     if [ $DESKTOP_ENVIRONMENT = "pve" ]; then
         PACKAGE_VARIANT="pve"
+        KERNEL_TYPE="pve"
     fi
 
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
@@ -72,8 +74,10 @@ function common_variables() {
         DISTRIBUTION_URL="http://mirror.yandex.ru/astra/stable/orel/repository"
     fi
 
-    if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]) && [ $COMP_TYPE = "zstd" ]; then
+    if [ $DISTRIBUTION = "orel" ] && [ $COMP_TYPE = "zstd" ]; then
         COMP_TYPE="lz4"
+    elif [ $DISTRIBUTION = "stretch" ] && ([ $COMP_TYPE = "zstd" ] || [ $COMP_TYPE = "lz4" ]); then
+        COMP_TYPE="gzip"
     fi
 
 }
@@ -1992,7 +1996,7 @@ function chroot_cleanup() {
     rm -f $1/functions
     rm -f $1/preinstall
     rm -f $1/install
-    rm -f $1/install2
+    rm -f $1/build
     rm -f $1/cleanup
     rm -f $1/$PACKAGE_VARIANT.list
     rm -f $1/package.list
@@ -2266,25 +2270,6 @@ function chroot_configure() {
     if [ ! -d /etc/$LIVEKITNAME ]; then
         mkdir -p /etc/$LIVEKITNAME
     fi
-    cat <<EOF >/etc/$LIVEKITNAME/config
-#!/bin/bash
-# This is a config file for MiniOS-Live build script and Linux Live Kit boot script.
-# !!! You shouldn't need to change anything expect PACKAGE_VARIANT OUTPUT COMP_TYPE !!!
-LIVEKITNAME="$LIVEKITNAME"
-SYSTEMNAME="$SYSTEMNAME"
-DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE"
-DISTRIBUTION="$DISTRIBUTION"
-DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
-PACKAGE_VARIANT="$PACKAGE_VARIANT"
-DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT"
-COMP_TYPE="$COMP_TYPE" # Compression method used for the system and modules.
-OUTPUT="/dev/stdout" # Default is output to /dev/stdout. You can use OUTPUT="/dev/null" if you want to silent installation or OUTPUT="somefilename.log" to route events to log file.
-DEBIAN_FRONTEND_TYPE="noninteractive"
-APT_CMD="apt-get"
-APT_OPTIONS="-y"
-UNION_BUILD_TYPE="overlayfs"
-BEXT="sb"
-EOF
 
     if [ ! -d /etc/NetworkManager ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
@@ -2791,7 +2776,7 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/var/lib/dpkg/*-old
         rm -f $MODULE_UPPER_DIR/preinstall
         rm -f $MODULE_UPPER_DIR/install
-        rm -f $MODULE_UPPER_DIR/install2
+        rm -f $MODULE_UPPER_DIR/build
         rm -f $MODULE_UPPER_DIR/cleanup
         rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
         rm -f $MODULE_UPPER_DIR/package.list
@@ -2826,7 +2811,7 @@ function module_chroot_cleanup() {
         rm -f $MODULE_UPPER_DIR/var/lib/dpkg/*-old >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/preinstall >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/install >>$OUTPUT 2>&1
-        rm -f $MODULE_UPPER_DIR/install2 >>$OUTPUT 2>&1
+        rm -f $MODULE_UPPER_DIR/build >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/cleanup >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1
         rm -f $MODULE_UPPER_DIR/package.list >>$OUTPUT 2>&1
@@ -2939,7 +2924,7 @@ function build_modules() {
                 fi
 
                 # copy files
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
@@ -2983,7 +2968,7 @@ function build_modules() {
                     fi
                 fi
 
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     module_chroot_umount_fs
 
                     module_build_cleanup
@@ -3007,20 +2992,20 @@ function build_modules() {
                     module_chroot_mount_fs
 
                     module_add_unofficial_repository
-                fi
 
-                # run install2 script
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/install2 ]; then
-                    cp $SOURCE_MODULES_DIR/$MODULE/install2 $MODULE_MERGED_DIR/install2
-                    chmod +x $MODULE_MERGED_DIR/install2
-                    if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
-                        mkdir $MODULE_MERGED_DIR/patches
-                        (cd $SOURCE_MODULES_DIR/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
-                    fi
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR /install2
-                    else
-                        chroot_run $MODULE_MERGED_DIR /install2 >>$OUTPUT 2>&1
+                    # run build script
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/build $MODULE_MERGED_DIR/build
+                        chmod +x $MODULE_MERGED_DIR/build
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
+                            mkdir $MODULE_MERGED_DIR/patches
+                            (cd $SOURCE_MODULES_DIR/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                        fi
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            chroot_run $MODULE_MERGED_DIR /build
+                        else
+                            chroot_run $MODULE_MERGED_DIR /build >>$OUTPUT 2>&1
+                        fi
                     fi
                 fi
 
@@ -3061,7 +3046,7 @@ function build_modules() {
                 fi
 
                 # copy files
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                         if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
@@ -3096,7 +3081,7 @@ function build_modules() {
                     fi
                 fi
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     set +e
                     chroot_run $MODULE_MERGED_DIR uncompress_files /etc/alternatives
                     chroot_run $MODULE_MERGED_DIR uncompress_files /usr/share/man
@@ -3106,9 +3091,9 @@ function build_modules() {
                 fi
 
                 # run external actions
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
                     cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
-                elif [ -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
+                elif [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
                     cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                     chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                 fi
@@ -3117,7 +3102,7 @@ function build_modules() {
 
                 module_chroot_umount_fs
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     module_build_cleanup
                 fi
 
@@ -3125,7 +3110,7 @@ function build_modules() {
 
                 module_remove_unofficial_repository
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/is_internal_build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             #mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit

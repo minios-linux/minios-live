@@ -133,7 +133,7 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         cpio >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
+if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || ([ $DISTRIBUTION = "buster" ] && [ $KERNEL_BPO = "true" ]); then
     DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
         selinux-policy-default >>$OUTPUT 2>&1
@@ -186,9 +186,13 @@ EOF
             apt-get full-upgrade -y >>$OUTPUT 2>&1
         #KERNEL_IMAGE="pve-kernel-5.15"
         KERNEL_IMAGE=$(apt-cache depends pve-kernel-5.15 | grep -m 2 'Depends:' | tail -n1 | sed 's/  Depends: //g')
+    elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "aufs" ]; then
+        KERNEL_IMAGE="linux-image-5.10.0-15-amd64"
     elif [ $DISTRIBUTION = "orel" ]; then
         #KERNEL_IMAGE="linux-image-5.10-generic"
         KERNEL_IMAGE="$(apt-cache depends linux-image-5.10-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
+    elif [ $KERNEL_TYPE = "rt" ] || [ $KERNEL_TYPE = "cloud" ]; then
+        KERNEL_IMAGE="linux-image-$KERNEL_TYPE-$KERNEL_ARCH"
     else
         KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
     fi
@@ -206,9 +210,15 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     fi
 fi
 
+if [ $KERNEL_BPO = "true" ]; then
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y -t $DISTRIBUTION-backports $KERNEL_IMAGE >>$OUTPUT 2>&1
+else
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
+fi
 DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
-apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
+    apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
 
 if [ -d /etc/NetworkManager/dispatcher.d ]; then
     cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timezone
