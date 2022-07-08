@@ -40,38 +40,17 @@ wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
-        if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-        else
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-        fi
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
-        if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/slim/d" | tr "\n" " ") librsvg2-common connman-gtk lightdm ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-        else
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-        fi
-    #elif [ $DISTRIBUTION = "stretch" ]; then
-    #    apt-get install -y \
-    #        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/network-manager-gnome/d" | tr "\n" " ") wicd >>$OUTPUT 2>&1
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
     else
-        if grep -q "wicd" $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $DESKTOP_ENVIRONMENT = "slax" ]; then
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
-        else
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb librsvg2-common >>$OUTPUT 2>&1
-        fi
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
     fi
 fi
 
@@ -105,6 +84,32 @@ sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" t
 sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<property name="HintStyle" type="string" value="hintfull"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 #fi
+
+if [ $DISTRIBUTION = "stretch" ]; then
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="thunar" version="1.0">
+  <property name="last-view" type="string" value="ThunarIconView"/>
+  <property name="last-icon-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_NORMAL"/>
+  <property name="last-separator-position" type="int" value="170"/>
+  <property name="last-show-hidden" type="bool" value="false"/>
+  <property name="last-window-maximized" type="bool" value="false"/>
+  <property name="last-window-width" type="int" value="640"/>
+  <property name="last-window-height" type="int" value="480"/>
+  <property name="last-side-pane" type="string" value="ThunarShortcutsPane"/>
+  <property name="last-location-bar" type="string" value="ThunarLocationEntry"/>
+  <property name="last-details-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_38_PERCENT"/>
+  <property name="last-details-view-column-widths" type="string" value="50,113,50,50,216,50,50,68,50,178"/>
+  <property name="misc-single-click" type="bool" value="false"/>
+  <property name="shortcuts-icon-size" type="string" value="THUNAR_ICON_SIZE_SMALLEST"/>
+  <property name="default-view" type="string" value="ThunarIconView"/>
+  <property name="misc-file-size-binary" type="bool" value="true"/>
+  <property name="misc-middle-click-in-tab" type="bool" value="false"/>
+</channel>
+
+EOF
+fi
 
 if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
