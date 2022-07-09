@@ -10,6 +10,7 @@ gcry_seed: crypto
 ufs2:
 tr: extcmd
 lsacpi: extcmd acpi
+json:
 gfxterm_background: extcmd gfxterm bitmap video video_colors bitmap_scale
 file: offsetio extcmd elf macho
 xnu_uuid: gcry_md5
@@ -62,7 +63,7 @@ sfs: fshelp
 zfscrypt: extcmd zfs crypto pbkdf2 gcry_rijndael gcry_sha1
 video_bochs: video_fb video
 udf: fshelp
-datehook: datetime normal
+datehook: datetime
 adler32: crypto
 setjmp_test: setjmp functional_test
 ntfscomp: ntfs
@@ -77,8 +78,8 @@ crypto:
 strtoull_test: functional_test
 pcidump: extcmd
 mdraid09_be: diskfilter
-shim_lock:
-normal: extcmd crypto boot bufio gettext terminal
+afsplitter: crypto
+normal: extcmd datetime crypto boot net bufio gettext terminal
 tftp: net
 gcry_whirlpool: crypto
 fat: fshelp
@@ -104,7 +105,7 @@ kernel:
 usbtest: usb
 linuxefi: boot linux
 gptsync: disk
-date: datetime normal
+date: datetime
 xnu: relocator extcmd boot random bitmap video mmap bitmap_scale macho
 mul_test: functional_test
 bufio:
@@ -160,12 +161,13 @@ part_msdos:
 morse:
 http: net
 part_gpt:
+luks2: json crypto pbkdf2 afsplitter cryptodisk
 elf:
 diskfilter:
 bitmap:
 cmp:
 uhci: usb
-ls: extcmd normal
+ls: extcmd datetime normal
 search: extcmd search_fs_uuid search_fs_file search_label
 raid6rec: diskfilter
 minix3_be:
@@ -191,7 +193,7 @@ minix3:
 gfxmenu: gfxterm font normal bitmap video video_colors bitmap_scale trig
 dm_nv: diskfilter
 search_fs_file:
-luks: pbkdf2 crypto cryptodisk
+luks: crypto pbkdf2 afsplitter cryptodisk
 ldm: part_msdos part_gpt diskfilter
 hfsplus: fshelp
 hfs: fshelp
@@ -255,6 +257,7 @@ ahci: ata boot
 pbkdf2_test: pbkdf2 functional_test gcry_sha1
 macho:
 efi_uga: video_fb video
+smbios: extcmd
 signature_test: procfs functional_test
 gcry_serpent: crypto
 bfs: fshelp
