@@ -11,6 +11,9 @@
 # =================================================================
 
 function common_variables() {
+    # List of variables passed to chroot.
+    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE KERNEL_BPO LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME"
+
     #
     CONTAINER_TYPE="0"
     set +u
@@ -854,6 +857,7 @@ PACKAGE_VARIANT=$PACKAGE_VARIANT
 COMP_TYPE=$COMP_TYPE
 KERNEL_ARCH=$KERNEL_ARCH
 KERNEL_TYPE=$KERNEL_TYPE
+KERNEL_BPO=$KERNEL_BPO
 LIVEKITNAME=$LIVEKITNAME
 SYSTEMNAME=$SYSTEMNAME
 DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
@@ -1021,8 +1025,8 @@ function get_vars() {
     set +u
     add_chroot_configuration_files $1
     . /functions
-    read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
-    export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
+    read_config /$LIVEKITNAME.conf $VARIABLES
+    export $VARIABLES
     set -u
 }
 
@@ -1031,8 +1035,8 @@ function chroot_run() {
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /functions
-read_config /$LIVEKITNAME.conf OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
-export OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME
+read_config /$LIVEKITNAME.conf $VARIABLES
+export $VARIABLES
 ${@:2}
 EOF
     remove_chroot_configuration_files $1
@@ -1602,6 +1606,21 @@ search --file --set=root /.disk/info
 set prefix=(\$root)/minios/boot/grub
 source \$prefix/x86_64-efi/grub.cfg
 EOF
+            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/x86_64-efi/grub.cfg
+insmod part_acorn
+insmod part_amiga
+insmod part_apple
+insmod part_bsd
+insmod part_dfly
+insmod part_dvh
+insmod part_gpt
+insmod part_msdos
+insmod part_plan
+insmod part_sun
+insmod part_sunpc
+source /$LIVEKITNAME/boot/grub/grub.cfg
+
+EOF
         elif [[ $DISTRIBUTION_ARCH == *"i386"* ]]; then
             rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/x86_64-efi
             rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img
@@ -1611,6 +1630,21 @@ EOF
 search --file --set=root /.disk/info
 set prefix=(\$root)/minios/boot/grub
 source \$prefix/i386-efi/grub.cfg
+EOF
+            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi/grub.cfg
+insmod part_acorn
+insmod part_amiga
+insmod part_apple
+insmod part_bsd
+insmod part_dfly
+insmod part_dvh
+insmod part_gpt
+insmod part_msdos
+insmod part_plan
+insmod part_sun
+insmod part_sunpc
+source /$LIVEKITNAME/boot/grub/grub.cfg
+
 EOF
         fi
 
@@ -1869,8 +1903,7 @@ function build_iso() {
         C="-no-emul-boot -boot-load-size 4 -boot-info-table"
     fi
 
-    # ▼ должно быть только перенаправление ошибки!
-
+    #                        ▼ should only be a redirect error!
     if [ -x "$(which xorriso 2>>$OUTPUT)" ] && [ $BOOT_TYPE = "hybrid" ]; then
         M="xorriso -as mkisofs -isohybrid-mbr $DIR/$LIVEKITNAME/boot/isohdpfx.bin"
         D=" -isohybrid-gpt-basdat -e"
@@ -1907,6 +1940,23 @@ function build_iso() {
         then
             exit 1
         fi
+        # testing iso boot transition to grub.
+        : 'xorriso -as mkisofs -r \
+            -V "$VER" \
+            -o "$ISO-2" \
+            --grub2-mbr "$LIVEKITNAME/boot/grub/boot_hybrid.img" \
+            -partition_offset 16 \
+            --mbr-force-bootable \
+            -append_partition 2 28732ac11ff8d211ba4b00a0c93ec93b "$LIVEKITNAME/boot/grub/efi.img" \
+            -appended_part_as_gpt \
+            -iso_mbr_part_type a2a0d0ebe5b9334487c068b6b72699c7 \
+            -c "$LIVEKITNAME/boot/grub/boot.catalog" \
+            -b "$LIVEKITNAME/boot/grub/i386-pc/eltorito.img" \
+            -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
+            -eltorito-alt-boot \
+            -e "--interval:appended_partition_2:::" \
+            -no-emul-boot \
+            $DIR'
     else
         if
             ! $M -f -r -J -l -V "$VER" -A "$VER" \
@@ -3302,22 +3352,27 @@ function download_sources() {
 # =================================================================
 # =================================================================
 
+function generate_config_files() {
+    cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
+    cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
+    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
+    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+}
+
 function container_run() {
     if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
-        cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
-        cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
-        sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-        sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-        sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-        sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-        sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-        sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-        sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
-        sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+        generate_config_files
         # run your container
         $container_engine run -d --log-driver=journald --name $CONTAINER_NAME --privileged -v /dev:/dev --device-cgroup-rule 'b 7:* rmw' -v /build:/build \
             -e DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
@@ -3360,6 +3415,7 @@ function container_run() {
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="4" \
             -e KERNEL_TYPE="$KERNEL_TYPE" \
+            -e KERNEL_BPO="false" \
             -e USE_MX_REPO="false" \
             -e USE_ANTIX_REPO="false" \
             -e USE_UNOFFICIAL_REPOSITORY="false" \
@@ -3369,16 +3425,7 @@ function container_run() {
 }
 
 function live_run() {
-    cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
-    cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
-    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
-    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    generate_config_files
     # run
     /usr/bin/env \
         DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
@@ -3421,6 +3468,7 @@ function live_run() {
         FILTER_MODULES="false" \
         FILTER_LEVEL="4" \
         KERNEL_TYPE="$KERNEL_TYPE" \
+        KERNEL_BPO="false" \
         USE_MX_REPO="false" \
         USE_ANTIX_REPO="false" \
         USE_UNOFFICIAL_REPOSITORY="false" \
