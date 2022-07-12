@@ -1,4 +1,4 @@
-[![MiniOS](images/minios.png)](https://t.me/minios_news)
+[![MiniOS](images/minios.png)](https://minios.dev)
 
 The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface.
 
@@ -51,4 +51,4 @@ To build with docker, create a build folder in your home folder, put minios-live
 
 `docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc /build/minios-live/install -`
 
-Author: crims0n <https://t.me/minios_news>
+Author: crims0n <https://minios.dev>
