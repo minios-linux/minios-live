@@ -3491,7 +3491,12 @@ function container_build_finish() {
         mkdir -p $SCRIPT_DIR/logs
     fi
     $container_engine logs $CONTAINER_NAME >&$SCRIPT_DIR/logs/$CONTAINER_NAME.log
-    if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
+    START=$(docker inspect --format='{{.State.StartedAt}}' $CONTAINER_NAME)
+    STOP=$(docker inspect --format='{{.State.FinishedAt}}' $CONTAINER_NAME)
+    START_TIMESTAMP=$(date --date=$START +%s)
+    STOP_TIMESTAMP=$(date --date=$STOP +%s)
+    echo $(($STOP_TIMESTAMP-$START_TIMESTAMP)) seconds
+    if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         # cleanup
         $container_engine rm -f $CONTAINER_NAME
     fi
