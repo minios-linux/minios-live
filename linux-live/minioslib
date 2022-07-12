@@ -3495,7 +3495,8 @@ function container_build_finish() {
     STOP=$(docker inspect --format='{{.State.FinishedAt}}' $CONTAINER_NAME)
     START_TIMESTAMP=$(date --date=$START +%s)
     STOP_TIMESTAMP=$(date --date=$STOP +%s)
-    echo $(($STOP_TIMESTAMP-$START_TIMESTAMP)) seconds
+    echo "Container runtime count: $CONTAINER_NAME $(($STOP_TIMESTAMP - $START_TIMESTAMP)) seconds"
+    echo "Container runtime count: $CONTAINER_NAME $(($STOP_TIMESTAMP - $START_TIMESTAMP)) seconds" >>$SCRIPT_DIR/logs/$CONTAINER_NAME.log
     if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         # cleanup
         $container_engine rm -f $CONTAINER_NAME
