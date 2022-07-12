@@ -21,18 +21,20 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
-if [ $DISTRIBUTION = "stretch" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports  libssh-4/$DISTRIBUTION-backports >>$OUTPUT 2>&1
-elif [ $DISTRIBUTION = "buster" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports >>$OUTPUT 2>&1
-else
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
+if [ $PACKAGE_VARIANT != "minimum" ]; then
+    if [ $DISTRIBUTION = "stretch" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports libssh-4/$DISTRIBUTION-backports >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "buster" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports >>$OUTPUT 2>&1
+    else
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
+    fi
 fi
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
@@ -105,10 +107,10 @@ if [ $LOCALE != "en_US" ]; then
     sed -i "s/doublecmd.en.po/doublecmd.${LANG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
 fi
 
-if [ $PACKAGE_VARIANT = "minimum" ]; then
+: 'if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
-FileManager=pcmanfm
+FileManager=Thunar
 WebBrowser=
 
 EOF
@@ -118,6 +120,6 @@ TerminalEmulator=xfce4-terminal
 FileManager=Thunar
 WebBrowser=
 
-EOF
-    sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
-fi
+EOF'
+sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
+#fi
