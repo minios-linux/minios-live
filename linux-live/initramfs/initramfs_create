@@ -181,6 +181,7 @@ copy_including_deps /$LMK/kernel/drivers/mmc
 # network support drivers
 if [ "$NETWORK" = "true" ]; then
    copy_including_deps /$LMK/kernel/drivers/net/ethernet
+   copy_including_deps /$LMK/kernel/drivers/net/phy
    if [ "$CLOUD" = "true" ]; then
       copy_including_deps /$LMK/kernel/drivers/net/vmxnet3
       copy_including_deps /$LMK/kernel/drivers/net/virtio_net.*
