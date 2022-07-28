@@ -170,6 +170,9 @@ allow_root_only
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+    mkdir -p /mnt/live/memory
+    ln -s /run/initramfs/memory/bundles /mnt/live/memory/images
+    dpkg-fix
     if [ ! -d var/log/minios ]; then
         mkdir -p var/log/minios
     fi
