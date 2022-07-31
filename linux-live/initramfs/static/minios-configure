@@ -182,9 +182,7 @@ fi
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
     mkdir -p /mnt/live/memory
     ln -s /run/initramfs/memory/bundles /mnt/live/memory/images
-    if [ -f /usr/bin/dpkg-fix ]; then
-        /usr/bin/dpkg-fix
-    fi
+    dpkg-fix
 fi
 
 if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
