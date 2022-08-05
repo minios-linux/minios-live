@@ -2,15 +2,22 @@
 
 export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 
-. /linux-live/config || exit 1
-. /linux-live/livekitlib || exit 1
-. /linux-live/buildconfig || exit 1
+if [ -f /linux-live/container_buildconfig ]; then
+	. /linux-live/container_buildconfig || exit 1
+else
+	. /linux-live/buildconfig || exit 1
+fi
+. /linux-live/kernelconfig || exit 1
+
+echo "KERNEL=$KERNEL"
+echo "KERNEL_BPO=$KERNEL_BPO"
+echo "KERNEL_AUFS=$KERNEL_AUFS"
 
 # build initramfs image
 echo "Building intramfs image..."
 cd /linux-live/initramfs
 chmod 755 ./initramfs_create
-INITRAMFS=$(./initramfs_create)
+INITRAMFS=$(./initramfs_create $KERNEL)
 
 if [ "$INITRAMFS" != "" ]; then
 	mv "$INITRAMFS" /boot/initrfs.img

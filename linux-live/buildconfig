@@ -1,5 +1,6 @@
 #!/bin/bash
 
+##### DISTRIBUTION SETTINGS #####
 # distribution type
 # тип дистрибутива
 DISTRIBUTION_TYPE="debian"
@@ -23,38 +24,36 @@ PACKAGE_VARIANT="standard"
 # тип сжатия
 # compresssion type
 COMP_TYPE="zstd"
+###########################
 
-# If you need aufs on Debian 11 and up, set KERNEL_TYPE="aufs"
+##### KERNEL SETTINGS #####
+# [default, rt, cloud, pve]
 KERNEL_TYPE="default"
-#KERNEL_TYPE="aufs"
-#KERNEL_TYPE="pve"
-#KERNEL_TYPE="rt"
-#KERNEL_TYPE="cloud"
 
 # Linux kernel from backports
+# Ядро из бэкпортов
 KERNEL_BPO="false"
 
-if [ $PACKAGE_VARIANT = "pve" ]; then
-    KERNEL_TYPE="pve"
-elif [ $PACKAGE_VARIANT = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
-    echo "You can't build PVE with i386"
-    exit 0
-fi
-if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
-    KERNEL_TYPE = "default"
-fi
+# Debian kernel with AUFS support
+# Ядро Debian с поддержкой AUFS
+KERNEL_AUFS="false"
 
-if [ $KERNEL_TYPE = "aufs" ]; then
-    #KERNEL=$(get_latest_release minios-linux/aufs-kernel)
-    KERNEL="5.10.113"
-elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
-    KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
-else
-    KERNEL=$(uname -r)
-fi
-if echo $KERNEL | grep -q 'pve'; then
-    KERNEL=${KERNEL::-6}
-fi
+# If true, then the names of initrfs.img and vmlinuz will indicate the version of the kernel for which they are intended.
+# Если true, то имена initrfs.img и vmlinuz будут указывать на версию ядра, для которой они предназначены.
+NAMED_BOOT_FILES="false"
+
+# If true, then initrfs.img and vmlinuz will be copied to the minios-install/build/[distribution name]/kernel folder when the kernel is installed.
+# Если true, то initrfs.img и vmlinuz будут скопированы в папку minios-install/build/[distribution name]/kernel при установке ядра.
+EXPORT_KERNEL="false"
+
+# If true, then initrfs.img and vmlinuz will be moved to the minios-install/build/[distribution name]/kernel folder when the kernel is installed.
+# Если true, то initrfs.img и vmlinuz будут перемещены в папку minios-install/build/[distribution name]/kernel при установке ядра.
+MOVE_KERNEL="false"
+###########################
+
+##### LOCALE&TIMEZONE SETTINGS #####
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 
 # user setup
 USER_NAME="live"
@@ -66,11 +65,6 @@ DISABLE_SERVICES=""
 SSH_KEY="authorized_keys"
 CLOUD="false"
 HIDE_CREDENTIALS="false"
-
-LOCALE="en_US"
-#LOCALE="ru_RU"
-TIMEZONE="Etc/UTC"
-#TIMEZONE="Europe/Moscow"
 
 # bootstrap variant (used to build Ubuntu)
 # вариант bootstrap (используется для сборки Ubuntu)
@@ -118,10 +112,9 @@ APT_OPTIONS="-y"
 BOOT_TYPE="hybrid"
 #BOOT_TYPE=""
 
-# union type used to build the system
-# тип union, используемый для сборки системы
+# union type used to build the system [aufs, overlayfs]
+# тип union, используемый для сборки системы [aufs, overlayfs]
 UNION_BUILD_TYPE="overlayfs"
-#UNION_BUILD_TYPE="aufs"
 
 # Used when assigned to the ISO name when building minios-live
 # Используется при назначении имени ISO при сборке minios-live

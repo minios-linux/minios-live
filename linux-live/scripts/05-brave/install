@@ -26,7 +26,7 @@ if [ ! -d /etc/$APP.d/ ]; then
 fi
 echo "export ${APP^^}_FLAGS=\"${APP^^}_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1\"" >>/etc/$APP.d/default-flags
 
-if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+: 'if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
         mkdir -p /etc/skel/.config/xfce4
     fi
@@ -45,7 +45,7 @@ WebBrowser=$APP_EXECUTABLE
 
 EOF
     fi
-fi
+fi'
 
 if grep slax /etc/hostname >/dev/null; then
     cat <<EOF >/usr/bin/fblive-add-$APP.sh

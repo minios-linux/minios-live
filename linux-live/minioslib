@@ -12,7 +12,7 @@
 
 function common_variables() {
     # List of variables passed to chroot.
-    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE KERNEL_BPO LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME"
+    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME"
 
     #
     CONTAINER_TYPE="0"
@@ -33,6 +33,10 @@ function common_variables() {
     fi
     if [[ (-f /.dockerenv || "$container" = "podman") && -f /.minios-live-container ]]; then
         CONTAINER_TYPE="2"
+    fi
+
+    if [ $EXPORT_KERNEL = "true" ]; then
+        NAMED_BOOT_FILES="true"
     fi
 
     if [ $DISTRIBUTION_ARCH = "amd64" ]; then
@@ -414,7 +418,7 @@ function create_livekitname_install_symlink() {
         fi
     fi
     if [ ! -f /usr/bin/minios-modules ]; then
-        cp "$SCRIPT_DIR/linux-live/basesystem/01-core/rootcopy-install/usr/bin/minios-modules" /usr/bin/minios-modules
+        cp "$SCRIPT_DIR/linux-live/basesystem/00-core/rootcopy-install/usr/bin/minios-modules" /usr/bin/minios-modules
         if [ "$0" != "/usr/bin/minios-modules" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
                 echo -e "Вы можете использовать команду ${CYAN}minios-modules${ENDCOLOR} для запуска программы сборки модулей."
@@ -858,6 +862,7 @@ COMP_TYPE=$COMP_TYPE
 KERNEL_ARCH=$KERNEL_ARCH
 KERNEL_TYPE=$KERNEL_TYPE
 KERNEL_BPO=$KERNEL_BPO
+KERNEL_AUFS=$KERNEL_AUFS
 LIVEKITNAME=$LIVEKITNAME
 SYSTEMNAME=$SYSTEMNAME
 DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
@@ -1086,8 +1091,9 @@ function build_bootstrap() {
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
             if [ $DISTRIBUTION = "orel" ]; then
-                cd /usr/share/debootstrap/scripts
-                ln -s sid orel
+                if [ ! -L /usr/share/debootstrap/scripts/orel ]; then
+                    ln -s sid /usr/share/debootstrap/scripts/orel
+                fi
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             elif [ $PACKAGE_VARIANT = "minimum" ]; then
@@ -1316,62 +1322,71 @@ EOF
 # =================================================================
 function copy_build_scripts() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
-    if [ ! -d $INSTALL_DIR/linux-live ]; then
-        mkdir -p $INSTALL_DIR/linux-live
-        (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $INSTALL_DIR/linux-live)
+
+    local DESTINATION
+    set +u
+    if [ -z $1 ]; then
+        DESTINATION=$INSTALL_DIR
+    else
+        DESTINATION=$1
+    fi
+    set -u
+    if [ ! -d $DESTINATION/linux-live ]; then
+        mkdir -p $DESTINATION/linux-live
+        (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $DESTINATION/linux-live)
     else
         find $SCRIPT_DIR/linux-live -type f -not -path "*.git/*" -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
             if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                if ! cmp $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file"; then
+                if ! cmp $SCRIPT_DIR/linux-live/"$file" $DESTINATION/linux-live/"$file"; then
                     echo -e "$file has been modified since last build run."
-                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $INSTALL_DIR/linux-live/$file..."
-                    cp -f $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file"
+                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $DESTINATION/linux-live/$file..."
+                    cp -f $SCRIPT_DIR/linux-live/"$file" $DESTINATION/linux-live/"$file"
                 fi
             else
-                if ! cmp $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file" >>$OUTPUT 2>&1; then
+                if ! cmp $SCRIPT_DIR/linux-live/"$file" $DESTINATION/linux-live/"$file" >>$OUTPUT 2>&1; then
                     echo -e "$file has been modified since last build run." >>$OUTPUT 2>&1
-                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $INSTALL_DIR/linux-live/$file..." >>$OUTPUT 2>&1
-                    cp -f $SCRIPT_DIR/linux-live/"$file" $INSTALL_DIR/linux-live/"$file" >>$OUTPUT 2>&1
+                    echo -e "Copying $SCRIPT_DIR/linux-live/$file to $DESTINATION/linux-live/$file..." >>$OUTPUT 2>&1
+                    cp -f $SCRIPT_DIR/linux-live/"$file" $DESTINATION/linux-live/"$file" >>$OUTPUT 2>&1
                 fi
             fi
         done
     fi
 
-    #chmod +x $INSTALL_DIR/linux-live/build
-    chmod +x $INSTALL_DIR/linux-live/install_chroot
+    #chmod +x $DESTINATION/linux-live/build
+    chmod +x $DESTINATION/linux-live/install_chroot
 
     if [ "$DEV_SYSTEM" = "true" ]; then
-        if [ ! -d $INSTALL_DIR/opt/minios-live ]; then
-            mkdir -p $INSTALL_DIR/opt/minios-live
-            (cd $SCRIPT_DIR && cp --parents -afr * $INSTALL_DIR/opt/minios-live)
+        if [ ! -d $DESTINATION/opt/minios-live ]; then
+            mkdir -p $DESTINATION/opt/minios-live
+            (cd $SCRIPT_DIR && cp --parents -afr * $DESTINATION/opt/minios-live)
         else
             find $SCRIPT_DIR/linux-live -type f -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
-                if ! cmp $SCRIPT_DIR/"$file" $INSTALL_DIR/opt/minios-live/"$file" >>$OUTPUT 2>&1; then
+                if ! cmp $SCRIPT_DIR/"$file" $DESTINATION/opt/minios-live/"$file" >>$OUTPUT 2>&1; then
                     echo -e "$file has been modified since last build run." >>$OUTPUT 2>&1
-                    echo -e "Copying $SCRIPT_DIR/$file to $INSTALL_DIR/opt/minios-live/$file..." >>$OUTPUT 2>&1
-                    cp -f $SCRIPT_DIR/"$file" $INSTALL_DIR/opt/minios-live/"$file" >>$OUTPUT 2>&1
+                    echo -e "Copying $SCRIPT_DIR/$file to $DESTINATION/opt/minios-live/$file..." >>$OUTPUT 2>&1
+                    cp -f $SCRIPT_DIR/"$file" $DESTINATION/opt/minios-live/"$file" >>$OUTPUT 2>&1
                 fi
             done
         fi
     elif [ $DOWNLOAD_SOURCES = "true" ]; then
-        if [ ! -d $INSTALL_DIR/opt/minios-live ]; then
-            mkdir -p $INSTALL_DIR/opt
-            cd $INSTALL_DIR/opt
+        if [ ! -d $DESTINATION/opt/minios-live ]; then
+            mkdir -p $DESTINATION/opt
+            cd $DESTINATION/opt
             git clone --depth=1 https://github.com/minios-linux/minios-live.git >>$OUTPUT 2>&1
-            if [ -d $INSTALL_DIR/opt/minios-live/.git ]; then
-                rm -rf $INSTALL_DIR/opt/minios-live/.git >>$OUTPUT 2>&1
+            if [ -d $DESTINATION/opt/minios-live/.git ]; then
+                rm -rf $DESTINATION/opt/minios-live/.git >>$OUTPUT 2>&1
             fi
-            if [ -f $INSTALL_DIR/opt/minios-live/.gitignore ]; then
-                rm -f $INSTALL_DIR/opt/minios-live/.gitignore >>$OUTPUT 2>&1
+            if [ -f $DESTINATION/opt/minios-live/.gitignore ]; then
+                rm -f $DESTINATION/opt/minios-live/.gitignore >>$OUTPUT 2>&1
             fi
         fi
     fi
 
-    if [ -d $INSTALL_DIR/opt/minios-live/.git ]; then
-        rm -rf $INSTALL_DIR/opt/minios-live/.git >>$OUTPUT 2>&1
+    if [ -d $DESTINATION/opt/minios-live/.git ]; then
+        rm -rf $DESTINATION/opt/minios-live/.git >>$OUTPUT 2>&1
     fi
-    if [ -f $INSTALL_DIR/opt/minios-live/.gitignore ]; then
-        rm -f $INSTALL_DIR/opt/minios-live/.gitignore >>$OUTPUT 2>&1
+    if [ -f $DESTINATION/opt/minios-live/.gitignore ]; then
+        rm -f $DESTINATION/opt/minios-live/.gitignore >>$OUTPUT 2>&1
     fi
 
 }
@@ -1454,13 +1469,13 @@ function build_live() {
     rm -rf $WORK_DIR/image
     mkdir -p $WORK_DIR/image/$LIVEKITNAME/{boot,changes,modules}
 
-    build_boot
+    #build_boot
 
     if [ $DISTRIBUTION_ARCH = "i386" ]; then
         MKMOD="bin etc home lib opt root sbin srv usr var"
     fi
 
-    # create compressed 01-core.sb
+    # create compressed 00-core.sb
     cd $INSTALL_DIR
     COREFS=""
     for i in $MKMOD; do
@@ -1469,11 +1484,11 @@ function build_live() {
         fi
     done
 
-    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
     else
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/01-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
     fi
 
     cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/$LIVEKITNAME.conf
@@ -1558,35 +1573,6 @@ function build_boot() {
     copy_build_scripts
 
     check_install_dir
-
-    if [ $KERNEL_TYPE = "aufs" ]; then
-        KERNEL=$(get_latest_release minios-linux/aufs-kernel)
-        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz ]; then
-            wget -O $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL.tar.xz
-        fi
-        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz ]; then
-            echo "$SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz does not exist. Installation cannot continue."
-            echo "Download the file https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL.tar.xz"
-            echo "and place it in the $SCRIPT_DIR/rootfs folder before running the installation."
-            exit 0
-        fi
-        rm -rf $INSTALL_DIR/usr/lib/modules/*-amd64
-        tar -xf $SCRIPT_DIR/rootfs/linux-$KERNEL.tar.xz -C $INSTALL_DIR
-    fi
-
-    # initramfs generation
-    chroot $INSTALL_DIR mount none -t proc /proc
-    chmod +x $INSTALL_DIR/linux-live/initrfs
-    chroot $INSTALL_DIR /linux-live/initrfs
-    chroot $INSTALL_DIR umount /proc
-
-    # copy boot files
-    if [ $KERNEL_TYPE = "aufs" ]; then
-        cp $INSTALL_DIR/boot/bzImage $WORK_DIR/image/$LIVEKITNAME/boot/vmlinuz
-    else
-        cp $INSTALL_DIR/boot/vmlinuz-**-**-* $WORK_DIR/image/$LIVEKITNAME/boot/vmlinuz
-    fi
-    cp $INSTALL_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/initrfs.img
 
     #if [ $CLOUD != "true" ]; then
     cp -r $SCRIPT_DIR/linux-live/bootfiles/* $WORK_DIR/image/$LIVEKITNAME
@@ -1843,6 +1829,24 @@ EOF
     #if [ $BOOT_TYPE = "hybrid" ]; then
     #    cp $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg $WORK_DIR/image/$LIVEKITNAME/boot/grub/boot/grub
     #fi
+
+    if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+        if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
+            read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+        fi
+        copy_build_scripts $MODULE_MERGED_DIR
+        chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
+        chroot $MODULE_MERGED_DIR /linux-live/initrfs
+        # copy boot files
+        kernel_variables
+        cp $MODULE_MERGED_DIR/boot/vmlinuz-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
+        cp $MODULE_MERGED_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME
+        sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        if [ -d $MODULE_MERGED_DIR/linux-live ]; then
+            rm -rf $MODULE_MERGED_DIR/linux-live
+        fi
+    fi
 }
 # =================================================================
 #
@@ -1880,17 +1884,21 @@ function build_iso() {
 
     language_to_array
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT
+        if [ $KERNEL_TYPE = "default" ]; then
+            IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT
+        else
+            IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$KERNEL_TYPE
+        fi
     fi
     if [ $LOCALE != "en_US" ]; then
         IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH
     else
         IMAGE=$IMAGE-$ISO_ARCH
     fi
-    if [ $KERNEL_TYPE = "aufs" ]; then
+    if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
     fi
     ISO=$ISO_DIR/$IMAGE-$COMP_TYPE-$DATE.iso
@@ -2217,20 +2225,20 @@ function install_core_packages() {
 
     get_vars
 
-    if [ -f /linux-live/basesystem/01-core/preinstall ]; then
-        chmod +x /linux-live/basesystem/01-core/preinstall
-        /linux-live/basesystem/01-core/preinstall
+    if [ -f /linux-live/basesystem/00-core/preinstall ]; then
+        chmod +x /linux-live/basesystem/00-core/preinstall
+        /linux-live/basesystem/00-core/preinstall
     fi
-    : 'if [ "$(ls -A /linux-live/basesystem/01-core/rootcopy-install)" != "" ]; then
-        (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
+    : 'if [ "$(ls -A /linux-live/basesystem/00-core/rootcopy-install)" != "" ]; then
+        (cd /linux-live/basesystem/00-core/rootcopy-install && cp --parents -afr * /)
     fi'
-    if [ -f /linux-live/basesystem/01-core/install ]; then
-        chmod +x /linux-live/basesystem/01-core/install
-        /linux-live/basesystem/01-core/install
+    if [ -f /linux-live/basesystem/00-core/install ]; then
+        chmod +x /linux-live/basesystem/00-core/install
+        /linux-live/basesystem/00-core/install
     fi
-    if [ -f /linux-live/basesystem/01-core/postinstall ]; then
-        chmod +x /linux-live/basesystem/01-core/postinstall
-        /linux-live/basesystem/01-core/postinstall
+    if [ -f /linux-live/basesystem/00-core/postinstall ]; then
+        chmod +x /linux-live/basesystem/00-core/postinstall
+        /linux-live/basesystem/00-core/postinstall
     fi
 
     chroot_cleanup
@@ -2241,54 +2249,55 @@ function install_core_packages() {
 #
 # =================================================================
 function build_dkms() {
-    echo -e "${YELLOW}=====> building dkms packages for chroot system ...${ENDCOLOR}"
+    if [ $KERNEL_TYPE != "none" ]; then
+        echo -e "${YELLOW}=====> building dkms packages for chroot system ...${ENDCOLOR}"
 
-    local LOWER_DIR MODULE_UPPER_DIR MODULE_WORK_DIR MODULE_MERGED_DIR KERNEL BUILD_DKMS
+        local LOWER_DIR MODULE_UPPER_DIR MODULE_WORK_DIR MODULE_MERGED_DIR KERNEL BUILD_DKMS
 
-    LOWER_DIR="$WORK_DIR/basesystem"
-    MODULE_UPPER_DIR="$WORK_DIR/modules/01-dkms-upper"
-    MODULE_WORK_DIR="$WORK_DIR/modules/01-dkms-work"
-    MODULE_MERGED_DIR="$WORK_DIR/modules/01-dkms-merged"
-    BUILD_DKMS="true"
+        LOWER_DIR="$WORK_DIR/basesystem"
+        MODULE_UPPER_DIR="$WORK_DIR/modules/01-dkms-upper"
+        MODULE_WORK_DIR="$WORK_DIR/modules/01-dkms-work"
+        MODULE_MERGED_DIR="$WORK_DIR/modules/01-dkms-merged"
+        BUILD_DKMS="true"
 
-    module_check_install_dir
+        module_check_install_dir
 
-    module_chroot_mount_fs
+        module_chroot_mount_fs
 
-    # run install script
-    if [ -f $SCRIPT_DIR/linux-live/basesystem/01-dkms/install ]; then
-        cp $SCRIPT_DIR/linux-live/basesystem/01-dkms/install $MODULE_MERGED_DIR/install
-        chmod +x $MODULE_MERGED_DIR/install
-        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-            chroot_run $MODULE_MERGED_DIR /install
-        else
-            chroot_run $MODULE_MERGED_DIR /install >>$OUTPUT 2>&1
+        # run install script
+        if [ -f $SCRIPT_DIR/linux-live/basesystem/01-dkms/install ]; then
+            cp $SCRIPT_DIR/linux-live/basesystem/01-dkms/install $MODULE_MERGED_DIR/install
+            chmod +x $MODULE_MERGED_DIR/install
+            if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                chroot_run $MODULE_MERGED_DIR /install
+            else
+                chroot_run $MODULE_MERGED_DIR /install >>$OUTPUT 2>&1
+            fi
+        fi
+
+        module_chroot_umount_fs
+
+        module_check_mounted
+
+        if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
+            read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+
+            if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
+                rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
+            fi
+            if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
+                rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
+            fi
+            set +e
+            if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
+                (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/usr/lib/modules/$KERNEL/)
+            fi
+            if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
+                (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/lib/modules/$KERNEL/)
+            fi
+            set -e
         fi
     fi
-
-    module_chroot_umount_fs
-
-    module_check_mounted
-
-    if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
-        read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
-
-        if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
-            rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
-        fi
-        if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
-            rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
-        fi
-        set +e
-        if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
-            (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/usr/lib/modules/$KERNEL/)
-        fi
-        if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
-            (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/lib/modules/$KERNEL/)
-        fi
-        set -e
-    fi
-
 }
 
 # =================================================================
@@ -2309,12 +2318,12 @@ function chroot_pkg_install() {
 
 # =================================================================
 # Unused for now. These steps are performed when running
-# installation in linux-live/basesystem/01-core/install
+# installation in linux-live/basesystem/00-core/install
 # =================================================================
 function chroot_configure() {
     current_process
 
-    (cd /linux-live/basesystem/01-core/rootcopy-install && cp --parents -afr * /)
+    (cd /linux-live/basesystem/00-core/rootcopy-install && cp --parents -afr * /)
 
     # minios-install setup
     if [ ! -d /etc/$LIVEKITNAME ]; then
@@ -2371,7 +2380,7 @@ EOF
         systemctl disable grub-initrd-fallback.service
     fi
 
-    if grep openssh-server $SCRIPT_DIR/basesystem/01-core/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    if grep openssh-server $SCRIPT_DIR/basesystem/00-core/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
         echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
         cat <<EOF >/usr/lib/systemd/system/ssh-keygen.service
 [Unit]
@@ -2838,7 +2847,9 @@ function module_chroot_cleanup() {
             rm -rf $MODULE_UPPER_DIR/var/lib/dpkg
         fi
         if [ $REMOVE_LARGE_ICONS = "true" ]; then
-            find $MODULE_UPPER_DIR/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf
+            if [ -d $MODULE_UPPER_DIR/usr/share/icons ]; then
+                find $MODULE_UPPER_DIR/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf
+            fi
         fi
     else
         rm -rf $MODULE_UPPER_DIR/boot $MODULE_UPPER_DIR/dev $MODULE_UPPER_DIR/proc $MODULE_UPPER_DIR/sys $MODULE_UPPER_DIR/rmp $MODULE_UPPER_DIR/run
@@ -2898,9 +2909,16 @@ function module_build_cleanup() {
 #
 # =================================================================
 function get_kernel_version() {
-    if [ $KERNEL_TYPE = "aufs" ]; then
-        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
-        KERNEL=$(get_latest_release minios-linux/aufs-kernel)
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    if [ $KERNEL_AUFS = "true" ]; then
+        if [ $KERNEL_BPO = "true" ]; then
+            KERNEL="5.18.2"
+            KERNEL_RELEASE="5.10.127"
+        else
+            KERNEL="5.10.127"
+        fi
+    elif [ $KERNEL_TYPE = "none" ]; then
+        KERNEL=""
     elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
         KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
     else
@@ -2915,9 +2933,101 @@ function get_kernel_version() {
 #
 #
 # =================================================================
+function export_kernel() {
+    if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+        if [ $EXPORT_KERNEL = "true" ]; then
+            if [ ! -d $KERNEL_DIR ]; then
+                mkdir -p $KERNEL_DIR
+            fi
+            if [ -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT ]; then
+                cp $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT $KERNEL_DIR
+                cp $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME $KERNEL_DIR
+                cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR
+                echo "Kernel files and initrd image have been exported to a folder $KERNEL_DIR"
+            else
+                echo "Kernel files could not be found."
+            fi
+        fi
+        if [ $MOVE_KERNEL = "true" ]; then
+            if [ ! -d $KERNEL_DIR ]; then
+                mkdir -p $KERNEL_DIR
+            fi
+            if [ -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT ]; then
+                mv $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT $KERNEL_DIR
+                mv $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME $KERNEL_DIR
+                mv $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR
+                echo "Kernel files and initrd image have been moved to a folder $KERNEL_DIR"
+            else
+                echo "Kernel files could not be found."
+            fi
+        fi
+    fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function kernel_variables() {
+    if [ $KERNEL_AUFS = "true" ]; then
+        if [ $KERNEL_TYPE = "default" ] || [ $KERNEL_TYPE = "pve" ]; then
+            KERNEL_SUFFIX="$KERNEL-$KERNEL_ARCH"
+        else
+            KERNEL_SUFFIX="$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH"
+        fi
+    else
+        KERNEL_SUFFIX=$KERNEL
+    fi
+
+    if [ $NAMED_BOOT_FILES = "true" ]; then
+        VMLINUZNAME="vmlinuz-$KERNEL_SUFFIX"
+        INITRFSNAME="initrfs-$KERNEL_SUFFIX.img"
+    else
+        VMLINUZNAME="vmlinuz"
+        INITRFSNAME="initrfs.img"
+    fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
+function create_initrfs() {
+    if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+        if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
+            read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+        fi
+        copy_build_scripts $MODULE_MERGED_DIR
+        chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
+        chroot $MODULE_MERGED_DIR /linux-live/initrfs
+        # copy boot files
+        kernel_variables
+        if [ ls $MODULE_MERGED_DIR/boot/vmlinuz-**-**-* ]; then
+            cp $MODULE_MERGED_DIR/boot/vmlinuz-**-**-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
+        elif [ ls $MODULE_MERGED_DIR/boot/vmlinuz-**.**.* ]; then
+            cp $MODULE_MERGED_DIR/boot/vmlinuz-**.**.* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
+        else
+            cp $MODULE_MERGED_DIR/boot/vmlinuz-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
+        fi
+        cp $MODULE_MERGED_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME
+        sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        if [ -d $MODULE_MERGED_DIR/linux-live ]; then
+            rm -rf $MODULE_MERGED_DIR/linux-live
+        fi
+    fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
 function build_modules() {
     current_process
-    if ! { [ $DESKTOP_ENVIRONMENT = "core" ] || [ $DESKTOP_ENVIRONMENT = "cloud" ]; } && [ "${CMD[ii]}" != "build_dkms" ]; then
+    if [ "${CMD[ii]}" != "build_dkms" ]; then
+
+        local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX
 
         if [ $CONTAINER_TYPE = "1" ]; then
             if [ ! -f /.minios-live ]; then
@@ -2947,8 +3057,8 @@ function build_modules() {
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
                 echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
                 echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-            #elif [ $DISTRIBUTION = "orel" ] && [ $MODULE = "01-firmware" ]; then
-            #    echo "Astra Linux does not contain firmware in the repository"
+            elif ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_TYPE = "none" ]; then
+                exit
             else
                 MODULE_UPPER_DIR="$MODULES_DIR/$MODULE-upper"
                 MODULE_WORK_DIR="$MODULES_DIR/$MODULE-work"
@@ -2960,192 +3070,241 @@ function build_modules() {
 
                 module_add_unofficial_repository
 
-                # run pre-install script
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/preinstall ]; then
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
-                        chmod +x $MODULE_MERGED_DIR/preinstall
-                        chroot_run $MODULE_MERGED_DIR /preinstall
-                    else
-                        cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
-                        chmod +x $MODULE_MERGED_DIR/preinstall
-                        chroot_run $MODULE_MERGED_DIR /preinstall >>$OUTPUT 2>&1
-                    fi
-                fi
-
-                # copy files
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                if ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_AUFS = "true" ]; then
+                    #KERNEL=$(get_latest_release minios-linux/aufs-kernel)
+                    kernel_variables
+                    if [ $KERNEL_TYPE = "default" ]; then
+                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz ]; then
+                            wget -O $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_ARCH.tar.xz
                         fi
-                    else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz ]; then
+                            echo "$SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz does not exist. Installation cannot continue."
+                            echo "Download the file https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_ARCH.tar.xz"
+                            echo "and place it in the $SCRIPT_DIR/rootfs folder before running the installation."
+                            exit 0
                         fi
+                        tar -xf $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz -C $MODULE_MERGED_DIR
+                    else
+                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz ]; then
+                            wget -O $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz
+                        fi
+                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz ]; then
+                            echo "$SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz does not exist. Installation cannot continue."
+                            echo "Download the file https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz"
+                            echo "and place it in the $SCRIPT_DIR/rootfs folder before running the installation."
+                            exit 0
+                        fi
+                        tar -xf $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz -C $MODULE_MERGED_DIR
                     fi
+                    build_boot
                 else
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
-                            mkdir $MODULE_MERGED_DIR/rootcopy-install
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                    # run pre-install script
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/preinstall ]; then
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                            chmod +x $MODULE_MERGED_DIR/preinstall
+                            chroot_run $MODULE_MERGED_DIR /preinstall
+                        else
+                            cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                            chmod +x $MODULE_MERGED_DIR/preinstall
+                            chroot_run $MODULE_MERGED_DIR /preinstall >>$OUTPUT 2>&1
+                        fi
+                    fi
+
+                    # copy files
+                    if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                            fi
+                        else
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
+                            fi
                         fi
                     else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
-                            mkdir $MODULE_MERGED_DIR/rootcopy-install
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
+                                mkdir $MODULE_MERGED_DIR/rootcopy-install
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                            fi
+                        else
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                                mkdir $MODULE_MERGED_DIR/rootcopy-install
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                            fi
                         fi
                     fi
-                fi
 
-                # run install script
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/install ]; then
-                    cp $SOURCE_MODULES_DIR/$MODULE/install $MODULE_MERGED_DIR/install
-                    chmod +x $MODULE_MERGED_DIR/install
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/cleanup ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
-                    fi
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
-                    fi
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/package.list ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/package.list $MODULE_MERGED_DIR/package.list
-                    fi
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR /install
-                    else
-                        chroot_run $MODULE_MERGED_DIR /install >>$OUTPUT 2>&1
-                    fi
-                fi
-
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    module_chroot_umount_fs
-
-                    module_build_cleanup
-
-                    module_remove_unofficial_repository
-
-                    # run external actions
-
-                    if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                        mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
-                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
-                        mv $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
-                        cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
-                        unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
-                    else
-                        echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
-                    fi
-
-                    #module_check_install_dir
-
-                    module_chroot_mount_fs
-
-                    module_add_unofficial_repository
-
-                    # run build script
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/build $MODULE_MERGED_DIR/build
-                        chmod +x $MODULE_MERGED_DIR/build
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
-                            mkdir $MODULE_MERGED_DIR/patches
-                            (cd $SOURCE_MODULES_DIR/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                    # run install script
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/install ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/install $MODULE_MERGED_DIR/install
+                        chmod +x $MODULE_MERGED_DIR/install
+                        if [ -f $SOURCE_MODULES_DIR/$MODULE/cleanup ]; then
+                            cp $SOURCE_MODULES_DIR/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
+                        fi
+                        if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list ]; then
+                            cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+                        fi
+                        if [ -f $SOURCE_MODULES_DIR/$MODULE/package.list ]; then
+                            cp $SOURCE_MODULES_DIR/$MODULE/package.list $MODULE_MERGED_DIR/package.list
                         fi
                         if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                            chroot_run $MODULE_MERGED_DIR /build
+                            chroot_run $MODULE_MERGED_DIR /install
                         else
-                            chroot_run $MODULE_MERGED_DIR /build >>$OUTPUT 2>&1
+                            chroot_run $MODULE_MERGED_DIR /install >>$OUTPUT 2>&1
                         fi
                     fi
-                fi
 
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
-                    read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
-                    if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
-                        rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
-                    fi
-                    if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
-                        rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
-                    fi
-                    if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/build ]; then
-                        rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/build
-                    fi
-                    if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/source ]; then
-                        rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/source
-                    fi
-                    set +e
-                    if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
-                        if [ ! -d $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL ]; then
-                            mkdir -p $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                        module_chroot_umount_fs
+
+                        module_build_cleanup
+
+                        module_remove_unofficial_repository
+
+                        # run external actions
+
+                        if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+                            mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
+                            time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                            mv $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
+                            cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
+                            unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
+                        else
+                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                         fi
-                        (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL/)
-                    fi
-                    if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
-                        if [ ! -d $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL ]; then
-                            mkdir -p $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL
+
+                        #module_check_install_dir
+
+                        module_chroot_mount_fs
+
+                        module_add_unofficial_repository
+
+                        # run build script
+                        if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                            cp $SOURCE_MODULES_DIR/$MODULE/build $MODULE_MERGED_DIR/build
+                            chmod +x $MODULE_MERGED_DIR/build
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
+                                mkdir $MODULE_MERGED_DIR/patches
+                                (cd $SOURCE_MODULES_DIR/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                            fi
+                            if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                                chroot_run $MODULE_MERGED_DIR /build
+                            else
+                                chroot_run $MODULE_MERGED_DIR /build >>$OUTPUT 2>&1
+                            fi
+                            build_boot
                         fi
-                        (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL/)
                     fi
-                    set -e
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.sb
+
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
+                        read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+                        if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
+                            rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
+                        fi
+                        if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
+                            rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
+                        fi
+                        if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/build ]; then
+                            rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/build
+                        fi
+                        if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/source ]; then
+                            rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/source
+                        fi
+                        set +e
+                        if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
+                            if [ ! -d $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL ]; then
+                                mkdir -p $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL
+                            fi
+                            (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL/)
+                        fi
+                        if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
+                            if [ ! -d $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL ]; then
+                                mkdir -p $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL
+                            fi
+                            (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL/)
+                        fi
+                        set -e
+                        if [ $MODULE = "01-kernel" ]; then
+                            cd $MODULE_UPPER_DIR/squashfs-root
+                            if ls initrd*; then
+                                rm initrd*
+                            fi
+                            if ls vmlinuz*; then
+                                rm vmlinuz*
+                            fi
+                            rm -Rf boot dev etc proc run sys tmp var/lib/apt
+                        fi
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.$BEXT
+                        else
+                            chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.$BEXT >>$OUTPUT 2>&1
+                        fi
+                        rm -f $MODULE_UPPER_DIR/livekit.conf
+                    fi
+
+                    # copy files
+                    if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                            fi
+                        else
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                            fi
+                        fi
                     else
-                        chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.sb >>$OUTPUT 2>&1
-                    fi
-                    rm -f $MODULE_UPPER_DIR/livekit.conf
-                fi
-
-                # copy files
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
-                        fi
-                    else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
+                                mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+                            fi
+                        else
+                            if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                                mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
+                                (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+                            fi
                         fi
                     fi
-                else
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
-                            mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
-                        fi
-                    else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
-                            mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
-                            (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
+
+                    # run post-install script
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/postinstall ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
+                        chmod +x $MODULE_MERGED_DIR/postinstall
+                        if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
+                            chroot_run $MODULE_MERGED_DIR /postinstall
+                        else
+                            chroot_run $MODULE_MERGED_DIR /postinstall >>$OUTPUT 2>&1
                         fi
                     fi
-                fi
 
-                # run post-install script
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/postinstall ]; then
-                    cp $SOURCE_MODULES_DIR/$MODULE/postinstall $MODULE_MERGED_DIR/postinstall
-                    chmod +x $MODULE_MERGED_DIR/postinstall
-                    if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR /postinstall
-                    else
-                        chroot_run $MODULE_MERGED_DIR /postinstall >>$OUTPUT 2>&1
+                    if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                        set +e
+                        chroot_run $MODULE_MERGED_DIR uncompress_files /etc/alternatives
+                        chroot_run $MODULE_MERGED_DIR uncompress_files /usr/share/man
+                        chroot_run $MODULE_MERGED_DIR remove_broken_links /etc/alternatives
+                        chroot_run $MODULE_MERGED_DIR remove_broken_links /usr/share/man
+                        set -e
                     fi
-                fi
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    set +e
-                    chroot_run $MODULE_MERGED_DIR uncompress_files /etc/alternatives
-                    chroot_run $MODULE_MERGED_DIR uncompress_files /usr/share/man
-                    chroot_run $MODULE_MERGED_DIR remove_broken_links /etc/alternatives
-                    chroot_run $MODULE_MERGED_DIR remove_broken_links /usr/share/man
-                    set -e
-                fi
-
-                # run external actions
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
-                    cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
-                elif [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
-                    cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
-                    chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
+                    # run external actions
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
+                        if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                        else
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                        fi
+                    elif [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
+                        if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                            chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
+                        else
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                            chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
+                        fi
+                    fi
                 fi
 
                 module_chroot_finish_up
@@ -3160,16 +3319,24 @@ function build_modules() {
 
                 module_remove_unofficial_repository
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ] || ( ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_AUFS = "true" ]); then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                            #mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                            if [ $COMP_TYPE = "zstd" ]; then
-                                time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                            if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+                                if [ $COMP_TYPE = "zstd" ]; then
+                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                else
+                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                fi
+                                chmod 666 $CURRENT_DIR/$MODULE-$KERNEL-$COMP_TYPE.$BEXT
                             else
-                                time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                if [ $COMP_TYPE = "zstd" ]; then
+                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                else
+                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                fi
+                                chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                             fi
-                            chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} ${RED}is empty${ENDCOLOR}. Nothing to do."
                         fi
@@ -3178,11 +3345,18 @@ function build_modules() {
                     else
                         if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
                             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
-                                #mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+                                    if [ $COMP_TYPE = "zstd" ]; then
+                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    else
+                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    fi
                                 else
-                                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    if [ $COMP_TYPE = "zstd" ]; then
+                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    else
+                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    fi
                                 fi
                             else
                                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
@@ -3194,8 +3368,8 @@ function build_modules() {
                         fi
                     fi
                 fi
-
             fi
+            export_kernel
         done
     fi
 }
@@ -3206,7 +3380,6 @@ function build_modules() {
 # =================================================================
 function build_modules_live() {
     current_process
-    echo "here 2"
     if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
@@ -3361,9 +3534,10 @@ function generate_config_files() {
     sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/KERNEL_AUFS=/s/=.*/=\"$KERNEL_AUFS\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_config
-    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/LOCALE=/s/=.*/=\"$LOCALE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    #sed -i -e "/TIMEZONE=/s/=.*/=\"$TIMEZONE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
 }
 
 function container_run() {
@@ -3415,7 +3589,11 @@ function container_run() {
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="4" \
             -e KERNEL_TYPE="$KERNEL_TYPE" \
-            -e KERNEL_BPO="false" \
+            -e KERNEL_BPO="$KERNEL_BPO" \
+            -e KERNEL_AUFS="$KERNEL_AUFS" \
+            -e NAMED_BOOT_FILES="true" \
+            -e EXPORT_KERNEL="true" \
+            -e MOVE_KERNEL="false" \
             -e USE_MX_REPO="false" \
             -e USE_ANTIX_REPO="false" \
             -e USE_UNOFFICIAL_REPOSITORY="false" \
@@ -3468,7 +3646,11 @@ function live_run() {
         FILTER_MODULES="false" \
         FILTER_LEVEL="4" \
         KERNEL_TYPE="$KERNEL_TYPE" \
-        KERNEL_BPO="false" \
+        KERNEL_BPO="$KERNEL_BPO" \
+        KERNEL_AUFS="$KERNEL_AUFS" \
+        NAMED_BOOT_FILES="true" \
+        EXPORT_KERNEL="true" \
+        MOVE_KERNEL="false" \
         USE_MX_REPO="false" \
         USE_ANTIX_REPO="false" \
         USE_UNOFFICIAL_REPOSITORY="false" \
@@ -3507,15 +3689,18 @@ function container_build_finish() {
 }
 
 function container_build_run() {
+    local AUFS_SUFFIX BPO_SUFFIX
     DISTRIBUTION_TYPE="debian"
     DISTRIBUTION="$1"
     DESKTOP_ENVIRONMENT="$2"
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
     KERNEL_TYPE="$5"
-    COMP_TYPE="$6"
-    LOCALE="$7"
-    TIMEZONE="$8"
+    KERNEL_BPO="$6"
+    KERNEL_AUFS="$7"
+    COMP_TYPE="$8"
+    LOCALE="$9"
+    TIMEZONE="${10}"
 
     language_to_array
 
@@ -3523,7 +3708,14 @@ function container_build_run() {
         DISTRIBUTION_TYPE="ubuntu"
     fi
 
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-${LANG[0]}-$COMP_TYPE"
+    if [ $KERNEL_BPO = "true" ]; then
+        BPO_SUFFIX="-bpo"
+    fi
+    if [ $KERNEL_AUFS = "true" ]; then
+        AUFS_SUFFIX="-aufs"
+    fi
+
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LANG[0]}-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
@@ -3563,9 +3755,10 @@ function live_build_run() {
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
     KERNEL_TYPE="$5"
-    COMP_TYPE="$6"
-    LOCALE="$7"
-    TIMEZONE="$8"
+    KERNEL_AUFS="$6"
+    COMP_TYPE="$7"
+    LOCALE="$8"
+    TIMEZONE="$9"
     if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
         DISTRIBUTION_TYPE="ubuntu"
     fi

@@ -106,3 +106,7 @@ fi
 EOF
     systemctl enable fblive-add-$APP.service >>$OUTPUT 2>&1
 fi
+
+PACKAGE="google-chrome-stable"
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g')" >>/.package
