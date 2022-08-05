@@ -1,5 +1,7 @@
 #!/bin/bash
 # Note: MLC - MiniOS Live Container
+# Usage:    container_build_run [DISTRIBUTION] [DESKTOP_ENVIRONMENT] [PACKAGE_VARIANT] [DISTRIBUTION_ARCH] [KERNEL_TYPE] [KERNEL_BPO] [KERNEL_AUFS] [CONP_TYPE] [LOCALE] [TIMEZONE]
+# Example:  container_build_run bullseye       xfce                  standard          amd64               default       true         true          zstd        en_US    Etc/UTC
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -7,8 +9,5 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 container_engine="docker"
 
-# container_build_run - building the system inside an isolated docker container
-# live_build_run - building of the system directly in the working system
-
-container_build_run bullseye core standard amd64 aufs xz en_US Etc/UTC
-container_build_run bullseye xfce-ultra maximum amd64 default zstd en_US Etc/UTC
+container_build_run bullseye xfce minimum i386 default false false zstd en_US Etc/UTC
+container_build_run bullseye xfce standard amd64 rt true true zstd ru_RU Europe/Moscow
