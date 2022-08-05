@@ -21,7 +21,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
-if [ $PACKAGE_VARIANT != "minimum" ]; then
+if [ $PACKAGE_VARIANT != "custom" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
@@ -122,4 +122,7 @@ WebBrowser=
 
 EOF'
 sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
+if [ $DISTRIBUTION = "stretch" ]; then
+    sed -i 's,FontUseSystem=TRUE,FontUseSystem=FALSE,g' /etc/skel/.config/xfce4/terminal/terminalrc
+fi
 #fi

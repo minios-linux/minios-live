@@ -76,3 +76,7 @@ if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; 
     sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
     sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
 fi
+
+PACKAGE="firefox-esr"
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g')" >>/.package

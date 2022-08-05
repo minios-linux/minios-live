@@ -14,6 +14,7 @@ if [ -z $OUTPUT ]; then
 	. $SCRIPT_DIR/buildconfig || exit 1
 fi
 set -u
+. $SCRIPT_DIR/kernelconfig || exit 1
 
 CMD=(chroot_setup_host chroot_pkg_install chroot_finish_up)
 

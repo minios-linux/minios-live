@@ -1,0 +1,30 @@
+#!/bin/bash
+
+##########################################
+if [ $PACKAGE_VARIANT = "pve" ]; then
+    KERNEL_TYPE="pve"
+elif [ $PACKAGE_VARIANT = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
+    echo "You can't build PVE with i386"
+    exit 0
+fi
+if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
+    KERNEL_TYPE = "default"
+fi
+
+if [ $KERNEL_AUFS = "true" ]; then
+    if [ $KERNEL_BPO = "true" ]; then
+        KERNEL="5.18.2"
+        #KERNEL_RELEASE="5.10.127"
+    else
+        KERNEL="5.10.127"
+    fi
+elif [ $KERNEL_TYPE = "none" ]; then
+    KERNEL=""
+elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+    KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
+else
+    KERNEL=$(uname -r)
+fi
+if echo $KERNEL | grep -q 'pve'; then
+    KERNEL=${KERNEL::-6}
+fi

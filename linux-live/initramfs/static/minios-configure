@@ -706,8 +706,9 @@ else
     fi
 fi
 
-# Specific settings
-if [ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "sid" ]; then
+# If newer kernels are used, then xorg will not run on hyper-v without this configuration file.
+read_config /buildconfig DISTRIBUTION KERNEL_BPO
+if ([ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "sid" ]) || ([ "$DISTRIBUTION" = "bullseye" ] && [ $KERNEL_BPO = "true" ]); then
     if [ "$(virt-what)" = "hyperv" ]; then
         cat <<EOF >/etc/X11/xorg.conf.d/30-hyperv.conf
 Section "Device"

@@ -3,15 +3,14 @@
 # Author: Tomas M <http://www.linux-live.org/>
 # Author: crims0n <https://minios.dev>
 
+[ ! "$1" ] && echo "Builds initrfs.img
+    Usage:   $0 [\$KERNEL]
+    Example: $0 5.10.127" && exit 1
+KERNEL=$1
 if [ -f ../container_config ]; then
    . ../container_config
 else
    . ../config
-fi
-if [ -f ../container_buildconfig ]; then
-   . ../container_buildconfig
-else
-   . ../buildconfig
 fi
 
 LMK="lib/modules/$KERNEL"

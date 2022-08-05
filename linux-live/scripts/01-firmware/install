@@ -18,10 +18,12 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
             apt-get install -y \
             linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
     else
-        apt-get install $APT_OPTIONS
+        if [ $KERNEL_TYPE != "none" ]; then
+            apt-get install -y \
+                linux-image-generic >>$OUTPUT 2>&1
         #linux-firmware >>$OUTPUT 2>&1 #firmware-b43-installer
         #linux-image-generic-hwe-20.04 >>$OUTPUT 2>&1
-        linux-image-generic >>$OUTPUT 2>&1
+        fi
     fi
 elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
     DEBIAN_FRONTEND=noninteractive \
