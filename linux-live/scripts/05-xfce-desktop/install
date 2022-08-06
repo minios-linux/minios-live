@@ -1,0 +1,333 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+function language_to_array() {
+  local IFS
+  IFS="_"
+  LANG=($LOCALE)
+}
+language_to_array
+if [ $LOCALE != "en_US" ]; then
+  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="keyboard-layout" version="1.0">
+  <property name="Default" type="empty">
+    <property name="XkbDisable" type="bool" value="false"/>
+    <property name="XkbLayout" type="string" value="us,$LANG"/>
+    <property name="XkbVariant" type="string" value=","/>
+    <property name="XkbOptions" type="empty">
+      <property name="Group" type="string" value="grp:alt_shift_toggle"/>
+    </property>
+  </property>
+</channel>
+
+EOF
+fi
+
+apt-get update >>$OUTPUT 2>&1
+
+echo "nodm nodm/enabled boolean true" | debconf-set-selections
+echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
+
+if [ $PACKAGE_VARIANT != "frugal" ]; then
+  wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
+  apt install -y yad ./adwaita-icon-theme-antix_*_all.deb
+  rm -f /*.deb >>$OUTPUT 2>&1
+  if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+    rm -f /usr/share/applications/yad-icon-browser.desktop
+  fi
+fi
+
+# install packages
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+  if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
+    DEBIAN_FRONTEND=noninteractive \
+      apt-get install -y \
+      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+  elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
+    DEBIAN_FRONTEND=noninteractive \
+      apt-get install -y \
+      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+  else
+    DEBIAN_FRONTEND=noninteractive \
+      apt-get install -y \
+      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+  fi
+fi
+
+# install packages
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+  wget http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.17-1_all.deb
+  DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y \
+    ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
+  rm -f ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
+else
+  DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y \
+    elementary-xfce-icon-theme >>$OUTPUT 2>&1
+fi
+
+#if [ $PACKAGE_VARIANT = "maximum" ]; then
+#    wget http://ftp.debian.org/debian/pool/main/f/fonts-inter/fonts-inter_3.19+ds-2_all.deb
+#    wget http://ftp.debian.org/debian/pool/main/f/fonts-jetbrains-mono/fonts-jetbrains-mono_2.242+ds-2_all.deb
+#    apt-get -y install ./fonts-jetbrains-mono*.deb ./fonts-inter*.deb
+#    rm -f ./fonts*.deb
+sed -i 's,<property name="FontName" type="empty"/>,<property name="FontName" type="string" value="Inter 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+sed -i 's,<property name="MonospaceFontName" type="empty"/>,<property name="MonospaceFontName" type="string" value="JetBrains Mono 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" type="int" value="1"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<property name="HintStyle" type="string" value="hintfull"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+#fi
+
+if [ $DISTRIBUTION = "stretch" ]; then
+  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="thunar" version="1.0">
+  <property name="last-view" type="string" value="ThunarIconView"/>
+  <property name="last-icon-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_NORMAL"/>
+  <property name="last-separator-position" type="int" value="170"/>
+  <property name="last-show-hidden" type="bool" value="false"/>
+  <property name="last-window-maximized" type="bool" value="false"/>
+  <property name="last-window-width" type="int" value="640"/>
+  <property name="last-window-height" type="int" value="480"/>
+  <property name="last-side-pane" type="string" value="ThunarShortcutsPane"/>
+  <property name="last-location-bar" type="string" value="ThunarLocationEntry"/>
+  <property name="last-details-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_38_PERCENT"/>
+  <property name="last-details-view-column-widths" type="string" value="50,113,50,50,216,50,50,68,50,178"/>
+  <property name="misc-single-click" type="bool" value="false"/>
+  <property name="shortcuts-icon-size" type="string" value="THUNAR_ICON_SIZE_SMALLEST"/>
+  <property name="default-view" type="string" value="ThunarIconView"/>
+  <property name="misc-file-size-binary" type="bool" value="true"/>
+  <property name="misc-middle-click-in-tab" type="bool" value="false"/>
+</channel>
+
+EOF
+fi
+
+if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+  update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
+fi
+if [ -f /usr/share/applications/pavucontrol.desktop ]; then
+  rm -f /usr/share/applications/pavucontrol.desktop
+fi
+
+if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
+  if ! grep grep "Name\[ru\]" /usr/share/applications/nm-connection-editor.desktop; then
+    sed -i "7i Name\[ru\]=Расширенная конфигурация сети" /usr/share/applications/nm-connection-editor.desktop
+  fi
+fi
+
+if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+  if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
+    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+  elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+  fi
+  cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+recent=
+button-icon=/usr/share/pixmaps/MiniOS-white.svg
+button-single-row=false
+show-button-title=false
+show-button-icon=true
+launcher-show-name=true
+launcher-show-description=false
+launcher-show-tooltip=true
+item-icon-size=2
+hover-switch-category=false
+category-show-name=true
+category-icon-size=1
+load-hierarchy=false
+view-as-icons=false
+default-category=0
+recent-items-max=10
+favorites-in-recent=true
+position-search-alternate=true
+position-commands-alternate=false
+position-categories-alternate=true
+stay-on-focus-out=false
+confirm-session-command=true
+menu-width=450
+menu-height=500
+menu-opacity=100
+command-settings=xfce4-settings-manager
+show-command-settings=false
+command-lockscreen=xflock4
+show-command-lockscreen=false
+command-switchuser=dm-tool switch-to-greeter
+show-command-switchuser=false
+command-logoutuser=xfce4-session-logout --logout --fast
+show-command-logoutuser=false
+command-restart=xfce4-session-logout --reboot --fast
+show-command-restart=false
+command-shutdown=xfce4-session-logout --halt --fast
+show-command-shutdown=false
+command-suspend=xfce4-session-logout --suspend
+show-command-suspend=false
+command-hibernate=xfce4-session-logout --hibernate
+show-command-hibernate=false
+command-logout=xfce4-session-logout
+show-command-logout=true
+command-menueditor=menulibre
+show-command-menueditor=true
+command-profile=mugshot
+show-command-profile=false
+search-actions=5
+
+[action0]
+name=Man Pages
+pattern=#
+command=exo-open --launch TerminalEmulator man %s
+regex=false
+
+[action1]
+name=Web Search
+pattern=?
+command=exo-open --launch WebBrowser https://duckduckgo.com/?q=%u
+regex=false
+
+[action2]
+name=Wikipedia
+pattern=!w
+command=exo-open --launch WebBrowser https://en.wikipedia.org/wiki/%u
+regex=false
+
+[action3]
+name=Run in Terminal
+pattern=!
+command=exo-open --launch TerminalEmulator %s
+regex=false
+
+[action4]
+name=Open URI
+pattern=^(file|http|https):\\/\\/(.*)$
+command=exo-open \\0
+regex=true
+
+
+EOF
+else
+  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=8;x=512;y=752"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="34"/>
+      <property name="background-alpha" type="uint" value="90"/>
+      <property name="mode" type="uint" value="0"/>
+      <property name="enter-opacity" type="uint" value="100"/>
+      <property name="leave-opacity" type="uint" value="100"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="10"/>
+        <value type="int" value="12"/>
+        <value type="int" value="13"/>
+        <value type="int" value="14"/>
+      </property>
+    </property>
+    <property name="dark-mode" type="bool" value="true"/>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu">
+      <property name="button-icon" type="string" value="/usr/share/pixmaps/MiniOS-white.svg"/>
+      <property name="show-button-title" type="bool" value="false"/>
+    </property>
+    <property name="plugin-2" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-3" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="TerminalEmulator.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-4" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="FileManager.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-5" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="WebBrowser.desktop"/>
+      </property>
+    </property>
+    <property name="plugin-6" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-7" type="string" value="tasklist">
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="show-labels" type="bool" value="true"/>
+      <property name="grouping" type="uint" value="1"/>
+    </property>
+    <property name="plugin-8" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+      <property name="expand" type="bool" value="true"/>
+    </property>
+    <property name="plugin-9" type="string" value="xkb">
+      <property name="display-type" type="uint" value="2"/>
+      <property name="display-name" type="uint" value="0"/>
+      <property name="group-policy" type="uint" value="0"/>
+    </property>
+    <property name="plugin-10" type="string" value="battery"/>
+    <property name="plugin-12" type="string" value="systray">
+      <property name="known-legacy-items" type="array">
+        <value type="string" value="task manager"/>
+        <value type="string" value="volumeicon"/>
+        <value type="string" value="networkmanager applet"/>
+      </property>
+    </property>
+    <property name="plugin-13" type="string" value="clock">
+      <property name="digital-format" type="string" value="%_H:%M"/>
+    </property>
+    <property name="plugin-14" type="string" value="showdesktop"/>
+  </property>
+</channel>
+
+EOF
+fi
+
+if [ $PACKAGE_VARIANT = "minimum" ]; then
+  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=Thunar
+WebBrowser=
+
+EOF
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=Thunar
+WebBrowser=
+
+EOF
+fi
+
+if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
+    else
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
+    fi
+    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
+fi
