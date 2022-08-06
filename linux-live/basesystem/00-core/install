@@ -42,7 +42,8 @@ if [ $LOCALE != "en_US" ]; then
     # Timezone settings
     echo "tzdata  tzdata/Zones/${TIMEZONE[0]}     select  ${TIMEZONE[1]}" | debconf-set-selections -v >>$OUTPUT 2>&1
     # Locales settings
-    echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8, $LOCALE.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
+    #echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8, $LOCALE.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
+    echo "locales locales/locales_to_be_generated multiselect     $LOCALE.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
 else
     echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "buster" ]; then

@@ -2540,7 +2540,7 @@ function module_check_install_dir() {
 function module_chroot_mount_fs() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
-    local MODULES MODULE_LOWER_DIR FILTER
+    local MODULES BUNDLE FILTER
 
     module_check_mounted
 
@@ -2557,20 +2557,40 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower"
+                    BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
+                    mkdir -p $MODULES_DIR/bundles/$BUNDLE
+                    mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
+                    #MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/bundles/$BUNDLE"
                 done
-                MODULES_LIST=${MODULES_LIST:1}
+                #MODULES_LIST=${MODULES_LIST:1}
+                set +e
+                if [ $FILTER_MODULES = "true" ]; then
+                    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
+                else
+                    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-1]* | tr '\n' ':')
+                fi
+                echo "!!!!! MODULES_LIST !!!!!"
+                echo $MODULES_LIST
+                MODULES_LIST=${MODULES_LIST/%:/}
+                echo "!!!!! MODULES_LIST !!!!!"
+                echo $MODULES_LIST
+                
+                #MODULES_LIST2=$(ls -1dr $MODULES_DIR/bundles/[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
+                #echo $MODULES_LIST2
+                #echo "!!!!!2222!!!!!"
+                #ls $MODULES_DIR/bundles | egrep "0[1-$FILTER_LEVEL]"
+                set -e
             else
                 MODULES=/run/initramfs/memory/bundles/
                 if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
                 else
                     MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
                 fi
+                echo "1111"
+                echo $MODULES_LIST
                 MODULES_LIST=${MODULES_LIST/%:/}
+                echo $MODULES_LIST
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
             mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -2579,16 +2599,16 @@ function module_chroot_mount_fs() {
             if [ $SCRIPT_DIR != "/usr/bin" ]; then
                 MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
                 for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-                    mkdir -p $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    mount ${MODULES[$i]} $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
-                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/lower/$MODULE_LOWER_DIR-lower""=ro"
+                    BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
+                    mkdir -p $MODULES_DIR/bundles/$BUNDLE
+                    mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
+                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/bundles/$BUNDLE""=ro"
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
                 MODULES=/run/initramfs/memory/bundles/
                 if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-4]" | tr '\n' ':')
+                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
                 else
                     MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
                 fi
@@ -2656,7 +2676,7 @@ function module_chroot_mount_fs() {
 function module_chroot_umount_fs() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
-    local MODULES MODULE_LOWER_DIR
+    local MODULES BUNDLE
 
     set +e
 
@@ -2669,7 +2689,7 @@ function module_chroot_umount_fs() {
         if [ $SCRIPT_DIR = "/usr/bin" ]; then
             rm -f $MODULE_UPPER_DIR/etc/resolv.conf
             umount $MODULE_MERGED_DIR
-            umount $MODULES_DIR/lower/*
+            umount $MODULES_DIR/bundles/*
             umount $MODULES_DIR
         else
             if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
@@ -2704,7 +2724,7 @@ function module_chroot_umount_fs() {
 
             umount $MODULE_MERGED_DIR >>$OUTPUT 2>&1
 
-            umount $MODULES_DIR/lower/* >>$OUTPUT 2>&1
+            umount $MODULES_DIR/bundles/* >>$OUTPUT 2>&1
 
             umount $MODULES_DIR >>$OUTPUT 2>&1
         else
@@ -2735,8 +2755,8 @@ function module_chroot_umount_fs() {
     if [ -z $BUILD_DKMS ] || [ $BUILD_DKMS != "true" ]; then
         MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
         for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-            MODULE_LOWER_DIR=$(basename ${MODULES[$i]} .$BEXT)
-            umount $MODULES_DIR/lower/$MODULE_LOWER_DIR-lower
+            BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
+            umount $MODULES_DIR/bundles/$BUNDLE
         done
     fi
 
@@ -3027,7 +3047,7 @@ function build_modules() {
     current_process
     if [ "${CMD[ii]}" != "build_dkms" ]; then
 
-        local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX
+        local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE
 
         if [ $CONTAINER_TYPE = "1" ]; then
             if [ ! -f /.minios-live ]; then
@@ -3289,20 +3309,29 @@ function build_modules() {
                         set -e
                     fi
 
+                    if [ -f $MODULE_UPPER_DIR/.package ]; then
+                        read_config $MODULE_UPPER_DIR/.package PACKAGE VERSION
+                        MODULE_NUMBER=$(echo $MODULE | egrep -o '[0-9]*')
+                        MODULE_NAME="$MODULE_NUMBER-$PACKAGE-$VERSION"
+                        rm $MODULE_UPPER_DIR/.package
+                    else
+                        MODULE_NAME=$MODULE
+                    fi
+
                     # run external actions
                     if [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
                         if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                             cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                         else
-                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                         fi
                     elif [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                             cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                             chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                         else
-                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
-                            chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                            chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                         fi
                     fi
                 fi
@@ -3328,14 +3357,14 @@ function build_modules() {
                                 else
                                     time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
-                                chmod 666 $CURRENT_DIR/$MODULE-$KERNEL-$COMP_TYPE.$BEXT
+                                chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                             else
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
-                                chmod 666 $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT
+                                chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} ${RED}is empty${ENDCOLOR}. Nothing to do."
@@ -3353,9 +3382,9 @@ function build_modules() {
                                     fi
                                 else
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                     fi
                                 fi
                             else
@@ -3363,7 +3392,7 @@ function build_modules() {
                             fi
                         else
                             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-                            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
+                            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
                             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
                         fi
                     fi
