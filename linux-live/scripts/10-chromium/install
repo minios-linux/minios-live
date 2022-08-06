@@ -116,4 +116,4 @@ fi
 
 PACKAGE=$APP_EXECUTABLE
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | egrep -o '[0-9].*-[0-9]')" >>/.package
