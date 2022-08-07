@@ -2520,7 +2520,6 @@ function module_check_install_dir() {
             module_check_mounted
         fi
     else
-        # ▼ должно быть только перенаправление ошибки!
         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is not empty."
             module_cleanup
@@ -2570,13 +2569,6 @@ function module_chroot_mount_fs() {
                     MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-9]* | tr '\n' ':')
                 fi
                 MODULES_LIST=${MODULES_LIST/%:/}
-                #echo "!!!!! MODULES_LIST !!!!!"
-                #echo $MODULES_LIST
-                
-                #MODULES_LIST2=$(ls -1dr $MODULES_DIR/bundles/[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
-                #echo $MODULES_LIST2
-                #echo "!!!!!2222!!!!!"
-                #ls $MODULES_DIR/bundles | egrep "0[1-$FILTER_LEVEL]"
                 set -e
             else
                 MODULES=/run/initramfs/memory/bundles/
