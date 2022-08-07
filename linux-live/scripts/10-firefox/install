@@ -80,5 +80,5 @@ fi
 
 PACKAGE="firefox-esr"
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | egrep -o '[0-9].*-[0-9]')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
 #echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g')" >>/.package

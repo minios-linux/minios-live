@@ -16,17 +16,12 @@ language_to_array
 apt-get update >>$OUTPUT 2>&1
 
 # install packages
+#!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,*,*/$DISTRIBUTION-backports,g" | tr "\n" " ") >>$OUTPUT 2>&1
-    else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
-    fi
-    PACKAGE=$(cat $SCRIPT_DIR/package.list)
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+    PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
-    echo "VERSION=$(dpkg -s $PACKAGE | grep Version | egrep -o '[0-9].*-[0-9]')" >>/.package
+    echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
 fi

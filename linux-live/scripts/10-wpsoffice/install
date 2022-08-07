@@ -15,4 +15,4 @@ wget https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/10920/wps
 
 PACKAGE="wps-office"
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | egrep -o '[0-9].*-[0-9]')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
