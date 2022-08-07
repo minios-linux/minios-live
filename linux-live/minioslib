@@ -2141,8 +2141,8 @@ function chroot_cleanup() {
     rm $1/usr/share/applications/mc.desktop
     rm $1/usr/share/applications/mcedit.desktop
     rm $1/usr/share/applications/pcmanfm-desktop-pref.desktop
-    rm $1/usr/share/applications/python2.7.desktop
-    rm $1/usr/share/applications/python3.7.desktop
+    rm $1/usr/share/applications/python2.*.desktop
+    rm $1/usr/share/applications/python3.*.desktop
     rm $1/usr/share/applications/vim.desktop
 
     if [ -z $1 ]; then
@@ -2567,13 +2567,11 @@ function module_chroot_mount_fs() {
                 if [ $FILTER_MODULES = "true" ]; then
                     MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
                 else
-                    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-1]* | tr '\n' ':')
+                    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-9]* | tr '\n' ':')
                 fi
-                echo "!!!!! MODULES_LIST !!!!!"
-                echo $MODULES_LIST
                 MODULES_LIST=${MODULES_LIST/%:/}
-                echo "!!!!! MODULES_LIST !!!!!"
-                echo $MODULES_LIST
+                #echo "!!!!! MODULES_LIST !!!!!"
+                #echo $MODULES_LIST
                 
                 #MODULES_LIST2=$(ls -1dr $MODULES_DIR/bundles/[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
                 #echo $MODULES_LIST2
@@ -2583,14 +2581,12 @@ function module_chroot_mount_fs() {
             else
                 MODULES=/run/initramfs/memory/bundles/
                 if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
+                    MODULES_LIST=$(ls -1dr $MODULES[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
                 else
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
+                    MODULES_LIST=$(ls -1dr $MODULES[0-9]* | tr '\n' ':')
                 fi
-                echo "1111"
-                echo $MODULES_LIST
                 MODULES_LIST=${MODULES_LIST/%:/}
-                echo $MODULES_LIST
+                #echo $MODULES_LIST
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
             mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -3399,6 +3395,8 @@ function build_modules() {
                 fi
             fi
             export_kernel
+            PACKAGE=""
+            VERSION=""
         done
     fi
 }

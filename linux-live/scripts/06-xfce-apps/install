@@ -21,7 +21,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
-if [ $PACKAGE_VARIANT != "custom" ]; then
+if [ $PACKAGE_VARIANT != "frugal" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
