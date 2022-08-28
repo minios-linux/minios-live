@@ -18,9 +18,15 @@ apt-get update >>$OUTPUT 2>&1
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,$,/$DISTRIBUTION-backports," | tr "\n" " ") >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,$,/$DISTRIBUTION-backports," | tr "\n" " ") >>$OUTPUT 2>&1
+    else
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+    fi
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
