@@ -173,11 +173,11 @@ function help() {
                 echo -e "\tвведите одну команду, чтобы запустить определенную команду"
                 echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
                 echo -e "\t"
-                echo -e "\tПримеры:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+                echo -e "\tПримеры:${LIGHTYELLOW}$0 -${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
                 echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
                 echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
                 echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
                 exit 0
             else
                 if [ -z ${1+x} ]; then
@@ -199,11 +199,12 @@ function help() {
                 echo -e "\tenter single cmd to run the specific command"
                 echo -e "\tenter '-' as only argument to run all commands"
                 echo -e "\t"
-                echo -e "\tExamples:${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+                echo -e "\tExamples:${LIGHTYELLOW}$0 -${ENDCOLOR}"
+                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
                 echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
                 echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
                 echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
+
                 exit 0
             fi
         fi
@@ -704,9 +705,13 @@ function chroot_mount_fs() {
 
     check_mounted
 
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [ -L $INSTALL_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ]; then
-            mv $INSTALL_DIR/etc/resolv.conf $INSTALL_DIR/etc/resolv.conf.bak
+    if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        if [ -L $INSTALL_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+            if [ -e $INSTALL_DIR/etc/resolv.conf ]; then
+                mv $INSTALL_DIR/etc/resolv.conf $INSTALL_DIR/etc/resolv.conf.bak
+            fi
+            echo "nameserver 8.8.8.8" >>$INSTALL_DIR/etc/resolv.conf
+        elif [ ! -e $INSTALL_DIR/etc/resolv.conf ]; then
             echo "nameserver 8.8.8.8" >>$INSTALL_DIR/etc/resolv.conf
         fi
     fi
@@ -747,12 +752,14 @@ function chroot_umount_fs() {
         umount $INSTALL_DIR/dev >>$OUTPUT 2>&1
         umount $INSTALL_DIR/run >>$OUTPUT 2>&1
     fi
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [ -L $INSTALL_DIR/etc/resolv.conf.bak ] || [ $DISTRIBUTION = "stretch" ]; then
+    if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        if [ -L $INSTALL_DIR/etc/resolv.conf.bak ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "focal" ]; then
             rm -f $INSTALL_DIR/etc/resolv.conf
             mv $INSTALL_DIR/etc/resolv.conf.bak $INSTALL_DIR/etc/resolv.conf
         elif [ -L $INSTALL_DIR/etc/resolv.conf.bak ] && [ -L $INSTALL_DIR/etc/resolv.conf ]; then
             rm -f $INSTALL_DIR/etc/resolv.conf.bak
+        elif [ -e $INSTALL_DIR/etc/resolv.conf ] && [ $DISTRIBUTION_TYPE = "bionic" ]; then
+            rm -f $INSTALL_DIR/etc/resolv.conf
         fi
     fi
     set -e
@@ -1128,6 +1135,9 @@ function build_bootstrap() {
             elif [ $PACKAGE_VARIANT = "minimum" ]; then
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                    debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
@@ -1798,7 +1808,7 @@ EOF
         LIVE_SETTINGS="minios.flags="
         RAM_SETTINGS="minios.flags=toram"
     elif [ $INITRD_TYPE = "uird" ]; then
-        if [ $KERNEL_AUFS = "true" ]; then
+        if [ $KERNEL_AUFS = "true" ] || ([ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ]) ; then
             PERCH_SETTINGS=""
             LIVE_SETTINGS="uird.mode=clean"
             RAM_SETTINGS="uird.copy2ram"
@@ -2804,9 +2814,15 @@ function module_chroot_mount_fs() {
     if [ $SCRIPT_DIR = "/usr/bin" ]; then
         echo "nameserver 8.8.8.8" >$MODULE_MERGED_DIR/etc/resolv.conf
     else
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ]; then
-                mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
+        if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+                if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+                    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+                        rm $MODULE_MERGED_DIR/etc/resolv.conf
+                    else
+                        mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
+                    fi
+                fi
                 echo "nameserver 8.8.8.8" >>$MODULE_MERGED_DIR/etc/resolv.conf
             fi
             : 'if [ ! -d $MODULE_MERGED_DIR/run/resolvconf ]; then
@@ -2847,10 +2863,14 @@ function module_chroot_umount_fs() {
             umount $MODULES_DIR/bundles/*
             umount $MODULES_DIR
         else
-            if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
+            if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
                     rm -f $MODULE_MERGED_DIR/etc/resolv.conf
-                    mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
+                    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+                        ln -s ../run/systemd/resolve/stub-resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf
+                    else
+                        mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
+                    fi
                 elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
                     rm -f $MODULE_MERGED_DIR/etc/resolv.conf.bak
                 fi
@@ -2884,10 +2904,10 @@ function module_chroot_umount_fs() {
             umount $MODULES_DIR >>$OUTPUT 2>&1
         else
             if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-                if [[ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
+                if [[ -e $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
                     rm -f $MODULE_UPPER_DIR/etc/resolv.conf
                     mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
-                elif [ -L $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+                elif [ -e $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
                     rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
                 fi
                 : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf >>$OUTPUT 2>&1
