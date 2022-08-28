@@ -1,0 +1,22 @@
+SUBSYSTEM!="block", GOTO="pss_end"
+ACTION!="add|change", GOTO="pss_end"
+# Also don't process disks that are slated to be a multipath device
+ENV{DM_MULTIPATH_DEVICE_PATH}=="1", GOTO="pss_end"
+
+ACTION=="change", KERNEL=="dm-[0-9]*", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}!="1", GOTO="do_pss"
+KERNEL=="cciss[0-9]*", GOTO="do_pss"
+KERNEL=="nbd[0-9]*", GOTO="do_pss"
+KERNEL=="md[0-9]*|md_d[0-9]*|md/*", GOTO="do_pss"
+
+GOTO="pss_end"
+
+LABEL="do_pss"
+# by-path (parent device path)
+ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="", DEVPATH!="*/virtual/*", IMPORT PATH_ID
+ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
+ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+
+# by-label/by-uuid links (filesystem metadata)
+ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
+ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
+LABEL="pss_end"

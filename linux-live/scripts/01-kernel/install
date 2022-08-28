@@ -14,6 +14,7 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+        wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.13~mx15_all.deb
         apt-get install -y ./*.deb
         rm ./*.deb
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
@@ -59,6 +60,8 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         KERNEL_IMAGE="$(apt-cache depends linux-image-5.10-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
     elif [ $KERNEL_TYPE = "rt" ] || [ $KERNEL_TYPE = "cloud" ]; then
         KERNEL_IMAGE="linux-image-$KERNEL_TYPE-$KERNEL_ARCH"
+    elif [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+        echo "do nothing"
     else
         KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
     fi
@@ -80,10 +83,21 @@ if [ $KERNEL_TYPE != "none" ]; then
     if [ $KERNEL_BPO = "true" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y -t $DISTRIBUTION-backports $KERNEL_IMAGE >>$OUTPUT 2>&1
+    elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+        wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-image-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+        wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+        apt-get install -y ./linux-image-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+        apt-get install -y ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+        rm ./linux-*.deb
     else
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
     fi
-    DEBIAN_FRONTEND=noninteractive \
-        apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
+    if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-mark hold linux-image-$KERNEL >>$OUTPUT 2>&1
+    else
+        DEBIAN_FRONTEND=noninteractive \
+            apt-mark hold $KERNEL_IMAGE >>$OUTPUT 2>&1
+    fi
 fi

@@ -10,8 +10,8 @@ APP_NAME="Google Chrome"
 APP_EXECUTABLE="google-chrome-stable"
 APP_MODULE_NUMBER="5"
 
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y gnupg >>$OUTPUT 2>&1
+#apt-get update >>$OUTPUT 2>&1 &&
+#    apt-get install -y gnupg >>$OUTPUT 2>&1
 
 wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor >packages.google.gpg
 install -o root -g root -m 644 packages.google.gpg /etc/apt/trusted.gpg.d/
@@ -109,4 +109,4 @@ fi
 
 PACKAGE=$APP_EXECUTABLE
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

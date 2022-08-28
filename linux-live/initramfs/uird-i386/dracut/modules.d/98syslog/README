@@ -1,0 +1,24 @@
+Syslog support for dracut
+
+This module provides syslog functionality in the initrd.
+This is especially interesting when complex configuration being
+used to provide access to the device the rootfs resides on.
+
+When this module is installed into the ramfs it is triggered by
+the udev event from the nic being setup (online).
+
+Then if syslog is configured it is started and will forward all
+kernel messages to the given syslog server.
+
+The syslog implementation is detected automatically by finding the
+appropriate binary with the following order:
+rsyslogd
+syslogd
+syslog-ng
+Then if detected the syslog.conf is generated and syslog is started.
+
+Bootparameters:
+syslogserver=ip    Where to syslog to
+sysloglevel=level  What level has to be logged
+syslogtype=rsyslog|syslog|syslogng
+                   Don't auto detect syslog but set it

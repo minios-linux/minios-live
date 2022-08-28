@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+#set -u          # treat unset variable as error
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+KERNEL="$KERNEL"
+if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+    KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* | head -n 1 | sed 's/linux-image-//')
+else
+    KERNEL=$(uname -r)
+fi
+
+# install packages
+apt-get update >>$OUTPUT 2>&1
+if [ $DISTRIBUTION_TYPE = "debian" ]; then
+    if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+        wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+        apt-get install -y ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb gcc make >>$OUTPUT 2>&1
+        rm ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+    else
+        apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+    fi
+elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    apt-get install -y linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
+fi
+echo "KERNEL=$KERNEL" >/miniosbuild.conf
+
+set -x
+KERN_VER=$KERNEL
+export KERN_VER
+cp /usr/lib/virtualbox/vboxdrv.sh /usr/lib/virtualbox/vboxdrv.sh.orig
+cp /usr/share/virtualbox/src/vboxhost/vboxdrv/Makefile-footer.gmk /usr/share/virtualbox/src/vboxhost/vboxdrv/Makefile-footer.gmk.orig
+ls /usr/share/virtualbox/src/vboxhost/vboxdrv/Makefile-footer.gmk.orig
+cp /usr/share/virtualbox/src/vboxhost/vboxnetadp/Makefile-footer.gmk /usr/share/virtualbox/src/vboxhost/vboxnetadp/Makefile-footer.gmk.orig
+ls /usr/share/virtualbox/src/vboxhost/vboxnetadp/Makefile-footer.gmk.orig
+cp /usr/share/virtualbox/src/vboxhost/vboxnetflt/Makefile-footer.gmk /usr/share/virtualbox/src/vboxhost/vboxnetflt/Makefile-footer.gmk.orig
+ls /usr/share/virtualbox/src/vboxhost/vboxnetflt/Makefile-footer.gmk.orig
+sed -i "89s/KERN_VER/#KERN_VER/g" usr/lib/virtualbox/vboxdrv.sh
+sed -i "584s/depmod -a/depmod -a $KERNEL/g" usr/lib/virtualbox/vboxdrv.sh
+sed -i "s/depmod -a/depmod -a $KERNEL/g" usr/share/virtualbox/src/vboxhost/vboxdrv/Makefile-footer.gmk
+sed -i "s/depmod -a/depmod -a $KERNEL/g" usr/share/virtualbox/src/vboxhost/vboxnetadp/Makefile-footer.gmk
+sed -i "s/depmod -a/depmod -a $KERNEL/g" usr/share/virtualbox/src/vboxhost/vboxnetflt/Makefile-footer.gmk
+
+/usr/sbin/vboxconfig
+#depmod -a $KERNEL
+#mv /usr/lib/virtualbox/vboxdrv.sh.orig /usr/lib/virtualbox/vboxdrv.sh
+#mv /usr/share/virtualbox/src/vboxhost/vboxdrv/Makefile-footer.gmk.orig /usr/share/virtualbox/src/vboxhost/vboxdrv/Makefile-footer.gmk
+#mv /usr/share/virtualbox/src/vboxhost/vboxnetadp/Makefile-footer.gmk.orig /usr/share/virtualbox/src/vboxhost/vboxnetadp/Makefile-footer.gmk
+#mv /usr/share/virtualbox/src/vboxhost/vboxnetflt/Makefile-footer.gmk.orig /usr/share/virtualbox/src/vboxhost/vboxnetflt/Makefile-footer.gmk
+set +x
+: 'if [ ! -d /squashfs-root/usr/lib/modules/$KERNEL/misc ]; then
+    mkdir -p /squashfs-root/usr/lib/modules/$KERNEL/misc
+fi
+cp /usr/lib/modules/$KERNEL/misc/vboxdrv.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ >>$OUTPUT 2>&1
+cp /usr/lib/modules/$KERNEL/misc/vboxnetadp.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ >>$OUTPUT 2>&1
+cp /usr/lib/modules/$KERNEL/misc/vboxnetflt.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ >>$OUTPUT 2>&1
+
+dir2sb /squashfs-root /$MODULE.sb >>$OUTPUT 2>&1'

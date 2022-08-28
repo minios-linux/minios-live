@@ -10,8 +10,8 @@ APP_NAME="Microsoft Edge"
 APP_EXECUTABLE="microsoft-edge-stable"
 APP_MODULE_NUMBER="5"
 
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y gnupg >>$OUTPUT 2>&1
+#apt-get update >>$OUTPUT 2>&1 &&
+#    apt-get install -y gnupg >>$OUTPUT 2>&1
 
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
 install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
@@ -108,4 +108,4 @@ fi
 
 PACKAGE=$APP_EXECUTABLE
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

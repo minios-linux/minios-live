@@ -1,0 +1,22 @@
+[Unit]
+Description=Device-Mapper Multipath Device Controller
+Before=iscsi.service iscsid.service lvm2-activation-early.service
+Wants=systemd-udev-trigger.service systemd-udev-settle.service local-fs-pre.target
+After=systemd-udev-trigger.service systemd-udev-settle.service
+Before=local-fs-pre.target
+DefaultDependencies=no
+Conflicts=shutdown.target
+ConditionKernelCommandLine=!nompath
+ConditionKernelCommandLine=!rd.multipath=0
+ConditionKernelCommandLine=!rd_NO_MULTIPATH
+ConditionKernelCommandLine=!multipath=off
+
+[Service]
+Type=simple
+ExecStartPre=-/sbin/modprobe dm-multipath
+ExecStart=/sbin/multipathd -s -d
+ExecReload=/sbin/multipathd reconfigure
+ExecStop=/sbin/multipathd shutdown
+
+[Install]
+WantedBy=sysinit.target

@@ -1,6 +1,10 @@
 #!/bin/bash
 
 ##########################################
+#if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+#    KERNEL_AUFS="false"
+#fi
+
 if [ $PACKAGE_VARIANT = "pve" ]; then
     KERNEL_TYPE="pve"
 elif [ $PACKAGE_VARIANT = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
@@ -11,12 +15,13 @@ if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
     KERNEL_TYPE = "default"
 fi
 
-if [ $KERNEL_AUFS = "true" ]; then
+if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
     if [ $KERNEL_BPO = "true" ]; then
         KERNEL="5.18.2"
         #KERNEL_RELEASE="5.10.127"
     else
-        KERNEL="5.10.127"
+        #KERNEL="5.10.127"
+        KERNEL="5.10.136"
     fi
 elif [ $KERNEL_TYPE = "none" ]; then
     KERNEL=""

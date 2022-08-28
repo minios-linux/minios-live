@@ -6,7 +6,24 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-apt-get update -y >>$OUTPUT 2>&1 &&
-    curl -s https://api.github.com/repos/rescuezilla/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
-    apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1
+# install packages
+#!!!the name of the main application of the module must be specified in the first line of package.list!!!
+if [ -f $SCRIPT_DIR/package.list ]; then
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y \
+        $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+fi
 
+apt-get update -y >>$OUTPUT 2>&1 &&
+    curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
+    rm -f ./rescuezilla*.deb
+
+apt-get install -y --reinstall rpcbind
+
+PACKAGE="rescuezilla"
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
+
+systemctl disable rpcbind

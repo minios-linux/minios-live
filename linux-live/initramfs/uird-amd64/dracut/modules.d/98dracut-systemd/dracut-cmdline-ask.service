@@ -1,0 +1,32 @@
+#  This file is part of dracut.
+#
+# See dracut.bootup(7) for details
+
+[Unit]
+Description=dracut ask for additional cmdline parameters
+DefaultDependencies=no
+Before=dracut-cmdline.service
+After=systemd-journald.socket
+After=systemd-vconsole-setup.service
+Requires=systemd-vconsole-setup.service
+Wants=systemd-journald.socket
+ConditionPathExists=/usr/lib/initrd-release
+ConditionKernelCommandLine=|rd.cmdline=ask
+ConditionPathExistsGlob=|/etc/cmdline.d/*.conf
+Conflicts=shutdown.target emergency.target
+
+[Service]
+Environment=DRACUT_SYSTEMD=1
+Environment=NEWROOT=/sysroot
+Type=oneshot
+ExecStart=-/bin/dracut-cmdline-ask
+StandardInput=tty
+StandardOutput=inherit
+StandardError=inherit
+RemainAfterExit=yes
+KillMode=process
+IgnoreSIGPIPE=no
+
+# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
+# terminates cleanly.
+KillSignal=SIGHUP

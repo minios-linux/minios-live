@@ -1,0 +1,41 @@
+#!/bin/bash
+# Check which virtualization technology to use
+# We prefer kvm, kqemu, userspace in that order.
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+[[ -x /usr/bin/qemu ]] && BIN=/usr/bin/qemu && ARGS="-cpu max"
+$(lsmod | grep -q '^kqemu ') && BIN=/usr/bin/qemu && ARGS="-kernel-kqemu -cpu host"
+[[ -c /dev/kvm && -x /usr/bin/kvm ]] && BIN=/usr/bin/kvm && ARGS="-cpu host"
+[[ -c /dev/kvm && -x /usr/bin/qemu-kvm ]] && BIN=/usr/bin/qemu-kvm && ARGS="-cpu host"
+[[ -c /dev/kvm && -x /usr/libexec/qemu-kvm ]] && BIN=/usr/libexec/qemu-kvm && ARGS="-cpu host"
+[[ -x /usr/bin/qemu-system-$(uname -i) ]] && BIN=/usr/bin/qemu-system-$(uname -i) && ARGS="-cpu max"
+[[ -c /dev/kvm && -x /usr/bin/qemu-system-$(uname -i) ]] && BIN=/usr/bin/qemu-system-$(uname -i) && ARGS="-enable-kvm -cpu host"
+
+[[ $BIN ]] || {
+   echo "Could not find a working KVM or QEMU to test with!" >&2
+   echo "Please install kvm or qemu." >&2
+   exit 1
+}
+
+# Provide rng device sourcing the hosts /dev/urandom and other standard parameters
+ARGS="$ARGS -smp 2 -m 512 -nodefaults -vga none -display none -no-reboot -device virtio-rng-pci"
+
+if ! [[ $* = *-daemonize* ]] && ! [[ $* = *-daemonize* ]]; then
+    ARGS="$ARGS -serial stdio"
+fi
+
+KVERSION=${KVERSION-$(uname -r)}
+
+VMLINUZ="/lib/modules/${KVERSION}/vmlinuz"
+
+if ! [ -f "$VMLINUZ" ]; then
+    [[ -f /etc/machine-id ]] && read MACHINE_ID < /etc/machine-id
+
+    if [[ $MACHINE_ID ]] && ( [[ -d /boot/${MACHINE_ID} ]] || [[ -L /boot/${MACHINE_ID} ]] ); then
+        VMLINUZ="/boot/${MACHINE_ID}/$KVERSION/linux"
+    else
+        VMLINUZ="/boot/vmlinuz-${KVERSION}"
+    fi
+fi
+
+exec $BIN $ARGS -kernel $VMLINUZ "$@"

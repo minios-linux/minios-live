@@ -1,0 +1,8 @@
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="hda", SYMLINK+="sda"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", KERNEL=="hda*", SYMLINK+="sda$env{MINOR}"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="hdb", SYMLINK+="sdb"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", KERNEL=="hdb*", SYMLINK+="sdb$env{MINOR}"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="hdc", SYMLINK+="sdc"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", KERNEL=="hdc*", SYMLINK+="sdc$env{MINOR}"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="hdd", SYMLINK+="sdd"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", KERNEL=="hdd*", SYMLINK+="sdd$env{MINOR}"

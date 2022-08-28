@@ -17,7 +17,7 @@ if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
 else
     KERNEL=$(uname -r)
 fi
-echo "KERNEL=$KERNEL" >/livekit.conf
+echo "KERNEL=$KERNEL" >/miniosbuild.conf
 
 if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
     KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* | head -n 1 | sed 's/linux-image-//')
@@ -29,9 +29,14 @@ if [ $DISTRIBUTION_ARCH = "amd64" ] && [ $DISTRIBUTION = "orel" ]; then
     DISTRIBUTION_ARCH="x86_64"
 fi
 
-echo "KERNEL=$KERNEL" >/livekit.conf
+echo "KERNEL=$KERNEL" >/miniosbuild.conf
 
-if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]) && [ $KERNEL_AUFS = "true" ]; then
+    apt-get update >>$OUTPUT 2>&1
+    apt-get install -y $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+    apt-get install -y $BPO aufs-dkms >>$OUTPUT 2>&1
+fi
+if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "frugal-" ]; then
     wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
@@ -61,6 +66,11 @@ EOF
         if [ $DISTRIBUTION = "orel" ]; then
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+        elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+            wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            rm ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
         else
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
@@ -71,10 +81,7 @@ EOF
 
     apt-get install -y $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
 
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
-        apt-get install -y $BPO aufs-dkms >>$OUTPUT 2>&1
-    fi
-    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION_ARCH = "amd64" ]; then
+    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "frugal" ]) && [ $DISTRIBUTION_ARCH = "amd64" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v >>$OUTPUT 2>&1
         apt-get install -y $BPO zfs-dkms >>$OUTPUT 2>&1
     fi
@@ -85,9 +92,9 @@ EOF
     elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
-            rtl8812au-dkms \
             rtl8821ce-dkms \
-            rtl8821cu-dkms >>$OUTPUT 2>&1
+            rtl8821cu-dkms \
+            >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "#sid" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
@@ -105,7 +112,9 @@ EOF
         cd -
     fi
     if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-        echo
+        break
+    elif [ $KERNEL_AUFS = "true" ]; then
+        break
     else
         git clone https://github.com/EntropicEffect/rtl8822bu
         cd rtl8822bu

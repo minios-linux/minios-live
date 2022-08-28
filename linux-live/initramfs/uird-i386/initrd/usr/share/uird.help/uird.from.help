@@ -1,0 +1,39 @@
+*******************************************************************************************************
+!!! This text was translated from russian by the Google service !!!
+!!! If you can translate better, please visit www.magos-linux.ru !!!
+
+uird.from= - the list of sources which contents modules/directory/iso for creation of root file system 
+             (root fs). Sources will be used as listing. Separator in the list ";" or ",". Subvalues 
+             separator "::"
+uird.from+=- add sources to list from basecfg.ini
+
+Legitimate values:
+
+uird.from=/path/dir                 - directory (search this dir in all disks and devices and use first 
+                                      found)
+uird.from=/dev/[..]/path/dir        - directory on the selected device
+uird.from=LABEL@/path/dir           - directory on the device with label LABEL
+uird.from=UUID@/path/dir            - directory on the device with uuid UUID
+uird.from=file-dvd.iso, file.img    - disk image (ISO, block device image)
+uird.from=file.vdi, file.qcow2      - virtual machine disk image
+uird.from=/dev/nbd0p1               - partition on a virtual machine disk image
+uird.from=http://server/path/...    - HTTP source (httpfs is in use)
+uird.from=ssh://server/path/...     - SSH source (sshfs is in use)
+uird.from=ftp://server/path/...     - FTP source (curlftpfs is in use)
+uird.from=nfs://server/path/...     - NFS source
+uird.from=cifs://server/path/...    - CIFS source
+
+Subvalues:
+MNT=/mount/point   - additional mount point for source
+MNT_OPTS=ro+noexec - additional mount options (use "+" instead of comma)
+TIMEOUT=2          - number of attemts to find source
+FORCE=yes          - do not stop UIRD then source is not found (equivalent of {} )
+SGN=file.sgn       - file - label, source is considered to be found if this file is in its root
+
+Example:
+uird.from=/MagOS;/MagOS-Data;ftp://myftp.com/mydir/::FORCE=yes
+This string means: find the directories MagOS and MagOS-Data in available physical disks; 
+use as the first source of MagOS, the second MagOS-Data, the third  catalogue mydir of the 
+ftp://myftp .com server. UIRD will not stop if it does not find the source 
+
+*******************************************************************************************************

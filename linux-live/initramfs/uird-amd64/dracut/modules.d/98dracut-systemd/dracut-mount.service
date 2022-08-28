@@ -1,0 +1,29 @@
+#  This file is part of dracut.
+#
+# See dracut.bootup(7) for details
+
+[Unit]
+Description=dracut mount hook
+Documentation=man:dracut-mount.service(8)
+After=initrd-root-fs.target initrd-parse-etc.service
+After=dracut-initqueue.service dracut-pre-mount.service
+ConditionPathExists=/usr/lib/initrd-release
+ConditionDirectoryNotEmpty=|/lib/dracut/hooks/mount
+ConditionKernelCommandLine=|rd.break=mount
+DefaultDependencies=no
+Conflicts=shutdown.target emergency.target
+
+[Service]
+Environment=DRACUT_SYSTEMD=1
+Environment=NEWROOT=/sysroot
+Type=oneshot
+ExecStart=-/bin/dracut-mount
+StandardInput=null
+StandardOutput=syslog
+StandardError=syslog+console
+KillMode=process
+RemainAfterExit=yes
+
+# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
+# terminates cleanly.
+KillSignal=SIGHUP

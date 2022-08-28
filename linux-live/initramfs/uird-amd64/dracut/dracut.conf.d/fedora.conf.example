@@ -1,0 +1,20 @@
+# dracut config file customized for RedHat/Fedora.
+
+# i18n
+i18n_vars="/etc/sysconfig/keyboard:KEYTABLE-KEYMAP /etc/sysconfig/i18n:SYSFONT-FONT,FONTACM-FONT_MAP,FONT_UNIMAP"
+i18n_default_font="eurlatgr"
+i18n_install_all="yes"
+
+
+stdloglvl=3
+sysloglvl=5
+install_optional_items+=" vi /etc/virc ps grep cat rm "
+prefix="/"
+systemdutildir=/usr/lib/systemd
+systemdsystemunitdir=/usr/lib/systemd/system
+systemdsystemconfdir=/etc/systemd/system
+udevdir=/usr/lib/udev
+hostonly="yes"
+hostonly_cmdline="no"
+early_microcode="yes"
+reproducible="yes"

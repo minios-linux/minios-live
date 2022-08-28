@@ -1,0 +1,1683 @@
+dracut-050
+==========
+
+dracut:
+- support for running on a cross-compiled rootfs, see README.cross
+- add support for creating secureboot signed UEFI images
+- use microcode found in packed cpio images
+- `-k/--kmodir` must now contain "lib/modules/$KERNEL_VERSION"
+  use DRACUT_KMODDIR_OVERRIDE=1 to ignore this check
+- support the EFI Stub loader's splash image feature.
+  `--uefi-splash-image <FILE>`
+
+dracut modules:
+- remove bashism in various boot scripts
+- emergency mode: use sulogin
+
+fcoe:
+- add rd.nofcoe option to disable the FCoE module from the command line
+
+10i18n:
+- fix keymaps not getting included sometimes
+- use eurlatgr as default console font
+
+iscsi:
+- add option `rd.iscsi.testroute`
+
+multipath:
+- fix udev rules detection of multipath devices
+
+network:
+- support NetworkManager
+
+network-legacy:
+- fix classless static route parsing
+- ifup: fix typo when calling dhclient --timeout
+- ifup: nuke pid and lease files if dhclient failed
+- fix ip=dhcp,dhcp6
+- use $name instead of $env{INTERFACE} (systemd-udevd regression)
+
+shutdown:
+- fix for non-systemd reboot/halt/shutdown commands
+- set selinux labels
+- fix shutdown with console=null
+
+lsinitrd:
+- list squash content as well
+- handle UEFI created with dracut --uefi
+- make lsinitrd usable for images made with Debian mkinitramfs
+
+dracut-install:
+- fixed ldd parsing
+- install kernel module dependencies of dependencies
+- fixed segfault for hashing NULL pointers
+- add support for compressed firmware files
+- dracut_mkdir(): create parent directories as needed.
+
+test suite:
+- lots of cleanups
+- add github actions
+
+new modules:
+- rngd
+- network-manager
+- ppcmac - thermal/fan control modules on PowerPC based Macs
+
+dracut-049
+==========
+lsinitrd:
+- record loaded kernel modules when hostonly mode is enabled
+  lsinitrd $image -f */lib/dracut/loaded-kernel-modules.txt
+- allow to only unpack certain files
+
+kernel-modules:
+- add gpio and pinctrl drivers for arm*/aarch64
+- add nfit
+
+kernel-network-modules:
+- add vlan kernel modules
+
+ifcfg/write-ifcfg.sh:
+- aggregate resolv.conf
+
+livenet:
+- Enable OverlayFS overlay in sysroot.mount generator.
+
+dmsquash-live:
+- Support a flattened squashfs.img
+
+dracut-systemd:
+- Start systemd-vconsole-setup before dracut-cmdline-ask
+
+iscsi:
+- do not install all of /etc/iscsi unless hostonly
+- start iscsid even w/o systemd
+
+multipath:
+- fixed shutdown
+
+network:
+- configure NetworkManager to use dhclient
+
+mdraid:
+- fixed uuid handling ":" versus "-"
+
+stratis:
+- Add additional binaries
+
+new modules:
+- 00warpclock
+- 99squash
+  Adds support for building a squashed initramfs
+- 35network-legacy
+  the old 40network
+- 35network-manager
+  alternative to 35network-legacy
+- 90kernel-modules-extra
+  adds out-of-tree kernel modules
+
+testsuite:
+- now runs on travis
+- support new qemu device options
+- even runs without kvm now
+
+dracut-048
+==========
+
+dracut.sh:
+- fixed finding of btrfs devices
+- harden dracut against BASH_ENV environment variable
+- no more prelinking
+- scan and install "external" kernel modules
+- fixed instmods with zero input
+- rdsosreport: best effort to strip out passwords
+- introduce tri-state hostonly mode
+
+   Add a new option --hostonly-mode which accept an <mode> parameter, so we have a tri-state hostonly mode:
+
+        * generic: by passing "--no-hostonly" or not passing anything.
+                   "--hostonly-mode" has no effect in such case.
+        * sloppy: by passing "--hostonly --hostonly-mode sloppy". This
+                  is also the default mode when only "--hostonly" is given.
+        * strict: by passing "--hostonly --hostonly-mode strict".
+
+    Sloppy mode is the original hostonly mode, the new introduced strict
+    mode will allow modules to ignore more drivers or do some extra job to
+    save memory and disk space, while making the image less portable.
+
+    Also introduced a helper function "optional_hostonly" to make it
+    easier for modules to leverage new hostonly mode.
+
+    To force install modules only in sloppy hostonly mode, use the form:
+
+    hostonly="$(optional_hostonly)" instmods <modules>
+
+dracut-install:
+- don't error out, if no modules were installed
+- support modules.softdep
+
+lsinitrd.sh:
+- fixed zstd file signature
+
+kernel:
+- include all pci/host modules
+- add mmc/core for arm
+- Include Intel Volume Management Device support
+
+plymouth:
+- fix detection of plymouth directory
+
+drm:
+- make failing installation of drm modules nonfatal
+- include virtio DRM drivers in hostonly initramfs
+
+stratis:
+- initial Stratis support
+
+crypt:
+- correct s390 arch to include arch-specific crypto modules
+- add cmdline rd.luks.partuuid
+- add timeout option rd.luks.timeout
+
+shutdown:
+- sleep a little, if a process was killed
+
+network:
+- introduce ip=either6 option
+
+iscsi:
+- replace iscsistart with iscsid
+
+qeth_rules:
+- new module to copy qeth rules
+
+multipath-hostonly:
+- merged back into multipath
+
+mdraid:
+- fixed case if rd.md.uuid is in ID_FS_UUID format
+
+dracut-047
+==========
+dracut.sh:
+- sync initramfs to filesystem with fsfreeze
+- introduce "--no-hostonly-default-device"
+- disable lsinitrd logging when quiet
+- add support for Zstandard compression
+- fixed relative paths in --kerneldir
+- if /boot/vmlinuz-$version exists use /boot/ as default output dir
+- make qemu and qemu-net a default module in non-hostonly mode
+- fixed relative symlinks
+- support microcode updates for all AMD CPU families
+- install all modules-load.d regardless of hostonly
+- fixed parsing of "-i" and "--include"
+- bump kmod version to >= 23
+- enable 'early_microcode' by default
+- fixed check_block_and_slaves() for nvme
+
+lsinitrd.sh:
+- dismiss "cat" error messages
+
+systemd-bootchart:
+- removed
+
+i18n:
+- install all keymaps for a given locale
+- add correct fontmaps
+
+dmsquash-live:
+- fixed systemd unit escape
+
+systemd:
+- enable core dumps with systemd from initrd
+- fixed setting of timeouts for device units
+- emergency.service: use Type=idle and fixed task limit
+
+multipath:
+- include files from /etc/multipath/conf.d
+- do not fail startup on missing configuration
+- start daemon after udev settle
+- add shutdown script
+- parse kernel commandline option 'multipath=off'
+- start before local-fs-pre.target
+
+dracut-emergency:
+- optionally print filesystem help
+
+network:
+- fixed MTU for bond master
+- fixed race condition when wait for networks
+
+fcoe:
+- handle CNAs with DCB firmware support
+- allow to specify the FCoE mode via the fcoe= parameter
+- always set AUTO_VLAN for fcoemon
+- add shutdown script
+- fixup fcoe-genrules.sh for VN2VN mode
+- switch back to using fipvlan for bnx2fc
+- add timeout mechanism
+
+crypt:
+- add basic LUKS detached header support
+- escape backslashes for systemd unit names correctly
+- put block_uuid.map into initramfs
+
+dmraid:
+- do not delete partitions
+
+dasd_mod:
+- do not set module parameters if dasd_cio_free is not present
+
+nfs:
+- fix mount if IPv4 address is used in /etc/fstab
+- support host being a DNS ALIAS
+
+fips:
+- fixed creating path to .hmac of kernel based on BOOT_IMAGE
+
+lunmask:
+- add module to handle LUN masking
+
+s390:
+- add rd.cio_accept
+
+dcssblk:
+- add new module for DCSS block devices
+
+zipl:
+- add new module to update s390x configuration
+
+iscsi:
+- no more iscsid, either iscsistart or iscsid
+
+integrity:
+- support loading x509 into the trusted/builtin .evm keyring
+- support X.509-only EVM configuration
+
+plymouth:
+- improve distro compatibility
+
+dracut-046
+==========
+
+dracut.sh:
+- bail out if module directory does not exist
+  if people want to build the initramfs without kernel modules,
+  then --no-kernel should be specified
+- add early microcode support for AMD family 16h
+- collect also all modaliases modules from sysfs for hostonly modules
+- sync initramfs after creation
+
+network:
+- wait for IPv6 RA if using none/static IPv6 assignment
+- ipv6 improvements
+- Handle curl using libnssckbi for TLS
+- fix dhcp classless_static_routes
+- dhclient: send client-identifier matching hardware address
+- don't arping for point-to-point connections
+- only bring up wired network interfaces (no wlan and wwan)
+
+mraid:
+- mdraid: wait for rd.md.uuid specified devices to be assembled
+
+crypt:
+- handle rd.luks.name
+
+crypt-gpg:
+- For GnuPG >= 2.1 support OpenPGP smartcards
+
+kernel-install:
+- Skip to create initrd if /etc/machine-id is missing or empty
+
+nfs:
+- handle rpcbind /run/rpcbind directory
+
+s390:
+- various fixes
+
+dmsquash-live:
+- add NTFS support
+
+multipath:
+- split out multipath-hostonly module
+
+lvmmerge:
+- new module, see README.md in the module directory
+
+dracut-systemd:
+- fixed dependencies
+
+
+dracut-045
+==========
+
+Important: dracut now requires libkmod for the dracut-install binary helper,
+           which nows handles kernel module installing and filtering.
+
+dracut.sh:
+- restorecon final image file
+- fail hard, if we find modules and modules.dep is missing
+- support --tmpdir as a relative path
+- add default path for --uefi
+
+dracut-functions.sh:
+- fix check_vol_slaves() volume group name stripping
+
+dracut-install:
+- catch ldd message "cannot execute binary file"
+- added kernel module handling with libkmod
+  Added parameters:
+    --module,-m
+    --mod-filter-path, -p
+    --mod-filter-nopath, -P
+    --mod-filter-symbol, -s
+    --mod-filter-nosymbol, -S
+    --mod-filter-noname, -N
+    --silent
+    --kerneldir
+    --firmwaredirs
+- fallback to non-hostonly mode if lsmod fails
+
+lsinitrd:
+- new option "--unpack"
+- new option "--unpackearly"
+- and "--verbose"
+
+general initramfs fixes:
+- don't remove 99-cmdline-ask on 'hostonly' cleanup
+- call dracut-cmdline-ask.service, if /etc/cmdline.d/*.conf exists
+- break at switch_root only for bare rd.break
+- add rd.emergency=[reboot|poweroff|halt]
+  specifies what action to execute in case of a critical failure
+- rd.memdebug=4 gives information, about kernel module memory consumption
+  during loading
+
+dmsquash-live:
+- fixed livenet-generator execution flag
+  and include only, if systemd is used
+- fixed dmsquash-live-root.sh for cases where the fstype of the liveimage is squashfs
+- fixed typo for rootfs.img
+- enable the use of the OverlayFS for the LiveOS root filesystem
+  Patch notes:
+    Integrate the option to use an OverlayFS as the root filesystem
+    into the 90dmsquash-live module for testing purposes.
+
+    The rd.live.overlay.overlayfs option allows one to request an
+    OverlayFS overlay.  If a persistent overlay is detected at the
+    standard LiveOS path, the overlay & type detected will be used.
+
+    Tested primarily with transient, in-RAM overlay boots on vfat-
+    formatted Live USB devices, with persistent overlay directories
+    on ext4-formatted Live USB devices, and with embedded, persistent
+    overlay directories on vfat-formatted devices. (Persistent overlay
+    directories on a vfat-formatted device must be in an embedded
+    filesystem that supports the creation of trusted.* extended
+    attributes, and must provide valid d_type in readdir responses.)
+
+    The rd.live.overlay.readonly option, which allows a persistent
+    overlayfs to be mounted read only through a higher level transient
+    overlay directory, has been implemented through the multiple lower
+    layers feature of OverlayFS.
+
+    The default transient DM overlay size has been adjusted up to 32 GiB.
+    This change supports comparison of transient Device-mapper vs.
+    transient OverlayFS overlay performance.  A transient DM overlay
+    is a sparse file in memory, so this setting does not consume more
+    RAM for legacy applications.  It does permit a user to use all of
+    the available root filesystem storage, and fails gently when it is
+    consumed, as the available free root filesystem storage on a typical
+    LiveOS build is only a few GiB.  Thus, when booted on other-
+    than-small RAM systems, the transient DM overlay should not overflow.
+
+    OverlayFS offers the potential to use all of the available free RAM
+    or all of the available free disc storage (on non-vfat-devices)
+    in its overlay, even beyond the root filesystem available space,
+    because the OverlayFS root filesystem is a union of directories on
+    two different partitions.
+
+    This patch also cleans up some message spew at shutdown, shortens
+    the execution path in a couple of places, and uses persistent
+    DM targets where required.
+
+dmraid:
+- added "nowatch" option in udev rule, otherwise udev would reread partitions for raid members
+- allow booting from degraded MD RAID arrays
+
+shutdown:
+- handle readonly /run on shutdown
+
+kernel-modules:
+- add all HID drivers, regardless of hostonly mode
+  people swap keyboards sometimes and should be able to enter their disk password
+- add usb-storage
+  To save the rdsosreport.txt to a USB stick, the usb-storage module is needed.
+- add xennet
+- add nvme
+
+systemd:
+- add /etc/machine-info
+- fixed systemd-escape call for names beginning with "-"
+- install missing drop-in configuration files for
+    /etc/systemd/{journal.conf,system.conf}
+
+filesystems:
+- add support to F2FS filesystem (fsck and modules)
+
+network:
+- fix carrier detection
+- correctly set mac address for ip=...:<mtu>:<mac>
+- fixed vlan, bonding, bridging, team logic
+  call ifup for the slaves and assemble afterwards
+- add mtu to list of variables to store in override
+- for rd.neednet=0 a bootdev is not needed anymore
+- dhclient-script.sh: add classless-static-routes support
+- support for iBFT IPv6
+- support macaddr in brackets [] (commit 740c46c0224a187d6b5a42b4aa56e173238884cc)
+- use arping2, if available
+- support multiple default gateways from DHCP server
+- fixup VLAN handling
+- enhance team support
+- differ between ipv6 local and global tentative
+- ipv6: wait for a router advertised route
+- add 'mtu' parameter for bond options
+- use 'ip' instead of 'brctl'
+
+nbd:
+- add systemd generator
+- use export names instead of port numbers, because port number based
+  exports are deprecated and were removed.
+
+fcoe:
+- no more /dev/shm state copying
+
+multipath:
+- check all /dev/mapper devices if they are multipath devices, not only mpath*
+
+fips:
+- fixed .hmac installation in FIPS mode
+
+plymouth:
+- also trigger the acpi subsystem
+
+syslog:
+- add imjournal.so to read systemd journal
+- move start from udev to initqueue/online
+
+caps:
+- make it a non default module
+
+livenet:
+- support nfs:// urls in livenet-generator
+
+nfs:
+- install all nfs modules non-hostonly
+
+crypt:
+- support keyfiles embedded in the initramfs
+
+testsuite:
+- add TEST-70-BONDBRIDGETEAMVLAN
+- make "-cpu host" the default
+
+dracut-044
+==========
+creation:
+- better udev & systemd dir detection
+- split dracut-functions.sh in dracut-init.sh and dracut-functions.sh
+  dracut-functions.sh can now be sourced by external tools
+- detect all btrfs devices needed
+- added flag file if initqueue is needed
+- don't overwrite anything, if initramfs image file creation failed
+- if no compressor is specified, try to find a suitable one
+- drop scanning kernel config for CONFIG_MICROCODE_*_EARLY
+- remove "_EARLY" from CONFIG_MICROCODE_* checks
+- dracut.sh: add command line option for install_i18_all
+  --no-hostonly-i18n -> install_i18n_all=yes
+  --hostonly-i18n -> install_i18n_all=no
+- --no-reproducible to turn off reproducible mode
+- dracut-function.sh can now be sourced from outside of dracut
+- dracut-init.sh contains all functions, which only can be used from
+  within the dracut infrastructure
+- support --mount with just mountpoint as a parameter
+- removed action_on_fail support
+- removed host_modalias concept
+- do not create microcode, if no firmware is available
+- skip gpg files in microcode generation
+
+initramfs:
+- ensure pre-mount (and resume) run before root fsck
+- add --online option to initqueue
+
+qemu:
+- fixed virtual machine detection
+
+lvm:
+- remove all quirk arguments for lvm >= 2.2.221
+
+dmsquash:
+- fixup for checkisomd5
+- increase timeout for checkisomd5
+- use non-persistent metadata snapshots for transient overlays.
+- overflow support for persistent snapshot.
+- use non-persistent metadata snapshots.
+- avoid an overlay for persistent, uncompressed, read-write live installations.
+
+multipath:
+- multipath.conf included in hostonly mode
+- install all multipath path selector kernel modules
+
+iSCSI:
+- use the iBFT initiator name, if found and set
+- iscsid now present in the initramfs
+- iscsistart is done with systemd-run asynchrone to do things in
+  paralllel. Also restarted for every new interface which shows up.
+- If rd.iscsi.waitnet (default) is set, iscsistart is done only
+  after all interfaces are up.
+- If not all interfaces are up and rd.iscsi.testroute (default) is set,
+  the route to a iscsi target IP is checked and skipped, if there is none.
+- If all things fail, we issue a "dummy" interface iscsiroot to retry
+  everything in the initqueue/timeout.
+
+network:
+- added DHCP RENEW/REBIND
+- IPv4 DHCP lease time now optional (bootp)
+- IPv6 nfs parsing
+- fixed IPv6 route parsing
+- rd.peerdns=0 parameter to disable DHCP nameserver setting
+- detect duplicate IPv4 addresses for static addresses
+- if interfaces are specified with its enx* name, bind the correspondent MAC to the interface name
+- if multiple "ip=" are present on the kernel command line "rd.neednet=1" is assumed
+- add options to tweak timeouts
+     rd.net.dhcp.retry=<cnt>
+         If this option is set, dracut will try to connect via dhcp
+         <cnt> times before failing. Default is 1.
+
+     rd.net.timeout.dhcp=<arg>
+         If this option is set, dhclient is called with "-timeout <arg>".
+
+     rd.net.timeout.iflink=<seconds>
+         Wait <seconds> until link shows up. Default is 60 seconds.
+
+     rd.net.timeout.ifup=<seconds>
+         Wait <seconds> until link has state "UP". Default is 20 seconds.
+
+     rd.net.timeout.route=<seconds>
+         Wait <seconds> until route shows up. Default is 20 seconds.
+
+     rd.net.timeout.ipv6dad=<seconds>
+         Wait <seconds> until IPv6 DAD is finished. Default is 50 seconds.
+
+     rd.net.timeout.ipv6auto=<seconds>
+         Wait <seconds> until IPv6 automatic addresses are assigned.
+         Default is 40 seconds.
+
+     rd.net.timeout.carrier=<seconds>
+         Wait <seconds> until carrier is recognized. Default is 5 seconds.
+
+IMA:
+- load signed certificates in the IMA keyring, see modules.d/98integrity/README
+- load EVM public key in the kernel _evm keyring
+
+FCoE:
+    fcoe: start with fcoemon instead of fipvlan
+
+dracut-043
+==========
+- add missing dmsquash-generator
+
+dracut-042
+==========
+- fixed dmsetup shutdown
+- new kernel command line option "rd.live.overlay.thin"
+    This option changes the underlying mechanism for the overlay in the
+    dmsquash module.
+    Instead of a plain dm snapshot a dm thin snapshot is used. The advantage
+    of the thin snapshot is, that the TRIM command is recognized, which
+    means that at runtime, only the occupied blocks will be claimed from
+    memory, and freed blocks will really be freed in ram.
+- dmsquash: Add squashfs support to rd.live.fsimg
+    Previously rd.live.fsimg only supported filesystems residing in
+    (compressed) archives.
+    Now rd.live.fsimg can also be used when a squashfs image is used.
+    This is achieved by extracting the rootfs image from the squashfs and
+    then continue with the default routines for rd.live.fsimg.
+- lvm: add support for LVM system id
+- split up the systemd dracut module
+    Basic systemd functionality is in 00systemd now.
+    Switching root and the initrd.target is in 00systemd-initrd.
+    Dracut additions to the systemd initrd are in 98dracut-systemd.
+- support for creating a UEFI boot executable via argument "--uefi"
+    With an EFI stub, the kernel, the initramfs and a kernel cmdline can be
+    glued together to a single UEFI executable, which can be booted by a
+    UEFI BIOS.
+- network: split out kernel-network-modules, now in 90kernel-network-modules
+- support for ethernet point-to-point connections configured via DHCP
+- kernel-modules: install all HID drivers
+- dracut.pc pkg-config file
+- mount /dev, /dev/shm and /run noexec
+
+dracut-041
+==========
+- fixed the shutdown loop
+- fixed gzip compression for versions, which do not have --rsyncable
+- fixed ifcfg generation for persistent interface names
+- multipath:
+  * new option to turn off multipath "rd.multipath=0" completly
+  * preload scsi dh modules
+  * start multipathd via systemd service
+- do not fail, if user pressed ESC during media check
+- fixed systemd-journal by symlinking /var/log to /run/initramfs/log
+- initrd-release moved to /usr/lib
+- lots of iSCSI fixes
+- new "rd.timeout" to specify the systemd JobTimeoutSec for devices
+- if $initrd/etc/cmdline.d/* has a "root=" and the kernel cmdline does not,
+  generate a mount unit for it
+- increased the initqueue timeout for non systemd initramfs to 180s
+- $initrd/etc/cmdline.d/ hostonly files are now generated for NFS
+- make use of systemd-hibernate-resume, if available
+- fixed ldconfig parsing for hwcap output
+- network: add support for comma separated autoconf options like ip=eth0:auto6,dhcp
+- new parameter "rd.live.overlay.size" to specify the overlay for live images
+- changed the test suite for the new sfdisk syntax
+- added cache tools for dm-cache setups
+
+dracut-040
+==========
+- fixed dracut module dependency checks
+- fixed test suite
+
+dracut-039
+==========
+- DRACUT_PATH can now be used to specify the PATH used by dracut
+  to search for binaries instead of the default
+  /usr/sbin:/sbin:/usr/bin:/bin
+  This should be set in the distribution config file
+  /usr/lib/dracut/dracut.conf.d/01-dist.conf
+- add "--loginstall <DIR>" and loginstall="<DIR>" options
+  to record all files, which are installed from the host fs
+- "rd.writable.fsimg" - support for read/write filesystem images
+- "rd.route" kernel command line parameter added
+- "--install-optional" and install_optional_items added
+- find plymouth pkglibdir on debian
+- torrent support for live images
+  root=live:torrent://example.com/liveboot.img.torrent
+  and generally added as a download handler
+- disable microcode, if the kernel does not support it
+- speed up ldconfig_paths()
+- more ARM modules
+- fixed inst*() functions and "-H" handling
+- fixed bridge setup
+- added --force-drivers parameter and force_drivers=+ config option
+  to enforce driver loading at early boot time
+- documented "iso-scan/filename" usage in grub
+- various bugfixes
+
+dracut-038
+==========
+- "rd.cmdline=ask" will ask the user on the console to enter additional
+  kernel command line parameters
+- "rd.hostonly=0" removes all "hostonly" added custom files,
+  which is useful in combination with "rd.auto" or other specific parameters,
+  if you want to boot on the same hardware, but the compiled in configuration
+  does not match your setup anymore
+- inst* functions and dracut-install now accept the "-H" flag, which logs all
+  installed files to /lib/dracut/hostonly-files. This is used to remove those
+  files, if rd.hostonly is given on the kernel command line
+- strstr now only does literal string match,
+  please use strglob and strglobin for globs
+- fixed unpacking of the microcode image on shutdown
+- added systemd-gpt-auto-generator
+- fcoe: wait for lldpad to be ready
+- network: handle "ip=dhcp6"
+- network: DCHPv6: set valid_lft and preferred_lft
+- dm: support dm-cache
+- fstab: do not mount and fsck from fstab if using systemd
+- break at switch_root only for bare rd.break and not for any rd.break=...
+- nbd: make use of "--systemd-mark", otherwise it gets killed on switch_root
+- fcoe-uefi: fixed cmdline parameter generation
+- iscsi: deprecate "ip=ibft", use "rd.iscsi.ibft[=1]" from now on
+- "lsinitrd -m" now only lists the dracut modules of the image
+- a lot of small bugfixes
+
+dracut-037
+==========
+- dracut: hostonly_cmdline variable and command line switch
+    Toggle hostonly cmdline storing in the initramfs
+    --hostonly-cmdline:
+        Store kernel command line arguments needed in the initramfs
+    --no-hostonly-cmdline:
+        Do not store kernel command line arguments needed in the initramfs
+- dracut: --mount now understands full fstab lines
+- dracut now also includes drivers from the /lib/modules/<version>/updates directory
+- dracut: only set the owner of files to 0:0, if generated as non-root
+- dracut now directly writes to the initramfs file
+- dracut: call lz4 with the legacy flag (linux kernel does not support the new format)
+- systemd: rootfs-generator generates JobTimeout=0 units for the root device
+- systemd: added the systemd-sysctl service
+- systemd: add 80-net-setup-link.rules and .link files for persistent interface renaming
+- systemd: make dracut-shutdown.service failure non-fatal
+- network: various IPv6 fixes
+- network: DCHCP for IPv6
+- network: understand ip=.....:<dns1>:<dns2>
+- network: parse ibft nameserver settings
+- shutdown: if kexec fails, just reboot
+- lvm: handle one LV at a time with lvchange
+- module-setup.sh:
+    New functions require_binaries() and require_any_binary() to be used
+    in the check() section of module-setup.sh.
+- a lot of small bugfixes
+
+Contributions from:
+Harald Hoyer
+Alexander Tsoy
+Till Maas
+Amadeusz Żołnowski
+Brian C. Lane
+Colin Guthrie
+Dave Young
+WANG Chao
+Shawn W Dunn
+
+dracut-036
+==========
+- fixed skipcpio signature checking
+
+dracut-035
+==========
+- changed dracut tarball compression to xz
+- new argument "--rebuild"
+- add lzo, lz4 compression
+- install: install all binaries with <name> found in PATH
+- lsinitrd can now handle initramfs images with an early cpio prepended
+  (microcode, ACPI tables)
+- mkinitrd-suse added as a compat stub for dracut
+- lvm: install thin utils for non-hostonly
+- resume: fix swap detection in hostonly
+- avoid loading unnecessary 32-bit libraries for 64-bit initrds
+- crypt: wait for systemd password agents
+- crypt: skip crypt swaps with password files
+- network: before doing dhcp, dracut now checks, if the link has a carrier
+- network: dhclient-script.sh now sets the lease time
+- network: include usbnet drivers
+- network: include all ethernet drivers
+- network: add rd.bootif=0 to ignore BOOTIF
+- i18n: introduce i18n_install_all, to install everything i18n related
+- support SuSE DASD configurations
+- support SuSE zfcp configurations
+- support SuSE compressed KEYMAP= setting
+- usrmount: always install the module,
+  so always mount /usr from within the initramfs
+- test/TEST-17-LVM-THIN: new test case for lvm thin pools
+- "halt" the machine in systemd mode for die()
+
+dracut-034
+==========
+- do not run dhcp on parts of assembled network interfaces (bond, bridge)
+- add option to turn on/off prelinking
+    --prelink, --noprelink
+    do_prelink=[yes|no]
+- add ACPI table overriding
+- do not log to syslog/kmsg/journal for UID != 0
+- lvm/mdraid: Fix LVM on MD activation
+- bcache module removed (now in bcache-tools upstream)
+- mdadm: also install configs from /etc/mdadm.conf.d
+- fixes for mdadm-3.2.6+
+- mkinitrd: better compat support for SUSE
+- fcoe: add FCoE UEFI boot device support
+- rootfs-block: add support for the rootfallback= kernel cmdline option
+
+Contributions from:
+Thomas Renninger
+Alexander Tsoy
+Peter Rajnoha
+WANG Chao
+Harald Hoyer
+
+
+dracut-033
+==========
+- improved hostonly device recognition
+- improved hostonly module recognition
+- add dracut.css for dracut.html
+- do not install udev rules from /etc in generic mode
+- fixed LABEL= parsing for swap devices
+- fixed iBFT network setup
+- url-lib.sh: handle 0-size files with curl
+- dracut.asc: document debugging dracut on shutdown
+- if rd.md=0, use dmraid for imsm and ddf
+- skip empty dracut modules
+- removed caching of kernel cmdline
+- fixed iso-scan, if the loop device driver is a kernel module
+- bcache: support new blkid
+- fixed ifup udev rules
+- ifup with dhcp, if no "ip=" specified for the interface
+
+Contributions from:
+WANG Chao
+Colin Walters
+Harald Hoyer
+
+
+dracut-032
+==========
+- add parameter --print-cmdline
+    This prints the kernel command line parameters for the current disk
+    layout.
+    $ dracut --print-cmdline
+    rd.luks.uuid=luks-e68c8906-6542-4a26-83c4-91b4dd9f0471
+    rd.lvm.lv=debian/root rd.lvm.lv=debian/usr root=/dev/mapper/debian-root
+    rootflags=rw,relatime,errors=remount-ro,user_xattr,barrier=1,data=ordered
+    rootfstype=ext4
+- dracut.sh: add --persistent-policy option and persistent_policy conf option
+    --persistent-policy <policy>:
+        Use <policy> to address disks and partitions.
+        <policy> can be any directory name found in /dev/disk.
+        E.g. "by-uuid", "by-label"
+- dracut now creates the initramfs without udevadm
+  that means the udev database does not have to populated
+  and the initramfs can be built in a chroot with
+  /sys /dev /proc mounted
+- renamed dracut_install() to inst_multiple() for consistent naming
+- if $libdirs is unset, fall back to ld.so.cache paths
+- always assemble /usr device in initramfs
+- bash module added (disable it, if you really want dash)
+- continue to boot, if the main loop times out, in systemd mode
+- removed inst*() shell pure versions, dracut-install binary is in charge now
+- fixed ifcfg file generation for vlan
+- do not include adjtime and localtime anymore
+- fixed generation of zfcp.conf of CMS setups
+- install vt102 terminfo
+  dracut_install() is still there for backwards compat
+- do not strip files in FIPS mode
+- fixed iBFT interface configuration
+- fs-lib: install fsck and fsck.ext*
+- shutdown: fixed killall_proc_mountpoint()
+- network: also wait for ethernet interfaces to setup
+- fixed checking for FIPS mode
+
+Contributions from:
+Harald Hoyer
+WANG Chao
+Baoquan He
+Daniel Schaal
+Dave Young
+James Lee
+Radek Vykydal
+
+
+dracut-031
+==========
+- do not include the resume dracut module in hostonly mode,
+  if no swap is present
+- don't warn twice about omitted modules
+- use systemd-cat for logging on systemd systems, if logfile is unset
+- fixed PARTUUID parsing
+- support kernel module signing keys
+- do not install the usrmount dracut module in hostonly mode,
+  if /sbin/init does not live in /usr
+- add debian udev rule files
+- add support for bcache
+- network: handle bootif style interfaces
+  e.g. ip=77-77-6f-6f-64-73:dhcp
+- add support for kmod static devnodes
+- add vlan support for iBFT
+
+Contributions from:
+Harald Hoyer
+Amadeusz Żołnowski
+Brandon Philips
+Colin Walters
+James Lee
+Kyle McMartin
+Peter Jones
+
+dracut-030
+==========
+- support new persistent network interface names
+- fix findmnt calls, prevents hang on stale NFS mounts
+- add systemd.slice and slice.target units
+- major shell cleanup
+- support root=PARTLABEL= and root=PARTUUID=
+- terminfo: only install l/linux v/vt100 and v/vt220
+- unset all LC_* and LANG, 10% faster
+- fixed dependency loop for dracut-cmdline.service
+- do not wait_for_dev for the root devices
+- do not wait_for_dev for devices, if dracut-initqueue is not needed
+- support early microcode loading with --early-microcode
+- dmraid, let dmraid setup its own partitions
+- sosreport renamed to rdsosreport
+
+Contributions from:
+Harald Hoyer
+Konrad Rzeszutek Wilk
+WANG Chao
+
+dracut-029
+==========
+- wait for IPv6 autoconfiguration
+- i18n: make the default font configurable
+  To set the default font for your distribution, add
+  i18n_default_font="latarcyrheb-sun16"
+  to your /lib/dracut/dracut.conf.d/01-dist.conf distribution config.
+- proper handle "rd.break" in systemd mode before switch-root
+- systemd: make unit files symlinks
+- build without dash requirement
+- add dracut-shutdown.service.8 manpage
+- handle MACs for "ip="
+  "ip=77-77-6f-6f-64-73:dhcp"
+- don't explode when mixing BOOTIF and ip=
+- 90lvm/module-setup.sh: redirect error message of lvs to /dev/null
+
+Contributions from:
+Harald Hoyer
+Will Woods
+Baoquan He
+
+dracut-028
+==========
+- full integration of crypto devs in systemd logic
+- support for bridge over team and vlan tagged team
+- support multiple bonding interfaces
+- new kernel command line param "rd.action_on_fail"
+  to control the emergency action
+- support for bridge over a vlan tagged interface
+- support for "iso-scan/filename" kernel parameter
+- lsinitrd got some love and does not use "file" anymore
+- fixed issue with noexec mounted tmp dirs
+- FIPS mode fixed
+- dracut_install got some love
+- fixed some /usr mounting problems
+- ifcfg dracut module got some love and fixes
+- default installed font is now latarcyrheb-sun16
+- new parameters rd.live.dir and rd.live.squashimg
+- lvm: add tools for thin provisioning
+- also install non-hwcap libs
+- setup correct system time and time zone in initrd
+- s390: fixed cms setup
+- add systemd-udevd persistent network interface naming
+
+Contributions from:
+Harald Hoyer
+Kamil Rytarowski
+WANG Chao
+Baoquan He
+Adam Williamson
+Colin Guthrie
+Dan Horák
+Dave Young
+Dennis Gilmore
+Dennis Schridde
+
+dracut-027
+==========
+- dracut now has bash-completion
+- require bash version 4
+- systemd module now requires systemd >= 199
+- dracut makes use of native systemd initrd units
+- added hooks for new-kernel-pkg and kernel-install
+- hostonly is now default for fedora
+- comply with the BootLoaderSpec paths
+  http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
+- added rescue module
+- host_fs_types is now a hashmap
+- new dracut argument "--regenerate-all"
+- new dracut argument "--noimageifnotneeded"
+- new man page dracut.bootup
+- install all host filesystem drivers
+- use -D_FILE_OFFSET_BITS=64 to build dracut-install
+
+dracut-026
+==========
+- introduce /usr/lib/dracut/dracut.conf.d/ drop-in directory
+
+  /usr/lib/dracut/dracut.conf.d/*.conf can be overwritten by the same
+  filenames in /etc/dracut.conf.d.
+
+  Packages should use /usr/lib/dracut/dracut.conf.d rather than
+  /etc/dracut.conf.d for drop-in configuration files.
+
+  /etc/dracut.conf and /etc/dracut.conf.d belong to the system administrator.
+
+- uses systemd-198 native initrd units
+- totally rely on the fstab-generator in systemd mode for block devices
+- dracut systemd now uses dracut.target rather than basic.target
+- dracut systemd services optimize themselves away
+- fixed hostonly parameter generation
+- turn off curl globbing (fixes IPv6)
+- modify the udev rules on install and not runtime time
+- enable initramfs building without kernel modules (fixed regression)
+- in the initqueue/timeout,
+  reset the main loop counter, as we see new udev events or initqueue/work
+- fixed udev rule installation
+
+dracut-025
+==========
+- do not strip signed kernel modules
+- add sosreport script and generate /run/initramfs/sosreport.txt
+- make short uuid specification for allow-discards work
+- turn off RateLimit for the systemd journal
+- fixed MAC address assignment
+- add systemd checkisomd5 service
+- splitout drm kernel modules from plymouth module
+- add 'swapoff' to initramfs to fix shutdown/reboot
+- add team device support
+- add pre-shutdown hook
+- kill all processes in shutdown and report remaining ones
+- "--device" changed to "--add-device" and "add_device=" added for conf files
+- add memory usage trace to different hook points
+- cope with optional field #7 in /proc/self/mountinfo
+- lots of small bugfixes
+
+dracut-024
+==========
+- new dracut option "--device"
+- new dracut kernel command line options "rd.auto"
+- new dracut kernel command line options "rd.noverifyssl"
+- new dracut option "--kernel-cmdline" and "kernel_cmdline" option for default parameters
+- fixes for systemd and crypto
+- fix for kexec in shutdown, if not included in initramfs
+- create the initramfs non-world readable
+- prelink/preunlink in the initramfs
+- strip binaries in the initramfs by default now
+- various FIPS fixes
+- various dracut-install fixes
+
+dracut-023
+==========
+- resume from hibernate fixes
+- -N option for --no-hostonly
+- support for systemd crypto handling
+- new dracut module "crypt-loop"
+- deprecate the old kernel command line options
+- more documentation
+- honor CFLAGS for dracut-install build
+- multipath fixes
+- / is mounted according to rootflags parameter but forced ro at first.
+  Later it is remounted according to /etc/fstab + rootflags parameter
+  and "ro"/"rw".
+- support for xfs / reiserfs separate journal device
+- new "ro_mnt" option to force ro mount of / and /usr
+- root on cifs support
+- dracut-install: fixed issue for /var/tmp containing a symlink
+- only lazy resolve with ldd, if the /var/tmp partition is not mounted with "noexec"
+- i18n: fixed inclusion of "include" keymaps
+
+dracut-022
+==========
+- fixed host-only kernel module bug
+
+dracut-021
+==========
+- fixed systemd in the initramfs (requires systemd >= 187)
+- dracut-install: massive speedup with /var on the same filesystem with COW copy
+- dracut-install: moved to /usr/lib/dracut until it becomes a general purpose tool
+- new options: "rd.usrmount.ro" and "rd.skipfsck"
+- less mount/umount
+- apply "ro" on the kernel command line also to /usr
+- mount according to fstab, if neither "ro" or "rw" is specified
+- skip fsck for xfs and btrfs. remount is enough
+- give emergency_shell if /usr mount failed
+- dracut now uses getopt:
+  * options can be position independent now!!
+  * we can now use --option=<arg>
+- added option "--kver=<kernel-version>", and the image location can be omitted
+  # dracut --kver 3.5.0-0.rc7.git1.2.fc18.x86_64
+- dracut.sh: for --include copy also the symbolic links
+- man pages: lsinitrd and mkinitrd added
+- network: We do not support renaming in the kernel namespace anymore (as udev does
+  that not anymore). So, if a user wants to use ifname, he has to rename
+  to a custom namespace. "eth[0-9]+" is not allowed anymore. !!!!!
+- resume: moved the resume process to the initqueue.
+  This should prevent accidently mounting the root file system.
+- testsuite: add support for: make V=1 TESTS="01 20 40" check
+    $ sudo make V=1 clean check
+    now runs the testsuite in verbose mode
+
+    $ sudo make TESTS="01 20 40" clean check
+    now only runs the 01, 20 and 40 tests.
+
+dracut-020
+==========
+- changed rd.dasd kernel parameter
+- arm kernel modules added to kernel-modules
+- make udevdir systemdutildir systemdsystemunitdir global vars
+  your distribution should ship those settings in
+  /etc/dracut.conf.d/01-distro.conf
+  see dracut.conf.d/fedora.conf.example
+- kernel modules are now only handled with /sys/modules and modules.dep
+- systemd fixups
+- mdraid: wait for md devices to be clean, before shutdown
+- ifup fixed for ipv6
+- add PARTUUID as root=PARTUUID=<partition uuid> parameter
+- fixed instmods() return code and set pipefail globally
+- add 04watchdog dracut module
+- dracut-shutdown.service: fixed ordering to be before shutdown.target
+- make use of "ln -r" instead of shell functions, if new coreutils is installed
+- network: support vlan tagged bonding
+- new dracut module qemu and qemu-net to install all kernel driver
+- fs-lib/fs-lib.sh: removed test mounting of btrfs and xfs
+- no more "mknod" in the initramfs!!
+- replaced all "tr" calls with "sed"
+- speedup with lazy kernel module dependency resolving
+- lots of speedup optimizations and last but not least
+- dracut-install:
+  - new binary to significanlty speedup the installation process
+  - dracut-functions.sh makes use of it, if installed
+
+
+dracut-019
+==========
+- initqueue/online hook
+- fixes for ifcfg write out
+- rootfs-block: avoid remount when options don't change
+- Debian multiarch support
+- virtfs root filesystem support
+- cope with systemd-udevd
+- mount tmpfs with strictatime
+- include all kernel/drivers/net/phy drivers
+- add debug_on() and debug_off() functions
+- add arguments for source_hook() and source_all()
+- cleanup hook
+- plymouth: get consoledev from /sys/class/tty/console/active
+- experimental systemd dracut module for systemd in the initramfs
+- install xhci-hcd kernel module
+- dracut: new "--mount" option
+- lsinitrd: new option --printsize
+- ARM storage kernel modules added
+- s390 cms conf file support
+- /etc/initrd-release in the initrd
+- vlan support
+- full bonding and bridge support
+- removed scsi_wait_scan kernel module from standard install
+- support rd.luks.allow-discards and honor options in crypttab
+- lots of bugfixes
+
+dracut-018
+==========
+- lvm: ignore lvm mirrors
+- lsinitrd: handle LZMA images
+- iscsi: add rd.iscsi.param
+- iscsi: add iscsi interface binding
+- new module cms to read and handle z-Series cms config files
+- fixed fstab.sys handling
+- new dracut option "--tmpdir"
+- new dracut option "--no-hostonly"
+- nbd: name based nbd connects
+- converted manpage and documentation source to asciidoc
+- write-ifcfg fixes and cleanups
+- ifup is now done in the initqueue
+- netroot cleanup
+- initqueue/online is now for hooks, which require network
+- no more /tmp/root.info
+- 98pollcdrom: factored out the ugly cdrom polling in the main loop
+- simplified rd.luks.uuid testing
+- removed "egrep" and "ls" calls
+- speedup kernel module installation
+- make bzip2 optional
+- lots of bugfixes
+
+dracut-017
+==========
+- a _lot_ faster than dracut-016 in image creation
+- systemd service dracut-shutdown.service
+- livenet fixes
+- ssh-client module install fix
+- root=iscsi:... fixed
+- lots of restructuring and optimizing in dracut-functions.sh
+- usrmount: honor fs_passno in /etc/fstab
+- renamed all shell scripts to .sh
+- new option "--omit-drivers" and config option "omit_drivers"
+- hostonly mode fixups
+
+dracut-016
+==========
+- fixed lsinitrd
+- honor binaries in sbin first
+- fixed usrmount module
+- added systemd service for shutdown
+- fixed terminfo on distros with /usr/share/terminfo
+- reload udev rules after "pre-trigger" hook
+- improved test suite
+- new parameter "--omit-drivers" and new conf param omit_drivers
+- "--offroot" support for mdraid
+- new libs: net-lib.sh, nfs-lib.sh, url-lib.sh, img-lib.sh
+  full of functions to use in your dracut module
+
+dracut-015
+==========
+- hostonly mode automatically adds command line options for root and /usr
+- --add-fstab --mount parameters
+- ssh-client module
+- --ctty option: add job control
+- cleanup /run/initramfs
+- convertfs module
+- /sbin/ifup can be called directly
+- support kernel modules compressed with xz
+- s390 iscsi modules added
+- terminfo module
+- lsinitrd can handle concatened images
+- lsinitrd can sort by size
+
+dracut-014
+==========
+- new dracut arguments:
+  --lvmconf
+  --nolvmconf
+  --fscks [LIST]
+  --nofscks
+- new .conf options:
+  install_items
+  fscks
+  nofscks
+- new kernel options:
+  rd.md.ddf
+  rd.md.waitclean
+  plymouth.enable
+- dracut move from /sbin to /usr/bin
+- dracut modules dir moved from /usr/share/dracut to /usr/lib/dracut
+- profiling with "dracut --profile"
+- new TEST-16-DMSQUASH, test for Fedora LiveCDs
+- speedup of initramfs creation
+- ask_for_password fallback to CLI
+- mdraid completely switched to incremental assembly
+- no more cdrom polling
+- "switch_root" breakpoint is now very late
+- /dev/live is gone
+- /dev/root is gone
+- fs-lib dracut module for fscks added
+- xen dracut module removed
+- usb mass storage kernel drivers now included
+- usrmount dracut module added:
+  mount /usr if found in /sysroot/etc/fstab
+- only include fsck helper needed for hostonly
+- fcoe: support for bnx2fc
+- support iSCSI drivers: qla4xxx, cxgb3i, cxgb4i, bnx2i, be2iscsi
+- fips-aesni dracut module added
+- add install_items to dracut.conf
+    install_items+=" <file>[ <file> ...] "
+- speedup internal testsuite
+- internal testsuite: store temporary data in a temporary dir
+
+dracut-013
+==========
+- speedup of initramfs creation
+- fixed inst_dir for symbolic links
+- add unix kernel module
+
+dracut-012
+==========
+- better fsck handling
+- fixed wait condition for LVM volumes
+- fix for hardlinks (welcome Debian! :-)
+- shutdown bugfixes
+- automatic busybox symlink creation
+- try to mount /usr, if init points to a path in /usr
+- btrfs with multiple devices
+- "--force-add" option for dracut, to force-add dracut modules,
+  without hostonly checks
+- lsinitrd also display the initramfs size in human readable form
+- livenet module, to mount live-isos over http
+- masterkey,ecryptfs,integrity security modules
+- initqueue/timeout queue e.g. for starting degraded raids
+- "make rpm" creates an rpm with an increasing release number from any
+  git checkout
+- support lvm mirrors
+- start degraded lvm mirrors after a timeout
+- start degraded md raids after a timeout
+- getarg() now returns wildcards without file matching to the current fs
+- lots of bugfixes
+
+dracut-011
+==========
+- use udev-168 features for shutting down udev
+- introduce "--prefix" to put all initramfs files in e.g "/run/initramfs"
+- new shutdown script (called by systemd >= 030) to disassemble the root device
+- lots of bugfixes
+- new module for gpg-encrypted keys - 91crypt-gpg
+
+dracut-010
+==========
+- lots of bugfixes
+- plymouth: use /run/plymouth/pid instead of /run/initramfs/plymouth
+- add "/lib/firmware/updates" to default firmware path
+
+dracut-009
+==========
+- dracut generator
+  - dracut-logger
+  - xz compression
+  - better argument handling
+
+- initramfs
+  - hooks moved to /lib/dracut/hooks in initramfs
+  - rd.driver.{blacklist|pre|post} accept comma separated driver list
+  - iSCSI: iSCSI Boot Firmware Table (iBFT) support
+  - support for /run
+  - live image: support for generic rootfs.img (instead of ext3fs.img)
+  - caps module
+  - FCoE: EDD support
+
+dracut-008
+==========
+- removed --ignore-kernel-modules option (no longer necessary)
+- renamed kernel command line arguments to follow the rd. naming scheme
+- merged check, install, installkernel to module-setup.sh
+- support for bzip2 and xz compressed initramfs images.
+- source code beautification
+- lots of documentation
+- lsinitrd: "catinitrd" functionality
+- dracut: --list-modules
+- lvm: support for dynamic LVM SNAPSHOT root volume
+- 95fstab-sys: mount all /etc/fstab.sys volumes before switch_root
+- 96insmodpost dracut module
+- rd.shell=1 per default
+- rootfs-block:mount-root.sh add fsck
+- busybox shell replacements module
+- honor old "real_init="
+- 97biosdevname dracut module
+
+dracut-007
+==========
+- module i18n is no longer fedora/red hat specific (Amadeusz Żołnowski)
+- distribution specific conf file
+- bootchartd support
+- debug module now has fsck
+- use "hardlink", if available, to save some space
+- /etc/dracut.conf can be overwritten by settings in /etc/dracut.conf.d/*.conf
+- gentoo splash module
+- --ignore-kernel-modules option
+- crypto keys on external devices support
+- bugfixes
+
+dracut-006
+==========
+- fixed mdraid with IMSM
+- fixed dracut manpages
+- dmraid parse different error messages
+- add cdrom polling mechanism for slow cdroms
+- add module btrfs
+- add btrfsctl scan for btrfs multi-devices (raid)
+- teach dmsquash live-root to use rootflags
+- trigger udev with action=add
+- fixed add_drivers handling
+- add sr_mod
+- use pigz instead of gzip, if available
+- boot from LVM mirrors and snapshots
+- iscsi: add support for multiple netroot=iscsi:
+- Support old version of module-init-tools
+- got rid of rdnetdebug
+- fixed "ip=auto6"
+- dracut.conf: use "+=" as default for config variables
+- bugfixes
+
+dracut-005
+==========
+- dcb support to dracut's FCoE support
+- add readonly overlay support for dmsquash
+- add keyboard kernel modules
+- dracut.conf: added add_dracutmodules
+- add /etc/dracut.conf.d
+- add preliminary IPv6 support
+- bugfixes
+
+dracut-004
+==========
+- dracut-lib: read multiple lines from $init/etc/cmdline
+- lsinitrd and mkinitrd
+- dmsquash: add support for loopmounted *.iso files
+- lvm: add rd_LVM_LV and "--poll n"
+- user suspend support
+- add additional drivers in host-only mode, too
+- improved emergency shell
+- support for compressed kernel modules
+- support for loading Xen modules
+- rdloaddriver kernel command line parameter
+- man pages for dracut-catimages and dracut-gencmdline
+- bugfixes
+
+dracut-003
+==========
+- add debian package modules
+- add dracut.conf manpage
+- add module 90multipath
+- add module 01fips
+- crypt: ignore devices in /etc/crypttab (root is not in there)
+  unless rd_NO_CRYPTTAB is specified
+- kernel-modules: add scsi_dh scsi_dh_rdac scsi_dh_emc
+- add multinic support
+- add s390 zfcp support
+- add s390 dasd support
+- add s390 network support
+- fixed dracut-gencmdline for root=UUID or LABEL
+- do not destroy assembled raid arrays if mdadm.conf present
+- mount /dev/shm
+- let udevd not resolve group and user names
+- moved network from udev to initqueue
+- improved debug output: specifying "rdinitdebug" now logs
+  to dmesg, console and /init.log
+- strip kernel modules which have no x bit set
+- redirect stdin, stdout, stderr all RW to /dev/console
+  so the user can use "less" to view /init.log and dmesg
+- add new device mapper udev rules and dmeventd
+- fixed dracut-gencmdline for root=UUID or LABEL
+- do not destroy assembled raid arrays if mdadm.conf present
+- mount /dev/shm
+- let udevd not resolve group and user names
+- preserve timestamps of tools on initramfs generation
+- generate symlinks for binaries correctly
+- moved network from udev to initqueue
+- mount nfs3 with nfsvers=3 option and retry with nfsvers=2
+- fixed nbd initqueue-finished
+- improved debug output: specifying "rdinitdebug" now logs
+  to dmesg, console and /init.log
+- strip kernel modules which have no x bit set
+- redirect stdin, stdout, stderr all RW to /dev/console
+  so the user can use "less" to view /init.log and dmesg
+- make install of new dm/lvm udev rules optionally
+- add new device mapper udev rules and dmeventd
+- Fix LiveCD boot regression
+- bail out if selinux policy could not be loaded and
+  selinux=0 not specified on kernel command line
+- do not cleanup dmraids
+- copy over lvm.conf
+
+dracut-002
+==========
+- add ifname= argument for persistent netdev names
+- new /initqueue-finished to check if the main loop can be left
+- copy mdadm.conf if --mdadmconf set or mdadmconf in dracut.conf
+- plymouth: use plymouth-populate-initrd
+- add add_drivers for dracut and dracut.conf
+- add modprobe scsi_wait_scan to be sure everything was scanned
+- fix for several problems with md raid containers
+- fix for selinux policy loading
+- fix for mdraid for IMSM
+- fix for bug, which prevents installing 61-persistent-storage.rules (bug #520109)
+- fix for missing grep for md
+
+dracut-001
+==========
+- better --hostonly checks
+- better lvm/mdraid/dmraid handling
+- fcoe booting support
+    Supported cmdline formats:
+    fcoe=<networkdevice>:<dcb|nodcb>
+    fcoe=<macaddress>:<dcb|nodcb>
+
+    Note currently only nodcb is supported, the dcb option is reserved for
+    future use.
+
+    Note letters in the macaddress must be lowercase!
+
+    Examples:
+    fcoe=eth0:nodcb
+    fcoe=4A:3F:4C:04:F8:D7:nodcb
+
+- Syslog support for dracut
+    This module provides syslog functionality in the initrd.
+    This is especially interesting when complex configuration being
+    used to provide access to the device the rootfs resides on.
+
+
+dracut-0.9
+==========
+- let plymouth attach to the terminal (nice text output now)
+- new kernel command line parameter "rdinfo" show dracut output, even when
+  "quiet" is specified
+- rd_LUKS_UUID is now handled correctly
+- dracut-gencmdline: rd_LUKS_UUID and rd_MD_UUID is now correctly generated
+- now generates initrd-generic with around 15MB
+- smaller bugfixes
+
+dracut-0.8
+==========
+- iSCSI with username and password
+- support for live images (dmsquashed live images)
+- iscsi_firmware fixes
+- smaller images
+- bugfixes
+
+dracut-0.7
+==========
+- dracut:     strip binaries in initramfs
+
+           --strip
+                  strip binaries in the initramfs (default)
+
+           --nostrip
+                  do not strip binaries in the initramfs
+- dracut-catimages
+
+    Usage: ./dracut-catimages [OPTION]... <initramfs> <base image>
+    [<image>...]
+    Creates initial ramdisk image by concatenating several images from the
+    command
+    line and /boot/dracut/
+
+      -f, --force           Overwrite existing initramfs file.
+      -i, --imagedir        Directory with additional images to add
+                            (default: /boot/dracut/)
+      -o, --overlaydir      Overlay directory, which contains files that
+                            will be used to create an additional image
+      --nooverlay           Do not use the overlay directory
+      --noimagedir          Do not use the additional image directory
+      -h, --help            This message
+      --debug               Output debug information of the build process
+      -v, --verbose         Verbose output during the build process
+
+- s390 dasd support
+
+dracut-0.6
+==========
+- dracut: add --kernel-only and --no-kernel arguments
+
+           --kernel-only
+                  only install kernel drivers and firmware files
+
+           --no-kernel
+                  do not install kernel drivers and firmware files
+
+    All kernel module related install commands moved from "install"
+    to "installkernel".
+
+    For "--kernel-only" all installkernel scripts of the specified
+    modules are used, regardless of any checks, so that all modules
+    which might be needed by any dracut generic image are in.
+
+    The basic idea is to create two images. One image with the kernel
+    modules and one without. So if the kernel changes, you only have
+    to replace one image.
+
+    Grub and the kernel can handle multiple images, so grub entry can
+    look like this:
+
+    title Fedora (2.6.29.5-191.fc11.i586)
+            root (hd0,0)
+            kernel /vmlinuz-2.6.29.5-191.fc11.i586 ro rhgb quiet
+            initrd /initrd-20090722.img /initrd-kernel-2.6.29.5-191.fc11.i586.img /initrd-config.img
+
+    initrd-20090722.img
+      the image provided by the initrd rpm
+      one old backup version is kept like with the kernel
+
+    initrd-kernel-2.6.29.5-191.fc11.i586.img
+      the image provided by the kernel rpm
+
+    initrd-config.img
+      optional image with local configuration files
+
+- dracut: add --kmoddir directory, where to look for kernel modules
+
+           -k, --kmoddir [DIR]
+                  specify the directory, where to look for kernel modules
+
+
+
+dracut-0.5
+==========
+- more generic (all plymouth modules, all keyboards, all console fonts)
+- more kernel command line parameters (see also man dracut(8))
+- a helper tool, which generates the kernel command line (dracut-gencmdline)
+- bridged network boot
+- a lot of new command line parameter
+
+dracut-0.4
+==========
+- bugfixes
+- firmware loading support
+- new internal queue (initqueue)
+    initqueue now loops until /dev/root exists or root is mounted
+
+    init now has the following points to inject scripts:
+
+    /cmdline/*.sh
+       scripts for command line parsing
+
+    /pre-udev/*.sh
+       scripts to run before udev is started
+
+    /pre-trigger/*.sh
+       scripts to run before the main udev trigger is pulled
+
+    /initqueue/*.sh
+       runs in parallel to the udev trigger
+       Udev events can add scripts here with /sbin/initqueue.
+       If /sbin/initqueue is called with the "--onetime" option, the script
+       will be removed after it was run.
+       If /initqueue/work is created and udev >= 143 then this loop can
+       process the jobs in parallel to the udevtrigger.
+       If the udev queue is empty and no root device is found or no root
+       filesystem was mounted, the user will be dropped to a shell after
+       a timeout.
+       Scripts can remove themselves from the initqueue by "rm $job".
+
+    /pre-mount/*.sh
+       scripts to run before the root filesystem is mounted
+       NFS is an exception, because it has no device node to be created
+       and mounts in the udev events
+
+    /mount/*.sh
+       scripts to mount the root filesystem
+       NFS is an exception, because it has no device node to be created
+       and mounts in the udev events
+       If the udev queue is empty and no root device is found or no root
+       filesystem was mounted, the user will be dropped to a shell after
+       a timeout.
+
+    /pre-pivot/*.sh
+       scripts to run before the real init is executed and the initramfs
+       disappears
+       All processes started before should be killed here.
+
+    The behaviour of the dmraid module demonstrates how to use the new
+    mechanism. If it detects a device which is part of a raidmember from a
+    udev rule, it installs a job to scan for dmraid devices, if the udev
+    queue is empty. After a scan, it removes itsself from the queue.
+
+
+
+dracut-0.3
+==========
+
+- first public version
+

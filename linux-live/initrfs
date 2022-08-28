@@ -8,17 +8,27 @@ else
 	. /linux-live/buildconfig || exit 1
 fi
 . /linux-live/kernelconfig || exit 1
+. /linux-live/minioslib || exit 1
 
-echo "KERNEL=$KERNEL"
-echo "KERNEL_BPO=$KERNEL_BPO"
-echo "KERNEL_AUFS=$KERNEL_AUFS"
+console_colors
 
 # build initramfs image
-echo "Building intramfs image..."
-cd /linux-live/initramfs
-chmod 755 ./initramfs_create
-INITRAMFS=$(./initramfs_create $KERNEL)
+echo -e "=====> ${CYAN}Building intramfs image ...${ENDCOLOR}"
+echo -e "=====  ${YELLOW}KERNEL=$KERNEL${ENDCOLOR}"
+echo -e "=====  ${YELLOW}KERNEL_BPO=$KERNEL_BPO${ENDCOLOR}"
+echo -e "=====  ${YELLOW}KERNEL_AUFS=$KERNEL_AUFS${ENDCOLOR}"
+echo -e "=====  ${YELLOW}INITRD_TYPE=$INITRD_TYPE${ENDCOLOR}"
 
-if [ "$INITRAMFS" != "" ]; then
-	mv "$INITRAMFS" /boot/initrfs.img
+if [ $INITRD_TYPE = "livekit" ]; then
+	cd /linux-live/initramfs/livekit
+	chmod 755 ./initramfs_create
+	INITRAMFS=$(./initramfs_create $KERNEL)
+	if [ "$INITRAMFS" != "" ]; then
+		mv "$INITRAMFS" /boot/initrfs.img
+	fi
+elif [ $INITRD_TYPE = "uird" ]; then
+	cd /linux-live/initramfs/uird-$DISTRIBUTION_ARCH
+	sed -i -e "/LANG=/s/=.*/=\"$LOCALE\"/" configs/etc/initvars
+	./mkuird minios -e plymouth -k $KERNEL
+	mv ./uird.minios.cpio.xz /boot/initrfs.img
 fi

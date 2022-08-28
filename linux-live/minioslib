@@ -12,7 +12,7 @@
 
 function common_variables() {
     # List of variables passed to chroot.
-    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME"
+    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT"
 
     #
     CONTAINER_TYPE="0"
@@ -86,6 +86,22 @@ function common_variables() {
     elif [ $DISTRIBUTION = "stretch" ] && ([ $COMP_TYPE = "zstd" ] || [ $COMP_TYPE = "lz4" ]); then
         COMP_TYPE="gzip"
     fi
+
+    if [ -d /run/initramfs/memory/bundles ]; then
+        BUNDLES=/run/initramfs/memory/bundles
+    elif [ -d /memory/bundles ]; then
+        BUNDLES=/memory/bundles
+    fi
+
+    # List of directories for root filesystem
+    # No subdirectories are allowed, no slashes,
+    # so You can't use /var/tmp here for example
+    # Exclude directories like proc sys tmp
+    #if [[ $DISTRIBUTION_ARCH == *"i386"* ]]; then
+    #    MKMOD="bin etc home lib opt root sbin srv usr var"
+    #else
+    MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
+    #fi
 
 }
 
@@ -290,6 +306,10 @@ function read_cmdline() {
             DISABLE_SERVICES="${i#*=}"
             shift # past argument=value
             ;;
+        ssh)
+            SSH=true
+            shift # past argument with no value
+            ;;
         ssh_key=*)
             SSH_KEY="${i#*=}"
             shift # past argument=value
@@ -417,7 +437,7 @@ function create_livekitname_install_symlink() {
             echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
         fi
     fi
-    if [ ! -f /usr/bin/minios-modules ]; then
+    : 'if [ ! -f /usr/bin/minios-modules ]; then
         cp "$SCRIPT_DIR/linux-live/basesystem/00-core/rootcopy-install/usr/bin/minios-modules" /usr/bin/minios-modules
         if [ "$0" != "/usr/bin/minios-modules" ]; then
             if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
@@ -426,7 +446,7 @@ function create_livekitname_install_symlink() {
                 echo -e "You can use the ${CYAN}minios-modules${ENDCOLOR} command to run the module build program."
             fi
         fi
-    fi
+    fi'
 }
 
 # =================================================================
@@ -801,6 +821,7 @@ function create_backup() {
 }
 
 function add_unofficial_repository() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         if [ $USE_UNOFFICIAL_REPOSITORY = "true" ]; then
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list
@@ -811,6 +832,7 @@ EOF
 }
 
 function remove_unofficial_repository() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
 }
 
@@ -838,8 +860,13 @@ function new_run() {
     echo "========== Desktop Environment: $DESKTOP_ENVIRONMENT" >>$OUTPUT 2>&1
     echo "========== Package Variant: $PACKAGE_VARIANT" >>$OUTPUT 2>&1
     echo "========== Arch: $DISTRIBUTION_ARCH" >>$OUTPUT 2>&1
+    echo "========== Initrd Type: $INITRD_TYPE" >>$OUTPUT 2>&1
     echo "========== Kernel Type: $KERNEL_TYPE" >>$OUTPUT 2>&1
+    echo "========== Kernel BPO: $KERNEL_BPO" >>$OUTPUT 2>&1
+    echo "========== Kernel AUFS: $KERNEL_AUFS" >>$OUTPUT 2>&1
     echo "========== Compression: $COMP_TYPE" >>$OUTPUT 2>&1
+    echo "========== Locale: $LOCALE" >>$OUTPUT 2>&1
+    echo "========== Time Zone: $TIMEZONE" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
     echo ""
@@ -859,6 +886,7 @@ DISTRIBUTION=$DISTRIBUTION
 DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
 PACKAGE_VARIANT=$PACKAGE_VARIANT
 COMP_TYPE=$COMP_TYPE
+KERNEL=$KERNEL
 KERNEL_ARCH=$KERNEL_ARCH
 KERNEL_TYPE=$KERNEL_TYPE
 KERNEL_BPO=$KERNEL_BPO
@@ -870,6 +898,7 @@ LOCALE=$LOCALE
 TIMEZONE=$TIMEZONE
 MODULE=$MODULE
 USER_NAME=$USER_NAME
+BEXT=$BEXT
 EOF
 
     cat <<'EOF' >$1/functions
@@ -984,9 +1013,9 @@ function get_latest_release() {
 }
 
 function get_latest_package_url() {
-    curl --silent "https://api.github.com/repos/$1/releases/latest" |      # Get latest release from GitHub api
-        grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" | # Get tag line
-        sed -E 's/.*"([^"]+)".*/\1/'                                       # Pluck JSON value
+    curl --silent "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
+        grep '"browser_download_url":' | grep ".sb"\" |               # Get tag line
+        sed -E 's/.*"([^"]+)".*/\1/'                                  # Pluck JSON value
 }
 
 function timezone_to_array() {
@@ -1101,7 +1130,7 @@ function build_bootstrap() {
                     debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                    debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             fi
             #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
             #    debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
@@ -1261,6 +1290,9 @@ EOF
             create_apt_list
 
             cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+            if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
+                echo 'Acquire::Check-Valid-Until "false";' | sudo tee $INSTALL_DIR/etc/apt/apt.conf.d/00snapshot
+            fi
 
             mx_repo
             antix_repo
@@ -1422,6 +1454,9 @@ function build_chroot() {
     fi
 
     cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+    #if [ $LOCALE = "ru_RU" ]; then
+    #    sed -i "s/deb.debian.org/mirror.yandex.ru/g;s/security.debian.org/mirror.yandex.ru/g" $INSTALL_DIR/etc/apt/sources.list
+    #fi
 
     if [ $DISTRIBUTION = "orel" ]; then
         cp -f $SCRIPT_DIR/linux-live/aptsources/stretch.list $INSTALL_DIR/etc/apt/sources.list.d/stretch.list
@@ -1445,6 +1480,17 @@ function build_chroot() {
             echo -e "Installation log was saved to ${MAGENTA}$SCRIPT_DIR/$LIVEKITNAME.log${ENDCOLOR}"
         fi
     fi
+}
+
+function mkmod_corefs() {
+    local FOLDER
+    cd $1
+    COREFS=""
+    for FOLDER in $MKMOD; do
+        if [ -d $1/$FOLDER ]; then
+            COREFS="$COREFS $FOLDER"
+        fi
+    done
 }
 
 # =================================================================
@@ -1471,18 +1517,8 @@ function build_live() {
 
     #build_boot
 
-    if [ $DISTRIBUTION_ARCH = "i386" ]; then
-        MKMOD="bin etc home lib opt root sbin srv usr var"
-    fi
-
     # create compressed 00-core.sb
-    cd $INSTALL_DIR
-    COREFS=""
-    for i in $MKMOD; do
-        if [ -d /$i ]; then
-            COREFS="$COREFS $i"
-        fi
-    done
+    mkmod_corefs $INSTALL_DIR
 
     #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
@@ -1491,7 +1527,7 @@ function build_live() {
         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
     fi
 
-    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/$LIVEKITNAME.conf
+    : 'cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/$LIVEKITNAME.conf
 # =================================================================
 # Be careful. If you are using persistent mode, do not change the
 # DEFAULT_TARGET and CLOUD variables, it may break your system.
@@ -1537,6 +1573,8 @@ ENABLE_SERVICES=$ENABLE_SERVICES
 # Services to be disabled when the system boots.
 DISABLE_SERVICES=$DISABLE_SERVICES
 
+SSH=$SSH
+
 # The name of the ssh public key file, which should be located in
 # the system folder on the media (along with the main .sb modules).
 # By default, the system looks for a file named authorized_keys.
@@ -1549,6 +1587,67 @@ CLOUD=$CLOUD
 # Hide credentials displayed as a prompt in the console at system
 # startup.
 HIDE_CREDENTIALS=$HIDE_CREDENTIALS
+
+EOF'
+
+    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/$LIVEKITNAME.conf
+# =================================================================
+# Be careful. If you are using persistent mode, do not change the
+# DEFAULT_TARGET and CLOUD variables, it may break your system.
+# Please do not change the username, password and root password by
+# system tools, they will be automatically replaced with the ones
+# specified here during system reboot/shutdown. If you delete the
+# configuration files ($LIVEKITNAME.conf), the username, password,
+# password of the root user will be replaced with the default ones.
+# =================================================================
+# Attention! If the parameter is specified in the system boot
+# parameters (syslinux.cfg, grub.cfg), it has priority! The
+# settings specified in this file will be ignored.
+# =================================================================
+
+# User name. The USER_NAME variable can only take the values "live"
+# or "root". If you need to boot into the system as root, set the
+# value to "root".
+USER_NAME="$USER_NAME"
+
+# User password.
+# If USER_NAME="root" then USER_PASSWORD is ignored.
+USER_PASSWORD="$USER_PASSWORD"
+
+# Root password.
+ROOT_PASSWORD="$ROOT_PASSWORD"
+
+# Hostname of the system.
+HOST_NAME="$LIVEKITNAME"
+
+# If true then ssh service will be started on system boot.
+SSH="$SSH"
+
+# The name of the ssh public key file, which should be located in
+# the system folder on the media (along with the main .sb modules).
+# By default, the system looks for a file named authorized_keys.
+SSH_KEY="$SSH_KEY"
+
+# Special mode to run as a cloud-init host.
+# Only available in MiniOS Cloud edition.
+CLOUD="$CLOUD"
+
+# Scripts are run when the multi-user target (init 3) is reached.
+# To run scripts, they must be located in the minios/scripts
+# folder. The scripts variable can be set to true or false. By
+# default, when scripts are found in the specified folder, the
+# system boots as usual, scripts are executed in the background.
+# When scripts=false, scripts are not loaded, even if they are
+# located in the scripts folder.
+SCRIPTS="$SCRIPTS"
+
+# Hide credentials displayed as a prompt in the console at system
+# startup.
+HIDE_CREDENTIALS="$HIDE_CREDENTIALS"
+
+CORE_BUNDLE_PREFIX=00-
+LIVEKITNAME="$LIVEKITNAME"
+BEXT="$BEXT"
 
 EOF
 
@@ -1652,7 +1751,24 @@ EOF
         rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/EFI
     fi
 
-    cat <<EOF >$WORK_DIR/image/README
+    if [ $LOCALE = "ru_RU" ]; then
+        cat <<EOF >$WORK_DIR/image/README
+################################### README ####################################
+* Для установки MiniOS скопируйте содержимое ISO в корень носителя,
+  затем запустите $LIVEKITNAME\boot\bootinst.bat в Windows или 
+  $LIVEKITNAME/boot/bootinst.sh в Linux.
+* При установке на носители с файловыми системами fat32 и ntfs изменения в
+  режиме постоянных изменений будут сохранены в файле
+  $LIVEKITNAME\changes\changes.dat, файл расширяется динамически, максимальный размер
+  файла 4 ГБ (можно изменить  параметром changes_size в параметрах загрузки,
+  например, changes_size=2000 установит максимальный размер файла в 2 ГБ).
+* При установке на носители с файловыми системами ext2-ext4, xfs, btrfs
+  изменения в режиме постоянных изменений будут сохранены в папке
+  $LIVEKITNAME\changes без ограничений по размеру.
+###############################################################################
+EOF
+    else
+        cat <<EOF >$WORK_DIR/image/README
 ################################### README ####################################
 * To install MiniOS, copy the contents of the ISO to the root of the media,
   then run $LIVEKITNAME\boot\bootinst.bat on Windows, or $LIVEKITNAME/boot/bootinst.sh
@@ -1667,6 +1783,7 @@ EOF
   no size limit.
 ###############################################################################
 EOF
+    fi
 
     if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         ENABLE_SERVICES="ssh,firewalld"
@@ -1674,10 +1791,23 @@ EOF
         ENABLE_SERVICES="ssh"
     fi
     DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
-    BOOT_SETTINGS="quiet enable_services=$ENABLE_SERVICES"
-    PERCH_SETTINGS="minios.flags=perch"
-    LIVE_SETTINGS="minios.flags= "
-    RAM_SETTINGS="minios.flags=toram"
+    #BOOT_SETTINGS="quiet enable_services=$ENABLE_SERVICES"
+    BOOT_SETTINGS="quiet"
+    if [ $INITRD_TYPE = "livekit" ]; then
+        PERCH_SETTINGS="minios.flags=perch"
+        LIVE_SETTINGS="minios.flags="
+        RAM_SETTINGS="minios.flags=toram"
+    elif [ $INITRD_TYPE = "uird" ]; then
+        if [ $KERNEL_AUFS = "true" ]; then
+            PERCH_SETTINGS=""
+            LIVE_SETTINGS="uird.mode=clean"
+            RAM_SETTINGS="uird.copy2ram"
+        else
+            PERCH_SETTINGS="uird.union=overlay"
+            LIVE_SETTINGS="uird.union=overlay uird.mode=clean"
+            RAM_SETTINGS="uird.union=overlay uird.copy2ram"
+        fi
+    fi
 
     if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         BOOT_SETTINGS="hide_credentials enable_services=$ENABLE_SERVICES"
@@ -1722,7 +1852,7 @@ EOF
     cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 if loadfont \$prefix/font.pf2 ; then
   set default="0"
-  set timeout="4"
+  set timeout="3"
   set hidden_timeout_quiet=false
   set gfxmode=auto
   insmod efi_gop
@@ -1831,8 +1961,8 @@ EOF
     #fi
 
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-        if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
-            read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+        if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
+            read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
         fi
         copy_build_scripts $MODULE_MERGED_DIR
         chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
@@ -1884,7 +2014,7 @@ function build_iso() {
 
     language_to_array
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal-base" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT
     else
         if [ $KERNEL_TYPE = "default" ]; then
@@ -1894,9 +2024,9 @@ function build_iso() {
         fi
     fi
     if [ $LOCALE != "en_US" ]; then
-        IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH
+        IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH-$INITRD_TYPE
     else
-        IMAGE=$IMAGE-$ISO_ARCH
+        IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH-$INITRD_TYPE
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -1993,6 +2123,7 @@ function build_iso() {
 }
 
 function remove_sources() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ $REMOVE_SOURCES = "true" ]; then
         cleanup
     fi
@@ -2067,7 +2198,7 @@ function chroot_cleanup() {
     rm -f $1/etc/mtab
     rm -f $1/etc/apt/sources.list~
     rm -Rf $1/etc/systemd/system/timers.target.wants
-    rm -f $1/etc/systemd/system/multi-user.target.wants/ssh.service
+    #rm -f $1/etc/systemd/system/multi-user.target.wants/ssh.service
     rm -f $1/etc/systemd/system/multi-user.target.wants/dnsmasq.service
 
     rm -f $1/etc/ssh/ssh_host*
@@ -2279,8 +2410,8 @@ function build_dkms() {
 
         module_check_mounted
 
-        if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
-            read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+        if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
+            read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
 
             if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
                 rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
@@ -2400,8 +2531,8 @@ EOF
         #    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
         #    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
         #fi
-        #systemctl enable ssh-keygen >>$OUTPUT 2>&1
-        #systemctl enable ssh >>$OUTPUT 2>&1
+        systemctl enable ssh-keygen >>$OUTPUT 2>&1
+        systemctl enable ssh >>$OUTPUT 2>&1
     fi
 
     if [ ! -f /usr/share/sudo ]; then
@@ -2466,6 +2597,7 @@ function chroot_finish_up() {
 # =================================================================
 
 function module_add_unofficial_repository() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         if [ $USE_UNOFFICIAL_REPOSITORY = "true" ]; then
             if [ ! -d $MODULE_UPPER_DIR/etc/apt ]; then
@@ -2479,6 +2611,7 @@ EOF
 }
 
 function module_remove_unofficial_repository() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
     if [ -f $MODULE_UPPER_DIR/etc/apt/sources.list ]; then
         rm $MODULE_UPPER_DIR/etc/apt/sources.list
     fi
@@ -2532,6 +2665,37 @@ function module_check_install_dir() {
     fi
 }
 
+function filter_modules() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    if [ $PACKAGE_VARIANT = "frugal" ] && ! { [[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]; }; then
+        FILTER_MODULES="true"
+        if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
+            read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_LEVEL
+        else
+            read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_LEVEL
+        fi
+    elif [ $PACKAGE_VARIANT = "frugal" ] && ([[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]); then
+        FILTER_MODULES="true"
+        FILTER_LEVEL="0"
+    elif ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]); then
+        FILTER_MODULES="false"
+    else
+        if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
+            read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_MODULES FILTER_LEVEL
+        else
+            read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
+        fi
+    fi
+    echo -e "=====  ${YELLOW}MODULE=$MODULE${ENDCOLOR}"
+    echo -e "=====  ${YELLOW}FILTER_MODULES=$FILTER_MODULES${ENDCOLOR}"
+    echo -e "=====  ${YELLOW}FILTER_LEVEL=$FILTER_LEVEL${ENDCOLOR}"
+    if [ $FILTER_MODULES = "true" ]; then
+        MODULES_LIST=$(ls -1dr $1[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
+    else
+        MODULES_LIST=$(ls -1dr $1[0-9]* | tr '\n' ':')
+    fi
+}
+
 # =================================================================
 #
 #
@@ -2563,20 +2727,22 @@ function module_chroot_mount_fs() {
                 done
                 #MODULES_LIST=${MODULES_LIST:1}
                 set +e
-                if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
-                else
-                    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-9]* | tr '\n' ':')
-                fi
+                filter_modules $MODULES_DIR/bundles/
+                #if [ $FILTER_MODULES = "true" ]; then
+                #    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
+                #else
+                #    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-9]* | tr '\n' ':')
+                #fi
                 MODULES_LIST=${MODULES_LIST/%:/}
                 set -e
             else
-                MODULES=/run/initramfs/memory/bundles/
-                if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
-                else
-                    MODULES_LIST=$(ls -1dr $MODULES[0-9]* | tr '\n' ':')
-                fi
+                MODULES=$BUNDLES/
+                filter_modules $MODULES
+                #if [ $FILTER_MODULES = "true" ]; then
+                #    MODULES_LIST=$(ls -1dr $MODULES[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
+                #else
+                #    MODULES_LIST=$(ls -1dr $MODULES[0-9]* | tr '\n' ':')
+                #fi
                 MODULES_LIST=${MODULES_LIST/%:/}
                 #echo $MODULES_LIST
             fi
@@ -2594,12 +2760,13 @@ function module_chroot_mount_fs() {
                 done
                 MODULES_LIST=${MODULES_LIST:1}
             else
-                MODULES=/run/initramfs/memory/bundles/
-                if [ $FILTER_MODULES = "true" ]; then
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
-                else
-                    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
-                fi
+                MODULES=$BUNDLES/
+                filter_modules $MODULES
+                #if [ $FILTER_MODULES = "true" ]; then
+                #    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
+                #else
+                #    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
+                #fi
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -2921,9 +3088,8 @@ function get_kernel_version() {
     if [ $KERNEL_AUFS = "true" ]; then
         if [ $KERNEL_BPO = "true" ]; then
             KERNEL="5.18.2"
-            KERNEL_RELEASE="5.10.127"
         else
-            KERNEL="5.10.127"
+            KERNEL="5.10.136"
         fi
     elif [ $KERNEL_TYPE = "none" ]; then
         KERNEL=""
@@ -3003,8 +3169,8 @@ function kernel_variables() {
 # =================================================================
 function create_initrfs() {
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-        if [ -f $MODULE_UPPER_DIR/livekit.conf ]; then
-            read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+        if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
+            read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
         fi
         copy_build_scripts $MODULE_MERGED_DIR
         chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
@@ -3078,7 +3244,7 @@ function build_modules() {
 
                 module_add_unofficial_repository
 
-                if ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_AUFS = "true" ]; then
+                if ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_TYPE != "default" ] && [ $KERNEL_BPO!= "true" ]) && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
                     #KERNEL=$(get_latest_release minios-linux/aufs-kernel)
                     kernel_variables
                     if [ $KERNEL_TYPE = "default" ]; then
@@ -3175,6 +3341,7 @@ function build_modules() {
 
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
+                            mkmod_corefs $MODULE_UPPER_DIR
                             time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
                             mv $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
                             cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
@@ -3207,7 +3374,7 @@ function build_modules() {
                     fi
 
                     if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
-                        read_config $MODULE_UPPER_DIR/livekit.conf KERNEL
+                        read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
                         if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
                             rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
                         fi
@@ -3245,14 +3412,24 @@ function build_modules() {
                             rm -Rf boot dev etc proc run sys tmp var/lib/apt
                         fi
                         if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                            chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.$BEXT
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
                         else
-                            chroot_run $MODULE_MERGED_DIR dir2sb /squashfs-root /$MODULE.$BEXT >>$OUTPUT 2>&1
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
                         fi
-                        rm -f $MODULE_UPPER_DIR/livekit.conf
+                        rm -f $MODULE_UPPER_DIR/miniosbuild.conf
                     fi
 
                     # copy files
+                    if [[ $MODULE == *"$LIVEKITNAME"* ]]; then
+                        cp $SCRIPT_DIR/linux-live/minioslib $MODULE_MERGED_DIR/usr/lib/minioslib
+                        if [ -f $SCRIPT_DIR/linux-live/container_config ] && [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
+                            cp $SCRIPT_DIR/linux-live/container_config $MODULE_MERGED_DIR/etc/minios/config
+                            cp $SCRIPT_DIR/linux-live/container_buildconfig $MODULE_MERGED_DIR/etc/minios/buildconfig
+                        else
+                            cp $SCRIPT_DIR/linux-live/buildconfig $MODULE_MERGED_DIR/etc/minios/buildconfig
+                            cp $SCRIPT_DIR/linux-live/config $MODULE_MERGED_DIR/etc/minios/config
+                        fi
+                    fi
                     if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                         if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
                             if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
@@ -3297,13 +3474,16 @@ function build_modules() {
                         set -e
                     fi
 
-                    if [ -f $MODULE_UPPER_DIR/.package ]; then
+                    if [ -f $MODULE_UPPER_DIR/.package ] && [ $PACKAGE_VARIANT = "frugal" ]; then
                         read_config $MODULE_UPPER_DIR/.package PACKAGE VERSION
                         MODULE_NUMBER=$(echo $MODULE | egrep -o '[0-9]*')
                         MODULE_NAME="$MODULE_NUMBER-$PACKAGE-$VERSION"
                         rm $MODULE_UPPER_DIR/.package
                     else
                         MODULE_NAME=$MODULE
+                        if [ -f $MODULE_UPPER_DIR/.package ]; then
+                            rm $MODULE_UPPER_DIR/.package
+                        fi
                     fi
 
                     # run external actions
@@ -3336,43 +3516,44 @@ function build_modules() {
 
                 module_remove_unofficial_repository
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ] || ( ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_AUFS = "true" ]); then
+                mkmod_corefs $MODULE_UPPER_DIR
+
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ] || ( ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ])); then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
                                 chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                             else
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $MODULE_UPPER_DIR $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
                                 chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} ${RED}is empty${ENDCOLOR}. Nothing to do."
                         fi
-
                         module_chroot_umount_fs
                     else
                         if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
                             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                                 if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                     fi
                                 else
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                     fi
                                 fi
                             else
@@ -3410,22 +3591,20 @@ function build_modules_live() {
     cd $SOURCE_MODULES_DIR
 
     for MODULE in *; do
-
         if (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
             echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-
             MODULE_UPPER_DIR="$MODULES_DIR/$MODULE-upper"
             MODULE_WORK_DIR="$MODULES_DIR/$MODULE-work"
             MODULE_MERGED_DIR="$MODULES_DIR/$MODULE-merged"
-
+            mkmod_corefs $MODULE_UPPER_DIR
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
-                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                 else
-                    time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
             else
                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
@@ -3445,12 +3624,12 @@ function repack_module() {
     fi
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
-
+        mkmod_corefs squashfs-root
         #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         if [ $COMP_TYPE = "zstd" ]; then
-            time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
         else
-            time mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         fi
 
         rm -rf squashfs-root
@@ -3461,11 +3640,11 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-            #mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
-                time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
             else
-                time mksquashfs /run/initramfs/memory/bundles/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             fi
         fi
     fi
@@ -3489,15 +3668,15 @@ function repack_modules() {
             fi
         done
     else
-        cd /run/initramfs/memory/bundles/
+        cd $BUNDLES/
         for MODULE in *; do
-            if (ls /run/initramfs/memory/bundles/*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+            if (ls $BUNDLES/*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="xz"
                 repack_module
-            elif (ls /run/initramfs/memory/bundles/*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+            elif (ls $BUNDLES/*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="lz4"
                 repack_module
-            elif (ls /run/initramfs/memory/bundles/*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
+            elif (ls $BUNDLES/*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="zstd"
                 repack_module
             fi
@@ -3551,12 +3730,14 @@ function generate_config_files() {
     sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/KERNEL_AUFS=/s/=.*/=\"$KERNEL_AUFS\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
     sed -i -e "/LOCALE=/s/=.*/=\"$LOCALE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    #sed -i -e "/TIMEZONE=/s/=.*/=\"$TIMEZONE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" $SCRIPT_DIR/linux-live/container_buildconfig
 }
 
 function container_run() {
@@ -3582,7 +3763,9 @@ function container_run() {
             -e DEFAULT_TARGET="graphical" \
             -e ENABLE_SERVICES="ssh" \
             -e DISABLE_SERVICES="" \
+            -e SSH="true" \
             -e SSH_KEY="authorized_keys" \
+            -e SCRIPTS="true" \
             -e CLOUD="false" \
             -e HIDE_CREDENTIALS="false" \
             -e DISTRIBUTION_VARIANT="minbase" \
@@ -3606,17 +3789,20 @@ function container_run() {
             -e REMOVE_DPKG_DB="false" \
             -e REMOVE_LARGE_ICONS="true" \
             -e FILTER_MODULES="false" \
-            -e FILTER_LEVEL="4" \
+            -e FILTER_LEVEL="3" \
+            -e INITRD_TYPE="$INITRD_TYPE" \
             -e KERNEL_TYPE="$KERNEL_TYPE" \
             -e KERNEL_BPO="$KERNEL_BPO" \
             -e KERNEL_AUFS="$KERNEL_AUFS" \
-            -e NAMED_BOOT_FILES="true" \
+            -e NAMED_BOOT_FILES="false" \
             -e EXPORT_KERNEL="true" \
             -e MOVE_KERNEL="false" \
             -e USE_MX_REPO="false" \
             -e USE_ANTIX_REPO="false" \
             -e USE_UNOFFICIAL_REPOSITORY="false" \
             -e UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3" \
+            -e BUILD_FROM_SNAPSHOT="false" \
+            -e SNAPSHOT_DATE="20220223T214737Z" \
             local/mlc /build/minios-live/install -
     fi
 }
@@ -3639,7 +3825,9 @@ function live_run() {
         DEFAULT_TARGET="graphical" \
         ENABLE_SERVICES="ssh" \
         DISABLE_SERVICES="" \
+        SSH="true" \
         SSH_KEY="authorized_keys" \
+        SCRIPTS="true" \
         CLOUD="false" \
         HIDE_CREDENTIALS="false" \
         DISTRIBUTION_VARIANT="minbase" \
@@ -3663,17 +3851,20 @@ function live_run() {
         REMOVE_DPKG_DB="false" \
         REMOVE_LARGE_ICONS="true" \
         FILTER_MODULES="false" \
-        FILTER_LEVEL="4" \
+        FILTER_LEVEL="3" \
+        INITRD_TYPE="$INITRD_TYPE" \
         KERNEL_TYPE="$KERNEL_TYPE" \
         KERNEL_BPO="$KERNEL_BPO" \
         KERNEL_AUFS="$KERNEL_AUFS" \
-        NAMED_BOOT_FILES="true" \
+        NAMED_BOOT_FILES="false" \
         EXPORT_KERNEL="true" \
         MOVE_KERNEL="false" \
         USE_MX_REPO="false" \
         USE_ANTIX_REPO="false" \
         USE_UNOFFICIAL_REPOSITORY="false" \
         UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3" \
+        BUILD_FROM_SNAPSHOT="false" \
+        SNAPSHOT_DATE="20220223T214737Z" \
         /build/minios-live/install -
 }
 
@@ -3714,12 +3905,13 @@ function container_build_run() {
     DESKTOP_ENVIRONMENT="$2"
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
-    KERNEL_TYPE="$5"
-    KERNEL_BPO="$6"
-    KERNEL_AUFS="$7"
-    COMP_TYPE="$8"
-    LOCALE="$9"
-    TIMEZONE="${10}"
+    INITRD_TYPE="$5"
+    KERNEL_TYPE="$6"
+    KERNEL_BPO="$7"
+    KERNEL_AUFS="$8"
+    COMP_TYPE="$9"
+    LOCALE="${10}"
+    TIMEZONE="${11}"
 
     language_to_array
 
@@ -3734,7 +3926,7 @@ function container_build_run() {
         AUFS_SUFFIX="-aufs"
     fi
 
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LANG[0]}-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$INITRD_TYPE-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LANG[0]}-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
@@ -3773,11 +3965,13 @@ function live_build_run() {
     DESKTOP_ENVIRONMENT="$2"
     PACKAGE_VARIANT="$3"
     DISTRIBUTION_ARCH="$4"
-    KERNEL_TYPE="$5"
-    KERNEL_AUFS="$6"
-    COMP_TYPE="$7"
-    LOCALE="$8"
-    TIMEZONE="$9"
+    INITRD_TYPE="$5"
+    KERNEL_TYPE="$6"
+    KERNEL_BPO="$7"
+    KERNEL_AUFS="$8"
+    COMP_TYPE="$9"
+    LOCALE="${10}"
+    TIMEZONE="${11}"
     if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
         DISTRIBUTION_TYPE="ubuntu"
     fi
