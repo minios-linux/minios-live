@@ -281,11 +281,11 @@ fi
 
 if grep -q ssh $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
-    if [ $DISTRIBUTION = "stretch" ]; then
-        if [ -d /usr/lib/systemd/system ]; then
+#    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
+        if [ ! -d /usr/lib/systemd/system ]; then
             mkdir -p /usr/lib/systemd/system
         fi
-    fi
+#    fi
     cat <<EOF >/usr/lib/systemd/system/ssh-keygen.service
 [Unit]
 Description=Generate sshd keys

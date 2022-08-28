@@ -54,6 +54,10 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "bionic" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/blueman/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
     else
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
@@ -62,7 +66,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+if [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "sid" ]; then
     wget http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.17-1_all.deb
     DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
