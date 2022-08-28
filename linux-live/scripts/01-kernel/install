@@ -56,6 +56,14 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         apt-get update >>$OUTPUT 2>&1 &&
             apt-get full-upgrade -y >>$OUTPUT 2>&1
         KERNEL_IMAGE=$(apt-cache depends pve-kernel-5.15 | grep -m 2 'Depends:' | tail -n1 | sed 's/  Depends: //g')
+    elif [ $KERNEL_TYPE = "ubuntu" ]; then
+        UBUNTU_KERNEL_VERSION="5.4.0-125"
+        UBUNTU_EXT_KERNEL_VERSION="5.4.0-125.141"
+        KERNEL_IMAGE="linux-image-$UBUNTU_KERNEL_VERSION-generic"
+    elif [ $KERNEL_TYPE = "ubuntu-hwe" ]; then
+        UBUNTU_KERNEL_VERSION="5.15.0-46"
+        UBUNTU_EXT_KERNEL_VERSION="5.15.0-46.49~20.04.1"
+        KERNEL_IMAGE="linux-image-$UBUNTU_KERNEL_VERSION-generic"
     elif [ $DISTRIBUTION = "orel" ]; then
         KERNEL_IMAGE="$(apt-cache depends linux-image-5.10-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
     elif [ $KERNEL_TYPE = "rt" ] || [ $KERNEL_TYPE = "cloud" ]; then
@@ -88,6 +96,19 @@ if [ $KERNEL_TYPE != "none" ]; then
         wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
         apt-get install -y ./linux-image-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
         apt-get install -y ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+        rm ./linux-*.deb
+    elif [ $KERNEL_TYPE = "ubuntu" ]; then
+    wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux-signed/
+        wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux-signed/linux-image-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
+        #wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-headers-$UBUNTU_KERNEL_VERSION\_$UBUNTU_EXT_KERNEL_VERSION\_all.deb
+        wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-modules-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
+        apt-get install -y ./linux-*.deb
+        rm ./linux-*.deb
+    elif [ $KERNEL_TYPE = "ubuntu-hwe" ]; then
+        wget http://security.ubuntu.com/ubuntu/pool/main/l/linux-signed-hwe-5.15/linux-image-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
+        #wget http://security.ubuntu.com/ubuntu/pool/main/l/linux-hwe-5.15/linux-hwe-5.15-headers-$UBUNTU_KERNEL_VERSION\_$UBUNTU_EXT_KERNEL_VERSION\_all.deb
+        wget http://security.ubuntu.com/ubuntu/pool/main/l/linux-hwe-5.15/linux-modules-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
+        apt-get install -y ./linux-*.deb
         rm ./linux-*.deb
     else
         DEBIAN_FRONTEND=noninteractive \
