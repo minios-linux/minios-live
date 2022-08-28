@@ -1,0 +1,17 @@
+uird.config=lfa.ini
+uird.rootfs=tmpfs::SIZE=auto
+uird.ro=*.xzm;*.pfs
+uird.rw=*.rwm
+uird.cp=*.pfs.cp,*/rootcopy
+uird.load=/base/,/modules/,rootcopy
+uird.noload=/saves/todir,/homes
+uird.from=/lfa,/UIRD::FORCE=yes::TIMEOUT=3
+uird.find_params=-maxdepth_4
+uird.mode=clean 
+uird.changes=/saves/todir
+uird.preinit
+#uird.syscp=/livekitlib::/usr/bin
+#uird.shutdown
+# Комментарии могут быть только в конце файла
+# конфиг для запуска prar в чистом режиме
+

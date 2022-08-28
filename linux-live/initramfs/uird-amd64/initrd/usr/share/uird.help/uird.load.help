@@ -1,0 +1,17 @@
+**********************************************************************************************************
+!!! This text was translated from russian by the Google service !!!
+!!! If you can translate better, please visit www.magos-linux.ru !!!
+
+uird.load=  -  the list of filters for modules/directories from sources (uird.from =) which need 
+               to be used when booting. The method of activation is set by filters uird.ro, uird.rw, 
+               uird.cp. A separator in the list ";" or ","
+
+uird.load+= -  add filters to list from basecfg.ini
+
+
+Example:
+uird.load=/base/,/modules/,rootcopy 
+This string means: plug modules and directories from sources (uird.from =) 
+if in a full name of the file/directory there is a combination of characters /base/,/modules/or "rootcopy"
+
+**********************************************************************************************************

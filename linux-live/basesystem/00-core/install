@@ -64,6 +64,9 @@ echo "console-setup   console-setup/charmap47 select  UTF-8" | debconf-set-selec
 echo "console-setup   console-setup/fontsize-fb47 select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
 echo "console-setup   console-setup/fontface47select  Fixed" | debconf-set-selections -v >>$OUTPUT 2>&1
 echo "console-setup   console-setup/fontsize-text47   select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
+# SSH settings
+echo "openssh-server  openssh-server/password-authentication  boolean true" | debconf-set-selections -v >>$OUTPUT 2>&1
+echo "openssh-server  openssh-server/permit-root-login        boolean false" | debconf-set-selections -v >>$OUTPUT 2>&1
 
 apt-get update >>$OUTPUT 2>&1
 
@@ -80,12 +83,16 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     elif [ $DISTRIBUTION = "buster" ]; then
         apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/cockpit-podman/cockpit-docker/g;s/podman/docker/g" | tr "\n" " ") >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "stretch" ]; then
+        apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") >>$OUTPUT 2>&1
     else
-        if [ KERNEL_TYPE = "aufs" ] || [ KERNEL_TYPE = "none" ]; then
+        #if [ $KERNEL_TYPE = "aufs" ] || [ $KERNEL_TYPE = "none" ]; then
+        if [ $KERNEL_TYPE = "none" ]; then
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/zfsutils-linux/d" | tr "\n" " ") >>$OUTPUT 2>&1
@@ -220,20 +227,6 @@ UNION_BUILD_TYPE="overlayfs"
 BEXT="sb"
 EOF
 
-cat <<EOF >/usr/lib/systemd/system/dpkg-fix.service
-[Unit]
-Description=DPKG base rebuilder.
-
-[Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStart=/usr/bin/dpkg-fix /run/initramfs/memory/bundles
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl enable dpkg-fix >>$OUTPUT 2>&1
-
 if [ ! -d /etc/NetworkManager ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
@@ -288,6 +281,11 @@ fi
 
 if grep -q ssh $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "stretch" ]; then
+        if [ -d /usr/lib/systemd/system ]; then
+            mkdir -p /usr/lib/systemd/system
+        fi
+    fi
     cat <<EOF >/usr/lib/systemd/system/ssh-keygen.service
 [Unit]
 Description=Generate sshd keys
@@ -295,17 +293,17 @@ Before=ssh.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/ssh-keygen -A
+ExecStart=-/bin/sh -c 'if ! ls /etc/ssh/ssh_host_* >/dev/null 2>&1; then ssh-keygen -A; fi; if [ ! -d /run/sshd ]; then mkdir -p /run/sshd; fi'
 RemainAfterExit=true
-stdOutput=journal
+StandardOutput=journal
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
-    sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
+    #sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
+    #sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
     systemctl enable ssh-keygen >>$OUTPUT 2>&1
-    systemctl disable ssh >>$OUTPUT 2>&1
+    systemctl enable ssh >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION = "bullseye" ]; then
@@ -401,3 +399,6 @@ fi
 if ! grep -q LANG /etc/default/locale >>$OUTPUT 2>&1; then
     echo "LANG=\"$LOCALE.UTF-8\"" >>/etc/default/locale
 fi
+
+#echo root:$ROOT_PASSWORD | chpasswd
+#echo $USER_NAME:$USER_PASSWORD | chpasswd

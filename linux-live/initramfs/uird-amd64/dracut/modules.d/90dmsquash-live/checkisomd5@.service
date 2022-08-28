@@ -1,0 +1,14 @@
+[Unit]
+Description=Media check on %f
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/bin/checkisomd5 --verbose %f
+StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
+TimeoutSec=0
+SuccessExitStatus=2

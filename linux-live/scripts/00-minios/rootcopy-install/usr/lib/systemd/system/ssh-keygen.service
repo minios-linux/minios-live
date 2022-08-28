@@ -1,0 +1,12 @@
+[Unit]
+Description=Generate sshd keys
+Before=ssh.service
+
+[Service]
+Type=oneshot
+ExecStart=-/bin/sh -c 'if ! ls /etc/ssh/ssh_host_* >/dev/null 2>&1; then ssh-keygen -A; fi; if [ ! -d /run/sshd ]; then mkdir -p /run/sshd; fi'
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

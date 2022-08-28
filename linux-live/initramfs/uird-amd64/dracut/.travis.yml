@@ -1,0 +1,56 @@
+language: generic
+dist: bionic
+sudo: required
+services:
+- docker
+env:
+  matrix:
+  - IMAGE=latest
+  - IMAGE=latest TESTS=01
+  - IMAGE=latest TESTS=12
+  - IMAGE=latest TESTS=20
+  - IMAGE=latest TESTS=21
+  - IMAGE=latest TESTS=50
+  - IMAGE=latest TESTS=51
+  - IMAGE=latest TESTS=30
+  - IMAGE=latest TESTS=31
+  - IMAGE=latest TESTS=35
+  - IMAGE=latest TESTS=36
+  - IMAGE=latest TESTS=40
+  - IMAGE=latest TESTS=41
+  - IMAGE=latest TESTS=60
+  - IMAGE=latest TESTS=61
+  - IMAGE=latest TESTS=99
+  - IMAGE=latest TESTS=02
+  - IMAGE=latest TESTS=03
+  - IMAGE=latest TESTS=04
+  - IMAGE=latest TESTS=10
+  - IMAGE=latest TESTS=11
+  - IMAGE=latest TESTS=13
+  - IMAGE=latest TESTS=14
+  - IMAGE=latest TESTS=15
+  - IMAGE=latest TESTS=17
+
+before_script:
+  - docker pull quay.io/haraldh/dracut-fedora:$IMAGE
+  - |
+    sudo modprobe kvm-intel nested=1 || :
+    sudo modprobe kvm-amd nested=1 || :
+    dmesg | tail || :
+  - git fetch --tags --unshallow
+  - |
+    git describe --abbrev=0 --tags || :
+    git describe --tags || :
+
+script:
+  ## The test container is created with https://github.com/dracutdevs/fedora-container
+- docker run --privileged -it -v $(pwd)/:/dracut quay.io/haraldh/dracut-fedora:$IMAGE /dracut/fedora-test.sh $IMAGE-$$ "$TESTS"
+
+notifications:
+  webhooks:
+    urls:
+    - https://webhooks.gitter.im/e/effa917ca3e0ed5fd00e
+    on_success: change  # options: [always|never|change] default: always
+    on_failure: always  # options: [always|never|change] default: always
+    on_start: never     # options: [always|never|change] default: always
+

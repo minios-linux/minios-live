@@ -1,0 +1,50 @@
+# Directions for creating the encrypted key that will be used to mount an
+# eCryptfs filesystem
+
+# Create the eCryptfs key (encrypted key type)
+#
+# The encrypted key type supports two formats: the 'default' format allows
+# to generate a random symmetric key of the length specified, the 'ecryptfs'
+# format generates an authentication token for the eCryptfs filesystem,
+# which contains a randomly generated key. Two requirements for the latter
+# format is that the key description must contain exactly 16 hexadecimal
+# characters and that the encrypted key length must be equal to 64.
+$ keyctl add encrypted 1000100010001000 "new ecryptfs trusted:kmk-trusted 64" @u
+782117972
+
+# Save the encrypted key
+$ su -c 'keyctl pipe `keyctl search @u encrypted 1000100010001000` > /etc/keys/ecryptfs-trusted.blob'
+
+# The eCryptfs key path name can be set in one of the following ways (specified in
+# the order in which the variable is overwritten):
+
+1) use the default value:
+--------------------------------------------------------------------------
+ECRYPTFSKEY="/etc/keys/ecryptfs-trusted.blob"
+--------------------------------------------------------------------------
+
+2) create the configuration file '/etc/sysconfig/ecryptfs' and set the ECRYPTFSKEY
+variable;
+
+3) specify the eCryptfs key path name in the 'ecryptfskey=' parameter of the kernel command
+line.
+
+# The configuration file '/etc/sysconfig/ecryptfs' is also used to specify
+# more options for mounting the eCryptfs filesystem:
+
+ECRYPTFSSRCDIR: existent directory in the lower root filesystem;
+ECRYPTFSDSTDIR: mount point directory for the eCryptfs filesystem (the directory must be
+                created in the root filesystem before rebooting the platform);
+ECRYPTFS_EXTRA_MOUNT_OPTS: extra mount options for the eCryptfs filesystem (the 'ecryptfs_sig'
+                           option is automatically added by the dracut script).
+
+# Example of the configuration file:
+----------- '/etc/sysconfig/ecryptfs' (with default values) -----------
+ECRYPTFS_KEY="/etc/keys/ecryptfs-trusted.blob"
+ECRYPTFSSRCDIR="/secret"
+ECRYPTFSDSTDIR="${ECRYPTFSSRCDIR}"
+ECRYPTFS_EXTRA_MOUNT_OPTS=""
+-----------------------------------------------------------------------
+
+# If the variable ECRYPTFSDSTDIR is not specified in the configuration file,
+# its value will be equal to that of ECRYPTFSSRCDIR.

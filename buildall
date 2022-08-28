@@ -9,12 +9,18 @@ if [ -z $OUTPUT ]; then
 fi
 
 function build() {
-    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=$DISTRIBUTION_TYPE/" $SCRIPT_DIR/linux-live/buildconfig
-    sed -i -e "/DISTRIBUTION=/s/=.*/=$DISTRIBUTION/" $SCRIPT_DIR/linux-live/buildconfig
-    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=$DISTRIBUTION_ARCH/" $SCRIPT_DIR/linux-live/buildconfig
-    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=$DESKTOP_ENVIRONMENT/" $SCRIPT_DIR/linux-live/buildconfig
-    sed -i -e "/COMP_TYPE=/s/=.*/=$COMP_TYPE/" $SCRIPT_DIR/linux-live/buildconfig
-    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=$PACKAGE_VARIANT/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/KERNEL_AUFS=/s/=.*/=\"$KERNEL_AUFS\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/LOCALE=/s/=.*/=\"$LOCALE\"/" $SCRIPT_DIR/linux-live/buildconfig
+    sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" $SCRIPT_DIR/linux-live/buildconfig
     $SCRIPT_DIR/install -
 }
 
@@ -23,8 +29,14 @@ DISTRIBUTION_TYPE="debian"
 DISTRIBUTION="bullseye"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
-COMP_TYPE="xz"
 PACKAGE_VARIANT="standard"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
+COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -32,14 +44,26 @@ DISTRIBUTION="bullseye"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
 DISTRIBUTION="bullseye"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 PACKAGE_VARIANT="minimal"
 build
 
@@ -48,7 +72,13 @@ DISTRIBUTION="bullseye"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 # buster xfce
@@ -57,7 +87,13 @@ DISTRIBUTION="buster"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -65,7 +101,13 @@ DISTRIBUTION="buster"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -73,7 +115,13 @@ DISTRIBUTION="buster"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -81,7 +129,13 @@ DISTRIBUTION="buster"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 # buster slax
@@ -90,7 +144,13 @@ DISTRIBUTION="buster"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="slax"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -98,7 +158,13 @@ DISTRIBUTION="buster"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="slax"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 # stretch xfce
@@ -107,7 +173,13 @@ DISTRIBUTION="stretch"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -115,7 +187,13 @@ DISTRIBUTION="stretch"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -123,7 +201,13 @@ DISTRIBUTION="stretch"
 DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
 
 DISTRIBUTION_TYPE="debian"
@@ -131,22 +215,11 @@ DISTRIBUTION="stretch"
 DISTRIBUTION_ARCH="i386"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="minimal"
+INITRD_TYPE="livekit"
+KERNEL_TYPE="default"
+KERNEL_BPO="false"
+KERNEL_AUFS="false"
 COMP_TYPE="xz"
+LOCALE="en_US"
+TIMEZONE="Etc/UTC"
 build
-
-# focal xfce
-: 'DISTRIBUTION_TYPE="ubuntu"
-DISTRIBUTION="focal"
-DISTRIBUTION_ARCH="amd64"
-DESKTOP_ENVIRONMENT="xfce"
-PACKAGE_VARIANT="standard"
-COMP_TYPE="xz"
-build
-
-DISTRIBUTION_TYPE="ubuntu"
-DISTRIBUTION="focal"
-DISTRIBUTION_ARCH="amd64"
-DESKTOP_ENVIRONMENT="xfce"
-PACKAGE_VARIANT="minimal"
-COMP_TYPE="xz"
-build'

@@ -1,0 +1,28 @@
+# This file causes block devices with RAID (dmraid) signatures to
+# automatically cause dmraid_scan to be run.
+# See udev(8) for syntax
+
+SUBSYSTEM!="block", GOTO="dm_end"
+ACTION!="add|change", GOTO="dm_end"
+# Also don't process disks that are slated to be a multipath device
+ENV{DM_MULTIPATH_DEVICE_PATH}=="1", GOTO="dm_end"
+
+ENV{ID_FS_TYPE}=="linux_raid_member", GOTO="dm_end"
+
+ENV{ID_FS_TYPE}!="*_raid_member", GOTO="dm_end"
+
+ENV{ID_FS_TYPE}=="isw_raid_member", ENV{rd_NO_MDIMSM}!="?*", GOTO="dm_end"
+ENV{ID_FS_TYPE}=="ddf_raid_member", ENV{rd_NO_MDDDF}!="?*", GOTO="dm_end"
+
+ENV{rd_NO_DM}=="?*", GOTO="dm_end"
+
+OPTIONS:="nowatch"
+
+ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="dm_end"
+
+PROGRAM=="/bin/sh -c 'for i in $sys/$devpath/holders/dm-[0-9]*; do [ -e $$i ] && exit 0; done; exit 1;' ", \
+    GOTO="dm_end"
+
+RUN+="/sbin/initqueue --onetime --unique --settled /sbin/dmraid_scan $env{DEVNAME}"
+
+LABEL="dm_end"

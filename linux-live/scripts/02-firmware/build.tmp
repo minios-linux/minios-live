@@ -24,7 +24,7 @@ if [ $KERNEL_TYPE != "none" ]; then
         DISTRIBUTION_ARCH="x86_64"
     fi
 
-    echo "KERNEL=$KERNEL" >/livekit.conf
+    echo "KERNEL=$KERNEL" >/miniosbuild.conf
 
     if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then

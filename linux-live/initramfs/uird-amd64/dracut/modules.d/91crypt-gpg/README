@@ -1,0 +1,50 @@
+# Directions for changing a system from password-based gpg keyfile
+# to smartcard-based gpg keyfile
+
+# Be sure that you meet the following requirements:
+#  1. GnuPG >= 2.1 installed with
+#     * Smartcard support enabled (scdaemon must be built)
+#     * Direct CCID access built into scdaemon
+#  2. A password-based gpg keyfile ${KEYFILE} (e.g. "keyfile.gpg"):
+#     That is, a file containing the slot key for LUKS, which
+#     has been encrypted symmetrically with GnuPG using
+#     a password.
+#  3. Your public OpenPGP identity ${RECIPIENT} (e.g. "3A696356")
+#  4. An OpenPGP smartcard holding the decryption key associated
+#     with your public identity
+#  5. A CCID smartcard reader
+
+#  Notes: Requirement 4. and 5. can of course be one device, e.g.
+#         a USB token with an integrated OpenPGP smartcard
+
+# Make a backup of your keyfile (assuming it lies on the boot partition)
+$ cp /boot/${KEYFILE} /safe/place/keyfile.bak.gpg
+
+# Change your keyfile from purely password-based to both
+# password-based and key-based (you can then decrypt the keyfile
+# with either method). As an example aes256 is chosen, the cipher
+# is not important to this guide, but do note that your kernel
+# must support it at boot time (be it built into the kernel image
+# or loaded as a module from the initramfs).
+$ cat /safe/place/keyfile.bak.gpg | gpg -d | gpg --encrypt --recipient ${RECIPIENT} --cipher-algo aes256 --armor -c > /safe/place/keyfile_sc.gpg
+
+# Verify that you can decrypt your new keyfile both with the password
+# and your smartcard.
+# (with smartcard inserted, you should be prompted for your PIN, unless
+#  you already did so and have not yet timed out)
+$ gpg -d /safe/place/keyfile_sc.gpg
+# (with smartcard disconnected, you should be prompted for your password)
+$ gpg -d /safe/place/keyfile_sc.gpg
+
+# After verification, replace your old keyfile with your new one
+$ su -c 'cp /safe/place/keyfile_sc.gpg /boot/${KEYFILE}'
+
+# Export your public key to where crypt-gpg can find it
+$ gpg --armor --export-options export-minimal --export ${RECIPIENT} > /safe/place/crypt-public-key.gpg
+$ su -c 'cp /safe/place/crypt-public-key.gpg /etc/dracut.conf.d/crypt-public-key.gpg'
+
+# Rebuild your initramfs as usual
+# When booting with any of the requirements not met, crypt-gpg will default to password-based keyfile unlocking.
+# If all requirements are met and smartcard support is not disabled by setting the kernel option "rd.luks.smartcard=0"
+# crypt-gpg will try find and use a connected OpenPGP smartcard by prompting you for the PIN and then
+# unlocking the gpg keyfile with the smartcard.

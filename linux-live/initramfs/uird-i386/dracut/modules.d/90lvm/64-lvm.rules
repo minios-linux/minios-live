@@ -1,0 +1,21 @@
+# hacky rules to try to activate lvm when we get new block devs...
+#
+# Copyright 2008, Red Hat, Inc.
+# Jeremy Katz <katzj@redhat.com>
+
+
+SUBSYSTEM!="block", GOTO="lvm_end"
+ACTION!="add|change", GOTO="lvm_end"
+# Also don't process disks that are slated to be a multipath device
+ENV{DM_MULTIPATH_DEVICE_PATH}=="1", GOTO="lvm_end"
+KERNEL=="dm-[0-9]*", ACTION=="add", GOTO="lvm_end"
+ENV{ID_FS_TYPE}!="LVM?_member", GOTO="lvm_end"
+
+PROGRAM=="/bin/sh -c 'for i in $sys/$devpath/holders/dm-[0-9]*; do [ -e $$i ] && exit 0; done; exit 1;' ", \
+    GOTO="lvm_end"
+
+RUN+="/sbin/initqueue --settled --onetime --unique /sbin/lvm_scan"
+RUN+="/sbin/initqueue --timeout --name 51-lvm_scan --onetime --unique /sbin/lvm_scan --partial"
+RUN+="/bin/sh -c '>/tmp/.lvm_scan-%k;'"
+
+LABEL="lvm_end"

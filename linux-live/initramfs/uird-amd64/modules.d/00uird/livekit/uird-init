@@ -1,0 +1,276 @@
+#!/bin/sh
+#
+# UIRD Init script
+# Author: Anton Goroshkin <http://magos-linux.ru>
+# Author: Alexander Betkher <http://magos-linux.ru>
+
+# getty -t 100 -n -l /bin/autologin 9600 tty11 linux & 
+
+[ -f /etc/initvars ] && . /etc/initvars
+[ "$SYSMNT" ] && MEMORY=$SYSMNT || MEMORY=/memory
+if [ -f /secure ] ; then
+	SECLEVEL=$(cat /secure)
+	echo "SECLEVEL=$SECLEVEL" >> /etc/initvars
+else
+	SECLEVEL=0
+fi
+
+#lang and fonts
+export TEXTDOMAIN="uird"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+CMDLINE_LANG=$(echo -n " " | cat - /proc/cmdline 2>/dev/null | tr -s ";" "," | egrep -m1 -o "(^|[[:space:]])lang=[^[:space:]]+" | cut -d "=" -f 2- | head -n1)
+[ "_$CMDLINE_LANG" != "_"  ] &&  LANG="$CMDLINE_LANG" 
+[ "$LANG" ]  ||	LANG=en
+[ -e /usr/share/locale/${LANG}.alias ] && LANG=$(cat /usr/share/locale/${LANG}.alias)
+export LANG=$LANG
+export LOCALE=$LANG
+
+[ -d "/usr/lib/consolefonts/${LANG}" -o -L "/usr/lib/consolefonts/${LANG}" ] && loadfont < /usr/lib/consolefonts/${LANG}/$(ls -1 /usr/lib/consolefonts/${LANG}/)  >/dev/null
+[ -d "/usr/lib/kbd/${LANG}" -o -L "/usr/lib/kbd/${LANG}" ] && loadkeys /usr/lib/kbd/${LANG}/$(ls -1 /usr/lib/kbd/${LANG}/) >/dev/null
+
+. /livekitlib
+
+#Messages
+HEADER_START=$($GETTEXT "Starting UIRD init <http://magos-linux.ru>")
+HEADER_END=$($GETTEXT "UIRD init is finished, starting")
+MNT_REFRESH=$($GETTEXT "Updating directory /mnt")
+HELP_SYSTEM=$($GETTEXT "UIRD help system")
+NO_MODULES=$($GETTEXT "No modules found for current kernel")
+RAMDISK_SIZE=$($GETTEXT "RAM disk size")
+
+UNION=$NEWROOT
+BUNDLES=$MEMORY/bundles
+CHANGES=$MEMORY/changes
+OVERLAY=$MEMORY/ovl
+MACHINES=$MEMORY/machines
+DATAMNT=$MEMORY/data
+COPY2RAM=$MEMORY/copy2ram
+LAYER_BASE=$MEMORY/layer-base
+LAYER_CACHE=$MEMORY/layer-cache
+LAYER_HOMES=$MEMORY/layer-homes
+LAYER_MOUNTS=$MEMORY/layer-mounts
+MOUNTDIR=$LAYER_BASE
+
+echo "0" >/proc/sys/kernel/printk
+
+debug_start
+debug_shell
+
+[ -d /lib/modules/"$(uname -r)" ] || [ -d /lib64/modules/"$(uname -r)" ] || (echolog "$NO_MODULES" && exit 1)
+
+debug_shell
+
+init_devs
+debug_shell
+
+mkdir -p $MEMORY /tmp
+
+cfg_parser_pre
+old_pars_compat
+short_pars_compat
+BREAKSTEP="$(getpar $UIRD_BREAK 1 1)"
+
+header $HEADER_START
+header "[ $(cat /uird_version) $LANG]"
+
+# print help
+if cat /tmp/basecfg | grep -q help; then
+	plymouth quit 
+	echo ""
+	header "$HELP_SYSTEM"
+	echo ""
+	param_list=$(
+		eval echo "$UIRD_BASECFG $UIRD_CONFIG $UIRD_RO $UIRD_RW $UIRD_CP $UIRD_COPY2RAM $UIRD_FORCE  $UIRD_SWAP \
+		$UIRD_COPY2CACHE  $UIRD_IP  $UIRD_NETFSOPT  $UIRD_LOAD $UIRD_NOLOAD  $UIRD_MODE $UIRD_SYSCP $UIRD_SCAN $UIRD_ARIA2RAM \
+        $UIRD_FROM  $UIRD_CACHE $UIRD_HOMES $UIRD_HOME $UIRD_CHANGES $UIRD_MACHINES $UIRD_FIND_PARAMS $UIRD_MOUNTS $UIRD_BREAK \
+		$UIRD_FREEMEDIA $UIRD_RUN $UIRD_PREINIT $UIRD_SHUTDOWN $UIRD_ROOTFS $UIRD_UNION" )
+	help_dir=/usr/share/uird.help
+	[ -d /usr/share/uird.help/${LANG} ] && help_dir=/usr/share/uird.help/${LANG}
+	for par in $param_list; do
+		if [ "help" == "$(getpar $par 1 1)" ]; then
+			header "-=-=-=- $par -=-=-=-"
+			cat ${help_dir}/${par}.help
+			echo "ENTER --> next page"
+			read qqq
+			if [ "$par" == "$UIRD_BASECFG" ]; then
+				echo "default is:  $(cat /etc/cmdline.d/01-default.conf | grep "$par")"
+				for cfg in /uird_configs/*; do
+					echo "-=-=-=- $cfg -=-=-=-"
+					cat $cfg
+				done | less
+			fi
+		fi
+	done
+	if getpar $UIRD_HELP >/dev/null ; then
+		for file in $(ls -1 ${help_dir}/*.help); do
+			echo "-=-=-=- $file -=-=-=-" # header do not work with less command
+			cat $file
+		done | less
+	fi
+	shell_cmd "help"
+fi
+debug_shell
+
+#get livekitname
+[ -z $LIVEKITNAME ] && LIVEKITNAME=$(basename $BASECFG)
+sed -i "s:LIVEKITNAME.*:LIVEKITNAME=$LIVEKITNAME:" /etc/initvars
+
+#Waits partitions initialization. It need for  cardreaders with some empty slots
+SCANTIMES=$(getpar scantimeout 1 1 | sed -r 's/[^0-9]*([0-9]+).*/\1/')
+[ -z "SCANTIMES"  ] && "SCANTIMES"=10
+while [ "$(cat /proc/partitions | tail -n1 | awk '{print $1}')0" -le 10 ]; do
+	sleep 0.3
+	SCANTIMES=$(($SCANTIMES - 1))
+	[ "$SCANTIMES" -lt '1' ] && break  
+done
+
+#start uird.scan
+uird_scan
+
+# start quickshell
+start_quickshell
+debug_shell
+
+# Resume from swsuspend
+resume_from_suspend
+debug_shell
+
+#init swap
+getpar $UIRD_SWAP >/dev/null && init_swap  
+debug_shell
+
+setup_rootfs
+debug_shell
+
+mkdir -p $MOUNTDIR $CHANGES
+
+# init MOUNTS layer
+[ "$(getpar $UIRD_MOUNTS)" ] && init_layer $DATAMNT/mounts $LAYER_MOUNTS $UIRD_MOUNTS
+debug_shell
+
+#aria2 preDownload
+[ "$(getpar $UIRD_ARIA2RAM)" ] && aria2_preload $DATAMNT/aria2
+debug_shell
+
+#init BASE layer
+[ "$(getpar $UIRD_FROM)" ] && init_layer $DATAMNT/from $LAYER_BASE $UIRD_FROM "check_SGN"
+debug_shell
+
+# init CACHE layer
+[ "$(getpar $UIRD_CACHE)" ] && init_layer $DATAMNT/cache $LAYER_CACHE $UIRD_CACHE
+debug_shell
+
+# init HOMES layer
+[ "$(getpar $UIRD_HOMES)" ] && init_layer $DATAMNT/homes $LAYER_HOMES $UIRD_HOMES
+[ "$(getpar $UIRD_HOME)" ] && init_layer $DATAMNT/homes $LAYER_HOMES $UIRD_HOME
+debug_shell
+
+#if some of uird.swap values are swap files 
+[ "$SWAPFILES" ] && init_swapfiles "$SWAPFILES" $DATAMNT/swapfiles
+
+#setting up config
+setup_config
+debug_shell
+
+#setting up source for changes
+setup_changes $DATAMNT/changes $CHANGES
+
+#clear changes dir if CLEAN mode is enabled
+if [ "$(getpar $UIRD_MODE 1 1 )" == "clear" -o  "$(getpar $UIRD_MODE 1 1 )" == "hybrid" ]; then
+	rm -rf ${CHANGES}/*
+	echo $(date) >${CHANGES}/cleared_by_uird
+fi
+debug_shell
+
+#setting up machines mode
+setup_machines $MACHINES $DATAMNT/machines $CHANGES $DATAMNT/changes
+debug_shell
+
+# sync data from BASE layer to CACHE layer
+copy_to_target $LAYER_BASE "$LAYER_CACHE" tocache $UIRD_COPY2CACHE
+debug_shell
+
+# sync data from BASE,CACHE layers to RAM
+copy_to_target $LAYER_BASE "$COPY2RAM" toram $UIRD_COPY2RAM
+debug_shell
+getpar $UIRD_CACHE >/dev/null && copy_to_target $LAYER_CACHE "$COPY2RAM" toram $UIRD_COPY2RAM
+debug_shell
+
+#toxzm mode
+if [ "$(getpar $UIRD_MODE 1 1)" == "toxzm" ]  ; then
+	. /uird.toxzm_mode 
+	setup_toxzm_mode "$DATAMNT/xzmchanges" "$CHANGES" "$BUNDLES" "$UNION" "$COPY2RAM"
+fi
+
+# init aufs/overlay union
+init_union LCHANGES="$CHANGES" LUNION="$UNION" LBASE="$LAYER_BASE" LBUNDLES="$BUNDLES" LCP2RAM="$COPY2RAM" LCACHE="$LAYER_CACHE"
+debug_shell
+
+#mount binds
+mount_binds
+
+#setup homes by using aufs
+[ "$BREAKSTEP" = "set_homes" ] && shell_cmd "break"
+setup_homes "$LAYER_HOMES" "$UNION/home"
+debug_shell
+
+#echo_green_star
+#echolog "Обновление файла /etc/fstab"
+#touch $UNION/etc/fstab >/dev/null
+#fstab_update $UNION
+echo_green_star
+echolog $MNT_REFRESH
+rmdir $UNION/mnt/* 2>/dev/null
+debug_shell
+
+# old compatibility to linuxlive init
+mkdir -p $UNION/mnt/live/memory
+[ -d "$MEMORY/data/from/0" -a ! -d $UNION/mnt/livemedia ] && ln -sf $MEMORY/data/from/0 $UNION/mnt/livemedia
+[ -d "$MEMORY/data/from/1" -a ! -d $UNION/mnt/livedata ] && ln -sf $MEMORY/data/from/1 $UNION/mnt/livedata
+[ -d "$MEMORY/bundles" -a ! -d $UNION/mnt/live/memory/images ] && ln -sf $MEMORY/bundles $UNION/mnt/live/memory/images
+[ -d "$MEMORY/changes" -a ! -d $UNION/mnt/live/memory/changes ] && ln -sf $MEMORY/changes $UNION/mnt/live/memory/changes
+debug_shell
+
+# copy some files to system
+getpar $UIRD_SYSCP >/dev/null && syscp  $UNION
+[ -f "/etc/initvars" ] && cat /etc/initvars | sort | uniq >$UNION/etc/initvars
+
+cd $UNION
+
+echo_green_star
+echolog "$INITIALIZE preinit actions"
+if getpar $UIRD_PREINIT >/dev/null ; then
+	setup_preinit
+else
+    if [ -x "usr/lib/magos/rc.d/rc.preinit" ] ;then
+        /bin/bash usr/lib/magos/rc.d/rc.preinit
+    elif [ -x "etc/rc.d/rc.preinit" ] ; then
+        /bin/bash etc/rc.d/rc.preinit
+    fi
+fi
+debug_shell
+
+mkdir -p $UNION/var/log
+mv /var/log/* $UNION/var/log/ 2>/dev/null
+LOGFILE=$UNION/var/log/uird.dbg.log
+
+#need for usable_root of dracut
+mkdir -p $UNION/proc $UNION/sys $UNION/dev $UNION/$MEMORY
+
+getpar $UIRD_SHUTDOWN >/dev/null && . /uird.shutdown && uird_shutdown
+getpar $UIRD_FREEMEDIA >/dev/null && . /uird.freemedia && uird_freemedia
+getpar $UIRD_HIDE >/dev/null || mount --move $MEMORY $UNION/$MEMORY
+
+# fix to init link
+if ! [ -x $UNION/sbin/init ]; then
+	linkpath=$(readlink $UNION/sbin/init)
+	rm $UNION/sbin/init
+	ln -s ..${linkpath} $UNION/sbin/init && echolog "fix /sbin/init link to relative path"
+fi
+
+header "$HEADER_END $LIVEKITNAME"
+debug_shell
+getpar $UIRD_HIDE >/dev/null ||  MEMORY=${UNION}/${MEMORY} # need to cmdline_parameter
+getpar qse >/dev/null && shell_cmd "shell"
+

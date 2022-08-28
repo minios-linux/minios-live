@@ -1,0 +1,11 @@
+[Unit]
+Description=MiniOS script launcher service.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/minios-script-launcher
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

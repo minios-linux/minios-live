@@ -1,0 +1,29 @@
+#  This file is part of dracut.
+#
+# See dracut.bootup(7) for details
+
+[Unit]
+Description=Dracut Emergency Shell
+DefaultDependencies=no
+After=systemd-vconsole-setup.service
+Wants=systemd-vconsole-setup.service
+Conflicts=shutdown.target emergency.target
+
+[Service]
+Environment=HOME=/
+Environment=DRACUT_SYSTEMD=1
+Environment=NEWROOT=/sysroot
+WorkingDirectory=/
+ExecStart=-/bin/dracut-emergency
+ExecStopPost=-/bin/rm -f -- /.console_lock
+Type=oneshot
+StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
+KillMode=process
+IgnoreSIGPIPE=no
+TasksMax=infinity
+
+# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
+# terminates cleanly.
+KillSignal=SIGHUP

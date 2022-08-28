@@ -1,0 +1,9 @@
+SUBSYSTEM!="block", GOTO="ps_end"
+ACTION!="add|change", GOTO="ps_end"
+# Also don't process disks that are slated to be a multipath device
+ENV{DM_MULTIPATH_DEVICE_PATH}=="1", GOTO="ps_end"
+
+KERNEL=="cciss[0-9]*", IMPORT BLKID
+KERNEL=="nbd[0-9]*", IMPORT BLKID
+
+LABEL="ps_end"

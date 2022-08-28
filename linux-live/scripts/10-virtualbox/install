@@ -9,37 +9,19 @@ APP="virtualbox"
 APP_NAME="VirtualBox"
 APP_GROUP="vboxusers"
 
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y gnupg apt-transport-https >>$OUTPUT 2>&1
-
-if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
-    KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* | head -n 1 | sed 's/linux-image-//')
-else
-    KERNEL=$(uname -r)
-fi
-
-VBOX_VERSION=$(wget -O- https://download.virtualbox.org/virtualbox/LATEST.TXT)
-
-#apt-get update >>$OUTPUT 2>&1
-#apt-get install -y dirmngr apt-transport-https >>$OUTPUT 2>&1
-
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2F683C52980AECF
-
-echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
-
-# install packages
 apt-get update >>$OUTPUT 2>&1
-apt-get install -y virtualbox-6.1 >>$OUTPUT 2>&1
-
-wget https://download.virtualbox.org/virtualbox/$VBOX_VERSION/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
-
-echo y | VBoxManage extpack install --replace $SCRIPT_DIR/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
-
-rm -f $SCRIPT_DIR/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
-
-#if [ $(id -nu 1000) = "live" ]; then
-#    usermod -a -G vboxusers $(id -nu 1000)
-#fi
+apt-get install -y fasttrack-archive-keyring >>$OUTPUT 2>&1
+echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-fasttrack main contrib" >/etc/apt/sources.list.d/fasttrack.list
+echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-backports-staging main contrib" >>/etc/apt/sources.list.d/fasttrack.list
+apt-get update >>$OUTPUT 2>&1
+if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+    wget https://github.com/minios-linux/aufs-kernel/releases/download/5.10.127/linux-headers-5.10.127_5.10.127-1_$DISTRIBUTION_ARCH.deb
+    apt-get install -y ./linux-headers-5.10.127_5.10.127-1_$DISTRIBUTION_ARCH.deb >>$OUTPUT 2>&1
+    rm ./linux-headers-5.10.127_5.10.127-1_$DISTRIBUTION_ARCH.deb
+else
+    apt-get install linux-headers-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
+fi
+apt-get install -y virtualbox-qt >>$OUTPUT 2>&1
 
 cat <<EOF >/usr/bin/$APP-allowuser.sh
 #!/bin/bash
@@ -65,6 +47,6 @@ WantedBy=multi-user.target
 EOF
 systemctl enable $APP-allowuser.service >>$OUTPUT 2>&1
 
-PACKAGE="virtualbox-6.1"
+PACKAGE="virtualbox"
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

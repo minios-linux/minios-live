@@ -1,0 +1,22 @@
+#!/bin/bash
+# Author: sfs <https://puppyrus.org>
+# Author: crims0n <https://minios.dev>
+
+. /usr/lib/minioslib || exit 1
+read_config /etc/minios/config BEXT
+
+
+[ ! "$1" ] && echo "List packages.deb in dir ore module.$BEXT
+    Usage:    $0 [dir|*.$BEXT]
+    Examples: $0 00-core.$BEXT
+              $0 /run/initramfs/memory/bundles/00-core.$BEXT" && exit 1
+
+if [ -d "$1" ]; then
+    ls -1 "$1"/var/lib/dpkg/info/*.md5sums | sed -n 's,^.*/var/lib/dpkg/info/\([^:]*\)\(:.\+\)\?\.md5sums$,\1,p'
+else
+    unsquashfs -l "$1" | sed -n 's,^.*/var/lib/dpkg/info/\([^:]*\)\(:.\+\)\?\.md5sums$,\1,p'
+fi
+
+exit
+rm -R "$1"/var/lib/dpkg
+mkdir -p "$1"/var/lib/dpkg && echo "$p" >>"$1"/var/lib/dpkg/"$(basename $1)".list

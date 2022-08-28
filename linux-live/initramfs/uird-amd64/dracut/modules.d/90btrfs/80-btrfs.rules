@@ -1,0 +1,8 @@
+SUBSYSTEM!="block", GOTO="btrfs_end"
+ACTION!="add|change", GOTO="btrfs_end"
+ENV{ID_FS_TYPE}!="btrfs", GOTO="btrfs_end"
+RUN+="/sbin/btrfs device scan $env{DEVNAME}"
+
+RUN+="/sbin/initqueue --finished --unique --name btrfs_finished /sbin/btrfs_finished"
+
+LABEL="btrfs_end"

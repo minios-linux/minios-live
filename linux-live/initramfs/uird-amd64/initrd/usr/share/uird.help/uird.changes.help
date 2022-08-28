@@ -1,0 +1,31 @@
+*******************************************************************************************************
+!!! This text was translated from russian by the Google service !!!
+!!! If you can translate better, please visit www.magos-linux.ru !!!
+
+uird.changes= - source for storage of persistent changes
+                for uird.mode=changes uird.mode=machines uird.mode=clear
+
+Legitimate values:
+
+uird.changes=dir                    - directory (search this dir in all disks and devices and use first 
+                                      found)
+uird.changes=/dev/[..]/path/dir     - directory on the selected device
+uird.changes=LABEL@/path/dir        - directory on the device with label LABEL
+uird.changes=UUID@/path/dir         - directory on the device with uuid UUID
+uird.changes=file.img               - disk image (ISO, block device image)
+uird.changes=/dev/nbd0p1             - partition on a virtual machine disk image
+uird.changes=ssh://server/path/...  - SSH source (sshfs is in use)
+uird.changes=ftp://server/path/...  - FTP source (curlftpfs is in use)
+uird.changes=nfs://server/path/...  - NFS source
+uird.changes=cifs://server/path/... - CIFS source
+
+Subvalues:
+MNT_OPTS=noexec         - additional mount options (file.img or partition)
+SIZE=2048               - size for new file.img (only if not exists)
+FS=btrfs                - file system for new file.img (only if nor exists)
+KEY=/file.key           - key file for LUKS partition
+
+Exfmple:
+uird.changes=/MagOS-Data/my.img::FS=btrfs::SIZE=2048::MNT_OPTS=compress=lzo
+
+*******************************************************************************************************

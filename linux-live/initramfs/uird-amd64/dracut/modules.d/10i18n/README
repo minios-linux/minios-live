@@ -1,0 +1,124 @@
+dracut i18n module
+------------------
+
+INDEX
+
+0. Introduction
+1. Hostonly vs Generic
+2. Configuration
+   2.1. Variables
+   2.2. Setting up mappings
+   2.3. Additional settings
+3. Kernel parameters
+
+~
+
+0. Introduction
+
+i18n module provides internationalization for initramfs at runtime.  It
+is intended to be generic across different GNU/Linux distributions.
+
+i18n and keyboard settings are stored in different files among
+distributions.  To deal with it avoiding hardcoding those differences in
+the installation script we handle it by mappings between variables used
+by dracut and the ones in the system.  Package maintainer is expected to
+create those for his/her distribution and it's appreciated to share it
+with us, so we can include it in source package.
+
+
+1. Hostonly vs Generic
+
+If you invoke dracut with '-H' option, i18n module install script will
+gather variables values from your configuration files using mappings
+provided in "/etc/dracut.conf.d/<foo>.conf".  Those variables will be
+put in "etc/vconsole.conf" and "etc/locale.conf" files inside initramfs
+image. Next it will install only declared font, keymaps and so.
+
+When building generic image (dracut without '-H' option), install script
+copies all content of directories: consolefonts, consoletrans, unimaps
+and keymaps to image.  Take into account that's about 4 MiB.
+
+
+2. Configuration
+
+2.1. Variables
+
+The following variables are used by i18n install script and at initramfs
+runtime:
+
+    KEYMAP - keyboard translation table loaded by loadkeys
+    KEYTABLE - base name for keyboard translation table; if UNICODE is
+    true, Unicode version will be loaded. Overrides KEYMAP.
+    EXT_KEYMAPS - list of extra keymaps to bo loaded (sep. by space)
+    UNICODE - boolean, indicating UTF-8 mode
+    FONT - console font
+    FONT_MAP - see description of '-m' parameter in setfont manual
+    FONT_UNIMAP - see description of '-u' parameter in setfont manual
+
+The following are appended to EXT_KEYMAPS only during build time:
+
+    UNIKEYMAP
+    GRP_TOGGLE
+
+They were used in 10redhat-i18n module, but not sure of its purpose.
+I'm leaving it in case...  The following are taken from the environment:
+
+    LANG
+    LC_ALL
+
+If UNICODE variable is not provided, script indicates if UTF-8 should be
+used on the basis of LANG value (if it ends with ".utf8" or similar).
+
+
+2.2. Setting up mappings
+
+Mappings between variables listed in 2.1. and the ones spread around
+your system are set up in /etc/dracut.conf.d/<foo>.conf.  You need to
+assign mappings to i18n_vars.  Here's an example:
+
+i18n_vars="/etc/conf.d/keymaps:KEYMAP,EXTENDED_KEYMAPS-EXT_KEYMAPS /etc/conf.d/consolefont:CONSOLEFONT-FONT,CONSOLETRANSLATION-FONT_MAP /etc/rc.conf:UNICODE"
+
+First we've got name of file in host file system tree.  After colon
+there's mapping: <from>-<to>.  If both variables have the same name you
+can enter just a single, but it's important to specify it!  The module
+will source only variables you've listed.
+
+Below there's detailed description in BNF:
+
+<list> ::= <element> | <element> " " <list>
+<element> ::= <conf-file-name> ":" <map-list>
+<map-list> ::= <mapping> | <mapping> "," <map-list>
+<mapping> ::= <src-var> "-" <dst-var> | <src-var>
+
+We assume no whitespace are allowed between symbols.
+<conf-file-name> is a file holding <src-var> in your system.
+<src-var> is a variable holding value of meaning the same as <dst-var>.
+<dst-var> is a variable which will be set up inside initramfs.
+If <dst-var> has the same name as <src-var> we can omit <dst-var>.
+
+Example:
+/etc/conf.d/keymaps:KEYMAP,extended_keymaps-EXT_KEYMAPS
+<list> = /etc/conf.d/keymaps:KEYMAP,extended_keymaps-EXT_KEYMAPS
+<element> = /etc/conf.d/keymaps:KEYMAP,extended_keymaps-EXT_KEYMAPS
+<conf-file-name> = /etc/conf.d/keymaps
+<map-list> = KEYMAP,extended_keymaps-EXT_KEYMAPS
+<mapping> = KEYMAP
+<src-var> = KEYMAP
+<mapping> = extended_keymaps-EXT_KEYMAPS
+<src-var> = extended_keymaps
+<dst-var> = EXT_KEYMAPS
+
+
+2.3. Additional settings
+
+If you encounter following error message: "Directories consolefonts,
+consoletrans, keymaps, unimaps not found.", you can provide path where
+those directories lie in your system by setting kbddir in configuration
+file (the same where you put mappings).
+
+
+3. Kernel parameters
+
+If you create generic initramfs you can set up i18n by kernel
+parameters using variables listed in 2.1. (except of UNIKEYMAP
+and GRP_TOGGLE) The recommended minimum is: FONT and KEYMAP.

@@ -9,17 +9,6 @@
 # Must not contain any spaces.
 LIVEKITNAME="minios"
 
-# Kernel file, will be copied to your Live Kit
-# Your kernel must support aufs or overlayfs as well as squashfs. Debian Stretch's kernel is ready
-# out of the box.
-#VMLINUZ="/vmlinuz"
-
-# List of directories for root filesystem
-# No subdirectories are allowed, no slashes,
-# so You can't use /var/tmp here for example
-# Exclude directories like proc sys tmp
-MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
-
 # If you require network support in initrd, for example to boot over
 # PXE or to load data using 'from' boot parameter from a http server,
 # you will need network modules included in your initrd.
@@ -32,9 +21,6 @@ NETWORK=true
 # This is disabled by default since most people won't need it.
 # To enable, set to true
 #CLOUD=false
-
-# Temporary directory to store livekit filesystem
-#LIVEKITDATA=/tmp/$LIVEKITNAME-data-$$
 
 # Bundle extension, for example 'sb' for .sb extension
 BEXT=sb

@@ -1,0 +1,37 @@
+#  This file is part of dracut.
+#
+# See dracut.bootup(7) for details
+
+[Unit]
+Description=dracut pre-pivot and cleanup hook
+Documentation=man:dracut-pre-pivot.service(8)
+DefaultDependencies=no
+After=initrd.target initrd-parse-etc.service sysroot.mount
+After=dracut-initqueue.service dracut-pre-mount.service dracut-mount.service
+Before=initrd-cleanup.service
+Wants=remote-fs.target
+After=remote-fs.target
+ConditionPathExists=/usr/lib/initrd-release
+ConditionDirectoryNotEmpty=|/lib/dracut/hooks/pre-pivot
+ConditionDirectoryNotEmpty=|/lib/dracut/hooks/cleanup
+ConditionKernelCommandLine=|rd.break=pre-pivot
+ConditionKernelCommandLine=|rd.break=cleanup
+ConditionKernelCommandLine=|rd.break
+ConditionPathExists=|/dev/root
+ConditionPathExists=|/dev/nfs
+Conflicts=shutdown.target emergency.target
+
+[Service]
+Environment=DRACUT_SYSTEMD=1
+Environment=NEWROOT=/sysroot
+Type=oneshot
+ExecStart=-/bin/dracut-pre-pivot
+StandardInput=null
+StandardOutput=syslog
+StandardError=syslog+console
+KillMode=process
+RemainAfterExit=yes
+
+# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
+# terminates cleanly.
+KillSignal=SIGHUP

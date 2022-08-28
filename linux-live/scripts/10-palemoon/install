@@ -1,7 +1,7 @@
 #!/bin/bash
 
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y gnupg >>$OUTPUT 2>&1
+#apt-get update >>$OUTPUT 2>&1 &&
+#    apt-get install -y gnupg >>$OUTPUT 2>&1
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     echo 'deb http://download.opensuse.org/repositories/home:/stevenpusser/Debian_10/ /' | tee /etc/apt/sources.list.d/home:stevenpusser.list
@@ -39,4 +39,4 @@ fi
 
 PACKAGE="palemoon"
 echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed /1:/d | egrep -o '[0-9].*-[0-9]')" >>/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

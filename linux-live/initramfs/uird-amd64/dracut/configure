@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# We don't support srcdir != builddir
+echo \#buildapi-variable-no-builddir >/dev/null
+
+prefix=/usr
+
+enable_documentation=yes
+
+CC="${CC:-cc}"
+PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
+
+# Little helper function for reading args from the commandline.
+# it automatically handles -a b and -a=b variants, and returns 1 if
+# we need to shift $3.
+read_arg() {
+    # $1 = arg name
+    # $2 = arg value
+    # $3 = arg parameter
+    local rematch='^[^=]*=(.*)$'
+    if [[ $2 =~ $rematch ]]; then
+        read "$1" <<< "${BASH_REMATCH[1]}"
+    else
+        read "$1" <<< "$3"
+        # There is no way to shift our callers args, so
+        # return 1 to indicate they should do it instead.
+        return 1
+    fi
+    return 0
+}
+
+while (($# > 0)); do
+    case "${1%%=*}" in
+        --prefix) read_arg prefix "$@" || shift;;
+        --libdir) read_arg libdir "$@" || shift;;
+        --datadir) read_arg datadir "$@" || shift;;
+        --sysconfdir) read_arg sysconfdir "$@" || shift;;
+        --sbindir) read_arg sbindir "$@" || shift;;
+        --mandir) read_arg mandir "$@" || shift;;
+        --disable-documentation) enable_documentation=no;;
+        --program-prefix) read_arg programprefix "$@" || shift;;
+        --exec-prefix) read_arg execprefix "$@" || shift;;
+        --bindir) read_arg bindir "$@" || shift;;
+        --includedir) read_arg includedir "$@" || shift;;
+        --libexecdir) read_arg libexecdir "$@" || shift;;
+        --localstatedir) read_arg localstatedir "$@" || shift;;
+        --sharedstatedir) read_arg sharedstatedir "$@" || shift;;
+        --infodir) read_arg infodir "$@" || shift;;
+        --systemdsystemunitdir) read_arg systemdsystemunitdir "$@" || shift;;
+        --bashcompletiondir) read_arg bashcompletiondir "$@" || shift;;
+        *) echo "Ignoring unknown option '$1'";;
+    esac
+    shift
+done
+
+if ! ${PKG_CONFIG} --exists --print-errors " libkmod >= 23 "; then
+    echo "dracut needs pkg-config and libkmod >= 23." >&2
+    exit 1
+fi
+
+cat <<EOF >conftest.c
+#include <fts.h>
+int main() {
+	return 0;
+}
+EOF
+
+${CC} $CFLAGS $LDFLAGS conftest.c >/dev/null 2>&1
+ret=$?
+rm -f conftest.c a.out
+
+# musl doesn't have fts.h included
+if test $ret -ne 0; then
+	echo "dracut needs fts development files." >&2
+	exit 1
+fi
+
+cat <<EOF >conftest.c
+#include <fts.h>
+int main(void) {
+	fts_open(0, 0, 0);
+	return 0;
+}
+EOF
+
+found=no
+for lib in "-lc" "-lfts"; do
+	${CC} $CFLAGS -Wl,$lib $LDFLAGS conftest.c >/dev/null 2>&1
+	ret=$?
+	if test $ret -eq 0; then
+		FTS_LIBS="$lib"
+		found=yes
+		break;
+	fi
+done
+rm -f conftest.c a.out
+
+if test $found = no; then
+	echo "dracut couldn't find usable fts library" >&2
+	exit 1
+fi
+
+cat > Makefile.inc.$$ <<EOF
+prefix ?= ${prefix}
+libdir ?= ${libdir:-${prefix}/lib}
+datadir ?= ${datadir:-${prefix}/share}
+sysconfdir ?= ${sysconfdir:-${prefix}/etc}
+sbindir ?= ${sbindir:-${prefix}/sbin}
+mandir ?= ${mandir:-${prefix}/share/man}
+enable_documentation ?= ${enable_documentation:-yes}
+bindir ?= ${bindir:-${prefix}/bin}
+KMOD_CFLAGS ?= $(${PKG_CONFIG} --cflags " libkmod >= 23 ")
+KMOD_LIBS ?= $(${PKG_CONFIG} --libs " libkmod >= 23 ")
+FTS_LIBS ?= ${FTS_LIBS}
+EOF
+
+{
+    [[ $programprefix ]] && echo "programprefix ?= ${programprefix}"
+    [[ $execprefix ]] && echo "execprefix ?= ${execprefix}"
+    [[ $includedir ]] && echo "includedir ?= ${includedir}"
+    [[ $libexecdir ]] && echo "libexecdir ?= ${libexecdir}"
+    [[ $localstatedir ]] && echo "localstatedir ?= ${localstatedir}"
+    [[ $sharedstatedir ]] && echo "sharedstatedir ?= ${sharedstatedir}"
+    [[ $infodir ]] && echo "infodir ?= ${infodir}"
+    [[ $systemdsystemunitdir ]] && echo "systemdsystemunitdir ?= ${systemdsystemunitdir}"
+    [[ $bashcompletiondir ]] && echo "bashcompletiondir ?= ${bashcompletiondir}"
+} >> Makefile.inc.$$
+
+mv Makefile.inc.$$ Makefile.inc

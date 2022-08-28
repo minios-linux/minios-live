@@ -1,0 +1,23 @@
+Right now, most of the testing is done using a qemu/kvm guest and
+generating the initramfs on another box but the support is all present
+to build for the "running" machine.  For the former, you can boot the guest
+using qemu's -kernel and -initrd options.
+
+dracut exists and will build an image.  It is command-line equivalent
+to most mkinitrd implementations and should be pretty straight-forward
+to use.
+
+To use, just run dracut with an output file name and, optionally, a
+kernel version (it defaults to using the current).   The appropriate
+modules will be copied over and things should be good to go.  If you'd
+like to customize the list of modules copied in, edit /etc/dracut.conf
+and set
+  dracutmodules="foo bar baz"
+
+Note that dracut calls functional components in modules.d "modules"
+while kernel modules are called "drivers".
+
+Requirements:
+* udev
+* nfs module: nfs daemon and rpc helper
+* iscsi: iscsi
