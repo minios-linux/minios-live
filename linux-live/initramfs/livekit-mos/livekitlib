@@ -109,7 +109,7 @@ allow_only_root() {
 create_bundle() {
    debug_log "create_module" "$*"
    rm -f "$2" # overwrite, never append to existing file
-   mksquashfs "$1" "$2" -comp xz -b 1024K -always-use-fragments $3 $4 $5 $6 $7 $8 $9 >/dev/null
+   mksquashfs "$1" "$2" -comp xz -b 1024K -Xbcj x86 -always-use-fragments $3 $4 $5 $6 $7 $8 $9 >/dev/null
 }
 
 # Move entire initramfs tree to tmpfs mount.
@@ -823,6 +823,102 @@ fstab_create() {
          echo "$DEVICE" "/media/$LABEL" $FS $OPTS 0 0 >>$FSTAB
       fi
    done
+}
+
+minios_boot() {
+   debug_log "minios_boot" "$*"
+
+   local WRITABLE SSH_KEY
+   SSH_KEY=$(cmdline_value ssh_key)
+
+   cp /bin/minios-boot $1/
+   cat /proc/cmdline >$1/cmdline
+
+   # Comparison of configuration files on the media and in the system
+   touch "$3/$LIVEKITNAME/.empty" 2>/dev/null && rm -f "$3/$LIVEKITNAME/.empty" 2>/dev/null
+
+   if [ $? -ne 0 ]; then
+      WRITABLE="false"
+      #echo "* Directory $3/$LIVEKITNAME not writable"
+      if [ -z $SSH_KEY ]; then
+         SSH_KEY=$(config_value $2/$LIVEKITNAME.conf SSH_KEY)
+         if [ -z $SSH_KEY ]; then
+            SSH_KEY="authorized_keys"
+         fi
+      fi
+      if [ -f $2/$LIVEKITNAME.conf ]; then
+         if [ ! -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+         fi
+      fi
+      if [ -f $2/$SSH_KEY ]; then
+         if [ ! -d $1/root/.ssh ]; then
+            mkdir $1/root/.ssh
+            chmod 700 $1/root/.ssh
+            cp -fp $2/$SSH_KEY $1/root/.ssh/authorized_keys
+            chmod 600 $1/root/.ssh/authorized_keys
+         fi
+      fi
+   else
+      WRITABLE="true"
+      if [ -d $2/$LIVEKITNAME ]; then
+         if [ -f $2/$LIVEKITNAME.conf ] && [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            if [ "$2/$LIVEKITNAME.conf" -nt "$1/etc/$LIVEKITNAME/$LIVEKITNAME.conf" ]; then
+               cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+            elif [ "$2/$LIVEKITNAME.conf" -ot "$1/etc/$LIVEKITNAME/$LIVEKITNAME.conf" ]; then
+               cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+            fi
+         elif [ -f $2/$LIVEKITNAME.conf ]; then
+            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+         elif [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+            cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+         fi
+         if [ -z $SSH_KEY ]; then
+            SSH_KEY=$(config_value $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf SSH_KEY)
+            if [ -z $SSH_KEY ]; then
+               SSH_KEY="authorized_keys"
+            fi
+         fi
+         if [ ! -d $1/root/.ssh ]; then
+            mkdir $1/root/.ssh
+            chmod 700 $1/root/.ssh
+         fi
+         if [ -f $2/$SSH_KEY ] && [ -f $1/root/.ssh/authorized_keys ]; then
+            if [ "$2/$SSH_KEY" -nt "$1/root/.ssh/authorized_keys" ]; then
+               cp -fp $2/$SSH_KEY $1/root/.ssh/authorized_keys
+               chmod 600 $1/root/.ssh/authorized_keys
+            elif [ "$2/$SSH_KEY" -ot "$1/root/.ssh/authorized_keys" ]; then
+               cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
+            fi
+         elif [ -f $2/$SSH_KEY ]; then
+            cp -fp $2/$SSH_KEY $1/root/.ssh/authorized_keys
+            chmod 600 $1/root/.ssh/authorized_keys
+         elif [ -f $1/root/.ssh/authorized_keys ]; then
+            cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
+         fi
+      fi
+   fi
+
+   if [ ! -d $1/var/log/minios ]; then
+      mkdir -p $1/var/log/minios
+   fi
+   if [ "$(ls -A $2/scripts 2>/dev/null)" ]; then
+      chroot $1 /bin/bash -c "/minios-boot $2" >$1/var/log/minios/boot.output 2>&1
+   else
+      chroot $1 /bin/bash -c "/minios-boot" >$1/var/log/minios/boot.output 2>&1
+   fi
+
+   if [ "$WRITABLE" = "true" ]; then
+      if [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
+         cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+      fi
+      if [ -f $1/root/.ssh/authorized_keys ]; then
+         cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
+      fi
+   fi
+
+   rm -f $1/cmdline
+   rm -f $1/minios-boot
 }
 
 # Change root and execute init

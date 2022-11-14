@@ -12,27 +12,32 @@ echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-se
 apt-get update >>$OUTPUT 2>&1
 
 # install packages
-if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+: 'if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     if [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
             linux-firmware firmware-b43-installer firmware-ath9k-htc >>$OUTPUT 2>&1
     else
         if [ $KERNEL_TYPE != "none" ]; then
-            apt-get install -y \
-                linux-image-generic >>$OUTPUT 2>&1
-        #linux-firmware >>$OUTPUT 2>&1 #firmware-b43-installer
-        #linux-image-generic-hwe-20.04 >>$OUTPUT 2>&1
+            #apt-get install -y \
+            #linux-image-generic >>$OUTPUT 2>&1
+            #linux-firmware >>$OUTPUT 2>&1 #firmware-b43-installer
+            #linux-image-generic-hwe-20.04 >>$OUTPUT 2>&1
+            echo ""
         fi
     fi
-elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
+el'
+if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
     DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
         pve-kernel-5.15 >>$OUTPUT 2>&1
-elif [ $DISTRIBUTION = "orel" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        linux-firmware >>$OUTPUT 2>&1
+#elif [ $DISTRIBUTION = "orel" ]; then
+#    if [ ! -d /boot ]; then
+#        mkdir /boot
+#    fi
+#    DEBIAN_FRONTEND=noninteractive \
+#        apt-get install -y \
+#        linux-firmware >>$OUTPUT 2>&1
 else
     # install packages
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then

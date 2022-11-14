@@ -21,7 +21,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         apt-get install -y \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
-if [ $PACKAGE_VARIANT != "frugal" ]; then
+if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
@@ -37,17 +37,8 @@ if [ $PACKAGE_VARIANT != "frugal" ]; then
     fi
 fi
 
-if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get -y install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
-        rm -f ./rescuezilla*.deb
-    if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-        rm -f /usr/share/applications/yad-icon-browser.desktop
-    fi
-    #        wget $(curl -s https://api.github.com/repos/iongion/podman-desktop-companion/releases | grep browser_download_url | grep '\.deb' | head -n1 | cut -d '"' -f 4)
-    #        apt-get install -y ./podman-desktop-companion-amd64-*.deb >>$OUTPUT 2>&1 &&
-    #            rm -f ./podman-desktop-companion-amd64-*.deb
+if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+    rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
 if grep -q "imagemagick" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
@@ -138,7 +129,7 @@ EOF
 fi
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
 #sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
+if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; then
     sed -i -e "/FontUseSystem=/s/=.*/=FALSE/" /etc/skel/.config/xfce4/terminal/terminalrc
     #sed -i 's,FontUseSystem=TRUE,FontUseSystem=FALSE,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi

@@ -1,9 +1,16 @@
 #!/bin/bash
 
 ##########################################
-#if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
-#    KERNEL_AUFS="false"
-#fi
+
+if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+    KERNEL_ARCH="amd64"
+elif [ $DISTRIBUTION_ARCH = "i386-pae" ]; then
+    KERNEL_ARCH="686-pae"
+elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+    KERNEL_ARCH="686"
+elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
+    KERNEL_ARCH="arm64"
+fi
 
 if [ $PACKAGE_VARIANT = "pve" ]; then
     KERNEL_TYPE="pve"
@@ -15,20 +22,25 @@ if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
     KERNEL_TYPE = "default"
 fi
 
-if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; }; then
     if [ $KERNEL_BPO = "true" ]; then
-        KERNEL="5.18.2"
-        #KERNEL_RELEASE="5.10.127"
+        KERNEL_RELEASE="6.0.3"
     else
-        #KERNEL="5.10.127"
-        KERNEL="5.10.136"
+        KERNEL_RELEASE="5.10.149"
+    fi
+    if [ $KERNEL_TYPE = "default" ]; then
+        KERNEL="$KERNEL_RELEASE-mos-$KERNEL_ARCH"
+    else
+        KERNEL="$KERNEL_RELEASE-mos-$KERNEL_TYPE-$KERNEL_ARCH"
     fi
 elif [ $KERNEL_TYPE = "none" ]; then
     KERNEL=""
 elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
     KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
+    KERNEL_RELEASE=""
 else
     KERNEL=$(uname -r)
+    KERNEL_RELEASE=""
 fi
 if echo $KERNEL | grep -q 'pve'; then
     KERNEL=${KERNEL::-6}

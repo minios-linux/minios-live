@@ -22,16 +22,32 @@ apt-get update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    if [ $DISTRIBUTION = "jammy" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            add-apt-repository ppa:mozillateam/ppa >>$OUTPUT 2>&1
+        cat <<EOF >/etc/apt/preferences.d/mozilla-firefox
+Package: *
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+EOF
+        #echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:${distro_codename}";' | tee /etc/apt/apt.conf.d/51unattended-upgrades-firefox
+    fi
     DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
         firefox >>$OUTPUT 2>&1
+    if [ $LOCALE != "en_US" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+            firefox-locale-${LANG[0]} >>$OUTPUT 2>&1
+    fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
         firefox-esr >>$OUTPUT 2>&1
     if [ $LOCALE != "en_US" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
+            apt-get install -y \
+            firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
     fi
 fi
 
@@ -58,10 +74,25 @@ EOF
 fi
 
 echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
-if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]; then
-    sed -i "s,about:welcome,file:///usr/share/minios/html/${LANG[0]}.html,g" $FIREFOX_BRANDING
-else
-    sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
+
+if [ $DISTRIBUTION_TYPE = "debian" ]; then
+    if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]; then
+        sed -i "s,about:welcome,file:///usr/share/minios/html/${LANG[0]}.html,g" $FIREFOX_BRANDING
+    else
+        sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
+    fi
+elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]; then
+        cat <<EOF >>$FIREFOX_BRANDING
+
+pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/${LANG[0]}.html");
+EOF
+    else
+        cat <<EOF >>$FIREFOX_BRANDING
+
+pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/index.html");
+EOF
+    fi
 fi
 cat <<'EOF' >>$FIREFOX_BRANDING
 
@@ -83,7 +114,11 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
     sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
 fi
 
-PACKAGE="firefox-esr"
+if [ $DISTRIBUTION_TYPE = "debian" ]; then
+    PACKAGE="firefox-esr"
+elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    PACKAGE="firefox"
+fi
 echo "PACKAGE=$PACKAGE" >/.package
 echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
 #echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

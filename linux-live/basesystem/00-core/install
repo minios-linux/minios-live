@@ -86,10 +86,13 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     elif [ $DISTRIBUTION = "stretch" ]; then
         apt-get install -y \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g" | tr "\n" " ") >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    elif [ $DISTRIBUTION = "bionic" ]; then
+        apt-get install -y \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g;s/acpi-support-base/acpi-support/g" | tr "\n" " ") >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") >>$OUTPUT 2>&1
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") netplan.io >>$OUTPUT 2>&1
     else
         #if [ $KERNEL_TYPE = "aufs" ] || [ $KERNEL_TYPE = "none" ]; then
         if [ $KERNEL_TYPE = "none" ]; then
@@ -141,7 +144,7 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         cpio >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || ([ $DISTRIBUTION = "buster" ] && [ $KERNEL_BPO = "true" ]); then
+if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "jammy" ] || ([ $DISTRIBUTION = "buster" ] && [ $KERNEL_BPO = "true" ]) || ([ $DISTRIBUTION = "focal" ] && [ $KERNEL_AUFS = "true" ]); then
     DEBIAN_FRONTEND=noninteractive \
         apt-get install -y \
         selinux-policy-default >>$OUTPUT 2>&1
@@ -204,29 +207,6 @@ KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/slax-automount %r/%k"
 EOF
 fi
 
-if [ ! -d /etc/$LIVEKITNAME ]; then
-    mkdir -p /etc/$LIVEKITNAME
-fi
-cat <<EOF >/etc/$LIVEKITNAME/config
-#!/bin/bash
-# This is a config file for MiniOS-Live build script and Linux Live Kit boot script.
-# !!! You shouldn't need to change anything expect PACKAGE_VARIANT OUTPUT COMP_TYPE !!!
-LIVEKITNAME="$LIVEKITNAME"
-SYSTEMNAME="$SYSTEMNAME"
-DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE"
-DISTRIBUTION="$DISTRIBUTION"
-DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
-PACKAGE_VARIANT="$PACKAGE_VARIANT"
-DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT"
-COMP_TYPE="$COMP_TYPE" # Compression method used for the system and modules.
-OUTPUT="/dev/stdout" # Default is output to /dev/stdout. You can use OUTPUT="/dev/null" if you want to silent installation or OUTPUT="somefilename.log" to route events to log file.
-DEBIAN_FRONTEND_TYPE="noninteractive"
-APT_CMD="apt-get"
-APT_OPTIONS="-y"
-UNION_BUILD_TYPE="overlayfs"
-BEXT="sb"
-EOF
-
 if [ ! -d /etc/NetworkManager ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
@@ -250,7 +230,7 @@ WantedBy=network-online.target
 EOF
         systemctl enable dhclient >>$OUTPUT 2>&1
     fi
-elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" ]]; then
+elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" || $DISTRIBUTION = "jammy" ]]; then
     if [ ! -d /etc/netplan/ ]; then
         mkdir -p /etc/netplan/
     fi
@@ -281,11 +261,11 @@ fi
 
 if grep -q ssh $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
-#    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
-        if [ ! -d /usr/lib/systemd/system ]; then
-            mkdir -p /usr/lib/systemd/system
-        fi
-#    fi
+    #    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
+    if [ ! -d /usr/lib/systemd/system ]; then
+        mkdir -p /usr/lib/systemd/system
+    fi
+    #    fi
     cat <<EOF >/usr/lib/systemd/system/ssh-keygen.service
 [Unit]
 Description=Generate sshd keys
@@ -303,7 +283,7 @@ EOF
     #sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
     #sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
     systemctl enable ssh-keygen >>$OUTPUT 2>&1
-    systemctl enable ssh >>$OUTPUT 2>&1
+    #systemctl enable ssh >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION = "bullseye" ]; then
@@ -389,12 +369,12 @@ if grep -q cockpit $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
 fi
 
 # user setup
-adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
-usermod -a -G sudo $USER_NAME
-usermod -a -G netdev $USER_NAME
-if grep -q qemu $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-    usermod -a -G libvirt $USER_NAME
-fi
+#adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
+#usermod -a -G sudo $USER_NAME
+#usermod -a -G netdev $USER_NAME
+#if grep -q qemu $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+#    usermod -a -G libvirt $USER_NAME
+#fi
 
 if ! grep -q LANG /etc/default/locale >>$OUTPUT 2>&1; then
     echo "LANG=\"$LOCALE.UTF-8\"" >>/etc/default/locale

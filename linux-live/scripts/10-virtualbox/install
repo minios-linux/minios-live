@@ -14,19 +14,17 @@ apt-get install -y fasttrack-archive-keyring >>$OUTPUT 2>&1
 echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-fasttrack main contrib" >/etc/apt/sources.list.d/fasttrack.list
 echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-backports-staging main contrib" >>/etc/apt/sources.list.d/fasttrack.list
 apt-get update >>$OUTPUT 2>&1
-if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
-    wget https://github.com/minios-linux/aufs-kernel/releases/download/5.10.127/linux-headers-5.10.127_5.10.127-1_$DISTRIBUTION_ARCH.deb
-    apt-get install -y ./linux-headers-5.10.127_5.10.127-1_$DISTRIBUTION_ARCH.deb >>$OUTPUT 2>&1
-    rm ./linux-headers-5.10.127_5.10.127-1_$DISTRIBUTION_ARCH.deb
+if ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]) && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+    apt-get install -y linux-headers-mos-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
 else
-    apt-get install linux-headers-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
+    apt-get install -y linux-headers-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
 fi
 apt-get install -y virtualbox-qt >>$OUTPUT 2>&1
 
 cat <<EOF >/usr/bin/$APP-allowuser.sh
 #!/bin/bash
-if ! grep $APP_GROUP group | grep \$(id -nu 1000) >/dev/null; then
-    usermod -a -G $APP_GROUP $(id -nu 1000)
+if ! grep $APP_GROUP /etc/group | grep \$(id -nu 1000) >/dev/null; then
+    usermod -a -G $APP_GROUP \$(id -nu 1000)
 fi
 EOF
 chmod +x /usr/bin/$APP-allowuser.sh

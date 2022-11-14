@@ -8,9 +8,7 @@ Using minios-live, you can build:
 
 *Debian 9, 10, 11 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
 
-*Debian 9, 10, 11, Kali Linux and Ubuntu 20.04 with Xfce4 environment.*
-
-*Experimentally added support for the Cinnamon environment for all versions of distributions.*
+*Debian 9, 10, 11, Testing, Unstable, Kali Linux and Ubuntu 18.04, 20.04 with Xfce4 environment.*
 
 To build, you need to change the parameters in the **linux-live/buildconfig** file to build the required option, then start the build: `./install -`
 
@@ -28,7 +26,7 @@ For installation use **install** \- script for guided installation\, **autoinsta
 
 *build\_chroot* \- installation of the rest of the components required to start the system
 
-*build\_live* \- build initramfs and squashfs image
+*build\_live* \- build squashfs image
 
 *build\_modules\_chroot* \- building modules
 

@@ -1,0 +1,101 @@
+#!/bin/sh
+# Shutdown script for initramfs. It's automatically started by
+# systemd (if you use it) on shutdown, no need for any tweaks.
+# Purpose of this script is to unmount everything cleanly.
+#
+# Author: Tomas M <http://www.linux-live.org/>
+#
+
+. /lib/config
+. /lib/livekitlib
+
+debug_start
+
+debug_log "Entering shutdown procedures of Linux Live Kit"
+debug_log "Called with arguments: " "$*"
+
+# if debug is enabled, run shell now
+debug_shell
+
+detach_free_loops()
+{
+   losetup -a | cut -d : -f 1 | xargs -r -n 1 losetup -d
+}
+
+# $1=dir
+umount_all()
+{
+   tac /proc/mounts | cut -d " " -f 2 | grep ^$1 | while read LINE; do
+      umount $LINE 2>/dev/null
+      detach_free_loops
+   done
+}
+
+# Update devs so we are aware of all active /dev/loop* files.
+# Detach loop devices which are no longer used
+debug_log "- Detaching loops"
+mdev -s
+detach_free_loops
+
+# do it the dirty way, simply try to umount everything to get rid of most mounts
+debug_log "- Unmounting union"
+umount_all /oldroot
+
+# If oldroot is still mounted, there is something blocking.
+# Lets move it somewhere so we can unmount it cleanly
+debug_log "- Moving mounts outside of union if necessry"
+NR=100
+tac /proc/mounts | cut -d " " -f 2 | grep ^/oldroot/. | while read LINE; do
+   NR=$(($NR+1))
+   mkdir -p /move/$NR
+   mount --move $LINE /move/$NR 2>/dev/null
+   umount /oldroot 2>/dev/null
+done
+
+# remember from which device we are started, so we can eject it later
+DEVICE="$(cat /proc/mounts | grep /memory/data | grep /dev/ | cut -d " " -f 1)"
+
+debug_log "- going through several cycles of umounts to clear everything left"
+for i in 1 2 3 4; do
+  for d in $(ls -1 /move 2>/dev/null | sort); do
+      umount_all /move/$d
+   done
+done
+
+umount_all /memory
+
+# eject cdrom device if we were running from it
+for i in $(cat /proc/sys/dev/cdrom/info | grep name); do
+   if [ "$DEVICE" = "/dev/$i" ]; then
+      echo "[  OK  ] Attemptiong to eject /dev/$i..."
+      eject /dev/$i
+      echo "[  OK  ] CD/DVD tray will close in 6 seconds..."
+      sleep 6
+      eject -t /dev/$i
+   fi
+done
+
+debug_shell
+
+
+if [ "$2" != "" ]; then
+   shutdown_command="$2"
+else
+   shutdown_command="$1"
+fi
+
+if [ "$shutdown_command" = "reboot" ]; then
+   echo "Rebooting..." > /dev/console
+   reboot
+else
+   poweroff
+fi
+
+# we shouldn't be here. But if we are, reboot
+debug_log reboot -f
+reboot -f
+
+# well, shit happens
+echo We should never reach so far. Something is totally fucked up.
+echo Here you have a shell, to experiment with the universe.
+/bin/sh < /dev/console > /dev/console
