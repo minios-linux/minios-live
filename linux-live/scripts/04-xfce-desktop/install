@@ -36,7 +36,7 @@ echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 if [ $PACKAGE_VARIANT != "frugal" ]; then
-    apt install -y yad adwaita-icon-theme-antix
+    apt install -y yad #adwaita-icon-theme-antix
     if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
         rm -f /usr/share/applications/yad-icon-browser.desktop
     fi
@@ -67,7 +67,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     fi
 fi
 
-for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
+: 'for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
     cd /usr/share/icons/elementary-xfce/apps/$FOLDER
     if [ -f accessories-calculator.png ]; then
         ln -s accessories-calculator.png galculator.png
@@ -88,9 +88,9 @@ for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); 
     if [ -f ../../devices/$FOLDER/drive-harddisk.png ]; then
         ln -s ../../devices/$FOLDER/drive-harddisk.png gsmartcontrol.png
     fi
-done
+done'
 
-update-icon-caches /usr/share/icons/*
+#update-icon-caches /usr/share/icons/*
 
 #if [ $PACKAGE_VARIANT = "maximum" ]; then
 #    wget http://ftp.debian.org/debian/pool/main/f/fonts-inter/fonts-inter_3.19+ds-2_all.deb
