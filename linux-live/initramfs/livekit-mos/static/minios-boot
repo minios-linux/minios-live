@@ -1,0 +1,157 @@
+#!/bin/bash
+#
+# Сommand line parsing script.
+# Author: crims0n. <http://minios.dev>
+#
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+. /lib/minioslib
+
+console_colors
+allow_root_only
+
+if [ ! -d /var/log/minios ]; then
+    mkdir -p /var/log/minios
+fi
+exec 19>/var/log/minios/boot.log
+BASH_XTRACEFD=19
+
+set -x
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+CONFIG=/etc/minios/config
+BUILDCONFIG=/etc/minios/buildconfig
+MINIOSCONFIG=/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+
+if [ -f /cmdline ]; then
+    CMDLINE=$(cat /cmdline)
+    read_cmdline $CMDLINE
+fi
+if [ -f $CONFIG ]; then
+    read_config $CONFIG LIVEKITNAME
+else
+    LIVEKITNAME="minios"
+fi
+
+if [ -z "$CLOUD" ]; then
+    if [ -f $MINIOSCONFIG ]; then
+        read_config $MINIOSCONFIG CLOUD
+        if [ -z "$CLOUD" ]; then
+            CLOUD="false"
+        fi
+    else
+        CLOUD="false"
+    fi
+fi
+if [ "$CLOUD" = "true" ]; then
+    USER_NAME="root"
+    DEFAULT_TARGET="multi-user"
+    systemctl enable ssh
+fi
+
+if [ -z "$ENABLE_SERVICES" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f $MINIOSCONFIG ]; then
+            read_config $MINIOSCONFIG SERVICES
+        fi
+    fi
+fi
+if [ -n "$ENABLE_SERVICES" ]; then
+    SERVICES=$(echo $ENABLE_SERVICES | tr "," "\n")
+    for SERVICE in $SERVICES; do
+        if [ $SERVICE = "cockpit" ]; then
+            systemctl enable cockpit.socket
+        else
+            systemctl enable $SERVICE
+        fi
+    done
+fi
+
+if [ -z "$DISABLE_SERVICES" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f $MINIOSCONFIG ]; then
+            read_config $MINIOSCONFIG SERVICES
+        fi
+    fi
+fi
+if [ -n "$DISABLE_SERVICES" ]; then
+    SERVICES=$(echo $DISABLE_SERVICES | tr "," "\n")
+    for SERVICE in $SERVICES; do
+        if [ $SERVICE = "cockpit" ]; then
+            systemctl disable cockpit.socket
+        else
+            systemctl disable $SERVICE
+        fi
+    done
+fi
+
+if [ -f /usr/lib/systemd/system/xorg.service ]; then
+    cat <<EOF >/usr/lib/systemd/system/xorg.service
+[Unit]
+Description=X-Window
+ConditionKernelCommandLine=!text
+After=systemd-user-sessions.service
+
+[Service]
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
+
+EOF
+fi
+
+if [ -z "$SCRIPTS" ]; then
+    SCRIPTS="interactive"
+fi
+if [ "$SCRIPTS" = "true" ]; then
+    SCRIPTS="interactive"
+fi
+if [ -n "$1" ] && [ "$SCRIPTS" != "false" ]; then
+    if [ "$SCRIPTS" = "background" ]; then
+        cat <<EOF >/usr/lib/systemd/system/minios-script-launcher.service
+[Unit]
+Description=MiniOS script launcher service
+After=minios-startup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/minios-script-launcher
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    elif [ "$SCRIPTS" = "interactive" ]; then
+        cat <<EOF >/usr/lib/systemd/system/minios-script-launcher.service
+[Unit]
+Description=MiniOS script launcher service
+After=minios-startup.service
+
+[Service]
+Type=oneshot
+TTYPath=/dev/tty2
+ExecStartPre=/usr/bin/chvt 2
+ExecStart=/usr/bin/minios-script-launcher
+ExecStartPost=/usr/bin/chvt 1
+TimeoutStartSec=0
+StandardInput=tty
+TTYVHangup=yes
+TTYVTDisallocate=yes
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        DEFAULT_TARGET="multi-user"
+    fi
+    systemctl enable minios-script-launcher
+fi
+
+if [ -f /usr/bin/x11vnc ]; then
+    sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" /usr/lib/systemd/system/x11vnc.service
+fi
+
+echo ""
+echo "/etc/$LIVEKITNAME/$LIVEKITNAME.conf configuration file contents:"
+cat /etc/$LIVEKITNAME/$LIVEKITNAME.conf
+echo ""

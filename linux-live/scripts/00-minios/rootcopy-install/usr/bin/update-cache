@@ -8,12 +8,19 @@
     Usage:   $0 [bundles mount points location]
     Example: $0 /run/initramfs/memory/bundles" && exit 1
 
+if [ ! -d /var/log/minios ]; then
+    mkdir -p /var/log/minios
+fi
+exec 19>/var/log/minios/update-cache.log
+BASH_XTRACEFD=19
+set -x
+
 function configure_kernel_modules() {
     for D in $(find $BUNDLES/*/lib/modules/*$(uname -r) -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
         d1="$(basename $D | sed 's/.[gx]z$//')"
         [ "$(cat /etc/modprobe.d/*.conf | awk '/^blacklist / && / '$D1'$/ {print $2}')" ] && continue
         [ "$(lsmod | egrep '^'$D1' ')" ] && continue # module already loaded -> next D
-        if [ ! "$DM" ]; then # if DM is empty, i.e. depmod did not
+        if [ ! "$DM" ]; then                         # if DM is empty, i.e. depmod did not
             sudo insmod "$D" && continue
             sudo depmod && DM=true
         fi
@@ -55,7 +62,13 @@ function update_caches() {
 
 BUNDLES=$1
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
+if [ -z "$CORE_BUNDLE_PREFIX" ]; then
+    CORE_BUNDLE_PREFIX="00-core"
+fi
 read_config /etc/minios/config BEXT
+if [ -z "$BEXT" ]; then
+    BEXT="sb"
+fi
 
 allow_root_only
 

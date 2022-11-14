@@ -5,6 +5,7 @@
 export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
 
 . /lib/config
+. /lib/buildconfig
 . /lib/livekitlib
 
 transfer_initramfs
@@ -15,7 +16,7 @@ UNION=$MEMORY/union
 DATAMNT=$MEMORY/data
 BUNDLES=$MEMORY/bundles
 
-#header "Live Kit init <http://www.linux-live.org/>"
+header "MiniOS Live Kit init <https://minios.dev>"
 
 init_proc_sysfs
 
@@ -56,6 +57,9 @@ union_append_bundles "$BUNDLES" "$UNION"
                                                                                                                                                       debug_shell
 # rootcopy
 copy_rootcopy_content "$DATA" "$UNION"
+
+# configure
+minios_boot "$UNION" "$DATA" "$DATAMNT"
                                                                                                                                                       debug_shell
 # create fstab
 fstab_create "$UNION" "$DATAMNT"
@@ -63,7 +67,7 @@ fstab_create "$UNION" "$DATAMNT"
 # run user custom preinit
 user_preinit "$DATA" "$UNION"
 
-header "Live Kit done, starting $LIVEKITNAME"
+header "Live Kit done, starting $SYSTEMNAME"
 change_root "$UNION"
 
 header "!!ERROR occured, you shouldn't be here.!!"

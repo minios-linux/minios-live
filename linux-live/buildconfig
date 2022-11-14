@@ -4,12 +4,12 @@
 # distribution type
 # тип дистрибутива
 # [debian, ubuntu]
-DISTRIBUTION_TYPE="debian"
+#DISTRIBUTION_TYPE="ubuntu"
 
 # distribution
 # дистрибутив
 # if Debian [stretch, buster, bullseye, bookworm, sid, kali-rolling, orel]
-# if Ubuntu [bionic, focal]
+# if Ubuntu [bionic, focal, jammy]
 DISTRIBUTION="bullseye"
 
 # distribution arch
@@ -19,7 +19,7 @@ DISTRIBUTION_ARCH="amd64"
 
 # окружение рабочего стола
 # desktop environment
-# [core, xfce, slax, xfce-frugal]
+# [core, xfce, slax, xfce-frugal, xfce-frugal-base]
 DESKTOP_ENVIRONMENT="xfce"
 
 # system variant, indicates the used list of packages in modules
@@ -36,7 +36,7 @@ COMP_TYPE="zstd"
 ###########################
 
 ##### KERNEL SETTINGS #####
-# [default, rt, cloud, pve, ubuntu, ubuntu-hwe]
+# [none, default, rt, cloud, pve, ubuntu, ubuntu-hwe]
 KERNEL_TYPE="default"
 
 # Linux kernel from backports
@@ -47,10 +47,12 @@ KERNEL_BPO="false"
 # Debian kernel with AUFS support
 # Ядро Debian с поддержкой AUFS
 # [true, false]
-KERNEL_AUFS="false"
+KERNEL_AUFS="true"
 
-# [livekit, uird]
-INITRD_TYPE="livekit"
+KERNEL_NO_DKMS="true"
+
+# [livekit-mos, livekit-slax, uird]
+INITRD_TYPE="livekit-mos"
 
 # If true, then the names of initrfs.img and vmlinuz will indicate the version of the kernel for which they are intended.
 # Если true, то имена initrfs.img и vmlinuz будут указывать на версию ядра, для которой они предназначены.
@@ -215,12 +217,8 @@ USE_UNOFFICIAL_REPOSITORY="false"
 # [repo address]
 UNOFFICIAL_REPOSITORY_ADDRESS="10.3.0.3"
 
-# does not work yet
-# пока не работает
 # [true, false]
 BUILD_FROM_SNAPSHOT="false"
 
-# does not work yet
-# пока не работает
 # [snapshot date]
 SNAPSHOT_DATE="20220223T214737Z"

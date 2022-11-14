@@ -137,9 +137,12 @@ resume_from_suspend
 debug_shell
 
 #init swap
-getpar $UIRD_SWAP >/dev/null && init_swap  
+getpar $UIRD_SWAP  && check_true  $(getpar $UIRD_SWAP 1 1) && init_swap  
 debug_shell
 
+# unionfs driver selection and modprobe it for 
+UNION_FS=$(setup_union)
+ 
 setup_rootfs
 debug_shell
 
@@ -225,22 +228,24 @@ rmdir $UNION/mnt/* 2>/dev/null
 debug_shell
 
 # old compatibility to linuxlive init
-mkdir -p $UNION/mnt/live/memory
-[ -d "$MEMORY/data/from/0" -a ! -d $UNION/mnt/livemedia ] && ln -sf $MEMORY/data/from/0 $UNION/mnt/livemedia
-[ -d "$MEMORY/data/from/1" -a ! -d $UNION/mnt/livedata ] && ln -sf $MEMORY/data/from/1 $UNION/mnt/livedata
-[ -d "$MEMORY/bundles" -a ! -d $UNION/mnt/live/memory/images ] && ln -sf $MEMORY/bundles $UNION/mnt/live/memory/images
-[ -d "$MEMORY/changes" -a ! -d $UNION/mnt/live/memory/changes ] && ln -sf $MEMORY/changes $UNION/mnt/live/memory/changes
+if getpar $UIRD_MNTLINKS && check_true  $(getpar $UIRD_MNTLINKS 1 1) ; then
+	mkdir -p $UNION/mnt/live/memory
+	[ -d "$MEMORY/data/from/0" -a ! -d $UNION/mnt/livemedia ] && ln -sf $MEMORY/data/from/0 $UNION/mnt/livemedia
+	[ -d "$MEMORY/data/from/1" -a ! -d $UNION/mnt/livedata ] && ln -sf $MEMORY/data/from/1 $UNION/mnt/livedata
+	[ -d "$MEMORY/bundles" -a ! -d $UNION/mnt/live/memory/images ] && ln -sf $MEMORY/bundles $UNION/mnt/live/memory/images
+	[ -d "$MEMORY/changes" -a ! -d $UNION/mnt/live/memory/changes ] && ln -sf $MEMORY/changes $UNION/mnt/live/memory/changes
 debug_shell
+fi
 
 # copy some files to system
-getpar $UIRD_SYSCP >/dev/null && syscp  $UNION
+getpar $UIRD_SYSCP && check_true  $(getpar $UIRD_UIRD_SYSCP 1 1) && syscp  $UNION
 [ -f "/etc/initvars" ] && cat /etc/initvars | sort | uniq >$UNION/etc/initvars
 
 cd $UNION
 
 echo_green_star
 echolog "$INITIALIZE preinit actions"
-if getpar $UIRD_PREINIT >/dev/null ; then
+if getpar $UIRD_PREINIT && check_true  $(getpar $UIRD_PREINIT 1 1) ; then
 	setup_preinit
 else
     if [ -x "usr/lib/magos/rc.d/rc.preinit" ] ;then
@@ -258,9 +263,9 @@ LOGFILE=$UNION/var/log/uird.dbg.log
 #need for usable_root of dracut
 mkdir -p $UNION/proc $UNION/sys $UNION/dev $UNION/$MEMORY
 
-getpar $UIRD_SHUTDOWN >/dev/null && . /uird.shutdown && uird_shutdown
-getpar $UIRD_FREEMEDIA >/dev/null && . /uird.freemedia && uird_freemedia
-getpar $UIRD_HIDE >/dev/null || mount --move $MEMORY $UNION/$MEMORY
+getpar $UIRD_SHUTDOWN && check_true  $(getpar $UIRD_SHUTDOWN 1 1) && . /uird.shutdown && uird_shutdown
+getpar $UIRD_FREEMEDIA && check_true  $(getpar $UIRD_FREEMEDIA 1 1) && . /uird.freemedia && uird_freemedia
+getpar $UIRD_HIDE && check_true  $(getpar $UIRD_HIDE 1 1) || mount --move $MEMORY $UNION/$MEMORY
 
 # fix to init link
 if ! [ -x $UNION/sbin/init ]; then

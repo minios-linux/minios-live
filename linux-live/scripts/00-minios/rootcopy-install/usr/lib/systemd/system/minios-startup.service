@@ -1,13 +1,15 @@
 [Unit]
 Description=MiniOS startup service
-Before=basic.target
 After=local-fs.target sysinit.target
+Before=basic.target rpcbind.service
+#After=local-fs.target
+#Before=sysinit.target
 DefaultDependencies=no
 
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStart=/usr/sbin/minios-startup
+ExecStart=-/bin/sh -c 'if [ ! -d /var/log/minios ]; then mkdir /var/log/minios; fi; /usr/sbin/minios-startup >/var/log/minios/startup.output 2>&1'
 
 [Install]
 WantedBy=basic.target

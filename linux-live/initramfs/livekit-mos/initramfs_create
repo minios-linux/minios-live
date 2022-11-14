@@ -63,14 +63,14 @@ rm -Rf $INITRAMFS
 mkdir -p $INITRAMFS/{bin,dev,etc,lib,lib64,mnt,proc,root,run,sys,tmp,usr,var/log}
 ln -s bin $INITRAMFS/sbin
 
-#cp static/bash $INITRAMFS/bin
 cp static/busybox $INITRAMFS/bin
 cp static/eject $INITRAMFS/bin
+#cp static/bash $INITRAMFS/bin
 cp static/mount.dynfilefs $INITRAMFS/bin/@mount.dynfilefs
 cp static/mount.httpfs2 $INITRAMFS/bin/@mount.httpfs2
 cp static/mount.ntfs-3g $INITRAMFS/bin/@mount.ntfs-3g
 cp static/blkid $INITRAMFS/bin
-#cp static/minios-configure $INITRAMFS/bin
+cp static/minios-boot $INITRAMFS/bin
 chmod a+x $INITRAMFS/bin/*
 
 $INITRAMFS/bin/busybox | grep , | grep -v Copyright | tr "," " " | while read LINE; do
@@ -104,10 +104,12 @@ copy_including_deps /$LMK/kernel/fs/nls
 copy_including_deps /$LMK/kernel/fs/fuse
 copy_including_deps /$LMK/kernel/fs/isofs
 copy_including_deps /$LMK/kernel/fs/ntfs
+copy_including_deps /$LMK/kernel/fs/ntfs3
 #copy_including_deps /$LMK/kernel/fs/reiserfs
 copy_including_deps /$LMK/kernel/fs/squashfs
 copy_including_deps /$LMK/kernel/fs/btrfs
 copy_including_deps /$LMK/kernel/fs/xfs
+copy_including_deps /$LMK/kernel/fs/efivarfs # for Clonezilla
 
 # crc32c is needed for ext4, but I don't know which one, add them all, they are small
 find /$LMK/kernel/ | grep crc32c | while read LINE; do
@@ -117,6 +119,8 @@ done
 copy_including_deps /$LMK/kernel/drivers/staging/zsmalloc # needed by zram
 copy_including_deps /$LMK/kernel/drivers/block/zram
 copy_including_deps /$LMK/kernel/drivers/block/loop.*
+copy_including_deps /$LMK/kernel/drivers/block/nbd.* # for Rescuezilla
+copy_including_deps /$LMK/kernel/drivers/md/dm-mod.* # for Ventoy
 
 : 'copy_including_deps /$LMK/kernel/drivers/block
    copy_including_deps /$LMK/kernel/drivers/hv/hv_vmbus.*
@@ -213,17 +217,17 @@ cp shutdown $INITRAMFS
 chmod a+x $INITRAMFS/shutdown
 ln -s ../init $INITRAMFS/bin/init
 cp ./livekitlib $INITRAMFS/lib/
-#cp ../minioslib $INITRAMFS/lib/
+cp ../../minioslib $INITRAMFS/lib/
 if [ -f ../container_config ]; then
    cp ../../container_config $INITRAMFS/lib/config
 else
    cp ../../config $INITRAMFS/lib/
 fi
-#if [ -f ../container_buildconfig ]; then
-#   cp ../../container_buildconfig $INITRAMFS/lib/buildconfig
-#else
-#   cp ../../buildconfig $INITRAMFS/lib/
-#fi
+if [ -f ../container_buildconfig ]; then
+   cp ../../container_buildconfig $INITRAMFS/lib/buildconfig
+else
+   cp ../../buildconfig $INITRAMFS/lib/
+fi
 
 cd $INITRAMFS
 find . -print | cpio -o -H newc 2>/dev/null | xz -T0 -f --extreme --check=crc32 >$INITRAMFS.img

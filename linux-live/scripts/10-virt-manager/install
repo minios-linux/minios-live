@@ -25,8 +25,8 @@ apt-get update >>$OUTPUT 2>&1 &&
 
 cat <<EOF >/usr/bin/$APP-allowuser.sh
 #!/bin/bash
-if ! grep $APP_GROUP group | grep \$(id -nu 1000) >/dev/null; then
-    usermod -a -G $APP_GROUP $(id -nu 1000)
+if ! grep $APP_GROUP /etc/group | grep \$(id -nu 1000) >/dev/null; then
+    usermod -a -G $APP_GROUP \$(id -nu 1000)
 fi
 EOF
 chmod +x /usr/bin/$APP-allowuser.sh

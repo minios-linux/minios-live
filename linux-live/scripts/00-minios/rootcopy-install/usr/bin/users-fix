@@ -7,14 +7,28 @@
     Usage:   $0 [bundles mount points location]
     Example: $0 /run/initramfs/memory/bundles" && exit 1
 
+if [ ! -d /var/log/minios ]; then
+    mkdir -p /var/log/minios
+fi
+exec 19>/var/log/minios/users-fix.log
+BASH_XTRACEFD=19
+set -x
+
 BUNDLES=$1
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
+if [ -z "$CORE_BUNDLE_PREFIX" ]; then
+    CORE_BUNDLE_PREFIX="00-core"
+fi
 read_config /etc/minios/config BEXT
+if [ -z "$BEXT" ]; then
+    BEXT="sb"
+fi
+CORE_BUNDLE_PATH="$(ls -1d $BUNDLES/$CORE_BUNDLE_PREFIX*.$BEXT)"
 
 for FILE in passwd shadow group; do
-    cp $BUNDLES/$CORE_BUNDLE_PREFIX*.$BEXT/etc/$FILE /tmp/$FILE.tempfile || exit
+    cp $CORE_BUNDLE_PATH/etc/$FILE /tmp/$FILE.tempfile || exit
 done
-for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$BUNDLES/$CORE_BUNDLE_PREFIX"); do
+for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
     for FILE in passwd shadow group; do
         if [ -f "$BUNDLE/etc/$FILE" ]; then
             grep -Fvf /tmp/$FILE.tempfile $BUNDLE/etc/$FILE >>/tmp/$FILE.tempfile
