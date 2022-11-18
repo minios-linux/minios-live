@@ -3,7 +3,7 @@
 
 . /usr/lib/minioslib || exit 1
 
-[ ! "$1" ] && echo "Builds a common users files (passwd, shadow, group) from all bundles
+[ ! "$1" ] && echo "Builds a common users files (passwd, shadow, group, gshadow) from all bundles
     Usage:   $0 [bundles mount points location]
     Example: $0 /run/initramfs/memory/bundles" && exit 1
 
@@ -29,7 +29,7 @@ for FILE in passwd shadow group; do
     cp $CORE_BUNDLE_PATH/etc/$FILE /tmp/$FILE.tempfile || exit
 done
 for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
-    for FILE in passwd shadow group; do
+    for FILE in passwd shadow group gshadow; do
         if [ -f "$BUNDLE/etc/$FILE" ]; then
             grep -Fvf /tmp/$FILE.tempfile $BUNDLE/etc/$FILE >>/tmp/$FILE.tempfile
             awk '!x[$0]++' /tmp/$FILE.tempfile >/etc/$FILE

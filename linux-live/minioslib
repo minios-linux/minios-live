@@ -1379,13 +1379,13 @@ EOF
                     #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
                     #    chroot_run $INSTALL_DIR apt-get install -y apt-transport-https
                     #fi
-                    #curl https://raw.githubusercontent.com/minios-linux/debian/master/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg
+                    #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg
                     #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                    #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
+                    #    echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
                     #elif [ $DISTRIBUTION = "orel" ]; then
-                    #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
+                    #    echo "deb https://minios-linux.github.io/debian/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
                     #else
-                    #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
+                    #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
                     #fi
                 else
                     chroot_run $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
@@ -1401,13 +1401,13 @@ EOF
                     #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
                     #    chroot_run $INSTALL_DIR apt-get install -y apt-transport-https >>$OUTPUT 2>&1
                     #fi
-                    #curl https://raw.githubusercontent.com/minios-linux/debian/master/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
+                    #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
                     #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                    #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
+                    #    echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
                     #elif [ $DISTRIBUTION = "orel" ]; then
-                    #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
+                    #    echo "deb https://minios-linux.github.io/debian/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
                     #else
-                    #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
+                    #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
                     #fi
                 fi
             else
@@ -1424,13 +1424,13 @@ EOF
                 #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
                 #    chroot_run $INSTALL_DIR apt-get install -y apt-transport-https >>$OUTPUT 2>&1
                 #fi
-                #curl https://raw.githubusercontent.com/minios-linux/debian/master/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
+                #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
                 #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
+                #    echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
                 #elif [ $DISTRIBUTION = "orel" ]; then
-                #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
+                #    echo "deb https://minios-linux.github.io/debian/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
                 #else
-                #    echo "deb https://raw.githubusercontent.com/minios-linux/debian/master/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
+                #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
                 #fi
             fi
 
@@ -3270,7 +3270,7 @@ function export_kernel() {
                     cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR
                 else
                     cp $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME $KERNEL_DIR/vmlinuz-$KERNEL_SUFFIX
-                    cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR/initrfs-$KERNEL_SUFFIX.img
+                    cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR/initrfs-$KERNEL_SUFFIX-$INITRD_TYPE.img
                 fi
                 echo "Kernel files and initrd image have been exported to a folder $KERNEL_DIR"
             else

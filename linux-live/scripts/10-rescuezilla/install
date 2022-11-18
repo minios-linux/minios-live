@@ -31,3 +31,6 @@ if [ -f $SCRIPT_DIR/package.list ]; then
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
 fi
+
+echo "nbd
+" >>/etc/modules

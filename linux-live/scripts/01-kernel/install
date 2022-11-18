@@ -102,17 +102,18 @@ fi
 if [ $KERNEL_TYPE != "none" ]; then
     if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; }; then #&& ! { [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO != "true" ]; }; then
         #if [ $KERNEL_TYPE = "default" ]; then
-        wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-image-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
+        #wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-image-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
         #wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-headers-$KERNEL_RELEASE-$KERNEL_ARCH.deb
-        apt-get install -y ./linux-image-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
+        #apt-get install -y ./linux-image-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
         KERNEL_IMAGE="linux-image-$KERNEL"
+        apt-get install -y $KERNEL_IMAGE >>$OUTPUT 2>&1
         #else
         #    wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-image-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
         #wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-image-$KERNEL_RELEASE-$KERNEL_TYPE-$KERNEL_ARCH.deb
         #    apt-get install -y ./linux-image-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
         #    KERNEL_IMAGE="linux-image-$KERNEL"
         #fi
-        rm ./linux-*.deb
+        #rm ./linux-*.deb
     elif [ $KERNEL_AUFS != "true" ] && [ $KERNEL_BPO = "true" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y -t $DISTRIBUTION-backports $KERNEL_IMAGE >>$OUTPUT 2>&1
