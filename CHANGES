@@ -58,6 +58,7 @@ v2.3
 - New Frugal version.
 - Standard LiveKit initrd can now be used to start MiniOS.
 - UIRD initrd (https://github.com/neobht/uird) can now be used to start MiniOS.
+- Added MiniOS package repository: https://minios-linux.github.io/debian
 - Xorg module has been renamed to gui-base in Frugal and contains the basic GTK3 and QT5 libraries, as well as utilities for building the interface (gtkdialog, yad).
 - !!! Very big changes (2k+) in the minios-live build system. Unfortunately, it is impossible to describe them here.
 - Fixed error parsing minios.conf configuration file.
@@ -67,3 +68,4 @@ v2.3
 - By default, kernels with AUFS support are now used. For MiniOS, 5.10 and 6.0 kernels are built using Debian configs (https://github.com/minios-linux/aufs-kernel/releases). They can also be used in any other distribution.
 - Added support for building from snapshot (https://snapshot.debian.org).
 - In stretch, buster, bullseye from thunar, pcmanfm, mousepad, warning flags were removed when logging in as root.
+- For the Rescuezilla module, the partclone-utils and partclone-nbd packages were compiled and added to the repository.
