@@ -22,19 +22,22 @@ fi
 
 apt-get update >>$OUTPUT 2>&1
 
-wget https://github.com/minios-linux/packages/releases/download/v1.0/mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb
-wget https://github.com/minios-linux/packages/releases/download/v1.0/pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb
+#wget https://github.com/minios-linux/packages/releases/download/v1.0/mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb
+#wget https://github.com/minios-linux/packages/releases/download/v1.0/pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb
+#apt-get install --no-install-recommends --yes \
+#    ./mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb \
+#    ./pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb \
 apt-get install --no-install-recommends --yes \
-    ./mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb \
-    ./pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb \
+    mousepad \
+    pcmanfm \
     galculator \
     lxtask \
     xarchiver xdg-utils libgconf-2-4 >>$OUTPUT 2>&1
 
-rm -f ./mousepad*.deb ./pcmanfm*.deb
+#rm -f ./mousepad*.deb ./pcmanfm*.deb
 
-apt-mark manual pcmanfm mousepad libfm-gtk4
-apt-mark hold pcmanfm mousepad
+#apt-mark manual pcmanfm mousepad libfm-gtk4
+#apt-mark hold pcmanfm mousepad
 
 if [ $DISTRIBUTION = "stretch" ]; then
     apt-get install --no-install-recommends --yes \
