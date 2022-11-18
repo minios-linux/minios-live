@@ -344,6 +344,10 @@ function read_cmdline() {
             HIDE_CREDENTIALS=true
             shift # past argument with no value
             ;;
+        autologin=*)
+            AUTOLOGIN="${i#*=}"
+            shift # past argument with no value
+            ;;
         *)
             UNKNOWN=true
             # unknown option

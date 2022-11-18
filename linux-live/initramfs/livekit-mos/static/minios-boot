@@ -53,7 +53,7 @@ fi
 if [ -z "$ENABLE_SERVICES" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
         if [ -f $MINIOSCONFIG ]; then
-            read_config $MINIOSCONFIG SERVICES
+            read_config $MINIOSCONFIG ENABLE_SERVICES
         fi
     fi
 fi
@@ -71,7 +71,7 @@ fi
 if [ -z "$DISABLE_SERVICES" ]; then
     if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
         if [ -f $MINIOSCONFIG ]; then
-            read_config $MINIOSCONFIG SERVICES
+            read_config $MINIOSCONFIG DISABLE_SERVICES
         fi
     fi
 fi
@@ -86,8 +86,19 @@ if [ -n "$DISABLE_SERVICES" ]; then
     done
 fi
 
-if [ -f /usr/lib/systemd/system/xorg.service ]; then
-    cat <<EOF >/usr/lib/systemd/system/xorg.service
+if [ -z "$AUTOLOGIN" ]; then
+    if [ -f $MINIOSCONFIG ]; then
+        read_config $MINIOSCONFIG AUTOLOGIN
+        if [ -z "$AUTOLOGIN" ]; then
+            AUTOLOGIN="true"
+        fi
+    else
+        AUTOLOGIN="true"
+    fi
+fi
+if [ $AUTOLOGIN = "true" ]; then
+    if [ -f /usr/lib/systemd/system/xorg.service ]; then
+        cat <<EOF >/usr/lib/systemd/system/xorg.service
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
@@ -97,6 +108,7 @@ After=systemd-user-sessions.service
 ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
 
 EOF
+    fi
 fi
 
 if [ -z "$SCRIPTS" ]; then

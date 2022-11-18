@@ -250,6 +250,12 @@ if [ -z "$HIDE_CREDENTIALS" ]; then
         HIDE_CREDENTIALS="false"
     fi
 fi
+if [ -z "$AUTOLOGIN" ]; then
+    read_config /etc/$LIVEKITNAME/$LIVEKITNAME.conf AUTOLOGIN
+    if [ -z "$AUTOLOGIN" ]; then
+        AUTOLOGIN="true"
+    fi
+fi
 
 # fix users
 users-fix $BUNDLES #&
@@ -488,6 +494,13 @@ if [ "$HIDE_CREDENTIALS" != "$CONFIG_HIDE_CREDENTIALS" ]; then
         sed -i -e "/HIDE_CREDENTIALS=/s/=.*/=\"$HIDE_CREDENTIALS\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
 fi
+CONFIG_AUTOLOGIN=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf AUTOLOGIN)
+if [ "$AUTOLOGIN" != "$CONFIG_AUTOLOGIN" ]; then
+    echo "AUTOLOGIN=$AUTOLOGIN, CONFIG_AUTOLOGIN=$CONFIG_AUTOLOGIN"
+    if [ -n "$AUTOLOGIN" ]; then
+        sed -i -e "/AUTOLOGIN=/s/=.*/=\"$AUTOLOGIN\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
+    fi
+fi
 CONFIG_INITRD_TYPE=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf INITRD_TYPE)
 if [ "$INITRD_TYPE" != "$CONFIG_INITRD_TYPE" ]; then
     echo "INITRD_TYPE=$INITRD_TYPE, CONFIG_INITRD_TYPE=$CONFIG_INITRD_TYPE"
@@ -518,19 +531,39 @@ EndSection
 EOF
     fi
 fi
-
-if [ -f /etc/default/nodm ]; then
-    sed -i "s/NODM_USER=live/NODM_USER=$USER_NAME/g" /etc/default/nodm
+if [ "$AUTOLOGIN" = "true" ]; then
+    if [ -f /etc/default/nodm ]; then
+        #sed -i "s/NODM_USER=live/NODM_USER=$USER_NAME/g" /etc/default/nodm
+        sed -i -e "/NODM_USER=/s/=.*/=\"$USER_NAME\"/" /etc/default/nodm
+    fi
+    if [ -f /etc/slim.conf ]; then
+        #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
+        sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
+        sed -i 's,auto_login          no,auto_login          yes,g' /etc/slim.conf
+    fi
+    if [ -f /etc/lightdm/lightdm.conf ]; then
+        sed -i "s/#autologin-user=/autologin-user=/g" /etc/lightdm/lightdm.conf
+        sed -i -e "/autologin-user=/s/=.*/=\"$USER_NAME\"/" /etc/lightdm/lightdm.conf
+        sed -i "s/#autologin-user-timeout=0/autologin-user-timeout=0/g" /etc/lightdm/lightdm.conf
+    fi
+else
+    if [ -f /etc/default/nodm ]; then
+        sed -i -e "/NODM_USER=/s/=.*/=\"\"/" /etc/default/nodm
+    fi
+    if [ -f /etc/slim.conf ]; then
+        #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
+        sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
+        sed -i 's,auto_login          yes,auto_login          no,g' /etc/slim.conf
+    fi
+    if [ -f /etc/lightdm/lightdm.conf ]; then
+        if ! grep -q "#autologin-user=" /etc/lightdm/lightdm.conf; then
+            sed -i "s/autologin-user=/#autologin-user=/g" /etc/lightdm/lightdm.conf
+        fi
+        if ! grep -q "#autologin-user-timeout=" /etc/lightdm/lightdm.conf; then
+            sed -i "s/autologin-user-timeout=/#autologin-user-timeout=/g" /etc/lightdm/lightdm.conf
+        fi
+    fi
 fi
-if [ -f /etc/slim.conf ]; then
-    #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
-    sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
-fi
-if [ -f /etc/lightdm/lightdm.conf ]; then
-    sed -i "s/#autologin-user=/autologin-user=$USER_NAME/g" /etc/lightdm/lightdm.conf
-    sed -i "s/#autologin-user-timeout=0/autologin-user-timeout=0/g" /etc/lightdm/lightdm.conf
-fi
-
 if [ ! -f /var/.minios-setup-completed ]; then
     echo "MiniOS setup is completed." >/var/.minios-setup-completed
 fi
