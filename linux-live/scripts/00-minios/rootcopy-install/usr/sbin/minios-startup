@@ -538,13 +538,14 @@ if [ "$AUTOLOGIN" = "true" ]; then
     fi
     if [ -f /etc/slim.conf ]; then
         #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
-        sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
-        sed -i 's,auto_login          no,auto_login          yes,g' /etc/slim.conf
+        sed -i -e "/default_user /s/ .*/ $USER_NAME/" /etc/slim.conf
+        sed -i -e "/auto_login /s/ .*/ yes/" /etc/slim.conf
     fi
     if [ -f /etc/lightdm/lightdm.conf ]; then
         sed -i "s/#autologin-user=/autologin-user=/g" /etc/lightdm/lightdm.conf
         sed -i -e "/autologin-user=/s/=.*/=\"$USER_NAME\"/" /etc/lightdm/lightdm.conf
-        sed -i "s/#autologin-user-timeout=0/autologin-user-timeout=0/g" /etc/lightdm/lightdm.conf
+        sed -i "s/#autologin-user-timeout=/autologin-user-timeout=/g" /etc/lightdm/lightdm.conf
+        sed -i -e "/autologin-user-timeout=/s/=.*/=0/" /etc/lightdm/lightdm.conf
     fi
 else
     if [ -f /etc/default/nodm ]; then
@@ -552,8 +553,8 @@ else
     fi
     if [ -f /etc/slim.conf ]; then
         #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
-        sed -i "s/default_user        live/default_user        $USER_NAME/g" /etc/slim.conf
-        sed -i 's,auto_login          yes,auto_login          no,g' /etc/slim.conf
+        sed -i -e "/default_user /s/ .*/ /" /etc/slim.conf
+        sed -i -e "/auto_login /s/ .*/ no/" /etc/slim.conf
     fi
     if [ -f /etc/lightdm/lightdm.conf ]; then
         if ! grep -q "#autologin-user=" /etc/lightdm/lightdm.conf; then
