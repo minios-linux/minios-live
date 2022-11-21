@@ -16,17 +16,19 @@ if [ $KERNEL_BPO = "true" ] && ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION
 else
     BPO=""
 fi
-
-if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+echo $KERNEL
+if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; }; then
+    if [ $KERNEL_TYPE = "default" ]; then
+        KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
+    else
+        KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
+    fi
+elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
     KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* | head -n 1 | sed 's/linux-image-//')
 else
     KERNEL=$(uname -r)
 fi
 echo "KERNEL=$KERNEL" >/miniosbuild.conf
-
-if [ $KERNEL_AUFS = "true" ] && [ $DISTRIBUTION = "bullseye" ]; then
-    KERNEL_SUFFIX="-mos"
-fi
 
 if [ $DISTRIBUTION_ARCH = "amd64" ] && [ $DISTRIBUTION = "orel" ]; then
     DISTRIBUTION_ARCH="x86_64"
@@ -37,7 +39,7 @@ if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]) && [ $KERNEL_
     apt-get install -y $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
     apt-get install -y $BPO aufs-dkms >>$OUTPUT 2>&1
 fi
-if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "frugal" ]) && [ "$KERNEL_NO_DKMS" != "true" ]; then
+if [ "$KERNEL_BUILD_DKMS" != "false" ]; then
     wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
@@ -67,33 +69,13 @@ EOF
         if [ $DISTRIBUTION = "orel" ]; then
             DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-        elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+        elif [ $KERNEL_AUFS = "true" ] && ([ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION != "buster" ]); then
             if [ $KERNEL_TYPE = "default" ]; then
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers$KERNEL_SUFFIX-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             else
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers$KERNEL_SUFFIX-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-            fi
-        elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ] && [ $DISTRIBUTION = "bullseye" ]; then
-            if [ $KERNEL_TYPE = "default" ]; then
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-            else
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-            fi
-        elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ]; then
-            if [ $KERNEL_TYPE = "default" ]; then
-                wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-headers-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y ./linux-headers-$KERNEL\_$KERNEL\_$DISTRIBUTION_ARCH.deb gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-                rm ./linux-headers-$KERNEL\_$KERNEL\_$DISTRIBUTION_ARCH.deb
-            else
-                wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL_RELEASE/linux-headers-$KERNEL\_$KERNEL-1\_$DISTRIBUTION_ARCH.deb
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y ./linux-headers-$KERNEL\_$KERNEL\_$DISTRIBUTION_ARCH.deb gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-                rm ./linux-headers-$KERNEL\_$KERNEL\_$DISTRIBUTION_ARCH.deb
+                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             fi
         else
             if [ $KERNEL_TYPE = "default" ]; then
@@ -105,7 +87,17 @@ EOF
             fi
         fi
     elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+        if [ $KERNEL_AUFS = "true" ]; then
+            if [ $KERNEL_TYPE = "default" ]; then
+                DEBIAN_FRONTEND=noninteractive \
+                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            else
+                DEBIAN_FRONTEND=noninteractive \
+                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            fi
+        else
+            apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+        fi
     fi
 
     apt-get install -y $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
@@ -118,10 +110,6 @@ EOF
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || ([ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO != "true" ]); then
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl88xxau-dkms/realtek-rtl88xxau-dkms_5.6.4.2~git20220606.cab4e4e-0kali1_all.deb
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8814au-dkms/realtek-rtl8814au-dkms_5.8.5.1~git20220614.af00239-0kali3_all.deb
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8188eus-dkms/realtek-rtl8188eus-dkms_5.3.9~git20220319.0958f29-0kali3_all.deb
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8723cs-dkms/realtek-rtl8723cs-dkms_0.0~git20210902.0fb0c24-0kali1_all.deb
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
             realtek-rtl8723cs-dkms \
@@ -130,10 +118,6 @@ EOF
             rtl8821cu-dkms \
             >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO = "true" ]; then
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl88xxau-dkms/realtek-rtl88xxau-dkms_5.6.4.2~git20220606.cab4e4e-0kali1_all.deb
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8814au-dkms/realtek-rtl8814au-dkms_5.8.5.1~git20220614.af00239-0kali3_all.deb
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8188eus-dkms/realtek-rtl8188eus-dkms_5.3.9~git20220319.0958f29-0kali3_all.deb
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8723cs-dkms/realtek-rtl8723cs-dkms_0.0~git20210902.0fb0c24-0kali1_all.deb
         DEBIAN_FRONTEND=noninteractive \
             apt-get install -y \
             realtek-rtl8723cs-dkms \
@@ -184,7 +168,7 @@ EOF
     fi'
     if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
         break
-    elif [ $KERNEL_AUFS = "true" ] && ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]); then
+    elif [ $KERNEL_AUFS = "true" ] && ([ $DISTRIBUTION = "stretch" ]); then
         break
     else
         git clone https://github.com/cilynx/rtl88x2bu.git

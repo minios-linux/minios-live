@@ -363,9 +363,15 @@ fi
 
 if grep -q firewalld $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     systemctl disable firewalld
+else
+    rm -rf /etc/firewalld
 fi
 if grep -q cockpit $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     systemctl disable cockpit.socket
+fi
+
+if grep -q laptop-mode-tools $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    rm /usr/share/applications/laptop-mode-tools.desktop
 fi
 
 # user setup

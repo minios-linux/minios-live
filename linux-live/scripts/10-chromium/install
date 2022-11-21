@@ -34,7 +34,7 @@ fi
 if [ ! -d /etc/$APP.d/ ]; then
     mkdir /etc/$APP.d
 fi
-echo "export ${APP^^}_FLAGS=\"${APP^^}_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1\"" >>/etc/$APP.d/default-flags
+echo "export ${APP^^}_FLAGS=\"\$${APP^^}_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1\"" >>/etc/$APP.d/default-flags
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "frugal" ]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
