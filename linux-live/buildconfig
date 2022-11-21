@@ -49,7 +49,9 @@ KERNEL_BPO="false"
 # [true, false]
 KERNEL_AUFS="true"
 
-KERNEL_NO_DKMS="true"
+# if "true", then additional drivers for wireless network adapters are compiled during kernel installation
+# если "true", то при установке ядра компилируются дополнительные драйверы для беспроводных сетевых адаптеров
+KERNEL_BUILD_DKMS="false"
 
 # [livekit-mos, livekit-slax, uird]
 INITRD_TYPE="livekit-mos"
@@ -83,19 +85,19 @@ TIMEZONE="Etc/UTC"
 USER_NAME="live"
 USER_PASSWORD="evil"
 ROOT_PASSWORD="toor"
-# this option no longer works
-# этот параметр больше не работает
+# this parameter only works for initrd livekit-mos
+# этот параметр работает только для initrd livekit-mos
 DEFAULT_TARGET="graphical"
-# this option no longer works
-# этот параметр больше не работает
-ENABLE_SERVICES="ssh,firewalld"
-# this option no longer works
-# этот параметр больше не работает
+# this parameter only works for initrd livekit-mos
+# этот параметр работает только для initrd livekit-mos
+ENABLE_SERVICES="ssh"
+# this parameter only works for initrd livekit-mos
+# этот параметр работает только для initrd livekit-mos
 DISABLE_SERVICES=""
 # [true, false]
 SCRIPTS="true"
 # [true, false]
-SSH="true"
+AUTOLOGIN="true"
 # file name in the minios folder where the system will look for the ssh public key
 # имя файла в папке minios в котором система будет искать публичный ключ ssh
 # [any file name]

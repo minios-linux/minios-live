@@ -12,7 +12,7 @@
 
 function common_variables() {
     # List of variables passed to chroot.
-    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_RELEASE KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_NO_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT"
+    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT"
 
     #
     CONTAINER_TYPE="0"
@@ -315,10 +315,6 @@ function read_cmdline() {
         disable_services=*)
             DISABLE_SERVICES="${i#*=}"
             shift # past argument=value
-            ;;
-        ssh)
-            SSH=true
-            shift # past argument with no value
             ;;
         ssh_key=*)
             SSH_KEY="${i#*=}"
@@ -896,7 +892,7 @@ function new_run() {
     echo "========== Kernel type: $KERNEL_TYPE" >>$OUTPUT 2>&1
     echo "========== Kernel BPO: $KERNEL_BPO" >>$OUTPUT 2>&1
     echo "========== Kernel AUFS: $KERNEL_AUFS" >>$OUTPUT 2>&1
-    echo "========== Don't install additional drivers: $KERNEL_NO_DKMS" >>$OUTPUT 2>&1
+    echo "========== Don't install additional drivers: $KERNEL_BUILD_DKMS" >>$OUTPUT 2>&1
     echo "========== Named boot files: $NAMED_BOOT_FILES" >>$OUTPUT 2>&1
     echo "========== Compression: $COMP_TYPE" >>$OUTPUT 2>&1
     echo "========== Locale: $LOCALE" >>$OUTPUT 2>&1
@@ -921,12 +917,12 @@ DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
 PACKAGE_VARIANT=$PACKAGE_VARIANT
 COMP_TYPE=$COMP_TYPE
 #KERNEL=\$KERNEL
-KERNEL_RELEASE=$KERNEL_RELEASE
+KERNEL_VERSION=$KERNEL_VERSION
 KERNEL_ARCH=$KERNEL_ARCH
 KERNEL_TYPE=$KERNEL_TYPE
 KERNEL_BPO=$KERNEL_BPO
 KERNEL_AUFS=$KERNEL_AUFS
-KERNEL_NO_DKMS=$KERNEL_NO_DKMS
+KERNEL_BUILD_DKMS=$KERNEL_BUILD_DKMS
 LIVEKITNAME=$LIVEKITNAME
 SYSTEMNAME=$SYSTEMNAME
 DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
@@ -1810,11 +1806,11 @@ EOF
         rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/EFI
     fi
 
-    if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+    : 'if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         ENABLE_SERVICES="ssh,firewalld"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
         ENABLE_SERVICES="ssh"
-    fi
+    fi'
     DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
     #if [ $INITRD_TYPE = "livekit-mos" ]; then
     #    BOOT_SETTINGS="quiet enable_services=$ENABLE_SERVICES"
@@ -2034,6 +2030,7 @@ EOF
     #fi
 
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
+        # miniosbuild.conf generation is in linux-live/scripts/01-kernel/build
         if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
             read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
         fi
@@ -3234,14 +3231,14 @@ function get_kernel_version() {
     fi
     if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || ([ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO != "true" ]); }; then
         if [ $KERNEL_BPO = "true" ]; then
-            KERNEL_RELEASE="5.18.16"
+            KERNEL_VERSION="6.0"
         else
-            KERNEL_RELEASE="5.10.136"
+            KERNEL_VERSION="5.10"
         fi
         if [ $KERNEL_TYPE = "default" ]; then
-            KERNEL="$KERNEL_RELEASE-$KERNEL_ARCH"
+            KERNEL="$KERNEL_VERSION-$KERNEL_ARCH"
         else
-            KERNEL="$KERNEL_RELEASE-$KERNEL_TYPE-$KERNEL_ARCH"
+            KERNEL="$KERNEL_VERSION-$KERNEL_TYPE-$KERNEL_ARCH"
         fi
     elif [ $KERNEL_TYPE = "none" ]; then
         KERNEL=""
@@ -3302,19 +3299,11 @@ function export_kernel() {
 #
 # =================================================================
 function kernel_variables() {
-    : 'if [ $KERNEL_AUFS = "true" ]; then
-        if [ $KERNEL_TYPE = "default" ] || [ $KERNEL_TYPE = "pve" ]; then
-            KERNEL_SUFFIX="$KERNEL-$KERNEL_ARCH"
-        else
-            KERNEL_SUFFIX="$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH"
-        fi
-    else'
     KERNEL_SUFFIX=$KERNEL
-    #fi
 
     if [ $NAMED_BOOT_FILES = "true" ]; then
         VMLINUZNAME="vmlinuz-$KERNEL_SUFFIX"
-        INITRFSNAME="initrfs-$KERNEL_SUFFIX.img"
+        INITRFSNAME="initrfs-$KERNEL_SUFFIX-$INITRD_TYPE.img"
     else
         VMLINUZNAME="vmlinuz"
         INITRFSNAME="initrfs.img"
@@ -3930,7 +3919,7 @@ function container_run() {
             -e DEFAULT_TARGET="graphical" \
             -e ENABLE_SERVICES="ssh" \
             -e DISABLE_SERVICES="" \
-            -e SSH="true" \
+            -e AUTOLOGIN="true" \
             -e SSH_KEY="authorized_keys" \
             -e SCRIPTS="true" \
             -e CLOUD="false" \
@@ -3961,7 +3950,7 @@ function container_run() {
             -e KERNEL_TYPE="$KERNEL_TYPE" \
             -e KERNEL_BPO="$KERNEL_BPO" \
             -e KERNEL_AUFS="$KERNEL_AUFS" \
-            -e KERNEL_NO_DKMS="$KERNEL_NO_DKMS" \
+            -e KERNEL_BUILD_DKMS="$KERNEL_BUILD_DKMS" \
             -e NAMED_BOOT_FILES="false" \
             -e EXPORT_KERNEL="true" \
             -e MOVE_KERNEL="false" \
@@ -3993,7 +3982,7 @@ function live_run() {
         DEFAULT_TARGET="graphical" \
         ENABLE_SERVICES="ssh" \
         DISABLE_SERVICES="" \
-        SSH="true" \
+        AUTOLOGIN="true" \
         SSH_KEY="authorized_keys" \
         SCRIPTS="true" \
         CLOUD="false" \
@@ -4024,7 +4013,7 @@ function live_run() {
         KERNEL_TYPE="$KERNEL_TYPE" \
         KERNEL_BPO="$KERNEL_BPO" \
         KERNEL_AUFS="$KERNEL_AUFS" \
-        KERNEL_NO_DKMS="$KERNEL_NO_DKMS" \
+        KERNEL_BUILD_DKMS="$KERNEL_BUILD_DKMS" \
         NAMED_BOOT_FILES="false" \
         EXPORT_KERNEL="true" \
         MOVE_KERNEL="false" \
@@ -4078,7 +4067,7 @@ function container_build_run() {
     KERNEL_TYPE="$6"
     KERNEL_BPO="$7"
     KERNEL_AUFS="$8"
-    KERNEL_NO_DKMS="$9"
+    KERNEL_BUILD_DKMS="$9"
     COMP_TYPE="${10}"
     LOCALE="${11}"
     TIMEZONE="${12}"

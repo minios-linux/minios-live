@@ -14,11 +14,14 @@ if [ $DISTRIBUTION = "orel" ]; then
 fi
 
 cd $SCRIPT_DIR
-wget --no-check-certificate -c https://ftp2.minios.dev/cts-3.7.6-70.ks1.astra2.11_amd64.deb >>$OUTPUT 2>&1
+#wget --no-check-certificate -c https://ftp2.minios.dev/cts-3.7.6-70.ks1.astra2.11_amd64.deb >>$OUTPUT 2>&1
+wget --no-check-certificate -c https://ftp2.minios.dev/cts-3.7.6-70.ks1.$DISTRIBUTION\_amd64.deb >>$OUTPUT 2>&1
 # install packages
 
-apt-get install -y $SCRIPT_DIR/cts-3.7.6-70.ks1.astra2.11_amd64.deb libnss3-tools iptables >>$OUTPUT 2>&1
-rm -f $SCRIPT_DIR/cts-3.7.6-70.ks1.astra2.11_amd64.deb >>$OUTPUT 2>&1
+#apt-get install -y $SCRIPT_DIR/cts-3.7.6-70.ks1.astra2.11_amd64.deb libnss3-tools iptables >>$OUTPUT 2>&1
+apt-get install -y $SCRIPT_DIR/cts-3.7.6-70.ks1.$DISTRIBUTION\_amd64.deb libnss3-tools iptables >>$OUTPUT 2>&1
+rm -f $SCRIPT_DIR/cts-3.7.6-70*.deb >>$OUTPUT 2>&1
+#rm -f $SCRIPT_DIR/cts-3.7.6-70.ks1.astra2.11_amd64.deb >>$OUTPUT 2>&1
 
 rm -f /etc/cts/.csum
 cat <<EOF >/etc/cts/filelist.current
@@ -34,3 +37,10 @@ cat <<EOF >/etc/cts/filelist.current
 /usr/sbin/ctsic
 EOF
 ctsic compute >>$OUTPUT 2>&1
+
+sed -i '/import_bookmarks/d' /etc/chromium/master_preferences
+
+PACKAGE="cts"
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
+
