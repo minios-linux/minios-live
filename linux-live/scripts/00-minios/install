@@ -9,6 +9,9 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
 if [ $DISTRIBUTION = "kali-rolling" ]; then
     echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free
+deb https://minios-linux.github.io/debian/ $DISTRIBUTION-backports main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
 else
     echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
 fi
