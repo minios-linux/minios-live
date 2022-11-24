@@ -37,3 +37,9 @@ EOF
 systemctl enable minios-startup.service
 systemctl enable minios-shutdown.service
 systemctl enable minios-script-launcher.service
+
+if [ $PACKAGE_VARIANT = "cloud" ]; then
+    if [ -d /usr/share/minios/html ]; then
+        rm -rf /usr/share/minios/html
+    fi
+fi

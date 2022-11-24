@@ -122,7 +122,9 @@ if [ "$WRITABLE" = "true" ]; then
 fi
 
 # Copying bootloader configuration files to the system
-cp -fp $MEDIA/boot/grub/grub.cfg /etc/$LIVEKITNAME/grub.cfg
+if [ -f $MEDIA/boot/grub/grub.cfg ]; then
+    cp -fp $MEDIA/boot/grub/grub.cfg /etc/$LIVEKITNAME/grub.cfg
+fi
 cp -fp $MEDIA/boot/syslinux.cfg /etc/$LIVEKITNAME/syslinux.cfg
 
 echo "Original /etc/$LIVEKITNAME/$LIVEKITNAME.conf configuration file contents:"
@@ -565,6 +567,14 @@ else
         fi
     fi
 fi
+##### Software configuration #####
+# Setup Firefox
+if [ -d /usr/share/minios/html ]; then
+    if [ -f /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js ]; then
+        /usr/sbin/minios-firefox-patch
+    fi
+fi
+
 if [ ! -f /var/.minios-setup-completed ]; then
     echo "MiniOS setup is completed." >/var/.minios-setup-completed
 fi
