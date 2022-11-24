@@ -102,6 +102,14 @@ function common_variables() {
         BUNDLES=/memory/bundles
     fi
 
+    if [ $INITRD_TYPE = "livekit-mos" ]; then
+        INITRD_TYPE_SUFFIX="lkm"
+    elif [ $INITRD_TYPE = "livekit-slax" ]; then
+        INITRD_TYPE_SUFFIX="lks"
+    elif [ $INITRD_TYPE = "uird" ]; then
+        INITRD_TYPE_SUFFIX="uird"
+    fi
+
     # List of directories for root filesystem
     # No subdirectories are allowed, no slashes,
     # so You can't use /var/tmp here for example
@@ -1167,19 +1175,14 @@ function build_bootstrap() {
                     ln -s sid /usr/share/debootstrap/scripts/orel
                 fi
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH --exclude=usr-is-merged $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            elif [ $PACKAGE_VARIANT = "minimum" ]; then
+                    debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH --include=apt-transport-https --exclude=usr-is-merged $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+            elif [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "cloud" ]; then
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                    debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             fi
-            #sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            #    debootstrap --arch=$DISTRIBUTION_ARCH --variant=$DISTRIBUTION_VARIANT $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
@@ -1202,12 +1205,12 @@ function build_bootstrap() {
                 ln -s sid orel
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            elif [ $PACKAGE_VARIANT = "minimum" ]; then
+            elif [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "cloud" ]; then
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                    debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                    debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             fi
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
@@ -1220,12 +1223,12 @@ function build_bootstrap() {
             ln -s sid orel
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-        elif [ $PACKAGE_VARIANT = "minimum" ]; then
+        elif [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "cloud" ]; then
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
         else
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
+                debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
         fi
     fi
 
@@ -1676,11 +1679,11 @@ function build_live() {
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
 
-    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
+    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
     else
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
     fi
 }
 
@@ -1732,9 +1735,9 @@ function build_boot() {
     cp -r $SCRIPT_DIR/linux-live/bootfiles/* $WORK_DIR/image/$LIVEKITNAME
     #fi
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
-        BOOT_TYPE="hybrid"
-    fi
+    #if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
+    #    BOOT_TYPE="hybrid"
+    #fi
     if [ $BOOT_TYPE = "hybrid" ]; then
         if [ $DISTRIBUTION_ARCH = "amd64" ]; then
             rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi
@@ -1884,7 +1887,8 @@ MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
 MENU TABMSG [F1] help                                                        [Tab] cmdline >
 
 EOF
-    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+    if [ $BOOT_TYPE = "hybrid" ]; then
+        cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 if loadfont \$prefix/font.pf2 ; then
   set default="0"
   set timeout="3"
@@ -1914,7 +1918,7 @@ set default=0
 set message="Loading kernel and ramdisk..."
 
 EOF
-
+    fi
     if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
@@ -1923,7 +1927,8 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        if [ $BOOT_TYPE = "hybrid" ]; then
+            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_image
@@ -1932,7 +1937,8 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
-        sed -i "s/background_image/#background_image/g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+            sed -i "s/background_image/#background_image/g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        fi
     elif [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
@@ -1941,7 +1947,8 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        if [ $BOOT_TYPE = "hybrid" ]; then
+            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_image
@@ -1950,6 +1957,7 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
+        fi
     else
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
@@ -1968,7 +1976,8 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        if [ $BOOT_TYPE = "hybrid" ]; then
+            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Persistent changes)"{
     echo \$message
     search --set -f \$linux_image
@@ -1989,6 +1998,7 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
+        fi
     fi
 
     if [ $LOCALE = "ru_RU" ]; then
@@ -2042,7 +2052,9 @@ EOF
         cp $MODULE_MERGED_DIR/boot/vmlinuz-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
         cp $MODULE_MERGED_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME
         sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        if [ $BOOT_TYPE = "hybrid" ]; then
+            sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        fi
         if [ -d $MODULE_MERGED_DIR/linux-live ]; then
             rm -rf $MODULE_MERGED_DIR/linux-live
         fi
@@ -2085,21 +2097,17 @@ function build_iso() {
     language_to_array
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-${LANG[0]}-$INITRD_TYPE_SUFFIX
     else
-        if [ $KERNEL_TYPE = "default" ]; then
-            IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT
-        else
-            IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$KERNEL_TYPE
-        fi
-    fi
-    if [ $LOCALE != "en_US" ]; then
-        IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH-$INITRD_TYPE
-    else
-        IMAGE=$IMAGE-${LANG[0]}-$ISO_ARCH-$INITRD_TYPE
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE_SUFFIX
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
+    fi
+    if [ $KERNEL_TYPE = "default" ]; then
+        IMAGE=$IMAGE-$ISO_ARCH
+    else
+        IMAGE=$IMAGE-$KERNEL_TYPE-$ISO_ARCH
     fi
     if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
         IMAGE=$IMAGE-$SNAPSHOT_DATE
@@ -3488,7 +3496,7 @@ function build_modules() {
                     if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                         mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
                         mkmod_corefs $MODULE_UPPER_DIR
-                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -Xbcj x86 -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
                         mv $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
                         cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
                         unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
@@ -3558,9 +3566,9 @@ function build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
+                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend
                     else
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend >>$OUTPUT 2>&1
                     fi
                     rm -f $MODULE_UPPER_DIR/miniosbuild.conf
                 fi
@@ -3673,16 +3681,16 @@ function build_modules() {
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                 fi
                                 chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                             else
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                 fi
                                 chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
@@ -3695,15 +3703,15 @@ function build_modules() {
                             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                                 if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                     fi
                                 else
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                                     fi
                                 fi
                             else
@@ -3752,9 +3760,9 @@ function build_modules_live() {
             mkmod_corefs $MODULE_UPPER_DIR
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                 else
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
                 fi
             else
                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
@@ -3775,11 +3783,11 @@ function repack_module() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
         mkmod_corefs squashfs-root
-        #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+        #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
         if [ $COMP_TYPE = "zstd" ]; then
-            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
         else
-            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
         fi
 
         rm -rf squashfs-root
@@ -3790,11 +3798,11 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-            #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
             else
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
             fi
         fi
     fi
@@ -3897,8 +3905,8 @@ function generate_config_files() {
 }
 
 function container_run() {
-    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
-        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$KERNEL_TYPE-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
@@ -4084,8 +4092,8 @@ function container_build_run() {
     if [ $KERNEL_AUFS = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$INITRD_TYPE-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LANG[0]}-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    #CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$INITRD_TYPE-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LANG[0]}-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then

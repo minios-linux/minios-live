@@ -25,7 +25,9 @@ debug_start
 # load some modules manually first, then modprobe everything we have
 init_devs
 init_aufs
-init_zram
+if [ "$KERNEL_TYPE" != "cloud" ]; then
+    init_zram
+fi
 
 #
 modprobe_cloud

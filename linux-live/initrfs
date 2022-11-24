@@ -20,7 +20,6 @@ echo -e "=====  ${YELLOW}KERNEL_AUFS=$KERNEL_AUFS${ENDCOLOR}"
 echo -e "=====  ${YELLOW}INITRD_TYPE=$INITRD_TYPE${ENDCOLOR}"
 
 if [[ $INITRD_TYPE == *"livekit"* ]]; then
-	#if [ $INITRD_TYPE = "livekit" ]; then
 	cd /linux-live/initramfs/$INITRD_TYPE
 	chmod 755 ./initramfs_create
 	INITRAMFS=$(./initramfs_create $KERNEL)
