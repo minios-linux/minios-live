@@ -14,17 +14,17 @@ else
 fi
 
 # install packages
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
         wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
-        apt-get install -y ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb gcc make >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS install ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb gcc make >>$OUTPUT 2>&1
         rm ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
     else
-        apt-get install -y linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
     fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get install -y linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
 fi
 echo "KERNEL=$KERNEL" >/miniosbuild.conf
 

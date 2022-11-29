@@ -13,7 +13,7 @@ function language_to_array() {
 }
 language_to_array
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 if [ $LOCALE != "en_US" ]; then
   cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
@@ -32,15 +32,22 @@ if [ $LOCALE != "en_US" ]; then
 
 EOF
   if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get install -y language-pack-gnome-$LANG-base >>$OUTPUT
+    apt-get $INSTALL_OPTIONS install language-pack-gnome-$LANG-base >>$OUTPUT
   fi
 fi
 
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-if [ $PACKAGE_VARIANT != "frugal" ]; then
-  apt-get install -y yad >>$OUTPUT 2>&1 #adwaita-icon-theme-antix
+if [ $PACKAGE_VARIANT != "puzzle" ]; then
+  if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+    if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+      apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-fake >>$OUTPUT 2>&1
+    else
+      apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-antix >>$OUTPUT 2>&1
+    fi
+  fi
+
   if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
   fi
@@ -50,23 +57,23 @@ fi
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
   if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
     DEBIAN_FRONTEND=noninteractive \
-      apt-get install -y \
+      apt-get $INSTALL_OPTIONS install \
       $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
   elif [ $DISTRIBUTION = "jammy" ]; then
     DEBIAN_FRONTEND=noninteractive \
-      apt-get install -y \
+      apt-get $INSTALL_OPTIONS install \
       $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome policykit-1-gnome >>$OUTPUT 2>&1
   elif [ $DISTRIBUTION = "bookworm1" ] || [ $DISTRIBUTION = "kali-rolling1" ] || [ $DISTRIBUTION = "sid1" ]; then
     DEBIAN_FRONTEND=noninteractive \
-      apt-get install -y \
+      apt-get $INSTALL_OPTIONS install \
       $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
   elif [ $DISTRIBUTION = "bionic" ]; then
     DEBIAN_FRONTEND=noninteractive \
-      apt-get install -y \
+      apt-get $INSTALL_OPTIONS install \
       $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/blueman/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
   else
     DEBIAN_FRONTEND=noninteractive \
-      apt-get install -y \
+      apt-get $INSTALL_OPTIONS install \
       $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
   fi
 fi
@@ -99,7 +106,7 @@ done'
 #if [ $PACKAGE_VARIANT = "maximum" ]; then
 #    wget http://ftp.debian.org/debian/pool/main/f/fonts-inter/fonts-inter_3.19+ds-2_all.deb
 #    wget http://ftp.debian.org/debian/pool/main/f/fonts-jetbrains-mono/fonts-jetbrains-mono_2.242+ds-2_all.deb
-#    apt-get -y install ./fonts-jetbrains-mono*.deb ./fonts-inter*.deb
+#    apt-get $INSTALL_OPTIONS install ./fonts-jetbrains-mono*.deb ./fonts-inter*.deb
 #    rm -f ./fonts*.deb
 sed -i 's,<property name="FontName" type="empty"/>,<property name="FontName" type="string" value="Inter 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="MonospaceFontName" type="empty"/>,<property name="MonospaceFontName" type="string" value="JetBrains Mono 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
@@ -336,7 +343,7 @@ FileManager=Thunar
 WebBrowser=
 
 EOF
-elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "frugal" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
   cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar

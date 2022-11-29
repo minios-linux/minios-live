@@ -13,11 +13,11 @@ function language_to_array() {
 }
 language_to_array
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 if [ $LOCALE != "en_US" ]; then
   if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get install -y language-pack-gnome-$LANG-base >>$OUTPUT
+    apt-get $INSTALL_OPTIONS install language-pack-gnome-$LANG-base >>$OUTPUT
   fi
 fi
 
@@ -27,6 +27,6 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
   DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y \
+    apt-get $INSTALL_OPTIONS install \
     $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list tr "\n" " ") >>$OUTPUT 2>&1
 fi

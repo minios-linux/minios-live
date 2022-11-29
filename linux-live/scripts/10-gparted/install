@@ -14,22 +14,22 @@ function language_to_array() {
 }
 language_to_array
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
     if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "jammy" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s/netcat/netcat-traditional/g;/davfs2/d;s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bullseye" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
     else
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
     fi
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)

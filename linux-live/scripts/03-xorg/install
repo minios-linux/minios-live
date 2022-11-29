@@ -8,22 +8,22 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)" | debconf-set-selections
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 if [ DESKTOP_ENVIRONMENT = "astra-fly" ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         xorg-all-main >>$OUTPUT 2>&1
 elif [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 
 if [ $PACKAGE_VARIANT = "maximum#" ] && ([ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION !="orel" ]); then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y fonts-noto-color-emoji
+        apt-get $INSTALL_OPTIONS install fonts-noto-color-emoji
 fi
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
@@ -39,9 +39,9 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
-        apt-get update >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             virtualbox-guest-x11 >>$OUTPUT 2>&1
         rm /etc/apt/sources.list.d/mx.list
     fi

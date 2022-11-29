@@ -12,7 +12,7 @@
 
 function common_variables() {
     # List of variables passed to chroot.
-    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT"
+    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT INSTALL_OPTIONS"
 
     #
     CONTAINER_TYPE="0"
@@ -900,11 +900,12 @@ function new_run() {
     echo "========== Kernel type: $KERNEL_TYPE" >>$OUTPUT 2>&1
     echo "========== Kernel BPO: $KERNEL_BPO" >>$OUTPUT 2>&1
     echo "========== Kernel AUFS: $KERNEL_AUFS" >>$OUTPUT 2>&1
-    echo "========== Don't install additional drivers: $KERNEL_BUILD_DKMS" >>$OUTPUT 2>&1
+    echo "========== Install additional drivers: $KERNEL_BUILD_DKMS" >>$OUTPUT 2>&1
     echo "========== Named boot files: $NAMED_BOOT_FILES" >>$OUTPUT 2>&1
     echo "========== Compression: $COMP_TYPE" >>$OUTPUT 2>&1
     echo "========== Locale: $LOCALE" >>$OUTPUT 2>&1
     echo "========== Time zone: $TIMEZONE" >>$OUTPUT 2>&1
+    echo "========== INSTALL_OPTIONS=$INSTALL_OPTIONS" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
     echo "=================================================================" >>$OUTPUT 2>&1
     echo ""
@@ -924,6 +925,7 @@ DISTRIBUTION=$DISTRIBUTION
 DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
 PACKAGE_VARIANT=$PACKAGE_VARIANT
 COMP_TYPE=$COMP_TYPE
+INSTALL_OPTIONS=$INSTALL_OPTIONS
 #KERNEL=\$KERNEL
 KERNEL_VERSION=$KERNEL_VERSION
 KERNEL_ARCH=$KERNEL_ARCH
@@ -1176,7 +1178,7 @@ function build_bootstrap() {
                 fi
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH --include=apt-transport-https --exclude=usr-is-merged $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            elif [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "cloud" ]; then
+            elif [ $PACKAGE_VARIANT = "minimum1" ] || [ $PACKAGE_VARIANT = "cloud1" ]; then
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
@@ -1205,7 +1207,7 @@ function build_bootstrap() {
                 ln -s sid orel
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-            elif [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "cloud" ]; then
+            elif [ $PACKAGE_VARIANT = "minimum1" ] || [ $PACKAGE_VARIANT = "cloud1" ]; then
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
             else
@@ -1223,7 +1225,7 @@ function build_bootstrap() {
             ln -s sid orel
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
-        elif [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "cloud" ]; then
+        elif [ $PACKAGE_VARIANT = "minimum1" ] || [ $PACKAGE_VARIANT = "cloud1" ]; then
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL >>$OUTPUT 2>>$OUTPUT
         else
@@ -1247,12 +1249,12 @@ function mx_repo() {
             wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR apt-get install -y /*.deb
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb
                 else
-                    chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb >>$OUTPUT 2>&1
                 fi
             else
-                chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
+                chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb >>$OUTPUT 2>&1
             fi
             rm $INSTALL_DIR/*.deb
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/mx.list
@@ -1278,12 +1280,12 @@ function antix_repo() {
             wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR apt-get install -y /*.deb
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb
                 else
-                    chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb >>$OUTPUT 2>&1
                 fi
             else
-                chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
+                chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb >>$OUTPUT 2>&1
             fi
             rm $INSTALL_DIR/*.deb
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/antix.list
@@ -1302,12 +1304,12 @@ function mint_repo() {
             wget http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/linuxmint-keyring_2022.06.21_all.deb
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR apt-get install -y /*.deb
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb
                 else
-                    chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb >>$OUTPUT 2>&1
                 fi
             else
-                chroot_run $INSTALL_DIR apt-get install -y /*.deb >>$OUTPUT 2>&1
+                chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install /*.deb >>$OUTPUT 2>&1
             fi
             rm $INSTALL_DIR/*.deb
             if [ $DISTRIBUTION = "focal" ]; then
@@ -1349,17 +1351,17 @@ EOF
                 cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
                 if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $INSTALL_DIR apt-get update
-                        chroot_run $INSTALL_DIR apt-get install -y gnupg
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
                     else
-                        chroot_run $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
-                        chroot_run $INSTALL_DIR apt-get install -y gnupg >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg >>$OUTPUT 2>&1
                         chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                     fi
                 else
-                    chroot $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
-                    chroot $INSTALL_DIR apt-get install -y gnupg >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
+                    chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg >>$OUTPUT 2>&1
                     chroot $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6 >>$OUTPUT 2>&1
                 fi
                 DISTRIBUTION="kali-rolling"
@@ -1369,18 +1371,18 @@ EOF
 
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR apt-get update
-                    chroot_run $INSTALL_DIR apt-get install -y gnupg ca-certificates
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg ca-certificates
                     if [ $DISTRIBUTION = "orel" ]; then
                         cd $INSTALL_DIR
                         wget https://dl.astralinux.ru/astra/stable/2.12_x86-64/repository/pool/non-free/libg/libgost/libgost_2.0.2-5+ci2_amd64.deb
-                        chroot_run $INSTALL_DIR apt-get install -y ./libgost_2.0.2-5+ci2_amd64.deb
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install ./libgost_2.0.2-5+ci2_amd64.deb
                         rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb
                         cd -
                         #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9
                     fi
                     #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-                    #    chroot_run $INSTALL_DIR apt-get install -y apt-transport-https
+                    #    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install apt-transport-https
                     #fi
                     #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg
                     #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
@@ -1391,18 +1393,18 @@ EOF
                     #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
                     #fi
                 else
-                    chroot_run $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
-                    chroot_run $INSTALL_DIR apt-get install -y gnupg ca-certificates >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg ca-certificates >>$OUTPUT 2>&1
                     if [ $DISTRIBUTION = "orel" ]; then
                         cd $INSTALL_DIR >>$OUTPUT 2>&1
                         wget https://dl.astralinux.ru/astra/stable/2.12_x86-64/repository/pool/non-free/libg/libgost/libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
-                        chroot_run $INSTALL_DIR apt-get install -y ./libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install ./libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                         rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                         cd - >>$OUTPUT 2>&1
                         #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 >>$OUTPUT 2>&1
                     fi
                     #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-                    #    chroot_run $INSTALL_DIR apt-get install -y apt-transport-https >>$OUTPUT 2>&1
+                    #    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install apt-transport-https >>$OUTPUT 2>&1
                     #fi
                     #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
                     #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
@@ -1414,18 +1416,18 @@ EOF
                     #fi
                 fi
             else
-                chroot $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
-                chroot $INSTALL_DIR apt-get install -y gnupg ca-certificates >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg ca-certificates >>$OUTPUT 2>&1
                 if [ $DISTRIBUTION = "orel" ]; then
                     cd $INSTALL_DIR >>$OUTPUT 2>&1
                     wget https://dl.astralinux.ru/astra/stable/2.12_x86-64/repository/pool/non-free/libg/libgost/libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
-                    chroot_run $INSTALL_DIR apt-get install -y ./libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install ./libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                     rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                     cd - >>$OUTPUT 2>&1
                     #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 >>$OUTPUT 2>&1
                 fi
                 #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-                #    chroot_run $INSTALL_DIR apt-get install -y apt-transport-https >>$OUTPUT 2>&1
+                #    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install apt-transport-https >>$OUTPUT 2>&1
                 #fi
                 #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
                 #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
@@ -1450,35 +1452,35 @@ EOF
 
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR apt-get update
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update
                 else
-                    chroot_run $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
                 fi
             else
-                chroot $INSTALL_DIR apt-get update -y >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
             fi
 
             if [ -f /.minios-live-container ]; then
                 if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                    chroot_run $INSTALL_DIR apt-get upgrade -y
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS upgrade -y
                 else
-                    chroot_run $INSTALL_DIR apt-get upgrade -y >>$OUTPUT 2>&1
+                    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS upgrade -y >>$OUTPUT 2>&1
                 fi
             else
-                chroot $INSTALL_DIR apt-get upgrade -y >>$OUTPUT 2>&1
+                chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS upgrade -y >>$OUTPUT 2>&1
             fi
 
             if [ -f $SCRIPT_DIR/linux-live/package_lists/prerequisites.list ]; then
                 if [ -f /.minios-live-container ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $INSTALL_DIR apt-get install -y \
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ")
                     else
-                        chroot_run $INSTALL_DIR apt-get install -y \
+                        chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install \
                             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
                     fi
                 else
-                    chroot $INSTALL_DIR apt-get install -y \
+                    chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS install \
                         $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
                 fi
             fi
@@ -1679,11 +1681,11 @@ function build_live() {
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
 
-    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -keep-as-directory -noappend || exit
+    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
     else
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
     fi
 }
 
@@ -2052,8 +2054,14 @@ EOF
         cp $MODULE_MERGED_DIR/boot/vmlinuz-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
         cp $MODULE_MERGED_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME
         sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        if ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+            sed -i "s,apparmor=,selinux=,g" $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+        fi
         if [ $BOOT_TYPE = "hybrid" ]; then
             sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+            if ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+                sed -i "s,apparmor=,selinux=,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+            fi
         fi
         if [ -d $MODULE_MERGED_DIR/linux-live ]; then
             rm -rf $MODULE_MERGED_DIR/linux-live
@@ -2096,7 +2104,7 @@ function build_iso() {
 
     language_to_array
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal" ] || [ $DESKTOP_ENVIRONMENT = "xfce-frugal-base" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-${LANG[0]}-$INITRD_TYPE_SUFFIX
     else
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE_SUFFIX
@@ -2374,20 +2382,20 @@ function chroot_cleanup() {
 # =================================================================
 function hostreq_pkg_list() {
     echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOR}"
-    apt-get update >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
     if [ -f $SCRIPT_DIR/linux-live/package_lists/required_for_host.list ]; then
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/required_for_host.list | tr "\n" " ") >>$OUTPUT 2>&1
     else
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             sudo debootstrap genisoimage >>$OUTPUT 2>&1
     fi
     if [ $DISTRIBUTION_ARCH = "arm64" ]; then
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             grub-efi-arm64-bin >>$OUTPUT 2>&1
     else
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             grub-efi-amd64-bin grub-pc-bin >>$OUTPUT 2>&1
     fi
 }
@@ -2408,20 +2416,20 @@ EOF
     fi
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         if [ -f $SCRIPT_DIR/package_lists/prerequisites.list ]; then
-            apt-get update
+            apt-get $INSTALL_OPTIONS update
             echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}" &&
-                apt-get upgrade -y >>$OUTPUT 2>&1 &&
+                apt-get $INSTALL_OPTIONS upgrade -y >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}" &&
-                apt-get install -y \
+                apt-get $INSTALL_OPTIONS install \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/package_lists/prerequisites.list | tr "\n" " ")
         fi
     else
         if [ -f $SCRIPT_DIR/package_lists/prerequisites.list ]; then
-            apt-get update >>$OUTPUT 2>&1 &&
+            apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}" &&
-                apt-get upgrade -y >>$OUTPUT 2>&1 &&
+                apt-get $INSTALL_OPTIONS upgrade -y >>$OUTPUT 2>&1 &&
                 echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}" &&
-                apt-get install -y \
+                apt-get $INSTALL_OPTIONS install \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/package_lists/prerequisites.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
     fi
@@ -2748,7 +2756,7 @@ function module_check_install_dir() {
 
 function filter_modules() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
-    : 'if [ $PACKAGE_VARIANT = "frugal" ] && ! { [[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"firmware"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]; }; then
+    : 'if [ $PACKAGE_VARIANT = "puzzle" ] && ! { [[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"firmware"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]; }; then
         FILTER_MODULES="true"
         FILTER_LEVEL="3"
         #if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
@@ -2756,19 +2764,19 @@ function filter_modules() {
         #else
         #    read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_LEVEL
         #fi
-    elif [ $PACKAGE_VARIANT = "frugal" ] && ([[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]); then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && ([[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]); then
         FILTER_MODULES="true"
         FILTER_LEVEL="0"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == *"firmware"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == *"firmware"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="1"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && ([[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]]); then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && ([[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]]); then
         FILTER_MODULES="true"
         FILTER_LEVEL="2"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == *"-desktop"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == *"-desktop"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="3"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == *"-apps"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == *"-apps"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="4"
     elif ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"firmware"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]); then
@@ -2780,34 +2788,34 @@ function filter_modules() {
             read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
         fi
     fi'
-    if [ $PACKAGE_VARIANT = "frugal" ] && ! [[ $MODULE =~ ^0[0-9]-* ]]; then
+    if [ $PACKAGE_VARIANT = "puzzle" ] && ! [[ $MODULE =~ ^0[0-9]-* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="3"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && ([[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]); then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && ([[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]); then
         FILTER_MODULES="true"
         FILTER_LEVEL="0"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "02-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "02-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="1"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "03-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "03-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="2"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "04-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "04-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="3"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "05-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "05-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="4"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "06-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "06-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="5"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "07-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "07-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="6"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "08-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "08-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="7"
-    elif [ $PACKAGE_VARIANT = "frugal" ] && [[ $MODULE == "09-"* ]]; then
+    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "09-"* ]]; then
         FILTER_MODULES="true"
         FILTER_LEVEL="8"
     #elif [[ $MODULE =~ ^0[0-9]-* ]]; then
@@ -3496,7 +3504,7 @@ function build_modules() {
                     if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                         mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
                         mkmod_corefs $MODULE_UPPER_DIR
-                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -Xbcj x86 -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
                         mv $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT $MODULE_UPPER_DIR/$MODULE-stock.$BEXT >>$OUTPUT 2>&1
                         cd $MODULE_UPPER_DIR >>$OUTPUT 2>&1
                         unsquashfs $MODULE-stock.$BEXT >>$OUTPUT 2>&1
@@ -3566,9 +3574,9 @@ function build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend
+                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
                     else
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend >>$OUTPUT 2>&1
+                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
                     fi
                     rm -f $MODULE_UPPER_DIR/miniosbuild.conf
                 fi
@@ -3632,7 +3640,7 @@ function build_modules() {
                     set -e
                 fi
 
-                if [ -f $MODULE_UPPER_DIR/.package ] && [ $PACKAGE_VARIANT = "frugal" ]; then
+                if [ -f $MODULE_UPPER_DIR/.package ] && [ $PACKAGE_VARIANT = "puzzle" ]; then
                     read_config $MODULE_UPPER_DIR/.package PACKAGE VERSION
                     MODULE_NUMBER=$(echo $MODULE | awk -F- '{ print $1 }')
                     MODULE_NAME="$MODULE_NUMBER-$PACKAGE-$VERSION"
@@ -3681,16 +3689,16 @@ function build_modules() {
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
                                 chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                             else
                                 if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                 else
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
                                 chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
@@ -3703,15 +3711,15 @@ function build_modules() {
                             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                                 if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                     fi
                                 else
                                     if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                                     else
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                     fi
                                 fi
                             else
@@ -3760,9 +3768,9 @@ function build_modules_live() {
             mkmod_corefs $MODULE_UPPER_DIR
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                 else
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
             else
                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
@@ -3783,11 +3791,11 @@ function repack_module() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
         mkmod_corefs squashfs-root
-        #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+        #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         if [ $COMP_TYPE = "zstd" ]; then
-            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
         else
-            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         fi
 
         rm -rf squashfs-root
@@ -3798,11 +3806,11 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-            #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+            #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
             else
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend || exit
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             fi
         fi
     fi
@@ -3852,8 +3860,8 @@ function download_sources() {
     current_process
 
     if [ ! -d /opt/minios-live ]; then
-        apt-get update >>$OUTPUT 2>&1 &&
-            apt-get install -y git >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+            apt-get $INSTALL_OPTIONS install git >>$OUTPUT 2>&1
         mkdir -p /opt
         cd /opt
         git clone --depth=1 https://github.com/minios-linux/minios-live.git >>$OUTPUT 2>&1
@@ -3921,6 +3929,7 @@ function container_run() {
             -e COMP_TYPE="$COMP_TYPE" \
             -e LOCALE="$LOCALE" \
             -e TIMEZONE="$TIMEZONE" \
+            -e INSTALL_OPTIONS="-y" \
             -e USER_NAME="live" \
             -e USER_PASSWORD="evil" \
             -e ROOT_PASSWORD="toor" \
@@ -3984,6 +3993,7 @@ function live_run() {
         COMP_TYPE="$COMP_TYPE" \
         LOCALE="$LOCALE" \
         TIMEZONE="$TIMEZONE" \
+        INSTALL_OPTIONS="-y" \
         USER_NAME="live" \
         USER_PASSWORD="evil" \
         ROOT_PASSWORD="toor" \

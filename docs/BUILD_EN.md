@@ -113,4 +113,4 @@ Then run the script: `create_symlinks.sh xfce-chromium` change **DESKTOP\_ENVIRO
 
 Let's say you've just built a system and you need to make changes to a module. In the folder **minios-live/build/bullseye-standard-amd64/image/minios** (for other options, the folder may be called differently), delete the module and all modules that are alphabetically located after it, then run the build:
 `./install build_modules -`
-For the version of Frugal for modules with serial numbers 10 and higher, it is not necessary to remove the modules located alphabetically after.
+For the version of Puzzle for modules with serial numbers 10 and higher, it is not necessary to remove the modules located alphabetically after.

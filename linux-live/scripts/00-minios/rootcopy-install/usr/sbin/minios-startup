@@ -545,7 +545,7 @@ if [ "$AUTOLOGIN" = "true" ]; then
     fi
     if [ -f /etc/lightdm/lightdm.conf ]; then
         sed -i "s/#autologin-user=/autologin-user=/g" /etc/lightdm/lightdm.conf
-        sed -i -e "/autologin-user=/s/=.*/=\"$USER_NAME\"/" /etc/lightdm/lightdm.conf
+        sed -i -e "/autologin-user=/s/=.*/=$USER_NAME/" /etc/lightdm/lightdm.conf
         sed -i "s/#autologin-user-timeout=/autologin-user-timeout=/g" /etc/lightdm/lightdm.conf
         sed -i -e "/autologin-user-timeout=/s/=.*/=0/" /etc/lightdm/lightdm.conf
     fi

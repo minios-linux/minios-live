@@ -5,7 +5,7 @@
 # дистрибутив
 # if Debian [stretch, buster, bullseye, bookworm, sid, kali-rolling, orel]
 # if Ubuntu [bionic, focal, jammy]
-DISTRIBUTION="buster"
+DISTRIBUTION="bullseye"
 
 # distribution arch
 # архитектура дистрибутива
@@ -14,19 +14,21 @@ DISTRIBUTION_ARCH="amd64"
 
 # окружение рабочего стола
 # desktop environment
-# [core, xfce, slax, xfce-frugal, xfce-frugal-base]
-DESKTOP_ENVIRONMENT="core"
+# [core, xfce, slax, xfce-puzzle, xfce-puzzle-base]
+DESKTOP_ENVIRONMENT="xfce"
 
 # system variant, indicates the used list of packages in modules
 # вариант системы, указывает на используемый список пакетов в модулях
-# [cloud, minimum, standard, maximum, ultra, frugal]
-PACKAGE_VARIANT="cloud"
+# [cloud, minimum, standard, maximum, ultra, puzzle]
+PACKAGE_VARIANT="standard"
 
 # тип сжатия
 # compresssion type
 # stretch: [xz, lzo, gz]
 # buster+: [xz, lzo, gz, lz4, zstd]
-COMP_TYPE="xz"
+COMP_TYPE="zstd"
+
+INSTALL_OPTIONS="-y"
 
 ###########################
 
@@ -42,7 +44,7 @@ KERNEL_BPO="false"
 # Debian kernel with AUFS support
 # Ядро Debian с поддержкой AUFS
 # [true, false]
-KERNEL_AUFS="false"
+KERNEL_AUFS="true"
 
 # if "true", then additional drivers for wireless network adapters are compiled during kernel installation
 # если "true", то при установке ядра компилируются дополнительные драйверы для беспроводных сетевых адаптеров
@@ -69,7 +71,7 @@ MOVE_KERNEL="false"
 
 ##### LOCALE&TIMEZONE SETTINGS #####
 # [en_US, ru_RU]
-LOCALE="ru_RU"
+LOCALE="en_US"
 
 # Изменять часовой пояс необязательно, система автоматически определяет часовой пояс и устанавливает его по текущему местоположению при наличии доступа в Интернет.
 # It is not necessary to change the time zone, the system automatically determines the time zone and sets it to the current location if you have Internet access.
@@ -148,8 +150,8 @@ APT_OPTIONS="-y"
 
 # iso type
 # тип iso
-# [hybrid]
-BOOT_TYPE="bios"
+# [bios,hybrid]
+BOOT_TYPE="hybrid"
 
 # union type used to build the system
 # тип union, используемый для сборки системы

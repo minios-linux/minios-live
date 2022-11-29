@@ -18,7 +18,7 @@ function language_to_array() {
 }
 language_to_array
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
@@ -33,25 +33,25 @@ EOF
         #echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:${distro_codename}";' | tee /etc/apt/apt.conf.d/51unattended-upgrades-firefox
     fi
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         firefox >>$OUTPUT 2>&1
     if [ $LOCALE != "en_US" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             firefox-locale-${LANG[0]} >>$OUTPUT 2>&1
     fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         firefox-esr >>$OUTPUT 2>&1
     if [ $LOCALE != "en_US" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
     fi
 fi
 
-if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "frugal" ]; then
+if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
         mkdir -p /etc/skel/.config/xfce4
     fi

@@ -7,11 +7,9 @@ VERSION=1.3.5
 
 # first install stock version
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
-#wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
-
-apt-get install --no-install-recommends --yes \
+apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
     $NAME \
     feh \
     compton \
@@ -19,9 +17,7 @@ apt-get install --no-install-recommends --yes \
     murrine-themes \
     libnotify4 \
     scrot \
-    ./adwaita-icon-theme-antix >>$OUTPUT 2>&1
-
-#rm -f ./adwaita-icon-theme-antix_3.30.2~antix1_all.deb >>$OUTPUT 2>&1
+    adwaita-icon-theme-fake >>$OUTPUT 2>&1
 
 (cd /rootcopy-install && cp --parents -afr * /)
 

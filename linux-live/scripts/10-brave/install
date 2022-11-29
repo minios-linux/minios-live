@@ -10,15 +10,15 @@ APP_NAME="Brave Web Browser"
 APP_EXECUTABLE="brave-browser-stable"
 APP_MODULE_NUMBER="5"
 
-#apt-get update >>$OUTPUT 2>&1 &&
-#    apt-get install -y gnupg apt-transport-https >>$OUTPUT 2>&1
+#apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+#    apt-get $INSTALL_OPTIONS install gnupg apt-transport-https >>$OUTPUT 2>&1
 
 wget -qO- https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg | gpg --dearmor | dd of=/usr/share/keyrings/brave-browser-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
 
 # install packages
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y brave-browser >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+    apt-get $INSTALL_OPTIONS install brave-browser >>$OUTPUT 2>&1
 
 # Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then

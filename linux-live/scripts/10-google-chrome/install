@@ -10,8 +10,8 @@ APP_NAME="Google Chrome"
 APP_EXECUTABLE="google-chrome-stable"
 APP_MODULE_NUMBER="5"
 
-#apt-get update >>$OUTPUT 2>&1 &&
-#    apt-get install -y gnupg >>$OUTPUT 2>&1
+#apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+#    apt-get $INSTALL_OPTIONS install gnupg >>$OUTPUT 2>&1
 
 wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor >packages.google.gpg
 install -o root -g root -m 644 packages.google.gpg /etc/apt/trusted.gpg.d/
@@ -20,8 +20,8 @@ rm -f packages.google.gpg
 sh -c 'echo "deb [arch=amd64,i386,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.google.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >/etc/apt/sources.list.d/google-chrome.list'
 
 # install packages
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y google-chrome-stable >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+    apt-get $INSTALL_OPTIONS install google-chrome-stable >>$OUTPUT 2>&1
 
 # Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
@@ -29,7 +29,7 @@ if [ ! -d /etc/$APP.d/ ]; then
 fi
 echo "export ${APP^^}_FLAGS=\"${APP^^}_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1\"" >>/etc/$APP.d/default-flags
 
-if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "frugal" ]; then
+if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
         mkdir -p /etc/skel/.config/xfce4
     fi

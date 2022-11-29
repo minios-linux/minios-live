@@ -10,8 +10,8 @@ APP_NAME="Virtual Machine Manager"
 APP_GROUP="libvirt"
 
 # install packages
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y \
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+    apt-get $INSTALL_OPTIONS install \
         qemu-kvm \
         libvirt-clients \
         libvirt-daemon-system \
