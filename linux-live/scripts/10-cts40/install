@@ -9,8 +9,8 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 cd $SCRIPT_DIR
 wget https://ftp2.minios.dev/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb >>$OUTPUT 2>&1
 # install packages
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y $SCRIPT_DIR/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb libnss3-tools iptables >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+    apt-get $INSTALL_OPTIONS install $SCRIPT_DIR/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb libnss3-tools iptables >>$OUTPUT 2>&1
 rm -f $SCRIPT_DIR/cts-4.0.0-104.ks1_$DISTRIBUTION_ARCH.deb >>$OUTPUT 2>&1
 
 rm -f /etc/cts/.csum

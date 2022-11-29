@@ -35,16 +35,16 @@ if [ $DISTRIBUTION_ARCH = "amd64" ] && [ $DISTRIBUTION = "orel" ]; then
 fi
 
 if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]) && [ $KERNEL_AUFS = "true" ]; then
-    apt-get update >>$OUTPUT 2>&1
-    apt-get install -y $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-    apt-get install -y $BPO aufs-dkms >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install $BPO aufs-dkms >>$OUTPUT 2>&1
 fi
 if [ "$KERNEL_BUILD_DKMS" != "false" ]; then
     wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
     wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-    apt-get install -y ./*.deb
+    apt-get $INSTALL_OPTIONS install ./*.deb
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         cat <<EOF >/etc/apt/sources.list.d/mx.list
 # MX Community Main and Test Repos
@@ -64,54 +64,54 @@ EOF
 deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
 EOF
     fi
-    apt-get update >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         if [ $DISTRIBUTION = "orel" ]; then
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
         elif [ $KERNEL_AUFS = "true" ] && ([ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION != "buster" ]); then
             if [ $KERNEL_TYPE = "default" ]; then
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             else
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             fi
         else
             if [ $KERNEL_TYPE = "default" ]; then
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             else
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y $BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             fi
         fi
     elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         if [ $KERNEL_AUFS = "true" ]; then
             if [ $KERNEL_TYPE = "default" ]; then
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             else
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             fi
         else
-            apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
         fi
     fi
 
-    apt-get install -y $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
 
-    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "frugal" ]) && [ $DISTRIBUTION_ARCH = "amd64" ] && ! { [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ] && ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]); }; then
+    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]) && [ $DISTRIBUTION_ARCH = "amd64" ] && ! { [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ] && ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]); }; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v >>$OUTPUT 2>&1
-        apt-get install -y $BPO zfs-dkms >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS install $BPO zfs-dkms >>$OUTPUT 2>&1
     fi
     if [ $DISTRIBUTION = "kali-rolling" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || ([ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO != "true" ]); then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             realtek-rtl8723cs-dkms \
             realtek-rtl88xxau-dkms \
             rtl8821ce-dkms \
@@ -119,7 +119,7 @@ EOF
             >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO = "true" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             realtek-rtl8723cs-dkms \
             rtl8821ce-dkms \
             >>$OUTPUT 2>&1
@@ -129,7 +129,7 @@ EOF
         wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8188eus-dkms/realtek-rtl8188eus-dkms_5.3.9~git20220319.0958f29-0kali3_all.deb
         wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8723cs-dkms/realtek-rtl8723cs-dkms_0.0~git20210902.0fb0c24-0kali1_all.deb
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             ./realtek-rtl*.deb \
             rtl8821ce-dkms \
             >>$OUTPUT 2>&1
@@ -139,12 +139,12 @@ EOF
         wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8188eus-dkms/realtek-rtl8188eus-dkms_5.3.9~git20220319.0958f29-0kali3_all.deb
         wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8723cs-dkms/realtek-rtl8723cs-dkms_0.0~git20210902.0fb0c24-0kali1_all.deb
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             ./realtek-rtl*.deb \
             rtl8821ce-dkms \
             >>$OUTPUT 2>&1
     else
-        #apt-get install -y git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
+        #apt-get $INSTALL_OPTIONS install git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
         git clone https://github.com/aircrack-ng/rtl8812au
         cd rtl8812au
         #sed -i "1140s/.*/KVER  := $KERNEL/g" ./Makefile
@@ -182,10 +182,10 @@ EOF
     fi
     if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]) && [ $KERNEL_BPO != "true" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y virtualbox-guest-dkms >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install virtualbox-guest-dkms >>$OUTPUT 2>&1
     else
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y genisoimage >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install genisoimage >>$OUTPUT 2>&1
         TARGET_VER=$KERNEL
         export TARGET_VER
         VBOX_VER=$(curl https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT)

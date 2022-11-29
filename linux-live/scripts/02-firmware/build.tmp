@@ -45,35 +45,35 @@ EOF
 deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
 EOF
         fi
-        apt-get update >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
         if [ $DISTRIBUTION_TYPE = "debian" ]; then
             if [ $DISTRIBUTION = "orel" ]; then
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             else
                 DEBIAN_FRONTEND=noninteractive \
-                    apt-get install -y $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
             fi
         elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-            apt-get install -y linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
         fi
 
-        apt-get install -y $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS install $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
         if [ $DISTRIBUTION = "kali-rolling" ]; then
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
+                apt-get $INSTALL_OPTIONS install realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
         elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
+                apt-get $INSTALL_OPTIONS install \
                 rtl8812au-dkms \
                 rtl8821ce-dkms \
                 rtl8821cu-dkms >>$OUTPUT 2>&1
         elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "#sid" ]; then
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
+                apt-get $INSTALL_OPTIONS install \
                 rtl8821ce-dkms >>$OUTPUT 2>&1
         else
-            #apt-get install -y git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
+            #apt-get $INSTALL_OPTIONS install git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
             git clone https://github.com/aircrack-ng/rtl8812au
             cd rtl8812au
             #sed -i "1140s/.*/KVER  := $KERNEL/g" ./Makefile
@@ -99,7 +99,7 @@ EOF
         fi
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "#sid" ]; then
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y virtualbox-guest-dkms >>$OUTPUT 2>&1
+                apt-get $INSTALL_OPTIONS install virtualbox-guest-dkms >>$OUTPUT 2>&1
         else
             TARGET_VER=$KERNEL
             export TARGET_VER

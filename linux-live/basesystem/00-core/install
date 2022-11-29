@@ -74,40 +74,40 @@ echo "console-setup   console-setup/fontsize-text47   select  8x16" | debconf-se
 echo "openssh-server  openssh-server/password-authentication  boolean true" | debconf-set-selections -v >>$OUTPUT 2>&1
 echo "openssh-server  openssh-server/permit-root-login        boolean false" | debconf-set-selections -v >>$OUTPUT 2>&1
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g;/davfs2/d;s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bullseye" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/exfat-utils/exfatprogs/g" | tr "\n" " ") fuse3 >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "buster" ]; then
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/cockpit-podman/cockpit-docker/g;s/podman/docker/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "stretch" ]; then
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g;" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "bionic" ]; then
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g;s/acpi-support-base/acpi-support/g" | tr "\n" " ") >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") netplan.io >>$OUTPUT 2>&1
     else
         #if [ $KERNEL_TYPE = "aufs" ] || [ $KERNEL_TYPE = "none" ]; then
         if [ $KERNEL_TYPE = "none" ]; then
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
+                apt-get $INSTALL_OPTIONS install \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/zfsutils-linux/d" | tr "\n" " ") >>$OUTPUT 2>&1
         else
             DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y \
+                apt-get $INSTALL_OPTIONS install \
                 $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
         fi
     fi
@@ -116,46 +116,46 @@ fi
 # install packages
 if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         zstd >>$OUTPUT 2>&1
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             liblz4-tool >>$OUTPUT 2>&1
     else
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             lz4 >>$OUTPUT 2>&1
     fi
 fi
 
 # install packages
-if ([ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "stretch" ]) || [ $PACKAGE_VARIANT = "cloud1" ]; then
+if ([ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "stretch" ]) || [ $PACKAGE_VARIANT = "tiny" ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         isc-dhcp-client >>$OUTPUT 2>&1
 elif [ $DESKTOP_ENVIRONMENT = "slax" ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         connman >>$OUTPUT 2>&1
 else
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         network-manager >>$OUTPUT 2>&1
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         cpio >>$OUTPUT 2>&1
 fi
 
-if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "jammy" ] || ([ $DISTRIBUTION = "buster" ] && [ $KERNEL_BPO = "true" ]) || ([ $DISTRIBUTION = "focal" ] && [ $KERNEL_AUFS = "true" ]); then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
-        selinux-policy-default >>$OUTPUT 2>&1
-    sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
-fi
+#if ([ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "jammy" ] || ([ $DISTRIBUTION = "buster" ] && [ $KERNEL_BPO = "true" ]) || ([ $DISTRIBUTION = "focal" ] && [ $KERNEL_AUFS = "true" ])) && [ $PACKAGE_VARIANT != "tiny" ]; then
+#    DEBIAN_FRONTEND=noninteractive \
+#        apt-get $INSTALL_OPTIONS install \
+#        selinux-policy-default >>$OUTPUT 2>&1
+#    sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
+#fi
 
 if [ -d /etc/NetworkManager ]; then
     if [ ! -d /etc/NetworkManager/dispatcher.d ]; then
@@ -176,13 +176,13 @@ EOF
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get autoremove -y linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS autoremove linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
 fi
 
 if [ $KERNEL_TYPE != "none" ]; then
     if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y wireguard wireguard-tools
+            apt-get $INSTALL_OPTIONS install wireguard wireguard-tools
     fi
 fi
 
@@ -300,7 +300,7 @@ fi
 if [ $DISTRIBUTION = "bullseye" ]; then
     if grep -q podman $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
         wget http://ftp.debian.org/debian/pool/main/p/podman-compose/podman-compose_1.0.3-2_all.deb
-        apt-get install -y ./podman-compose_1.0.3-2_all.deb
+        apt-get $INSTALL_OPTIONS install ./podman-compose_1.0.3-2_all.deb
         rm -f ./podman-compose_1.0.3-2_all.deb
         cat <<EOF >>/etc/containers/registries.conf
 
@@ -328,7 +328,9 @@ EOF
 fi
 
 # configure locales
-sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen >>$OUTPUT 2>&1
+if [ -f /etc/locale.gen ]; then
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen >>$OUTPUT 2>&1
+fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     cat >/etc/default/keyboard <<'EOF'

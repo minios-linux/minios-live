@@ -9,17 +9,17 @@ APP="virtualbox"
 APP_NAME="VirtualBox"
 APP_GROUP="vboxusers"
 
-apt-get update >>$OUTPUT 2>&1
-apt-get install -y fasttrack-archive-keyring >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS install fasttrack-archive-keyring >>$OUTPUT 2>&1
 echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-fasttrack main contrib" >/etc/apt/sources.list.d/fasttrack.list
 echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-backports-staging main contrib" >>/etc/apt/sources.list.d/fasttrack.list
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 if ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]) && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
-    apt-get install -y linux-headers-mos-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install linux-headers-mos-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
 else
-    apt-get install -y linux-headers-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install linux-headers-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
 fi
-apt-get install -y virtualbox-qt >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS install virtualbox-qt >>$OUTPUT 2>&1
 
 cat <<EOF >/usr/bin/$APP-allowuser.sh
 #!/bin/bash

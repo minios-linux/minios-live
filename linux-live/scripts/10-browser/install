@@ -23,9 +23,9 @@ if [ $PACKAGE_VARIANT = "minimum1" ]; then
     fi
 
     # install packages
-    apt-get update >>$OUTPUT 2>&1 &&
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y palemoon >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install palemoon >>$OUTPUT 2>&1
 
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
         if [ ! -d /etc/skel/.config/xfce4 ]; then
@@ -50,9 +50,9 @@ EOF
     fi
     rm -rf /usr/share/minios/html
 elif [ $PACKAGE_VARIANT = "minimum2" ]; then
-    apt-get update >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         epiphany-browser gstreamer1.0-plugins-bad >>$OUTPUT 2>&1
     if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
         if [ ! -d /etc/skel/.config/xfce4 ]; then
@@ -94,19 +94,19 @@ application/xhtml+xml=org.gnome.Epiphany.desktop;
 EOF
     rm -rf /usr/share/minios/html
 else
-    apt-get update >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
     # install packages
     if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             firefox >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION_TYPE = "debian" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             firefox-esr >>$OUTPUT 2>&1
         if [ $LOCALE != "en_US" ]; then
-            apt-get install -y firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
         fi
     fi
 

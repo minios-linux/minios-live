@@ -1,11 +1,11 @@
 #!/bin/bash
 
-apt-get purge -y vim* grub* debconf-i18n installation-report >>$OUTPUT 2>&1
-apt-get autoremove -y
+apt-get $INSTALL_OPTIONS purge vim* grub* debconf-i18n installation-report >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS autoremove
 
 if [[ $DISTRIBUTION_TYPE != "ubuntu" || $PACKAGE_VARIANT != "cloud" ]]; then
     cd /tmp
-    apt -y update >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
     apt-get download acpi-support >>$OUTPUT 2>&1
     dpkg -x acpi-support*.deb /tmp/acpisupport >>$OUTPUT 2>&1
     if [ -L "/lib" ]; then

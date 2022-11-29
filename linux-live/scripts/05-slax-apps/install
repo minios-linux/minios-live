@@ -20,14 +20,14 @@ else
     exit 0
 fi
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 #wget https://github.com/minios-linux/packages/releases/download/v1.0/mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb
 #wget https://github.com/minios-linux/packages/releases/download/v1.0/pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb
-#apt-get install --no-install-recommends --yes \
+#apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
 #    ./mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb \
 #    ./pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb \
-apt-get install --no-install-recommends --yes \
+apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
     mousepad \
     pcmanfm \
     galculator \
@@ -40,10 +40,10 @@ apt-get install --no-install-recommends --yes \
 #apt-mark hold pcmanfm mousepad
 
 if [ $DISTRIBUTION = "stretch" ]; then
-    apt-get install --no-install-recommends --yes \
+    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
         wicd >>$OUTPUT 2>&1
 else
-    apt-get install --no-install-recommends --yes \
+    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
         connman-gtk >>$OUTPUT 2>&1
 fi
 

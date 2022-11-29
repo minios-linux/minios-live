@@ -17,17 +17,17 @@ function language_to_array() {
 }
 language_to_array
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION = "stretch" ]; then
-    apt-get install -y chromium >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install chromium >>$OUTPUT 2>&1
 else
-    apt-get install -y \
+    apt-get $INSTALL_OPTIONS install \
         chromium chromium-sandbox >>$OUTPUT 2>&1
 fi
 if [ $LOCALE != "en_US" ]; then
-    apt-get install -y chromium-l10n >>$OUTPUT 2>&1
+    apt-get $INSTALL_OPTIONS install chromium-l10n >>$OUTPUT 2>&1
 fi
 
 # Everything below is universal for all browsers on the chromium engine
@@ -36,7 +36,7 @@ if [ ! -d /etc/$APP.d/ ]; then
 fi
 echo "export ${APP^^}_FLAGS=\"\$${APP^^}_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1\"" >>/etc/$APP.d/default-flags
 
-if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "frugal" ]; then
+if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
         mkdir -p /etc/skel/.config/xfce4
     fi

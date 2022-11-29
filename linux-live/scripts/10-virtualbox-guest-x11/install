@@ -26,16 +26,16 @@ wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring
 wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
 wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
 wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-apt-get install -y ./*.deb
+apt-get $INSTALL_OPTIONS install ./*.deb
 rm ./*.deb
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package

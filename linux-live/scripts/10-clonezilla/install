@@ -16,13 +16,13 @@ language_to_array
 #wget -q http://drbl.sourceforge.net/GPG-KEY-DRBL -O- | apt-key add -
 #echo "deb http://drbl.sourceforge.net/drbl-core drbl stable" >/etc/apt/sources.list.d/drbl.list
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package

@@ -13,26 +13,26 @@ function language_to_array() {
 }
 language_to_array
 
-apt-get update >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y \
+        apt-get $INSTALL_OPTIONS install \
         $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
 fi
 if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports libssh-4/$DISTRIBUTION-backports >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "buster" ]; then
+    elif [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports >>$OUTPUT 2>&1
     else
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
+            apt-get $INSTALL_OPTIONS install \
             remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
     fi
 fi
@@ -101,7 +101,7 @@ update-icon-caches /usr/share/icons/*'
 if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     if [ $LOCALE != "en_US" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y vlc-l10n >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install vlc-l10n >>$OUTPUT 2>&1
     fi
 fi
 if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
@@ -119,7 +119,7 @@ FileManager=Thunar
 WebBrowser=
 
 EOF
-elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "frugal" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

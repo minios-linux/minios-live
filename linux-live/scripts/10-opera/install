@@ -10,15 +10,15 @@ APP_NAME="Opera"
 APP_EXECUTABLE="opera"
 APP_MODULE_NUMBER="5"
 
-apt-get update >>$OUTPUT 2>&1 #&&
-#apt-get install -y gnupg apt-transport-https >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 #&&
+#apt-get $INSTALL_OPTIONS install gnupg apt-transport-https >>$OUTPUT 2>&1
 
 wget -qO- https://deb.opera.com/archive.key | gpg --dearmor | dd of=/usr/share/keyrings/opera-browser.gpg
 echo "deb [signed-by=/usr/share/keyrings/opera-browser.gpg] https://deb.opera.com/opera-stable/ stable non-free" | sudo dd of=/etc/apt/sources.list.d/opera-archive.list
 
 # install packages
-apt-get update >>$OUTPUT 2>&1 &&
-    apt-get install -y opera-stable >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
+    apt-get $INSTALL_OPTIONS install opera-stable >>$OUTPUT 2>&1
 
 # Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
@@ -26,7 +26,7 @@ if [ ! -d /etc/$APP.d/ ]; then
 fi
 echo "export ${APP^^}_FLAGS=\"${APP^^}_FLAGS --disk-cache-dir=/dev/null --disk-cache-size=1\"" >>/etc/$APP.d/default-flags
 
-if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "frugal" ]; then
+if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
         mkdir -p /etc/skel/.config/xfce4
     fi
