@@ -26,3 +26,13 @@ LANG="$LOCALE.UTF-8"
 EOF
     fi
 fi
+
+if [ -f /etc/resolv.conf ]; then
+    if [ ! -L /etc/resolv.conf ]; then
+        cat <<EOF >/etc/resolv.conf
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+
+EOF
+    fi
+fi

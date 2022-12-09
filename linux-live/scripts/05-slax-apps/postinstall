@@ -1,0 +1,8 @@
+#!/bin/bash
+
+CWD=$(dirname $(readlink -f $0))
+
+if [ $LOCALE = "ru_RU" ]; then
+    # Apps
+    sed -i "s/Name=Archiver/Name=Архиватор/g" /usr/share/applications/xarchiver.desktop
+fi
