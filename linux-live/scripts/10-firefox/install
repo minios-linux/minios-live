@@ -17,12 +17,14 @@ function language_to_array() {
     LANG=($LOCALE)
 }
 language_to_array
-
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+DEBIAN_FRONTEND=noninteractive \
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     if [ $DISTRIBUTION = "jammy" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install software-properties-common >>$OUTPUT 2>&1
         DEBIAN_FRONTEND=noninteractive \
             add-apt-repository ppa:mozillateam/ppa >>$OUTPUT 2>&1
         cat <<EOF >/etc/apt/preferences.d/mozilla-firefox

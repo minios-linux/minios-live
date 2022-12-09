@@ -17,7 +17,7 @@ apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
     murrine-themes \
     libnotify4 \
     scrot \
-    adwaita-icon-theme-fake >>$OUTPUT 2>&1
+    adwaita-icon-theme-antix >>$OUTPUT 2>&1
 
 (cd /rootcopy-install && cp --parents -afr * /)
 
@@ -27,3 +27,34 @@ if [ $DISTRIBUTION = "stretch" ]; then
 fi
 
 rm -f /usr/share/applications/5chromium.desktop
+
+if [ $LOCALE = "ru_RU" ]; then
+    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
+        fbxkb >>$OUTPUT 2>&1
+    # Locale
+    echo 'LC_ALL="ru_RU.UTF-8"
+    ' >/etc/profile.d/locale_ru.sh
+    sed -i '37G' /etc/skel/.fluxbox/startup
+    sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
+    sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
+    # Fluxbox menu
+    sed -i "s/Desktop menu/Меню рабочего стола/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Terminal/Терминал/g" /etc/skel/.fluxbox/menu
+    sed -i "s/File Manager/Менеджер файлов/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Web Browser/Браузер/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Text Editor/Текстовый редактор/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Calculator/Калькулятор/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Network Manager/Менеджер сети/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Run/Запустить/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Workspaces                .../Рабочие пространства    .../g" /etc/skel/.fluxbox/menu
+    sed -i "s/Screen resolution         .../Разрешение экрана       .../g" /etc/skel/.fluxbox/menu
+    sed -i "s/Keyboard layout           .../Раскладка клавиатуры    .../g" /etc/skel/.fluxbox/menu
+    sed -i "s/Exit \/ Logout/Выход/g" /etc/skel/.fluxbox/menu
+    sed -ie '15d;17,21d;23,64d' /etc/skel/.fluxbox/menu
+    sed -ie '3d;5,7d' /etc/skel/.fluxbox/menu
+    # Apps
+    sed -i "s/Name=Terminal/Name=Терминал/g" /usr/share/applications/1terminal.desktop
+    sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5chromium.desktop
+    sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5firefox.desktop
+    sed -i "s/Name=Video Player/Name=Видео-плеер/g" /usr/share/applications/videoplayer.desktop
+fi
