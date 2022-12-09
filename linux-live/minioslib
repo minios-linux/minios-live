@@ -1693,6 +1693,8 @@ function build_live() {
     #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+    elif [ $COMP_TYPE = "xz" ]; then
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
     else
         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
     fi
@@ -1836,11 +1838,11 @@ EOF
         RAM_SETTINGS="slax.flags=toram"
     elif [ $INITRD_TYPE = "uird" ]; then
         if [ $KERNEL_AUFS = "true" ] || ([ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ]); then
-            PERCH_SETTINGS=""
+            PERCH_SETTINGS="uird.mode=changes"
             LIVE_SETTINGS="uird.mode=clean"
             RAM_SETTINGS="uird.copy2ram"
         else
-            PERCH_SETTINGS="uird.union=overlay"
+            PERCH_SETTINGS="uird.union=overlay uird.mode=changes"
             LIVE_SETTINGS="uird.union=overlay uird.mode=clean"
             RAM_SETTINGS="uird.union=overlay uird.copy2ram"
         fi
@@ -1925,7 +1927,7 @@ set message="Loading kernel and ramdisk..."
 
 EOF
     fi
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ]; then
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
@@ -2102,7 +2104,7 @@ function build_iso() {
 
     language_to_array
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-${LANG[0]}-$INITRD_TYPE_SUFFIX
     else
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE_SUFFIX
@@ -3278,8 +3280,13 @@ function export_kernel() {
             if [ ! -d $KERNEL_DIR ]; then
                 mkdir -p $KERNEL_DIR
             fi
-            if [ -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT ]; then
-                cp $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT $KERNEL_DIR
+            if [ $KERNEL_BUILD_DKMS = "true" ]; then
+                KERNEL_MODULE_NAME=$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
+            else
+                KERNEL_MODULE_NAME=$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
+            fi
+            if [ -f $WORK_DIR/image/$LIVEKITNAME/$KERNEL_MODULE_NAME ]; then
+                cp $WORK_DIR/image/$LIVEKITNAME/$KERNEL_MODULE_NAME $KERNEL_DIR
                 if [ $NAMED_BOOT_FILES = "true" ]; then
                     cp $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME $KERNEL_DIR
                     cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR
@@ -3569,12 +3576,37 @@ function build_modules() {
                         if ls vmlinuz*; then
                             rm vmlinuz*
                         fi
-                        rm -Rf boot dev etc proc run sys tmp var/lib/apt
+                        if [ $KERNEL_MODULES_ONLY = "true" ]; then
+                            bash -c "
+                            shopt -s extglob
+                            rm -rf !(usr)
+                            cd $MODULE_UPPER_DIR/squashfs-root/usr
+                            rm -Rf !(lib)
+                            cd $MODULE_UPPER_DIR/squashfs-root/usr/lib
+                            rm -Rf !(modules)
+                            cd $MODULE_UPPER_DIR/squashfs-root
+                            shopt -u extglob
+                            "
+                        else
+                            rm -Rf boot dev etc proc run sys tmp var/lib/apt
+                        fi
                     fi
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
+                        if [ $COMP_TYPE = "zstd" ]; then
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                        elif [ $COMP_TYPE = "xz" ]; then
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
+                        else
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                        fi
                     else
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+                        if [ $COMP_TYPE = "zstd" ]; then
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        elif [ $COMP_TYPE = "xz" ]; then
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        else
+                            chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                        fi
                     fi
                     rm -f $MODULE_UPPER_DIR/miniosbuild.conf
                 fi
@@ -3653,14 +3685,23 @@ function build_modules() {
                 # run external actions
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
                     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-                        cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                        if [ $KERNEL_BUILD_DKMS = "true" ]; then
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                        else
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                        fi
                     else
                         cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                     fi
                 elif [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
                     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-                        cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
-                        chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
+                        if [ $KERNEL_BUILD_DKMS = "true" ]; then
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                            chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
+                        else
+                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
+                            chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
+                        fi
                     else
                         cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT >>$OUTPUT 2>&1
                         chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
@@ -3686,15 +3727,30 @@ function build_modules() {
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-                                if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                if [ $KERNEL_BUILD_DKMS = "true" ]; then
+                                    if [ $COMP_TYPE = "zstd" ]; then
+                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    elif [ $COMP_TYPE = "xz" ]; then
+                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
+                                    else
+                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    fi
+                                    chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
                                 else
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    if [ $COMP_TYPE = "zstd" ]; then
+                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    elif [ $COMP_TYPE = "xz" ]; then
+                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
+                                    else
+                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+                                    fi
+                                    chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                                 fi
-                                chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                             else
                                 if [ $COMP_TYPE = "zstd" ]; then
                                     time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                elif [ $COMP_TYPE = "xz" ]; then
+                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
                                 else
                                     time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                 fi
@@ -3711,12 +3767,16 @@ function build_modules() {
                                     if [ $KERNEL_BUILD_DKMS = "true" ]; then
                                         if [ $COMP_TYPE = "zstd" ]; then
                                             time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        elif [ $COMP_TYPE = "xz" ]; then
+                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
                                         else
                                             time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                         fi
                                     else
                                         if [ $COMP_TYPE = "zstd" ]; then
                                             time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                        elif [ $COMP_TYPE = "xz" ]; then
+                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
                                         else
                                             time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                         fi
@@ -3724,6 +3784,8 @@ function build_modules() {
                                 else
                                     if [ $COMP_TYPE = "zstd" ]; then
                                         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                                    elif [ $COMP_TYPE = "xz" ]; then
+                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
                                     else
                                         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                                     fi
@@ -3775,6 +3837,8 @@ function build_modules_live() {
             if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
                     time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+                elif [ $COMP_TYPE = "xz" ]; then
+                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
                 else
                     time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
                 fi
@@ -3796,16 +3860,18 @@ function repack_module() {
     fi
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
-        mkmod_corefs squashfs-root
+        mkmod_corefs $WORK_DIR/image/$LIVEKITNAME/squashfs-root
         #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         if [ $COMP_TYPE = "zstd" ]; then
-            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+        elif [ $COMP_TYPE = "xz" ]; then
+            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
         else
-            time mksquashfs $COREFS $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
+            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         fi
 
-        rm -rf squashfs-root
-        rm -f $OLD_MODULE
+        rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
+        rm -f $WORK_DIR/image/$LIVEKITNAME/$OLD_MODULE
     else
         if (ls $CURRENT_DIR/*.$BEXT | grep -q $MODULE 2>/dev/null); then
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
@@ -3815,6 +3881,8 @@ function repack_module() {
             #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
                 time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
+            elif [ $COMP_TYPE = "xz" ]; then
+                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
             else
                 time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             fi
@@ -3827,7 +3895,26 @@ function repack_modules() {
 
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         cd $WORK_DIR/image/$LIVEKITNAME/
+        for MODULE in *.$BEXT; do
+            if [ -d $WORK_DIR/image/$LIVEKITNAME/squashfs-root ]; then
+                rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
+            fi
+            echo "Repacking module $MODULE"
+            cd $WORK_DIR/image/$LIVEKITNAME
+            OLD_COMP_TYPE=$(unsquashfs -s $MODULE | grep Compression | awk -F" " '{ print $2 }')
+            repack_module
+        done
+    fi
+}
+
+# doesn't work, needs to be fixed
+function repack_modules1() { # old function
+    current_process
+
+    if [ $SCRIPT_DIR != "/usr/bin" ]; then
+        cd $WORK_DIR/image/$LIVEKITNAME/
         for MODULE in *; do
+            echo "!!!Repacking module $MODULE"
             if (ls ./*-xz.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
                 OLD_COMP_TYPE="xz"
                 repack_module
@@ -3966,6 +4053,7 @@ function container_run() {
             -e SKIP_SETUP_HOST="true" \
             -e DOWNLOAD_SOURCES="false" \
             -e REMOVE_DPKG_DB="false" \
+            -e KERNEL_MODULES_ONLY="true" \
             -e REMOVE_LARGE_ICONS="true" \
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="3" \
@@ -4030,6 +4118,7 @@ function live_run() {
         SKIP_SETUP_HOST="true" \
         DOWNLOAD_SOURCES="false" \
         REMOVE_DPKG_DB="false" \
+        KERNEL_MODULES_ONLY="true" \
         REMOVE_LARGE_ICONS="true" \
         FILTER_MODULES="false" \
         FILTER_LEVEL="3" \
