@@ -1,0 +1,12 @@
+. /etc/minios/minios.conf || exit 1
+lxpanel &
+sudo modprobe usbip_core
+sudo modprobe usbip_host
+usbip $USBIP_PARAMS &
+while :; do
+	if ping -c 1 $RDP_ADDRESS; then
+		xfreerdp /v:$RDP_ADDRESS:$RDP_PORT $RDP_PARAMS
+	else
+		yad --text "Удалённый адрес недоступен. Свяжитесь с администратором или повторите попытку." --button="Повторить подключение" --width=450
+	fi
+done

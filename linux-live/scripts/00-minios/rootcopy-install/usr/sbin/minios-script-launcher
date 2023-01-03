@@ -3,6 +3,10 @@
 # Author: crims0n. <https://minios.dev>
 # Author: Patrick Verner and Jason Vasquez
 
+exec 19>/var/log/minios/minios-script-launcher.log
+BASH_XTRACEFD=19
+set -x
+
 . /etc/minios/config || exit 1
 . /etc/minios/buildconfig || exit 1
 . /usr/lib/minioslib || exit 1
@@ -54,8 +58,8 @@ _script_list() {
 
 script_list() { _script_list $1 $2; }
 
-if [ "$scripts" != "no" ]; then
-    if $(ls $MEDIA/scripts/* 2>/dev/null); then
+if [ "$scripts" != "false" ]; then
+    if ls $MEDIA/scripts/* 2>/dev/null; then
         script_list $MEDIA
         [ -n "$FX" ] && echo -e "${ENDCOLOR}"
     fi

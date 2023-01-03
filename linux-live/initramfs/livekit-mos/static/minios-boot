@@ -22,8 +22,6 @@ set -x
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 CONFIG=/etc/minios/config
 BUILDCONFIG=/etc/minios/buildconfig
-MINIOSCONFIG=/etc/$LIVEKITNAME/$LIVEKITNAME.conf
-
 if [ -f /cmdline ]; then
     CMDLINE=$(cat /cmdline)
     read_cmdline $CMDLINE
@@ -33,6 +31,7 @@ if [ -f $CONFIG ]; then
 else
     LIVEKITNAME="minios"
 fi
+MINIOSCONFIG=/etc/minios/$LIVEKITNAME.conf
 
 if [ -z "$CLOUD" ]; then
     if [ -f $MINIOSCONFIG ]; then
@@ -48,6 +47,20 @@ if [ "$CLOUD" = "true" ]; then
     USER_NAME="root"
     DEFAULT_TARGET="multi-user"
     systemctl enable ssh
+fi
+
+if [ -z "$DEFAULT_TARGET" ]; then
+    if [ -f $MINIOSCONFIG ]; then
+        read_config $MINIOSCONFIG DEFAULT_TARGET
+        if [ -z "$DEFAULT_TARGET" ]; then
+            DEFAULT_TARGET="graphical"
+        fi
+    else
+        DEFAULT_TARGET="graphical"
+    fi
+fi
+if [ -n "$DEFAULT_TARGET" ]; then
+    systemctl set-default $DEFAULT_TARGET
 fi
 
 if [ -z "$ENABLE_SERVICES" ]; then
@@ -96,6 +109,9 @@ if [ -z "$AUTOLOGIN" ]; then
         AUTOLOGIN="true"
     fi
 fi
+
+read_config $MINIOSCONFIG USER_NAME
+
 if [ $AUTOLOGIN = "true" ]; then
     if [ -f /usr/lib/systemd/system/xorg.service ]; then
         cat <<EOF >/usr/lib/systemd/system/xorg.service
@@ -111,59 +127,11 @@ EOF
     fi
 fi
 
-if [ -z "$SCRIPTS" ]; then
-    SCRIPTS="interactive"
-fi
-if [ "$SCRIPTS" = "true" ]; then
-    SCRIPTS="interactive"
-fi
-if [ -n "$1" ] && [ "$SCRIPTS" != "false" ]; then
-    if [ "$SCRIPTS" = "background" ]; then
-        cat <<EOF >/usr/lib/systemd/system/minios-script-launcher.service
-[Unit]
-Description=MiniOS script launcher service
-After=minios-startup.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/minios-script-launcher
-RemainAfterExit=true
-StandardOutput=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    elif [ "$SCRIPTS" = "interactive" ]; then
-        cat <<EOF >/usr/lib/systemd/system/minios-script-launcher.service
-[Unit]
-Description=MiniOS script launcher service
-After=minios-startup.service
-
-[Service]
-Type=oneshot
-TTYPath=/dev/tty2
-ExecStartPre=/usr/bin/chvt 2
-ExecStart=/usr/bin/minios-script-launcher
-ExecStartPost=/usr/bin/chvt 1
-TimeoutStartSec=0
-StandardInput=tty
-TTYVHangup=yes
-TTYVTDisallocate=yes
-RemainAfterExit=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        DEFAULT_TARGET="multi-user"
-    fi
-    systemctl enable minios-script-launcher
-fi
-
 if [ -f /usr/bin/x11vnc ]; then
     sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" /usr/lib/systemd/system/x11vnc.service
 fi
 
 echo ""
-echo "/etc/$LIVEKITNAME/$LIVEKITNAME.conf configuration file contents:"
-cat /etc/$LIVEKITNAME/$LIVEKITNAME.conf
+echo "/etc/minios/$LIVEKITNAME.conf configuration file contents:"
+cat /etc/minios/$LIVEKITNAME.conf
 echo ""

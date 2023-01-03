@@ -407,3 +407,7 @@ fi
 
 #echo root:$ROOT_PASSWORD | chpasswd
 #echo $USER_NAME:$USER_PASSWORD | chpasswd
+
+wget -O /usr/bin/pacapt https://github.com/icy/pacapt/raw/ng/pacapt
+chmod 755 /usr/bin/pacapt
+ln -sv /usr/bin/pacapt /usr/bin/pacman || true

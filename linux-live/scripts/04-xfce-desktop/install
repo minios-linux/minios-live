@@ -7,16 +7,16 @@ set -u          # treat unset variable as error
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 function language_to_array() {
-  local IFS
-  IFS="_"
-  LANG=($LOCALE)
+    local IFS
+    IFS="_"
+    LANG=($LOCALE)
 }
 language_to_array
 
 apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 if [ $LOCALE != "en_US" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="keyboard-layout" version="1.0">
@@ -31,83 +31,58 @@ if [ $LOCALE != "en_US" ]; then
 </channel>
 
 EOF
-  if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get $INSTALL_OPTIONS install language-pack-gnome-$LANG-base >>$OUTPUT
-  fi
+    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        apt-get $INSTALL_OPTIONS install language-pack-gnome-$LANG-base >>$OUTPUT
+    fi
 fi
 
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 if [ $PACKAGE_VARIANT != "puzzle" ]; then
-  if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-      apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-fake >>$OUTPUT 2>&1
-    else
-      apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-antix >>$OUTPUT 2>&1
+    if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+        if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+            apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-fake >>$OUTPUT 2>&1
+        else
+            apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-antix >>$OUTPUT 2>&1
+        fi
     fi
-  fi
 
-  if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-    rm -f /usr/share/applications/yad-icon-browser.desktop
-  fi
+    if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+        rm -f /usr/share/applications/yad-icon-browser.desktop
+    fi
 fi
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-  if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-      apt-get $INSTALL_OPTIONS install \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
-  elif [ $DISTRIBUTION = "jammy" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-      apt-get $INSTALL_OPTIONS install \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome policykit-1-gnome >>$OUTPUT 2>&1
-  elif [ $DISTRIBUTION = "bookworm1" ] || [ $DISTRIBUTION = "kali-rolling1" ] || [ $DISTRIBUTION = "sid1" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-      apt-get $INSTALL_OPTIONS install \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
-  elif [ $DISTRIBUTION = "bionic" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-      apt-get $INSTALL_OPTIONS install \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/blueman/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
-  else
-    DEBIAN_FRONTEND=noninteractive \
-      apt-get $INSTALL_OPTIONS install \
-      $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
-  fi
+    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "jammy" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome policykit-1-gnome >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "bionic" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/blueman/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+    else
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+    fi
 fi
 
-: 'for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-    cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-    if [ -f accessories-calculator.png ]; then
-        ln -s accessories-calculator.png galculator.png
-    fi
-    if [ -f baobab.png ]; then
-        ln -s baobab.png org.gnome.baobab.png
-    elif [ -f org.gnome.baobab.png ]; then
-        ln -s org.gnome.baobab.png baobab.png
-    fi
-    if [ -f pdfshuffler.png ]; then
-        ln -s pdfshuffler.png com.github.jeromerobert.pdfarranger.png
-        ln -s pdfshuffler.png pdfarranger.png
-        ln -s pdfshuffler.png pdfmod.png
-    fi
-    if [ -f ../../status/$FOLDER/sync-synchronizing.png ]; then
-        ln -s ../../status/$FOLDER/sync-synchronizing.png grsync.png
-    fi
-    if [ -f ../../devices/$FOLDER/drive-harddisk.png ]; then
-        ln -s ../../devices/$FOLDER/drive-harddisk.png gsmartcontrol.png
-    fi
-done'
+if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
+    sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
+    sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
+    sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
+    sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
+    sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
+fi
 
-#update-icon-caches /usr/share/icons/*
-
-#if [ $PACKAGE_VARIANT = "maximum" ]; then
-#    wget http://ftp.debian.org/debian/pool/main/f/fonts-inter/fonts-inter_3.19+ds-2_all.deb
-#    wget http://ftp.debian.org/debian/pool/main/f/fonts-jetbrains-mono/fonts-jetbrains-mono_2.242+ds-2_all.deb
-#    apt-get $INSTALL_OPTIONS install ./fonts-jetbrains-mono*.deb ./fonts-inter*.deb
-#    rm -f ./fonts*.deb
 sed -i 's,<property name="FontName" type="empty"/>,<property name="FontName" type="string" value="Inter 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="MonospaceFontName" type="empty"/>,<property name="MonospaceFontName" type="string" value="JetBrains Mono 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" type="int" value="1"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
@@ -116,7 +91,7 @@ sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perc
 #fi
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="thunar" version="1.0">
@@ -142,25 +117,25 @@ EOF
 fi
 
 if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-  update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
 fi
 if [ -f /usr/share/applications/pavucontrol.desktop ]; then
-  rm -f /usr/share/applications/pavucontrol.desktop
+    rm -f /usr/share/applications/pavucontrol.desktop
 fi
 
 if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
-  if ! grep grep "Name\[ru\]" /usr/share/applications/nm-connection-editor.desktop; then
-    sed -i "7i Name\[ru\]=Расширенная конфигурация сети" /usr/share/applications/nm-connection-editor.desktop
-  fi
+    if ! grep -q "Name\[ru\]" /usr/share/applications/nm-connection-editor.desktop; then
+        sed -i "7i Name\[ru\]=Расширенная конфигурация сети" /usr/share/applications/nm-connection-editor.desktop
+    fi
 fi
 
 if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-  if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-    echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-  elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
-    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-  fi
-  cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
+        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
+        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    fi
+    cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
 button-single-row=false
@@ -243,7 +218,7 @@ regex=true
 
 EOF
 else
-  cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <channel name="xfce4-panel" version="1.0">
@@ -337,14 +312,14 @@ EOF
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
 WebBrowser=
 
 EOF
 elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
-  cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
 WebBrowser=
@@ -353,10 +328,207 @@ EOF
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
-  if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
-  else
-    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
-  fi
-  sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
+    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
+    else
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
+    fi
+    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
+fi
+
+rm -f /usr/share/backgrounds/xfce/*
+rm -f /usr/share/backgrounds/greybird.svg
+rm -f /usr/share/wallpapers/*
+if [ ! -d /usr/share/backgrounds/xfce ]; then
+    mkdir -p /usr/share/backgrounds/xfce
+fi
+
+for BACKGROUND in /usr/share/backgrounds/MiniOS*.svg; do
+    ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
+done
+if [ $DISTRIBUTION = "orel" ]; then
+    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "minimum" ]; then
+    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "standard" ]; then
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "maximum" ]; then
+    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "puzzle" ]; then
+    ln -s ../MiniOS-wallpaper-puzzle.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-puzzle.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+elif [ $PACKAGE_VARIANT = "ultra" ]; then
+    ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+    if [ $DISTRIBUTION =! "stretch" ] || [ $DISTRIBUTION != "buster" ]; then
+        sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+        sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+    fi
+else
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+fi
+
+if [ $PACKAGE_VARIANT = "minimum" ]; then
+    cat <<EOF >>/usr/share/applications/taskmanager.desktop
+[Desktop Entry]
+Name=Task Manager
+Name[ar]=مدير المهام
+Name[ast]=Xestor de xeres
+Name[be]=Кіраўнік задач
+Name[bg]=Мениджър на задачи
+Name[ca]=Gestor de tasques
+Name[cs]=Správce úloh
+Name[da]=Opgavehåndtering
+Name[de]=Taskmanager
+Name[el]=Διαχειριστής εργασιών
+Name[en_AU]=Task Manager
+Name[en_GB]=Task Manager
+Name[es]=Gestor de tareas
+Name[eu]=Zeregin kudeatzailea
+Name[fi]=Tehtävienhallinta
+Name[fr]=Gestionnaire de tâches
+Name[gl]=Xestor de tarefas
+Name[he]=מנהל משימות
+Name[hr]=Upravitelj zadacima
+Name[hu]=Feladatkezelő
+Name[id]=Manajer Tugas
+Name[is]=Verkefnastjóri
+Name[it]=Gestore dei processi
+Name[ja]=タスクマネージャー
+Name[kk]=Үрдістерді басқарушысы
+Name[ko]=작업 관리자
+Name[lt]=Užduočių tvarkytuvė
+Name[ms]=Pengurus Tugas
+Name[nb]=Oppgavebehandler
+Name[nl]=Taakbeheerder
+Name[oc]=Gestionari de prètzfaches
+Name[pl]=Menedżer zadań
+Name[pt]=Gestor de tarefas
+Name[pt_BR]=Gerenciador de tarefas
+Name[ru]=Диспетчер задач
+Name[sk]=Správca úloh
+Name[sl]=Upravljalnik nalog
+Name[sq]=Përgjegjës Aktesh
+Name[sr]=Управник задатака
+Name[sv]=Aktivitetshanterare
+Name[te]=కర్తవ్య నిర్వాహకం
+Name[th]=โปรแกรมจัดการทาสก์
+Name[tr]=Görev Yöneticisi
+Name[ug]=ۋەزىپە باشقۇرغۇ
+Name[uk]=Диспетчер задач
+Name[vi]=Quản lý tác vụ
+Name[zh_CN]=任务管理器
+Name[zh_HK]=工作管理員
+Name[zh_TW]=工作管理員
+Comment=Easy to use task manager
+Comment[ar]=من السهل إستخدام مدير المهام
+Comment[ast]=Xestor de xeres cenciellu d'usar
+Comment[be]=Зручны ў выкарыстанні кіраўнік задач
+Comment[bg]=Лесен за използване мениджър на задачи
+Comment[ca]=Gestor de tasques fàcil d'utilitzar
+Comment[cs]=Snadno použitelný správce úloh
+Comment[da]=Opgavehåndtering som er nem at bruge
+Comment[de]=Prozessverwaltung mit einfacher Bedienung
+Comment[el]=Εύκολος στην χρήση διαχειριστής διεργασιών
+Comment[en_AU]=Easy to use task manager
+Comment[en_GB]=Easy to use task manager
+Comment[es]=Un gestor de tareas fácil de usar
+Comment[eu]= Zeregin kudeatzaile erabilerraz bat da
+Comment[fi]=Helppokäyttöinen tehtävienhallinta
+Comment[fr]=Gestionnaire de tâches simple d’utilisation
+Comment[gl]=Xestor de tarefas fácil de usar
+Comment[he]=מנהל משימות קל לשימוש
+Comment[hr]=Lagan za korištenje upravitelj zadacima
+Comment[hu]=Egyszerűen használható feladatkezelő
+Comment[id]=Manajer tugas yang mudah digunakan
+Comment[is]=Einfaldur og auðveldur verkefnastjóri
+Comment[it]=Gestore dei processi di semplice utilizzo
+Comment[ja]=使いやすいタスクマネージャーです
+Comment[kk]=Жүйе үрдістерін ыңғайлы басқару
+Comment[ko]=쓰기 쉬운 작업관리자
+Comment[lt]=Lengvai naudojama užduočių tvarkytuvė
+Comment[ms]=Pengurus tugas yang mudah digunakan
+Comment[nb]=Lett å bruke oppgavebehandler
+Comment[nl]=Gemakkelijk te gebruiken taakbeheerder
+Comment[oc]=De bon utilizar : lo gestionari de prètzfaches
+Comment[pl]=Zarządza uruchomionymi procesami
+Comment[pt]=Gestor de tarefas fácil de usar
+Comment[pt_BR]=Um gerenciador de tarefas fácil de usar
+Comment[ru]=Простой диспетчер задач
+Comment[sk]=Správca úloh s jednoduchým používaním
+Comment[sl]=Enostaven upravljalnik nalog
+Comment[sq]=Përgjegjës aktesh i lehtë për t’u përdorur
+Comment[sr]=Управник задатака лак за коришћење
+Comment[sv]=Lättanvänd aktivitetshanterare
+Comment[te]=వాడుటకు సరళమైన కర్తవ్య నిర్వాహకం
+Comment[th]=โปรแกรมจัดการทาสก์สะดวกใช้
+Comment[tr]=Kullanımı kolay görev yöneticisi
+Comment[ug]=ئىشلىتىشكە ئەپلىك ۋەزىپە باشقۇرغۇ
+Comment[uk]=Простий у використанні диспетчер задач
+Comment[vi]=Trình quản lý tác vụ dễ dùng
+Comment[zh_CN]=易用的任务管理器
+Comment[zh_HK]=易用的工作管理員
+Comment[zh_TW]=易於使用的工作管理員
+GenericName=Task Manager
+GenericName[ar]=مدير المهام
+GenericName[ast]=Xestor de xeres
+GenericName[be]=Кіраўнік задач
+GenericName[bg]=Мениджър на задачи
+GenericName[ca]=Gestor de tasques
+GenericName[cs]=Správce úloh
+GenericName[da]=Opgavehåndtering
+GenericName[de]=Taskmanager
+GenericName[el]=Διαχειριστής εργασιών
+GenericName[en_AU]=Task Manager
+GenericName[en_GB]=Task Manager
+GenericName[es]=Gestor de tareas
+GenericName[eu]=Zeregin kudeatzailea
+GenericName[fi]=Tehtävienhallinta
+GenericName[fr]=Gestionnaire de tâches
+GenericName[gl]=Xestor de tarefas
+GenericName[he]=מנהל משימות
+GenericName[hr]=Upravitelj zadacima
+GenericName[hu]=Feladatkezelő
+GenericName[id]=Manajer Tugas
+GenericName[is]=Verkefnastjóri
+GenericName[it]=Gestore dei processi
+GenericName[ja]=タスクマネージャー
+GenericName[kk]=Үрдістерді басқарушысы
+GenericName[ko]=작업 관리자
+GenericName[lt]=Užduočių tvarkytuvė
+GenericName[ms]=Pengurus Tugas
+GenericName[nb]=Oppgavebehandler
+GenericName[nl]=Taakbeheerder
+GenericName[oc]=Gestionari de prètzfaches
+GenericName[pl]=Menedżer zadań
+GenericName[pt]=Gestor de tarefas
+GenericName[pt_BR]=Gerenciador de tarefas
+GenericName[ru]=Диспетчер задач
+GenericName[sk]=Správca úloh
+GenericName[sl]=Upravljalnik nalog
+GenericName[sq]=Përgjegjës Aktesh
+GenericName[sr]=Управник задатака
+GenericName[sv]=Aktivitetshanterare
+GenericName[te]=కర్తవ్య నిర్వాహకం
+GenericName[th]=โปรแกรมจัดการทาสก์
+GenericName[tr]=Görev Yöneticisi
+GenericName[ug]=ۋەزىپە باشقۇرغۇ
+GenericName[uk]=Диспетчер задач
+GenericName[vi]=Quản lý tác vụ
+GenericName[zh_CN]=任务管理器
+GenericName[zh_HK]=工作管理員
+GenericName[zh_TW]=工作管理員
+Exec=xterm -e 'htop'
+Icon=utilities-system-monitor
+Terminal=false
+StartupNotify=true
+Type=Application
+Categories=System;Utility;
+
+EOF
 fi

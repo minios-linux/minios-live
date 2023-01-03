@@ -82,5 +82,5 @@ dnsmasq --enable-tftp --tftp-root=/var/state/dnsmasq/root \
 --dhcp-option=3,$GW \
 --dhcp-range=$RANGE.2,$RANGE.250,infinite --log-dhcp
 
-# start HTTP server at port 7529 (that are the numbers you type on your phone to write 'minios')
+# start HTTP server at port 7529 (that are the numbers you type on your phone to write 'slax')
 busybox httpd -p 7529 -h /var/state/dnsmasq/root
