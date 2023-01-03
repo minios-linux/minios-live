@@ -592,11 +592,15 @@ check_data_found() {
 persistent_changes() {
    debug_log "persistent_changes" "$*"
 
-   local CHANGES T1 T2 EXISTS CHANGES_SIZE
+   local CHANGES T1 T2 EXISTS CHANGES_SIZE CHANGES_FILE
 
    CHANGES="$1/$(basename "$2")"
    T1="$CHANGES/.empty"
    T2="$T1"2
+   CHANGES_FILE="$(cmdline_value changes)"
+   if [ ! "$CHANGES_FILE" ]; then
+      CHANGES_FILE="changes.dat"
+   fi
 
    # Setup the directory anyway, it will be used in all cases
    mkdir -p "$2"
@@ -629,7 +633,7 @@ persistent_changes() {
    fi
 
    if grep -vq remove_changes /proc/cmdline; then
-      if [ -e "$CHANGES/changes.dat" ]; then
+      if [ -e "$CHANGES/$CHANGES_FILE" ]; then
          echo "* Restoring persistent changes"
          EXISTS="true"
       else
@@ -637,8 +641,8 @@ persistent_changes() {
          EXISTS=""
       fi
    else
-      if [ -f "$CHANGES/changes.dat" ]; then
-         rm -f "$CHANGES/changes.dat"
+      if [ -f "$CHANGES/$CHANGES_FILE" ]; then
+         rm -f "$CHANGES/$CHANGES_FILE"
       fi
       echo "* Creating new persistent changes"
       EXISTS=""
@@ -646,9 +650,9 @@ persistent_changes() {
 
    CHANGES_SIZE=$(cmdline_value changes_size)
    if [ ! "$CHANGES_SIZE" ]; then
-      @mount.dynfilefs "$CHANGES/changes.dat" 4000 "$2"
+      @mount.dynfilefs "$CHANGES/$CHANGES_FILE" 4000 "$2"
    else
-      @mount.dynfilefs "$CHANGES/changes.dat" $CHANGES_SIZE "$2"
+      @mount.dynfilefs "$CHANGES/$CHANGES_FILE" $CHANGES_SIZE "$2"
    fi
    if [ ! "$EXISTS" ]; then
       mke2fs -F "$2/loop.fs" >/dev/null 2>&1
@@ -828,7 +832,12 @@ fstab_create() {
 minios_boot() {
    debug_log "minios_boot" "$*"
 
+   if grep -q static_profiles /proc/cmdline; then
+      return
+   fi
+
    local WRITABLE SSH_KEY
+
    SSH_KEY=$(cmdline_value ssh_key)
 
    cp /bin/minios-boot $1/
@@ -847,8 +856,8 @@ minios_boot() {
          fi
       fi
       if [ -f $2/$LIVEKITNAME.conf ]; then
-         if [ ! -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
-            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
+         if [ ! -f $1/etc/minios/$LIVEKITNAME.conf ]; then
+            cp -fp $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
          fi
       fi
       if [ -f $2/$SSH_KEY ]; then
@@ -862,19 +871,19 @@ minios_boot() {
    else
       WRITABLE="true"
       if [ -d $2/$LIVEKITNAME ]; then
-         if [ -f $2/$LIVEKITNAME.conf ] && [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
-            if [ "$2/$LIVEKITNAME.conf" -nt "$1/etc/$LIVEKITNAME/$LIVEKITNAME.conf" ]; then
-               cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
-            elif [ "$2/$LIVEKITNAME.conf" -ot "$1/etc/$LIVEKITNAME/$LIVEKITNAME.conf" ]; then
-               cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+         if [ -f $2/$LIVEKITNAME.conf ] && [ -f $1/etc/minios/$LIVEKITNAME.conf ]; then
+            if [ "$2/$LIVEKITNAME.conf" -nt "$1/etc/minios/$LIVEKITNAME.conf" ]; then
+               cp -fp $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
+            elif [ "$2/$LIVEKITNAME.conf" -ot "$1/etc/minios/$LIVEKITNAME.conf" ]; then
+               cp -fp $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
             fi
          elif [ -f $2/$LIVEKITNAME.conf ]; then
-            cp -fp $2/$LIVEKITNAME.conf $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf
-         elif [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
-            cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+            cp -fp $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
+         elif [ -f $1/etc/minios/$LIVEKITNAME.conf ]; then
+            cp -fp $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
          fi
          if [ -z $SSH_KEY ]; then
-            SSH_KEY=$(config_value $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf SSH_KEY)
+            SSH_KEY=$(config_value $1/etc/minios/$LIVEKITNAME.conf SSH_KEY)
             if [ -z $SSH_KEY ]; then
                SSH_KEY="authorized_keys"
             fi
@@ -909,8 +918,8 @@ minios_boot() {
    fi
 
    if [ "$WRITABLE" = "true" ]; then
-      if [ -f $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf ]; then
-         cp -fp $1/etc/$LIVEKITNAME/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+      if [ -f $1/etc/minios/$LIVEKITNAME.conf ]; then
+         cp -fp $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
       fi
       if [ -f $1/root/.ssh/authorized_keys ]; then
          cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY

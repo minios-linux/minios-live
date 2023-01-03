@@ -1,0 +1,1 @@
+/opt/trinity/bin/starttde

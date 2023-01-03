@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+
+    <action id="org.gtk.minios-tzsetup">
+
+        <description>Automatic time zone setup</description>
+        <description xml:lang="ru">Автоматическая настройка часового пояса</description>
+        <message>Authentication is required to run automatic time zone setup as root.</message>
+        <message xml:lang="ru">Требуется аутентификация для запуска автоматической настройки часового пояса от суперпользователя</message>
+        <defaults>
+            <allow_any>auth_admin_keep</allow_any>
+            <allow_inactive>auth_admin_keep</allow_inactive>
+            <allow_active>auth_admin_keep</allow_active>
+        </defaults>
+        <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/minios-tzsetup</annotate>
+        <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+    </action>
+
+</policyconfig>

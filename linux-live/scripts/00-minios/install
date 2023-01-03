@@ -21,7 +21,7 @@ Pin: release l=MiniOS Repository
 Pin-Priority: 1001
 EOF
 
-cat <<EOF >/usr/lib/systemd/system/minios-shutdown.service
+: 'cat <<EOF >/usr/lib/systemd/system/minios-shutdown.service
 [Unit]
 Description=MiniOS config file update on shutdown.
 
@@ -32,13 +32,41 @@ ExecStop=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNA
 
 [Install]
 WantedBy=multi-user.target
+EOF'
+
+cat <<EOF >/usr/lib/systemd/system/minios-syncconfig.path
+[Unit]
+Description=Watch /etc/minios/minios.conf for changes
+
+[Path]
+PathModified=/etc/minios/minios.conf
+
+[Install]
+WantedBy=multi-user.target
+
 EOF
 
+cat <<EOF >/usr/lib/systemd/system/minios-syncconfig.service
+[Unit]
+Description=Sync minios.conf changes
+
+[Service]
+Type=oneshot
+ExecStart=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then if [ -w /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then if [ /etc/$LIVEKITNAME/$LIVEKITNAME.conf -nt /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf; fi; fi; fi; sync"
+
+[Install]
+RequiredBy=minios-syncconfig.path
+
+EOF
+
+
 systemctl enable minios-startup.service
-systemctl enable minios-shutdown.service
+#systemctl enable minios-shutdown.service
+systemctl enable minios-syncconfig.path
+systemctl enable minios-syncconfig.service
 systemctl enable minios-script-launcher.service
 
-if [ $PACKAGE_VARIANT = "cloud" ] || [[ $DESKTOP_ENVIRONMENT == *"slax"* ]]; then
+if [ $PACKAGE_VARIANT = "cloud" ] || [[ $DESKTOP_ENVIRONMENT == *"slax"* ]] || [[ $DESKTOP_ENVIRONMENT == *"rdp-kiosk"* ]]; then
     if [ -d /usr/share/minios/html ]; then
         rm -rf /usr/share/minios/html
     fi

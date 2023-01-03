@@ -348,6 +348,10 @@ function read_cmdline() {
             HIDE_CREDENTIALS=true
             shift # past argument with no value
             ;;
+        static_profiles)
+            STATIC_PROFILES=true
+            shift # past argument with no value
+            ;;
         autologin=*)
             AUTOLOGIN="${i#*=}"
             shift # past argument with no value
@@ -2823,6 +2827,8 @@ function filter_modules() {
     else
         if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
             read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_MODULES FILTER_LEVEL
+        elif [ $SCRIPT_DIR = "/usr/bin" ]; then
+            read_config /etc/minios/buildconfig FILTER_MODULES FILTER_LEVEL
         else
             read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
         fi

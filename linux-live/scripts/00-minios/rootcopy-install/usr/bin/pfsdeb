@@ -5,8 +5,7 @@
 . /usr/lib/minioslib || exit 1
 read_config /etc/minios/config BEXT
 
-
-[ ! "$1" ] && echo "List packages.deb in dir ore module.$BEXT
+[ ! "$1" ] && echo "List packages.deb in dir or module.$BEXT
     Usage:    $0 [dir|*.$BEXT]
     Examples: $0 00-core.$BEXT
               $0 /run/initramfs/memory/bundles/00-core.$BEXT" && exit 1
