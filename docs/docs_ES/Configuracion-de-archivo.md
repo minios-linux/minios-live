@@ -1,4 +1,4 @@
-## MiniOS configuration file
+## Archivo de configuración de MiniOS
 
 MiniOS se diferencia de la mayoría de las distribuciones flash clásicas en que algunos parámetros se pueden configurar antes del arranque en un archivo de configuración bastante simple `minios/minios.conf`, lo que minimiza la cantidad de trabajo requerido al crear sus propios módulos para crear sistemas embebidos. Opcionalmente, algunos de los parámetros se pueden configurar en los parámetros de arranque. Las opciones de arranque tienen prioridad sobre el archivo de configuración. Algunos parámetros de este archivo son de servicio y es mejor no cambiarlos. A continuación se muestra un ejemplo de un archivo de configuración estándar:
 
@@ -33,7 +33,7 @@ AUTOLOGIN
 
 ## Descripción de los parámetros
 
-| Parámetro | Significado | Ejemplo | Con que initrd trabaja |
+| Parámetro | Significado | Ejemplo | Con que trabaja initrd  |
 | --------- | ------- | ------- | ----------------------- |
 | USER\_NAME | El nombre del usuario cuyo perfil se creará en el primero arranque. Si especifica el nombre de usuario <strong>root</strong>, entonces no se creará ningún perfil de usuario, el parámetro **USER\_PASSWORD** se ignorará, y el inicio de sesión se realizará utilizando el perfil  <strong>root</strong>. | USER\_NAME=live<br>USER\_NAME=user<br>USER\_NAME=root | <ul><li>MiniOS Live Kit</li></ul><ul><li>Slax Live Kit</li></ul><ul><li>UIRD</li></ul> |
 | USER\_PASSWORD | La contraseña de un usuario principalmente en texto claro. La contraseña no debe incluir `'` , `\` , y otros caracteres que bash pueda malinterpretar. | USER\_PASSWORD=evil<br>USER\_PASSWORD=PxKYJnLK8cv0E3Hd | <ul><li>MiniOS Live Kit</li></ul><ul><li>Slax Live Kit</li></ul><ul><li>UIRD</li></ul> |
@@ -59,4 +59,5 @@ AUTOLOGIN
 * Los parámetros `CLOUD`, `CORE_BUNDLE_PREFIX` y `BEXT` no se pueden cambiar, son de servicio y se utilizan en versiones no públicas no estándar de MiniOS (virtualización en la nube, diseño de módulos no estándar, etc).
 * Cuando estamos usando otro initrd que no sea MiniOS Live Kit, algunas de las opciones no estarán disponibles, preste atención a la columna de la derecha.
 
-¿Para qué más puede ser útil el archivo `minios.conf`? Puede usarlo para establecer sus propios parámetros en sus scripts al crear módulos. En el primer arranque, se copia en la carpeta /etc/minios, luego el archivo `/etc/minios/minios.conf` se supervisa automáticamente y, cuando se realizan cambiuos, sobreescribe el archivo de configuración en la unidad flash, si se puede escribir. Por lo tanto, puede poner sus variable en el `/etc/minios/minios.conf` en sus scripts indeependientemente del tipo de initrd utilizado.
+¿Para qué más puede ser útil el archivo `minios.conf`? 
+Puede usarlo para establecer sus propios parámetros en sus scripts al crear módulos. En el primer arranque, se copia en la carpeta /etc/minios, luego el archivo `/etc/minios/minios.conf` se supervisa automáticamente y, cuando se realizan cambiuos, sobreescribe el archivo de configuración en la unidad flash, si se puede escribir. Por lo tanto, puede poner sus variable en el `/etc/minios/minios.conf` en sus scripts independientemente del tipo de initrd utilizado.

@@ -1,4 +1,4 @@
-    # Construyendo y modificando MiniOS (guía paso a paso)
+# Construyendo y modificando MiniOS (guía paso a paso)
 
 ## Primeros pasos
 
@@ -72,7 +72,7 @@ time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-
 fi
 ```
 
-. Los paquetes instalados por el script de **compilación** no se almacenan en el sistema. Puede encontrar un ejemplo de dicho script aquí **minios-live/linux-live/scripts/04-slax-desktop**. Si necesita instalar el módulo DKMS para que el sistema no tenga ningún paquetes (kernel headers y otros), cree el archivo **is\_dkms\_build** en la carpeta de scripts del módulo, luego agregue el **script de compilación al módulo después de ejecutar el script ** solos e copiarán los módulos del kernel. Ejemplo: **minios-live/linux-live/scripts/01-kernel**.
+Los paquetes instalados por el script de **compilación** no se almacenan en el sistema. Puede encontrar un ejemplo de dicho script aquí **minios-live/linux-live/scripts/04-slax-desktop**. Si necesita instalar el módulo DKMS para que el sistema no tenga ningún paquetes (kernel headers y otros), cree el archivo **is\_dkms\_build** en la carpeta de scripts del módulo, luego agregue el **script de compilación al módulo después de ejecutar el script ** solo se copiarán los módulos del kernel. Ejemplo: **minios-live/linux-live/scripts/01-kernel**.
 Para crear un módulo simple en el que solo se deban instalar paquetes, use los scripts del módulo **10-galculator** como ejemplo:
 
 ```
@@ -82,7 +82,7 @@ cp -r 10-galculator 10-openshot
 
 reemplazar **packages.list** galculator con openshot.
 
-### construyendo el sistema con la inclusión de sus módulos
+### Construyendo el sistema con la inclusión de sus módulos
 
 La construcción del sistema con módulos se realiza desde la carpeta **minios-live/linux-live/modules**, donde hay enlaces a carpetas de scripts a partir de las cuales se construyen los módulos. En **minios-live/linux-live/modules** hay un script **create\_symlinks.sh** que se puede usar para crear una estructura de módulo. Por ejemplo, queremos construir MiniOS con Chromium en lugar de Firefox, para esto necesitamos editar **create\_symlinks.sh**.
 
