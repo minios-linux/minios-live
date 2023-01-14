@@ -1,4 +1,6 @@
-Los parámetros de arranque (también conocidos como códigos de trucos) se utilizan para afectar el proceso de arranque de MiniOS. Algunos de ellos son comunes pra todos los Linux, otros son especificos solo para MiniOS. Puede usarlos para deshabilitar el tipo deseado de detección de hardware, para iniciar MiniOS desde le disco duro, etc. Para usar códigos de trucos con syslinux, presione la tecla `Esc` para activar el menú de inicio durante el inicio de MiniOS como de costumbre, y cuando vea el menú de inicio, presione `Tab`, edite los parámetros de inicio, luego presione Enter. Para grub, presione `E` para editar, luego `F10` para inciar. Aparecerá una línea de comando en la parte inferior de la pantalla, que puede editar o agregar nuevos parámetros de arranque al final. Algunas opciones de grub no se pueden cambiar de manera interactiva. Para cambiarlos, edite `boot/grub/grub.cfg`.
+# Parámetros de la linea de comandos
+
+Los parámetros de arranque (también conocidos como cheatcodes) se utilizan para afectar el proceso de arranque de MiniOS. Algunos de ellos son comunes pra todos los Linux, otros son especificos solo para MiniOS. Puede usarlos para deshabilitar el tipo deseado de detección de hardware, para iniciar MiniOS desde le disco duro, etc. Para usar cheatcodes con syslinux, presione la tecla `Esc` para activar el menú de inicio durante el inicio de MiniOS como de costumbre, y cuando vea el menú de inicio, presione `Tab`, edite los parámetros de inicio, luego presione Enter. Para grub, presione `E` para editar, luego `F10` para inciar. Aparecerá una línea de comando en la parte inferior de la pantalla, que puede editar o agregar nuevos parámetros de arranque al final. Algunas opciones de grub no se pueden cambiar de manera interactiva. Para cambiarlos, edite `boot/grub/grub.cfg`.
 
 | Cheatcode | Meaning | Example |
 | --------- | ------- | ------- |
@@ -32,4 +34,4 @@ Los parámetros de arranque (también conocidos como códigos de trucos) se util
 | changes\_size= | El tamaño máximo del archivo de guardado dinámico. El valor predeterminado es 4000MB para compatibilidad con FAT32. | changes\_size=2000 |
 | changes= | El nombre del archivo para guardar los cambios. Changes.dat por defecto. | changes=mychangesfile.img |
 
-Separe los comandos por espacios. Consulte las páginas del manual bootparam para obtener más códigos de trucos comunes para todos los Linux.
+Separe los comandos por espacios. Consulte las páginas del manual bootparam para obtener más cheatcodes comunes para todos los Linux.
