@@ -118,7 +118,7 @@ deactivate() {
     fi
 
     if [ "$SB" = "" -o ! -d "$BUNDLES/$SB" ]; then
-        die "can't find active minios bundle $1"
+        die "Can't find active MiniOS bundle $1"
     fi
 
     echo "Attempting to deactivate MiniOS bundle $SB..."

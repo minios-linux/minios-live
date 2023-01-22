@@ -1,0 +1,157 @@
+#!/bin/bash
+
+# Author: Tomas M. <http://www.linux-live.org>
+# Author: crims0n. <https://minios.dev>
+
+. /usr/lib/minioslib || exit 1
+
+CWD=$(pwd)
+read_config /etc/minios/config LIVEKITNAME
+read_config /etc/minios/buildconfig BOOT_TYPE
+read_config /etc/minios/buildconfig SYSTEMNAME
+if [ -d /run/initramfs/memory/bundles ]; then
+    BUNDLES=/run/initramfs/memory/bundles
+    INITRD="livekit"
+elif [ -d /memory/bundles ]; then
+    BUNDLES=/memory/bundles
+    INITRD="uird"
+fi
+if [ "$INITRD" = "livekit" ]; then
+    SOURCE="/run/initramfs/memory"
+elif [ "$INITRD" = "uird" ]; then
+    SOURCE="/memory"
+fi
+TEMP=/tmp/"$LIVEKITNAME"iso.$$
+REGEX='^$'
+
+if [ "$1" = "-e" ]; then
+    REGEX="$2"
+    shift
+    shift
+fi
+
+TARGET="$(readlink -f "$1")"
+
+if [ "$TARGET" = "" ]; then
+    echo ""
+    echo "Generate MiniOS ISO image, adding specified modules"
+    echo "Regular expression is used to exclude any existing path or file with -e regex"
+    echo ""
+    echo "Usage:"
+    echo "        $0 [[ -e regex ]] target.iso [[module.sb]] [[module.sb]] ..."
+    echo ""
+    echo "Examples:"
+    echo "        # to create MiniOS iso without chromium.sb module:"
+    echo "        $0 -e 'chromium' minios_without_chromium.iso"
+    echo ""
+    echo "        # to create MiniOS text-mode core only:"
+    echo "        $0 -e 'firmware|xorg|desktop|apps|chromium' minios_textmode.iso"
+    exit 1
+fi
+
+if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
+    MINIOS=$SOURCE/data/$LIVEKITNAME
+fi
+
+if [ -e "$SOURCE/iso/$LIVEKITNAME/boot/isolinux.bin" ]; then
+    MINIOS=$SOURCE/iso/$LIVEKITNAME
+fi
+
+if [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
+    MINIOS=$SOURCE/toram
+fi
+
+if [ -e "$SOURCE/data/from/0/$LIVEKITNAME/boot/isolinux.bin" ]; then
+    MINIOS=$SOURCE/data/from/0/$LIVEKITNAME
+fi
+
+if [ "$MINIOS" = "" ]; then
+    echo "Cannot find boot/isolinux.bin in MiniOS data" >&2
+    exit 2
+fi
+
+EFI="$MINIOS/boot/EFI"
+
+B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
+
+if [ $BOOT_TYPE = "hybrid" ]; then
+    C="-no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot"
+else
+    C="-no-emul-boot -boot-load-size 4 -boot-info-table"
+fi
+
+if [ -x "$(which xorriso 2>/dev/null)" ] && [ $BOOT_TYPE = "hybrid" ]; then
+    M="xorriso -as mkisofs -isohybrid-mbr $MINIOS/boot/isohdpfx.bin"
+    D=" -isohybrid-gpt-basdat -e"
+elif [ -x "$(which genisoimage 2>/dev/null)" ]; then
+    M=genisoimage
+    if [ $BOOT_TYPE = "hybrid" ]; then
+        D="-efi-boot"
+    else
+        D=""
+    fi
+fi
+if [ $BOOT_TYPE = "hybrid" ]; then
+    E="/$LIVEKITNAME/boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
+else
+    E=""
+fi
+
+VER="$SYSTEMNAME"
+
+echo $SYSTEMNAME >/tmp/info
+cat <<EOF >/tmp/README
+################################### README ####################################
+* To install MiniOS, copy the contents of the ISO to the root of the media,
+  then run minios\boot\bootinst.bat on Windows, or minios/boot/bootinst.sh
+  on Linux.
+* When installed on media with fat32 and ntfs file systems, changes in
+  persistent changes mode will be saved in the minios\changes\changes.dat file,
+  the file expands dynamically, the maximum file size is 4 GB (can be changed
+  with the changes_size parameter in the boot options, for example
+  changes_size=2000 will set the maximum file size to 2 GB).
+* When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
+  the persistent changes mode will be saved in the minios\changes folder with
+  no size limit.
+###############################################################################
+EOF
+
+GRAFT=$(
+    cd "$MINIOS"
+    find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^boot/isohdpfx.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
+        echo "$LIVEKITNAME/$LINE=$MINIOS/$LINE"
+    done
+    cd "$EFI"
+    find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
+        echo "EFI/$LINE=$EFI/$LINE"
+    done
+    echo ".disk/info=/tmp/info"
+    echo "README=/tmp/README"
+    echo "$LIVEKITNAME/$LIVEKITNAME.conf=/etc/$LIVEKITNAME/$LIVEKITNAME.conf"
+    echo "$LIVEKITNAME/boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
+    echo "$LIVEKITNAME/boot/syslinux.cfg=/etc/$LIVEKITNAME/syslinux.cfg"
+)
+
+# add all modules
+while [ "$2" != "" ]; do
+    if [ ! -e "$2" ]; then
+        echo "File does not exist: $2"
+        exit 3
+    fi
+    BAS="$(basename "$2")"
+    MOD="$(readlink -f "$2")"
+    GRAFT="$GRAFT $LIVEKITNAME/$BAS=$MOD"
+    shift
+done
+
+(
+    mkdir -p $TEMP/$LIVEKITNAME/{boot,modules,changes,scripts}
+    cp "$MINIOS/boot/isolinux.bin" "$TEMP/$LIVEKITNAME/boot"
+    cp "$MINIOS/boot/isohdpfx.bin" "$TEMP/$LIVEKITNAME/boot"
+    cd "$TEMP"
+    $M -hide-rr-moved -o - -quiet -v -J -R -D -V "$VER" -A "$VER" -input-charset utf-8 \
+        $B $C $D $E -graft-points $GRAFT \
+        .
+) >"$TARGET"
+
+rm -Rf $TEMP

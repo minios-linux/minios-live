@@ -5,3 +5,13 @@
 #rm -Rf /usr/share/icons/hicolor/256x256 >>$OUTPUT 2>&1
 #rm -Rf /usr/share/icons/hicolor/512x512 >>$OUTPUT 2>&1
 #rm -Rf /usr/share/icons/gnome/256x256 >>$OUTPUT 2>&1
+
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+    if ! grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+        rm -rf /usr/share/slim
+    fi
+fi
+
+if [ $PACKAGE_VARIANT = "minimum" ]; then
+    find /usr/share/backgrounds -type f -not \( -name 'MiniOS-wallpaper-jungle.svg' -or -name 'MiniOS-background-jungle.svg' \) -delete
+fi

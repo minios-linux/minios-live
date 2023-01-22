@@ -23,7 +23,10 @@ if [ $LOCALE = "en_US" ]; then
     LAYOUT="English (US)"
 elif [ $LOCALE = "ru_RU" ]; then
     LAYOUT="Russian"
+elif [ $LOCALE = "es_ES" ]; then
+    LAYOUT="Spanish"
 fi
+
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
     SYSTEMD_PATH="/lib/systemd"
 else
@@ -134,11 +137,11 @@ if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $P
 fi
 
 # install packages
-if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "stretch" ]; then
+if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then
     DEBIAN_FRONTEND=noninteractive \
         apt-get $INSTALL_OPTIONS install \
         isc-dhcp-client >>$OUTPUT 2>&1
-elif [ $DESKTOP_ENVIRONMENT = "slax" ] || [ $PACKAGE_VARIANT = "minimum" ]; then
+elif [ $DESKTOP_ENVIRONMENT = "flux" ] || ([ $PACKAGE_VARIANT = "minimum" ] && [ $DISTRIBUTION != "stretch" ]); then
     DEBIAN_FRONTEND=noninteractive \
         apt-get $INSTALL_OPTIONS install \
         connman >>$OUTPUT 2>&1
@@ -223,7 +226,7 @@ EOF
 fi
 
 if [ ! -d /etc/NetworkManager ]; then
-    if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "stretch" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then
         echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
         cat <<EOF >$SYSTEMD_PATH/system/dhclient.service
 [Unit]

@@ -175,7 +175,7 @@ EOF
                         Based on [1;31mDebian GNU/Linux[0;29m.
 EOF
     fi
-    if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
         cat <<EOF >>/etc/issue
                         Powered by [1;32mSlax[0;29m.
 EOF
@@ -295,6 +295,27 @@ if [ "$CLOUD" != "true" ]; then
         if [ ! -f /var/.minios-setup-completed ]; then
             adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
             usermod -a -G sudo $USER_NAME
+            if [ ! -f /usr/bin/pulseaudio ]; then
+                usermod -a -G audio $USER_NAME
+            fi
+            cp -rT /etc/skel /home/$USER_NAME
+            # create user directories
+            if [ -d /home/$USER_NAME ]; then
+                for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                    mkdir -p /home/$USER_NAME/$dir
+                done
+                if [ ! -d /home/$USER_NAME/.ssh ]; then
+                    mkdir /home/$USER_NAME/.ssh
+                    chmod 700 /home/$USER_NAME/.ssh
+                fi
+                if [ -f /root/.ssh/authorized_keys ]; then
+                    cp /root/.ssh/authorized_keys /home/$USER_NAME/.ssh/authorized_keys
+                fi
+                USER_ID=$(id -u $USER_NAME)
+                GROUP_ID=$(id -g $USER_NAME)
+                chown $USER_ID:$GROUP_ID /home/$USER_NAME
+                chown -R $USER_ID:$GROUP_ID /home/$USER_NAME
+            fi
         elif [ -n $CURRENT_USER_NAME ] && [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
             usermod -l $USER_NAME $CURRENT_USER_NAME
             usermod -m -d /home/$USER_NAME $USER_NAME
@@ -304,29 +325,6 @@ if [ "$CLOUD" != "true" ]; then
 else
     USER_NAME="root"
     DEFAULT_TARGET="multi-user"
-fi
-
-if [ ! -f /var/.minios-setup-completed ]; then
-    if [ "$USER_NAME" != "root" ]; then
-        cp -rT /etc/skel /home/$USER_NAME
-        # create user directories
-        if [ -d /home/$USER_NAME ]; then
-            for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-                mkdir -p /home/$USER_NAME/$dir
-            done
-            if [ ! -d /home/$USER_NAME/.ssh ]; then
-                mkdir /home/$USER_NAME/.ssh
-                chmod 700 /home/$USER_NAME/.ssh
-            fi
-            if [ -f /root/.ssh/authorized_keys ]; then
-                cp /root/.ssh/authorized_keys /home/$USER_NAME/.ssh/authorized_keys
-            fi
-            USER_ID=$(id -u $USER_NAME)
-            GROUP_ID=$(id -g $USER_NAME)
-            chown $USER_ID:$GROUP_ID /home/$USER_NAME
-            chown -R $USER_ID:$GROUP_ID /home/$USER_NAME
-        fi
-    fi
 fi
 
 # Set up password for root
