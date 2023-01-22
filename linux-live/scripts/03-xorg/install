@@ -49,7 +49,7 @@ if [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "standard" ] || [ $D
     sed -i "s/🎄/@/g" /etc/skel/.bashrc
 fi
 
-if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
     USER_NAME="root"
 fi
 cat <<EOF >/usr/lib/systemd/system/xorg.service

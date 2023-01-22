@@ -110,7 +110,13 @@ if [ -z "$AUTOLOGIN" ]; then
     fi
 fi
 
-read_config $MINIOSCONFIG USER_NAME
+if [ -z "$USER_NAME" ]; then
+    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+        if [ -f $MINIOSCONFIG ]; then
+            read_config $MINIOSCONFIG USER_NAME
+        fi
+    fi
+fi
 
 if [ $AUTOLOGIN = "true" ]; then
     if [ -f /usr/lib/systemd/system/xorg.service ]; then

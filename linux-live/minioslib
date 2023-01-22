@@ -54,8 +54,9 @@ function common_variables() {
         KERNEL_ARCH="arm64"
     fi
 
-    if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
         PACKAGE_VARIANT="minimum"
+        USER_NAME="root"
     fi
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
@@ -1856,10 +1857,10 @@ EOF
         #BOOT_SETTINGS="hide_credentials enable_services=$ENABLE_SERVICES"
         BOOT_SETTINGS="hide_credentials"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
-        if [ $DESKTOP_ENVIRONMENT = "slax" ]; then
+        #if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
             #BOOT_SETTINGS="user_name=root enable_services=$ENABLE_SERVICES"
-            BOOT_SETTINGS="user_name=root quiet"
-        fi
+        #    BOOT_SETTINGS="user_name=root quiet"
+        #fi
         if [ $INITRD_TYPE = "livekit-mos" ]; then
             PERCH_SETTINGS="minios.flags=perch,automount"
             LIVE_SETTINGS="minios.flags=automount"
@@ -3879,7 +3880,7 @@ function repack_module() {
         rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
         rm -f $WORK_DIR/image/$LIVEKITNAME/$OLD_MODULE
     else
-        if (ls $CURRENT_DIR/*.$BEXT | grep -q $MODULE 2>/dev/null); then
+        if (ls $CURRENT_DIR/*.$BEXT 2>/dev/null | grep -q $MODULE 2>/dev/null); then
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
@@ -3909,6 +3910,23 @@ function repack_modules() {
             cd $WORK_DIR/image/$LIVEKITNAME
             OLD_COMP_TYPE=$(unsquashfs -s $MODULE | grep Compression | awk -F" " '{ print $2 }')
             repack_module
+        done
+    else
+        cd $BUNDLES/
+        for MODULE in *; do
+            if (ls $BUNDLES/*-xz.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="xz"
+                repack_module
+            elif (ls $BUNDLES/*-lz4.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="lz4"
+                repack_module
+            elif (ls $BUNDLES/*-zstd.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="zstd"
+                repack_module
+            elif (ls $BUNDLES/*-lzo.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
+                OLD_COMP_TYPE="lzo"
+                repack_module
+            fi
         done
     fi
 }

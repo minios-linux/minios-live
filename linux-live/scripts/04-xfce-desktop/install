@@ -39,10 +39,12 @@ fi
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-if [ $PACKAGE_VARIANT != "puzzle" ]; then
+if [ $PACKAGE_VARIANT != "puzzle" ] && [ $PACKAGE_VARIANT != "minimum" ]; then
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
             apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-fake >>$OUTPUT 2>&1
+        elif grep -q adwaita-icon-theme-fake $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+            apt-get $INSTALL_OPTIONS install yad >>$OUTPUT 2>&1
         else
             apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-antix >>$OUTPUT 2>&1
         fi
@@ -55,7 +57,11 @@ fi
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
+    if [ $DISTRIBUTION != "stretch" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install \
+            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk >>$OUTPUT 2>&1
+    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install \
             $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
@@ -74,6 +80,83 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     fi
 fi
 
+: 'if grep -q volumeicon-alsa $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    if [ ! -d /etc/skel/.config/autostart ]; then
+        mkdir -p /etc/skel/.config/autostart
+    fi
+    cat <<EOF >/etc/skel/.config/autostart/volumeicon.desktop
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.9.4
+Type=Application
+Name=volumeicon
+Comment=
+Exec=pkexec volumeicon
+OnlyShowIn=XFCE;
+StartupNotify=false
+Terminal=false
+Hidden=false
+
+EOF
+    cat <<EOF >/usr/share/polkit-1/actions/org.gtk.volumeicon.policy
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+
+    <action id="org.gtk.volumeicon">
+
+        <description>Systray volume icon for alsa</description>
+        <description xml:lang="ru">Значок громкости на панели задач для alsa</description>
+        <message>Authentication is required to run systray volume icon for alsa as root.</message>
+        <message xml:lang="ru">Требуется аутентификация для запуска значка громкости на панели задач для alsa от суперпользователя.</message>
+        <defaults>
+            <allow_any>yes</allow_any>
+            <allow_inactive>yes</allow_inactive>
+            <allow_active>yes</allow_active>
+        </defaults>
+        <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/volumeicon</annotate>
+        <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+    </action>
+
+</policyconfig>
+EOF
+fi'
+
+if [ -f /usr/bin/connman-gtk ]; then
+    if [ ! -d /etc/skel/.config/autostart ]; then
+        mkdir -p /etc/skel/.config/autostart
+    fi
+    cat <<EOF >/etc/skel/.config/autostart/connman-tray.desktop
+[Desktop Entry]
+Encoding=UTF-8
+Type=Application
+Name=connman-tray
+Comment=
+Exec=connman-tray
+OnlyShowIn=XFCE;
+StartupNotify=false
+Terminal=false
+Hidden=false
+
+EOF
+    apt-get $INSTALL_OPTIONS install \
+        dconf-cli >>$OUTPUT 2>&1
+    cat <<EOF >/usr/bin/connman-tray
+#!/bin/bash
+
+if [ "$(dconf read /net/connman/gtk/launch-to-tray)" != "true" ]; then
+    dconf write /net/connman/gtk/launch-to-tray true
+fi
+if [ "$(dconf read /net/connman/gtk/status-icon-enabled)" != "true" ]; then
+    dconf write /net/connman/gtk/status-icon-enabled true
+fi
+connman-gtk
+
+EOF
+    chmod +x /usr/bin/connman-tray
+    rm /usr/share/applications/connman-gtk.desktop
+fi
+
 if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
@@ -81,6 +164,44 @@ if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
     sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
     sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
+fi
+
+if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    cat <<EOF >/etc/default/nodm
+# nodm configuration
+
+# Set NODM_ENABLED to something different than 'false' to enable nodm
+NODM_ENABLED=true
+
+# User to autologin for
+NODM_USER=live
+
+# First vt to try when looking for free VTs
+NODM_FIRST_VT=7
+
+# X session
+NODM_XSESSION=/etc/X11/Xsession
+
+# Options for nodm itself
+NODM_OPTIONS=
+
+# Options for the X server.
+#
+# Format: [/usr/bin/<Xserver>] [:<disp>] <Xserver-options>
+#
+# The Xserver executable and the display name can be omitted, but should
+# be placed in front, if nodm's defaults shall be overridden.
+NODM_X_OPTIONS='-nolisten tcp'
+
+# If an X session will run for less than this time in seconds, nodm will wait an
+# increasing bit of time before restarting the session.
+NODM_MIN_SESSION_TIME=60
+
+# Timeout (in seconds) to wait for X to be ready to accept connections. If X is
+# not ready before this timeout, it is killed and restarted.
+NODM_X_TIMEOUT=300
+
+EOF
 fi
 
 sed -i 's,<property name="FontName" type="empty"/>,<property name="FontName" type="string" value="Inter 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
@@ -359,8 +480,8 @@ elif [ $PACKAGE_VARIANT = "maximum" ]; then
     ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
 elif [ $PACKAGE_VARIANT = "puzzle" ]; then
-    ln -s ../MiniOS-wallpaper-puzzle.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-puzzle.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS-wallpaper-twilight-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS-wallpaper-twilight-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
 elif [ $PACKAGE_VARIANT = "ultra" ]; then
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg

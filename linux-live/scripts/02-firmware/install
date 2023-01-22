@@ -41,7 +41,7 @@ if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYP
 else
     # install packages
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-        if [ $DESKTOP_ENVIRONMENT = "slax" ] && [ $DISTRIBUTION = "bullseye" ]; then
+        if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "bullseye" ]; then
             #Slax 11 no longer uses firmware-nonfree
             DEBIAN_FRONTEND=noninteractive \
                 apt-get $INSTALL_OPTIONS install \
