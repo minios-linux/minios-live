@@ -39,7 +39,7 @@ fi
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-if [ $PACKAGE_VARIANT != "puzzle" ] && [ $PACKAGE_VARIANT != "minimum" ]; then
+if [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
             apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-fake >>$OUTPUT 2>&1

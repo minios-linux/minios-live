@@ -106,26 +106,18 @@ else
     SSH="true"
 fi
 
-if [ ! -f /var/.minios-setup-completed ]; then
-    if [ "$USER_NAME" != "root" ]; then
-        cp -rT /etc/skel /home/$USER_NAME
-        # create user directories
-        if [ -d /home/$USER_NAME ]; then
-            for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-                mkdir -p /home/$USER_NAME/$dir
-            done
-            if [ ! -d /home/$USER_NAME/.ssh ]; then
-                mkdir /home/$USER_NAME/.ssh
-                chmod 700 /home/$USER_NAME/.ssh
-            fi
-            if [ -f /root/.ssh/authorized_keys ]; then
-                cp /root/.ssh/authorized_keys /home/$USER_NAME/.ssh/authorized_keys
-            fi
-            USER_ID=$(id -u $USER_NAME)
-            GROUP_ID=$(id -g $USER_NAME)
-            chown $USER_ID:$GROUP_ID /home/$USER_NAME
-            chown -R $USER_ID:$GROUP_ID /home/$USER_NAME
-        fi
+if [ ! -f /var/.minios-setup-completed ] && [ "$USER_NAME" != "root" ]; then
+    cp -rT /etc/skel /home/$USER_NAME
+    # create user directories
+    if [ -d /home/$USER_NAME ]; then
+        for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+            mkdir -p /home/$USER_NAME/$dir
+        done
+        [ ! -d /home/$USER_NAME/.ssh ] && mkdir /home/$USER_NAME/.ssh && chmod 700 /home/$USER_NAME/.ssh
+        [ -f /root/.ssh/authorized_keys ] && cp /root/.ssh/authorized_keys /home/$USER_NAME/.ssh/authorized_keys
+        USER_ID=$(id -u $USER_NAME)
+        GROUP_ID=$(id -g $USER_NAME)
+        chown -R $USER_ID:$GROUP_ID /home/$USER_NAME
     fi
 fi
 
@@ -137,17 +129,15 @@ $USER_NAME ALL=(ALL) NOPASSWD:ALL
 EOF
 fi
 
-if [ "$CLOUD" != "true" ]; then
-    if [ -n "$HOST_NAME" ]; then
-        echo $HOST_NAME >/etc/hostname
-        cat <<EOF >/etc/hosts
+if [ "$CLOUD" != "true" ] && [ -n "$HOST_NAME" ]; then
+    echo $HOST_NAME >/etc/hostname
+    cat <<EOF >/etc/hosts
 127.0.0.1       localhost $HOST_NAME
 ::1             localhost ip6-localhost ip6-loopback $HOST_NAME
 ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 
 EOF
-    fi
 fi
 
 if [ -z "$SCRIPTS" ]; then
@@ -158,82 +148,15 @@ if [ -z "$HIDE_CREDENTIALS" ]; then
     HIDE_CREDENTIALS="false"
 fi
 
-CONFIG_USER_NAME=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf USER_NAME)
-if [ $USER_NAME != $CONFIG_USER_NAME ]; then
-    if [ -n "$USER_NAME" ]; then
-        sed -i -e "/USER_NAME=/s/=.*/=\"$USER_NAME\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
+update_config_value() {
+    local CONFIG_VALUE=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf $1)
+    local VAR_NAME=$1
+    local VAR_VALUE=${!VAR_NAME}
+    if [ "$VAR_VALUE" != "$CONFIG_VALUE" ] && [ -n "$VAR_VALUE" ]; then
+        sed -i -e "/$1=/s/=.*/=\"$VAR_VALUE\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
     fi
-fi
-CONFIG_USER_PASSWORD=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf USER_PASSWORD)
-if [ $USER_PASSWORD != $CONFIG_USER_PASSWORD ]; then
-    if [ -n "$USER_PASSWORD" ]; then
-        sed -i -e "/USER_PASSWORD=/s/=.*/=\"$USER_PASSWORD\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_ROOT_PASSWORD=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf ROOT_PASSWORD)
-if [ $ROOT_PASSWORD != $CONFIG_ROOT_PASSWORD ]; then
-    if [ -n "$ROOT_PASSWORD" ]; then
-        sed -i -e "/ROOT_PASSWORD=/s/=.*/=\"$ROOT_PASSWORD\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_HOST_NAME=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf HOST_NAME)
-if [ $HOST_NAME != $CONFIG_HOST_NAME ]; then
-    if [ -n "$HOST_NAME" ]; then
-        sed -i -e "/HOST_NAME=/s/=.*/=\"$HOST_NAME\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_DEFAULT_TARGET=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf DEFAULT_TARGET)
-if [ $DEFAULT_TARGET != $CONFIG_DEFAULT_TARGET ]; then
-    if [ -n "$DEFAULT_TARGET" ]; then
-        sed -i -e "/DEFAULT_TARGET=/s/=.*/=\"$DEFAULT_TARGET\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_ENABLE_SERVICES=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf ENABLE_SERVICES)
-if [ $ENABLE_SERVICES != $CONFIG_ENABLE_SERVICES ]; then
-    if [ -n "$ENABLE_SERVICES" ]; then
-        sed -i -e "/ENABLE_SERVICES=/s/=.*/=\"$ENABLE_SERVICES\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_DISABLE_SERVICES=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf DISABLE_SERVICES)
-if [ $DISABLE_SERVICES != $CONFIG_DISABLE_SERVICES ]; then
-    if [ -n "$DISABLE_SERVICES" ]; then
-        sed -i -e "/DISABLE_SERVICES=/s/=.*/=\"$DISABLE_SERVICES\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf SSH)
-if [ $SSH != $CONFIG_SSH ]; then
-    if [ -n "$SSH" ]; then
-        sed -i -e "/SSH=/s/=.*/=\"$SSH\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_SSH_KEY=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf SSH_KEY)
-if [ $SSH_KEY != $CONFIG_SSH_KEY ]; then
-    if [ -n "$SSH_KEY" ]; then
-        sed -i -e "/SSH_KEY=/s/=.*/=\"$SSH_KEY\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_SCRIPTS=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf SCRIPTS)
-if [ $SCRIPTS != $CONFIG_SCRIPTS ]; then
-    if [ -n "$SCRIPTS" ]; then
-        sed -i -e "/SCRIPTS=/s/=.*/=\"$SCRIPTS\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf USER_PASSWORD)
-if [ $USER_PASSWORD != $CONFIG_ ]; then
-    if [ -n "$CLOUD" ]; then
-        sed -i -e "/CLOUD=/s/=.*/=\"$CLOUD\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_CLOUD=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf CLOUD)
-if [ $CLOUD != $CONFIG_CLOUD ]; then
-    if [ -n "$HIDE_CREDENTIALS" ]; then
-        sed -i -e "/HIDE_CREDENTIALS=/s/=.*/=\"$HIDE_CREDENTIALS\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_INITRD_TYPE=$(read_config_value /etc/$LIVEKITNAME/$LIVEKITNAME.conf INITRD_TYPE)
-if [ $INITRD_TYPE != $CONFIG_INITRD_TYPE ]; then
-    if [ -n "$INITRD_TYPE" ]; then
-        sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" /etc/$LIVEKITNAME/$LIVEKITNAME.conf
-        sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" /etc/$LIVEKITNAME/buildconfig
-    fi
-fi
+}
+
+for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH SSH_KEY SCRIPTS CLOUD HIDE_CREDENTIALS INITRD_TYPE; do
+    update_config_value $PARAM
+done
