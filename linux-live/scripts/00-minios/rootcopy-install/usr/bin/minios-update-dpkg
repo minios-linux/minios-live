@@ -17,21 +17,16 @@ set -x
 
 BUNDLES=$1
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
-if [ -z "$CORE_BUNDLE_PREFIX" ]; then
-    CORE_BUNDLE_PREFIX="00-core"
-fi
+CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
 read_config /etc/minios/config BEXT
-if [ -z "$BEXT" ]; then
-    BEXT="sb"
-fi
+BEXT=${BEXT:-"sb"}
 CORE_BUNDLE_PATH="$(ls -1d $BUNDLES/$CORE_BUNDLE_PREFIX*.$BEXT)"
 
 allow_root_only
 
 DPKG_STATUS_FILE=/var/lib/dpkg/status
 [ -d $(dirname $DPKG_STATUS_FILE) ] || exit
-cat $BUNDLES/*.$BEXT/var/lib/dpkg/statoverride |
-    sort -u >/var/lib/dpkg/statoverride
+cat $BUNDLES/*.$BEXT/var/lib/dpkg/statoverride | sort -u >/var/lib/dpkg/statoverride
 TEMP_FILE=/run/minios-update-dpkg
 rm $TEMP_FILE* 2>/dev/null
 cp $CORE_BUNDLE_PATH$DPKG_STATUS_FILE $TEMP_FILE || exit
@@ -54,11 +49,3 @@ PACKAGE=""
 
 rm $TEMP_FILE*
 exit
-
-TEMP_DPKG_STATUS_FILE=/run/dpkg-status
-mv $TEMP_FILE $TEMP_DPKG_STATUS_FILE
-cat "$TEMP_DPKG_STATUS_FILE" | sed -n 's/^Package: //p' | sort | uniq -c | sort -n | egrep -v '^[[:blank:]]*1 ' | while read COUNT PACKAGE; do
-    awk 'BEGIN {n=0;f=1;c='"$COUNT"'} /^Package: '"$PACKAGE"'$/ {n+=1;if (n<c) {f=0;next}} /^[[:blank:]]*$/ && f==0 {f=1;next} f' $TEMP_DPKG_STATUS_FILE >$TEMP_FILE
-    mv $TEMP_FILE $TEMP_DPKG_STATUS_FILE
-done
-mv "$TEMP_DPKG_STATUS_FILE" "$DPKG_STATUS_FILE"

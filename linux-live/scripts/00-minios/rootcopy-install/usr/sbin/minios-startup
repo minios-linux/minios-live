@@ -278,6 +278,7 @@ if [ ! -f /var/.minios-setup-completed ]; then
     fi
     chown 0:0 /root
     chown -R 0:0 /root
+    sed -i 's,01;32m,01;31m,g' /root/.bashrc
 fi
 
 if [ -f /usr/bin/x11vnc ]; then
@@ -415,98 +416,18 @@ fi
 echo "=====> Making changes to the configuration file..."
 echo "Changes:"
 
-CONFIG_USER_NAME=$(read_config_value /etc/minios/$LIVEKITNAME.conf USER_NAME)
-if [ "$USER_NAME" != "$CONFIG_USER_NAME" ]; then
-    echo "USER_NAME=$USER_NAME, CONFIG_USER_NAME=$CONFIG_USER_NAME"
-    if [ -n "$USER_NAME" ]; then
-        sed -i -e "/USER_NAME=/s/=.*/=\"$USER_NAME\"/" /etc/minios/$LIVEKITNAME.conf
+update_config_value() {
+    local CONFIG_VALUE=$(read_config_value /etc/minios/$LIVEKITNAME.conf $1)
+    local VAR_NAME=$1
+    local VAR_VALUE=${!VAR_NAME}
+    if [ "$VAR_VALUE" != "$CONFIG_VALUE" ] && [ -n "$VAR_VALUE" ]; then
+        sed -i -e "/$1=/s/=.*/=\"$VAR_VALUE\"/" /etc/minios/$LIVEKITNAME.conf
     fi
-fi
-CONFIG_USER_PASSWORD=$(read_config_value /etc/minios/$LIVEKITNAME.conf USER_PASSWORD)
-if [ "$USER_PASSWORD" != "$CONFIG_USER_PASSWORD" ]; then
-    echo "USER_PASSWORD=$USER_PASSWORD, CONFIG_USER_PASSWORD=$CONFIG_USER_PASSWORD"
-    if [ -n "$USER_PASSWORD" ]; then
-        sed -i -e "/USER_PASSWORD=/s/=.*/=\"$USER_PASSWORD\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_ROOT_PASSWORD=$(read_config_value /etc/minios/$LIVEKITNAME.conf ROOT_PASSWORD)
-if [ "$ROOT_PASSWORD" != "$CONFIG_ROOT_PASSWORD" ]; then
-    echo "ROOT_PASSWORD=$ROOT_PASSWORD, CONFIG_ROOT_PASSWORD=$CONFIG_ROOT_PASSWORD"
-    if [ -n "$ROOT_PASSWORD" ]; then
-        sed -i -e "/ROOT_PASSWORD=/s/=.*/=\"$ROOT_PASSWORD\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_HOST_NAME=$(read_config_value /etc/minios/$LIVEKITNAME.conf HOST_NAME)
-if [ "$HOST_NAME" != "$CONFIG_HOST_NAME" ]; then
-    echo "HOST_NAME=$HOST_NAME, CONFIG_HOST_NAME=$CONFIG_HOST_NAME"
-    if [ -n "$HOST_NAME" ]; then
-        sed -i -e "/HOST_NAME=/s/=.*/=\"$HOST_NAME\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_DEFAULT_TARGET=$(read_config_value /etc/minios/$LIVEKITNAME.conf DEFAULT_TARGET)
-if [ "$DEFAULT_TARGET" != "$CONFIG_DEFAULT_TARGET" ]; then
-    echo "DEFAULT_TARGET=$DEFAULT_TARGET, CONFIG_DEFAULT_TARGET=$CONFIG_DEFAULT_TARGET"
-    if [ -n "$DEFAULT_TARGET" ]; then
-        sed -i -e "/DEFAULT_TARGET=/s/=.*/=\"$DEFAULT_TARGET\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_ENABLE_SERVICES=$(read_config_value /etc/minios/$LIVEKITNAME.conf ENABLE_SERVICES)
-if [ "$ENABLE_SERVICES" != "$CONFIG_ENABLE_SERVICES" ]; then
-    echo "ENABLE_SERVICES=$ENABLE_SERVICES, CONFIG_ENABLE_SERVICES=$CONFIG_ENABLE_SERVICES"
-    if [ -n "$ENABLE_SERVICES" ]; then
-        sed -i -e "/ENABLE_SERVICES=/s/=.*/=\"$ENABLE_SERVICES\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_DISABLE_SERVICES=$(read_config_value /etc/minios/$LIVEKITNAME.conf DISABLE_SERVICES)
-if [ "$DISABLE_SERVICES" != "$CONFIG_DISABLE_SERVICES" ]; then
-    echo "DISABLE_SERVICES=$DISABLE_SERVICES, CONFIG_DISABLE_SERVICES=$CONFIG_DISABLE_SERVICES"
-    if [ -n "$DISABLE_SERVICES" ]; then
-        sed -i -e "/DISABLE_SERVICES=/s/=.*/=\"$DISABLE_SERVICES\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_SSH_KEY=$(read_config_value /etc/minios/$LIVEKITNAME.conf SSH_KEY)
-echo "SSH_KEY=$SSH_KEY, CONFIG_SSH_KEY=$CONFIG_SSH_KEY"
-if [ "$SSH_KEY" != "$CONFIG_SSH_KEY" ]; then
-    if [ -n "$SSH_KEY" ]; then
-        sed -i -e "/SSH_KEY=/s/=.*/=\"$SSH_KEY\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_SCRIPTS=$(read_config_value /etc/minios/$LIVEKITNAME.conf SCRIPTS)
-if [ "$SCRIPTS" != "$CONFIG_SCRIPTS" ]; then
-    echo "SCRIPTS=$SCRIPTS, CONFIG_SCRIPTS=$CONFIG_SCRIPTS"
-    if [ -n "$SCRIPTS" ]; then
-        sed -i -e "/SCRIPTS=/s/=.*/=\"$SCRIPTS\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_CLOUD=$(read_config_value /etc/minios/$LIVEKITNAME.conf CLOUD)
-if [ "$CLOUD" != "$CONFIG_CLOUD" ]; then
-    echo "CLOUD=$CLOUD, CONFIG_CLOUD=$CONFIG_CLOUD"
-    if [ -n "$CLOUD" ]; then
-        sed -i -e "/CLOUD=/s/=.*/=\"$CLOUD\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_HIDE_CREDENTIALS=$(read_config_value /etc/minios/$LIVEKITNAME.conf HIDE_CREDENTIALS)
-if [ "$HIDE_CREDENTIALS" != "$CONFIG_HIDE_CREDENTIALS" ]; then
-    echo "HIDE_CREDENTIALS=$HIDE_CREDENTIALS, CONFIG_HIDE_CREDENTIALS=$CONFIG_HIDE_CREDENTIALS"
-    if [ -n "$HIDE_CREDENTIALS" ]; then
-        sed -i -e "/HIDE_CREDENTIALS=/s/=.*/=\"$HIDE_CREDENTIALS\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_AUTOLOGIN=$(read_config_value /etc/minios/$LIVEKITNAME.conf AUTOLOGIN)
-if [ "$AUTOLOGIN" != "$CONFIG_AUTOLOGIN" ]; then
-    echo "AUTOLOGIN=$AUTOLOGIN, CONFIG_AUTOLOGIN=$CONFIG_AUTOLOGIN"
-    if [ -n "$AUTOLOGIN" ]; then
-        sed -i -e "/AUTOLOGIN=/s/=.*/=\"$AUTOLOGIN\"/" /etc/minios/$LIVEKITNAME.conf
-    fi
-fi
-CONFIG_INITRD_TYPE=$(read_config_value /etc/minios/$LIVEKITNAME.conf INITRD_TYPE)
-if [ "$INITRD_TYPE" != "$CONFIG_INITRD_TYPE" ]; then
-    echo "INITRD_TYPE=$INITRD_TYPE, CONFIG_INITRD_TYPE=$CONFIG_INITRD_TYPE"
-    if [ -n "$INITRD_TYPE" ]; then
-        sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" /etc/minios/$LIVEKITNAME.conf
-        sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" /etc/$LIVEKITNAME/buildconfig
-    fi
-fi
+}
+
+for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS CLOUD AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE; do
+    update_config_value $PARAM
+done
 
 echo "
 New /etc/minios/$LIVEKITNAME.conf configuration file contents:"
@@ -565,10 +486,8 @@ else
 fi
 ##### Software configuration #####
 # Setup Firefox
-if [ -d /usr/share/minios/html ]; then
-    if [ -f /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js ]; then
-        /usr/sbin/minios-firefox-patch
-    fi
+if [ -d /usr/share/minios/html ] && [ -f /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js ]; then
+    /usr/sbin/minios-firefox-patch
 fi
 
 if [ ! -f /var/.minios-setup-completed ]; then
