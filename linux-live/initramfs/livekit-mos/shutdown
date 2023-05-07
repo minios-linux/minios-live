@@ -27,6 +27,7 @@ umount_all()
 {
    tac /proc/mounts | cut -d " " -f 2 | grep ^$1 | while read LINE; do
       umount $LINE 2>/dev/null
+      detach_free_loops
    done
 }
 
@@ -37,24 +38,31 @@ mdev -s
 detach_free_loops
 
 # do it the dirty way, simply try to umount everything to get rid of most mounts
-debug_log "- Unmounting submounts of union"
+debug_log "- Unmounting union"
 umount_all /oldroot
 
-# free aufs of /run mount, and umount aufs
-debug_log "- Unmounting union itself"
-mkdir /run2
-mount --move /oldroot/run /run2
-umount /oldroot
+# If oldroot is still mounted, there is something blocking.
+# Lets move it somewhere so we can unmount it cleanly
+debug_log "- Moving mounts outside of union if necessry"
+NR=100
+tac /proc/mounts | cut -d " " -f 2 | grep ^/oldroot/. | while read LINE; do
+   NR=$(($NR+1))
+   mkdir -p /move/$NR
+   mount --move $LINE /move/$NR 2>/dev/null
+   umount /oldroot 2>/dev/null
+done
 
 # remember from which device we are started, so we can eject it later
 DEVICE="$(cat /proc/mounts | grep /memory/data | grep /dev/ | cut -d " " -f 1)"
 
 debug_log "- going through several cycles of umounts to clear everything left"
-umount_all /run2
-detach_free_loops
-umount_all /run2
-detach_free_loops
-umount_all /run2
+for i in 1 2 3 4; do
+  for d in $(ls -1 /move 2>/dev/null | sort); do
+      umount_all /move/$d
+   done
+done
+
+umount_all /memory
 
 # eject cdrom device if we were running from it
 for i in $(cat /proc/sys/dev/cdrom/info | grep name); do
@@ -69,12 +77,22 @@ done
 
 debug_shell
 
-debug_log $1 -f
-$1 -f
+shutdown_command="$1"
 
+if [ "$shutdown_command" = "reboot" ]; then
+   echo "Rebooting..." > /dev/console
+   reboot
+   reboot -f
+else
+   poweroff
+   poweroff -f
+fi
+
+# we shouldn't be here. But if we are, reboot
 debug_log reboot -f
 reboot -f
 
+# well, shit happens
 echo We should never reach so far. Something is totally fucked up.
 echo Here you have a shell, to experiment with the universe.
-/bin/sh
+/bin/sh < /dev/console > /dev/console 2> /dev/console

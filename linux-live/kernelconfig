@@ -22,7 +22,7 @@ if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
     KERNEL_TYPE = "default"
 fi
 
-if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; }; then
+if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "bookworm" ]; }; then
     if [ $KERNEL_BPO = "true" ]; then
         KERNEL_VERSION="6.0"
     else
@@ -33,6 +33,9 @@ if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBU
     else
         KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
     fi
+elif [ $KERNEL_AUFS = "true" ] && [ $DISTRIBUTION = "bookworm" ]; then
+    KERNEL_VERSION="6.1"
+    KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
 elif [ $KERNEL_TYPE = "none" ]; then
     KERNEL=""
 elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
