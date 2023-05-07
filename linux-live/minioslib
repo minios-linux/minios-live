@@ -768,19 +768,13 @@ function chroot_umount_fs() {
 
     set +e
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-        umount $INSTALL_DIR/proc
-        umount $INSTALL_DIR/sys
-        umount $INSTALL_DIR/dev/pts
-        umount $INSTALL_DIR/tmp
-        umount $INSTALL_DIR/dev
-        umount $INSTALL_DIR/run
+        for dir in proc sys dev/pts tmp dev run; do
+            umount "$INSTALL_DIR/$dir"
+        done
     else
-        umount $INSTALL_DIR/proc >>$OUTPUT 2>&1
-        umount $INSTALL_DIR/sys >>$OUTPUT 2>&1
-        umount $INSTALL_DIR/dev/pts >>$OUTPUT 2>&1
-        umount $INSTALL_DIR/tmp >>$OUTPUT 2>&1
-        umount $INSTALL_DIR/dev >>$OUTPUT 2>&1
-        umount $INSTALL_DIR/run >>$OUTPUT 2>&1
+        for dir in proc sys dev/pts tmp dev run; do
+            umount "$INSTALL_DIR/$dir" >>$OUTPUT 2>&1
+        done
     fi
     if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         if [ -L $INSTALL_DIR/etc/resolv.conf.bak ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "focal" ]; then
@@ -1858,7 +1852,7 @@ EOF
         BOOT_SETTINGS="hide_credentials"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
         #if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
-            #BOOT_SETTINGS="user_name=root enable_services=$ENABLE_SERVICES"
+        #BOOT_SETTINGS="user_name=root enable_services=$ENABLE_SERVICES"
         #    BOOT_SETTINGS="user_name=root quiet"
         #fi
         if [ $INITRD_TYPE = "livekit-mos" ]; then

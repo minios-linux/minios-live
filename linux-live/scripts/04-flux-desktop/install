@@ -57,4 +57,33 @@ if [ $LOCALE = "ru_RU" ]; then
     sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5chromium.desktop
     sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5firefox.desktop
     sed -i "s/Name=Video Player/Name=Видео-плеер/g" /usr/share/applications/videoplayer.desktop
+elif [ $LOCALE = "es_ES" ]; then
+    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
+        fbxkb >>$OUTPUT 2>&1
+    # Locale
+    echo 'LC_ALL="es_ES.UTF-8"
+    ' >/etc/profile.d/locale_es.sh
+    sed -i '37G' /etc/skel/.fluxbox/startup
+    sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
+    sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
+    # Fluxbox menu
+    sed -i "s/Desktop menu/Menú de escritorio/g" /etc/skel/.fluxbox/menu
+    #sed -i "s/Terminal/Terminal/g" /etc/skel/.fluxbox/menu
+    sed -i "s/File Manager/Gestor de archivos/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Web Browser/Navegador web/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Text Editor/Editor de texto/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Calculator/Calculadora/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Network Manager/Gestor de red/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Run/Ejecutar/g" /etc/skel/.fluxbox/menu
+    sed -i "s/Workspaces                .../Espacios de trabajo     .../g" /etc/skel/.fluxbox/menu
+    sed -i "s/Screen resolution         .../Resolución de pantalla  .../g" /etc/skel/.fluxbox/menu
+    sed -i "s/Keyboard layout           .../Disposición del teclado .../g" /etc/skel/.fluxbox/menu
+    sed -i "s/Exit \/ Logout/Salida/g" /etc/skel/.fluxbox/menu
+    sed -ie '15d;17,21d;23,64d' /etc/skel/.fluxbox/menu
+    sed -ie '3d;5,7d' /etc/skel/.fluxbox/menu
+    # Apps
+    #sed -i "s/Name=Terminal/Name=Терминал/g" /usr/share/applications/1terminal.desktop
+    sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5chromium.desktop
+    sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5firefox.desktop
+    sed -i "s/Name=Video Player/Name=Reproductor de vídeo/g" /usr/share/applications/videoplayer.desktop
 fi

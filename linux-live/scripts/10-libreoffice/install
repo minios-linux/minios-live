@@ -24,4 +24,9 @@ if [ -f $SCRIPT_DIR/package.list ]; then
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
+    if [ $LOCALE != "en_US" ]; then
+        DEBIAN_FRONTEND=noninteractive \
+            apt-get $INSTALL_OPTIONS install \
+            libreoffice-l10n-${LANG[0]} >>$OUTPUT 2>&1
+    fi
 fi

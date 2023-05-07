@@ -188,6 +188,9 @@ init_devs() {
 # Setup static size of 500MB
 #
 init_zram() {
+   if grep -q nozram /proc/cmdline; then
+      return
+   fi
    debug_log "init_zram" "$*"
    echo_green_star
    echo "Setting dynamic RAM compression using ZRAM if available"
@@ -295,7 +298,8 @@ device_tag() {
 # $1 = device
 # $2 = prefix to add, like -t
 #
-device_bestfs() {
+device_bestfs()
+{
    debug_log "device_bestfs" "$*"
    local FS
 
@@ -303,7 +307,7 @@ device_bestfs() {
    if [ "$FS" = "msdos" -o "$FS" = "fat" -o "$FS" = "vfat" ]; then
       FS="vfat"
    elif [ "$FS" = "ntfs" ]; then
-      FS="ntfs-3g"
+      FS="ntfs3"
    fi
 
    if [ "$2" != "" ]; then
