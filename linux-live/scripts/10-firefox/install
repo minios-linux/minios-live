@@ -14,7 +14,7 @@ fi
 function language_to_array() {
     local IFS
     IFS="_"
-    LANG=($LOCALE)
+    LNG=($LOCALE)
 }
 language_to_array
 DEBIAN_FRONTEND=noninteractive \
@@ -40,7 +40,7 @@ EOF
     if [ $LOCALE != "en_US" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install \
-            firefox-locale-${LANG[0]} >>$OUTPUT 2>&1
+            firefox-locale-${LNG[0]} >>$OUTPUT 2>&1
     fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     DEBIAN_FRONTEND=noninteractive \
@@ -53,7 +53,7 @@ elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     elif [ $LOCALE != "en_US" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install \
-            firefox-esr-l10n-${LANG[0]} >>$OUTPUT 2>&1
+            firefox-esr-l10n-${LNG[0]} >>$OUTPUT 2>&1
     fi
 fi
 
@@ -82,16 +82,16 @@ fi
 echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ] || [ ${LANG[0]} = "es" ]; then
-        sed -i "s,about:welcome,file:///usr/share/minios/html/${LANG[0]}.html,g" $FIREFOX_BRANDING
+    if [ ${LNG[0]} = "en" ] || [ ${LNG[0]} = "ru" ] || [ ${LNG[0]} = "es" ]; then
+        sed -i "s,about:welcome,file:///usr/share/minios/html/${LNG[0]}.html,g" $FIREFOX_BRANDING
     else
         sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
     fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ ${LANG[0]} = "en" ] || [ ${LANG[0]} = "ru" ]|| [ ${LANG[0]} = "es" ]; then
+    if [ ${LNG[0]} = "en" ] || [ ${LNG[0]} = "ru" ]|| [ ${LNG[0]} = "es" ]; then
         cat <<EOF >>$FIREFOX_BRANDING
 
-pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/${LANG[0]}.html");
+pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/${LNG[0]}.html");
 EOF
     else
         cat <<EOF >>$FIREFOX_BRANDING
