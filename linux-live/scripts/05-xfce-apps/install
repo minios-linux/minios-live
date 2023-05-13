@@ -9,7 +9,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 function language_to_array() {
     local IFS
     IFS="_"
-    LANG=($LOCALE)
+    LNG=($LOCALE)
 }
 language_to_array
 
@@ -109,7 +109,7 @@ if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; th
         sed -i "29i Comment[ru]=Настройте свой буфер обмена" /usr/share/applications/xfce4-clipman-settings.desktop
 fi
 if [ $LOCALE != "en_US" ]; then
-    sed -i "s/doublecmd.en.po/doublecmd.${LANG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
+    sed -i "s/doublecmd.en.po/doublecmd.${LNG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then

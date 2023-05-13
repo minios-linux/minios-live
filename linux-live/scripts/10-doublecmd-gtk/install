@@ -9,7 +9,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 function language_to_array() {
     local IFS
     IFS="_"
-    LANG=($LOCALE)
+    LNG=($LOCALE)
 }
 language_to_array
 
@@ -33,5 +33,5 @@ if [ -f $SCRIPT_DIR/package.list ]; then
 fi
 
 if [ $LOCALE != "en_US" ]; then
-    sed -i "s/doublecmd.en.po/doublecmd.${LANG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
+    sed -i "s/doublecmd.en.po/doublecmd.${LNG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
 fi
