@@ -355,7 +355,11 @@ function read_cmdline() {
             ;;
         autologin=*)
             AUTOLOGIN="${i#*=}"
-            shift # past argument with no value
+            shift # past argument=value
+            ;;
+        system_type=classic|puzzle)
+            SYSTEM_TYPE="${i#*=}"
+            shift # past argument=value
             ;;
         *)
             UNKNOWN=true
@@ -1068,7 +1072,7 @@ function timezone_to_array() {
 function language_to_array() {
     local IFS
     IFS="_"
-    LANG=($LOCALE)
+    LNG=($LOCALE)
 }
 
 # =================================================================
@@ -1716,6 +1720,7 @@ CLOUD="$CLOUD"
 SCRIPTS="$SCRIPTS"
 HIDE_CREDENTIALS="$HIDE_CREDENTIALS"
 AUTOLOGIN="$AUTOLOGIN"
+SYSTEM_TYPE="$SYSTEM_TYPE"
 CORE_BUNDLE_PREFIX="00-core"
 BEXT="$BEXT"
 
@@ -1874,19 +1879,20 @@ MENU CLEAR
 MENU HIDDEN
 MENU HIDDENKEY Enter default
 MENU BACKGROUND /$LIVEKITNAME/boot/bootlogo.png
+MENU RESOLUTION 1024 768
 
-MENU WIDTH 80
+MENU WIDTH 125
 MENU MARGIN 20
-MENU ROWS 5
-MENU TABMSGROW 9
-MENU CMDLINEROW 9
+MENU ROWS 3
+MENU TABMSGROW 14
+MENU CMDLINEROW 12
 MENU HSHIFT 0
-MENU VSHIFT 19
+MENU VSHIFT 32
 
 MENU COLOR BORDER  30;40      #00000000 #00000000 none
-MENU COLOR SEL     47;30      #FF000000 #FFFFFFFF none
-MENU COLOR UNSEL   37;40      #FFFFFFFF #FF000000 none
-MENU COLOR TABMSG  32;40      #FF60CA00 #FF000000 none
+MENU COLOR SEL     47;30      #FF000000 #99FFFFFF none
+MENU COLOR UNSEL   37;40      #99FFFFFF #FF000000 none
+MENU COLOR TABMSG 32;40 #FFA500 #FF000000 none
 
 F1 help.txt /$LIVEKITNAME/boot/zblack.png
 
@@ -1931,7 +1937,7 @@ EOF
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
 
 EOF
         if [ $BOOT_TYPE = "hybrid" ]; then
@@ -1951,7 +1957,7 @@ EOF
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
         if [ $BOOT_TYPE = "hybrid" ]; then
@@ -1970,17 +1976,17 @@ EOF
 LABEL default
 MENU LABEL Run MiniOS (Persistent changes)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $PERCH_SETTINGS $BOOT_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $PERCH_SETTINGS $BOOT_SETTINGS
 
 LABEL live
 MENU LABEL Run MiniOS (Fresh start)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $LIVE_SETTINGS $BOOT_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $LIVE_SETTINGS $BOOT_SETTINGS
 
 LABEL toram
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=normal initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
         if [ $BOOT_TYPE = "hybrid" ]; then
@@ -2104,9 +2110,9 @@ function build_iso() {
     language_to_array
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-${LANG[0]}-$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-${LNG[0]}-$INITRD_TYPE_SUFFIX
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE_SUFFIX
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -2319,19 +2325,19 @@ function chroot_cleanup() {
     rm -Rf $1/usr/share/gnome/help
     if [ $LOCALE != "en_US" ]; then
         language_to_array
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? | sed "/en/d;/${LANG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? | sed "/en/d;/${LNG[0]}/d"); do
             rm -Rf $UNUSED_LOCALE
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??_* | sed "/en/d;/${LANG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??_* | sed "/en/d;/${LNG[0]}/d"); do
             rm -Rf $UNUSED_LOCALE
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??@* | sed "/en/d;/${LANG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??@* | sed "/en/d;/${LNG[0]}/d"); do
             rm -Rf $UNUSED_LOCALE
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??? | sed "/en/d;/${LANG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??? | sed "/en/d;/${LNG[0]}/d"); do
             rm -Rf $UNUSED_LOCALE
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* | sed "/en/d;/${LANG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* | sed "/en/d;/${LNG[0]}/d"); do
             UNUSED_LOCALE=$(basename $UNUSED_LOCALE)
             if [ $UNUSED_LOCALE == "i18n"* ] || [ $UNUSED_LOCALE == "iso14651"* ]; then
                 rm -Rf $1/usr/share/i18n/locales/$UNUSED_LOCALE
@@ -4007,25 +4013,25 @@ function download_sources() {
 # =================================================================
 
 function generate_config_files() {
-    cp -f $SCRIPT_DIR/linux-live/buildconfig $SCRIPT_DIR/linux-live/container_buildconfig
-    cp -f $SCRIPT_DIR/linux-live/config $SCRIPT_DIR/linux-live/container_config
-    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/KERNEL_AUFS=/s/=.*/=\"$KERNEL_AUFS\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/LOCALE=/s/=.*/=\"$LOCALE\"/" $SCRIPT_DIR/linux-live/container_buildconfig
-    sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" $SCRIPT_DIR/linux-live/container_buildconfig
+    cp -f "$SCRIPT_DIR/linux-live/buildconfig" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    cp -f "$SCRIPT_DIR/linux-live/config" "$SCRIPT_DIR/linux-live/container_config"
+    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/KERNEL_AUFS=/s/=.*/=\"$KERNEL_AUFS\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/LOCALE=/s/=.*/=\"$LOCALE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
 }
 
 function container_run() {
-    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
-        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
@@ -4052,6 +4058,7 @@ function container_run() {
             -e SCRIPTS="true" \
             -e CLOUD="false" \
             -e HIDE_CREDENTIALS="false" \
+            -e SYSTEM_TYPE="puzzle" \
             -e DISTRIBUTION_VARIANT="minbase" \
             -e LOGPATH="/var/log" \
             -e OUTPUT="/dev/stdout" \
@@ -4117,6 +4124,7 @@ function live_run() {
         SCRIPTS="true" \
         CLOUD="false" \
         HIDE_CREDENTIALS="false" \
+        SYSTEM_TYPE="puzzle" \
         DISTRIBUTION_VARIANT="minbase" \
         LOGPATH="/var/log" \
         OUTPUT="/dev/stdout" \
@@ -4180,7 +4188,7 @@ function container_build_finish() {
     echo "Container runtime count: $CONTAINER_NAME $(($STOP_TIMESTAMP - $START_TIMESTAMP)) seconds" >>$SCRIPT_DIR/logs/$CONTAINER_NAME.log
     if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
         # cleanup
-        $container_engine rm -f $CONTAINER_NAME
+        $container_engine rm -f $CONTAINER_NAME && rm -rf "/build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
     fi
     if [ -d /build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH ]; then
         echo "/build/minios-live/build/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH exists"
@@ -4215,8 +4223,8 @@ function container_build_run() {
     if [ $KERNEL_AUFS = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LANG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
-    #CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$INITRD_TYPE-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LANG[0]}-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    #CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$INITRD_TYPE-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LNG[0]}-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then

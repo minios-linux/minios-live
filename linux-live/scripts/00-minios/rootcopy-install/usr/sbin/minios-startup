@@ -259,13 +259,26 @@ if [ -z "$AUTOLOGIN" ]; then
         AUTOLOGIN="true"
     fi
 fi
+if [ -z "$SYSTEM_TYPE" ]; then
+    read_config /etc/minios/$LIVEKITNAME.conf SYSTEM_TYPE
+    if [ -z "$SYSTEM_TYPE" ]; then
+        SYSTEM_TYPE="puzzle"
+    fi
+fi
 
-# fix users
-minios-update-users $BUNDLES #&
-# fix caches
-minios-update-cache $BUNDLES &
-# fix dpkg
-minios-update-dpkg $BUNDLES &
+if [[ "$SYSTEM_TYPE" != "classic" && "$SYSTEM_TYPE" != "puzzle" ]]; then
+    echo "SYSTEM_TYPE must be either classic or puzzle"
+    exit 1
+fi
+
+if [ "$SYSTEM_TYPE" = "puzzle" ]; then
+    # fix users
+    minios-update-users $BUNDLES #&
+    # fix caches
+    minios-update-cache $BUNDLES &
+    # fix dpkg
+    minios-update-dpkg $BUNDLES &
+fi
 
 # Set up user 'root'
 if [ ! -f /var/.minios-setup-completed ]; then
@@ -425,7 +438,7 @@ update_config_value() {
     fi
 }
 
-for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS CLOUD AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE; do
+for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS CLOUD AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE SYSTEM_TYPE; do
     update_config_value $PARAM
 done
 

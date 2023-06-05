@@ -1,47 +1,59 @@
 #!/bin/bash
 
-# Check if the script is passed with all parameters
-if [[ "$#" -ne 1 ]]; then
-    echo "Usage: $0 <WIDTH>x<HEIGHT>"
-    echo "Example: $0 1920x1080"
-    exit 1
-fi
+# Show the form and save the values to variables
 
-export DISPLAY=:0
-XAUTHORITY_FILE="/home/$USER/.Xauthority"
-# Check if the XAUTHORITY_FILE exists
-if [ ! -f "$XAUTHORITY_FILE" ]; then
-    # Use the root user's .Xauthority file
-    XAUTHORITY_FILE="/$USER/.Xauthority"
-fi
-export XAUTHORITY="$XAUTHORITY_FILE"
+RESOLUTION=$(yad --form --title="Enter Resolution" \
+    --field="Width:":NUM \
+    --field="Height:":NUM \
+    --width=300 \
+    --height=150 \
+    --margin=30 \
+    --button="Submit":0 \
+    --button="Cancel":1 \
+ )
 
-# Get resolution parameters from the argument
-RESOLUTION="$1"
-WIDTH=$(echo "$RESOLUTION" | cut -d'x' -f1)
-HEIGHT=$(echo "$RESOLUTION" | cut -d'x' -f2)
-REFRESH_RATE=60
 
-# Get the first display name from the xrandr output
-DISPLAY_NAME=$(xrandr | grep " connected " | awk '{ print $1 }' | head -n 1)
+# Check if the user clicked "Submit"
+if [ $? -eq 0 ]; then
+    # Extract the values from the form output
+    WIDTH=$(echo $RESOLUTION | awk -F '|' '{print $1}')
+    HEIGHT=$(echo $RESOLUTION | awk -F '|' '{print $2}')
 
-# Use the gtf command to calculate the resolution model
-MODEL=$(gtf $WIDTH $HEIGHT $REFRESH_RATE | grep Modeline | cut -d' ' -f 4- | sed 's/["'\'']//g')
-
-# Check if the resolution model calculation is successful
-if [[ -n "$MODEL" ]]; then
-    # Check if the new resolution model is already added to the available modes list
-    if ! (xrandr | grep -q "${WIDTH}x${HEIGHT}_${REFRESH_RATE}.00"); then
-        # Add the new resolution model to the available modes list
-        xrandr --newmode $MODEL
-
-        # Add the new resolution model to the available modes list for the given screen
-        xrandr --addmode $DISPLAY_NAME "${WIDTH}x${HEIGHT}_${REFRESH_RATE}.00"
+    export DISPLAY=:0
+    XAUTHORITY_FILE="/home/$USER/.Xauthority"
+    # Check if the XAUTHORITY_FILE exists
+    if [ ! -f "$XAUTHORITY_FILE" ]; then
+        # Use the root user's .Xauthority file
+        XAUTHORITY_FILE="/$USER/.Xauthority"
     fi
+    export XAUTHORITY="$XAUTHORITY_FILE"
 
-    # Set the new screen resolution
-    xrandr --output $DISPLAY_NAME --mode "${WIDTH}x${HEIGHT}_${REFRESH_RATE}.00"
+    REFRESH_RATE=60
 
+    # Get the first display name from the xrandr output
+    DISPLAY_NAME=$(xrandr | grep " connected " | awk '{ print $1 }' | head -n 1)
+
+    # Use the gtf command to calculate the resolution model
+    MODEL=$(gtf $WIDTH $HEIGHT $REFRESH_RATE | grep Modeline | cut -d' ' -f 4- | sed 's/["'\'']//g')
+
+    # Check if the resolution model calculation is successful
+    if [[ -n "$MODEL" ]]; then
+        # Check if the new resolution model is already added to the available modes list
+        if ! (xrandr | grep -q "${WIDTH}x${HEIGHT}_${REFRESH_RATE}.00"); then
+            # Add the new resolution model to the available modes list
+            xrandr --newmode $MODEL
+
+            # Add the new resolution model to the available modes list for the given screen
+            xrandr --addmode $DISPLAY_NAME "${WIDTH}x${HEIGHT}_${REFRESH_RATE}.00"
+        fi
+
+        # Set the new screen resolution
+        xrandr --output $DISPLAY_NAME --mode "${WIDTH}x${HEIGHT}_${REFRESH_RATE}.00"
+
+    else
+        echo "Failed to calculate the resolution model"
+    fi
 else
-    echo "Failed to calculate the resolution model"
+    # User clicked "Cancel"
+    echo "Form closed without submitting"
 fi

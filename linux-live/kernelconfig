@@ -1,41 +1,60 @@
 #!/bin/bash
 
-##########################################
-
-if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+case $DISTRIBUTION_ARCH in
+"amd64")
     KERNEL_ARCH="amd64"
-elif [ $DISTRIBUTION_ARCH = "i386-pae" ]; then
+    ;;
+"i386-pae")
     KERNEL_ARCH="686-pae"
-elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+    ;;
+"i386")
     KERNEL_ARCH="686"
-elif [ $DISTRIBUTION_ARCH = "arm64" ]; then
+    ;;
+"arm64")
     KERNEL_ARCH="arm64"
-fi
+    ;;
+esac
 
 if [ $PACKAGE_VARIANT = "pve" ]; then
-    KERNEL_TYPE="pve"
-elif [ $PACKAGE_VARIANT = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
-    echo "You can't build PVE with i386"
-    exit 0
+    if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+        KERNEL_TYPE="pve"
+    else
+        echo "You can't build PVE with i386"
+        exit 1
+    fi
 fi
 if [ $KERNEL_TYPE = "pve" ] && [ $DISTRIBUTION_ARCH != "amd64" ]; then
     KERNEL_TYPE = "default"
 fi
 
-if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "bookworm" ]; }; then
-    if [ $KERNEL_BPO = "true" ]; then
-        KERNEL_VERSION="6.0"
-    else
-        KERNEL_VERSION="5.10"
-    fi
-    if [ $KERNEL_TYPE = "default" ]; then
+if [ $KERNEL_AUFS = "true" ]; then
+    case $DISTRIBUTION in
+    "bookworm" | "sid" | "kali-rolling")
+        KERNEL_VERSION="6.1"
         KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
-    else
-        KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
-    fi
-elif [ $KERNEL_AUFS = "true" ] && [ $DISTRIBUTION = "bookworm" ]; then
-    KERNEL_VERSION="6.1"
-    KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
+        ;;
+    "bullseye" | "bionic" | "focal" | "jammy")
+        if [ $KERNEL_BPO = "true" ]; then
+            KERNEL_VERSION="6.1"
+        else
+            KERNEL_VERSION="5.10"
+        fi
+        if [ $KERNEL_TYPE = "default" ]; then
+            KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
+        else
+            KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
+        fi
+        ;;
+    "stretch" | "buster" | "orel")
+        if [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+            KERNEL=$(dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')
+            KERNEL_VERSION=""
+        else
+            KERNEL=$(uname -r)
+            KERNEL_VERSION=""
+        fi
+        ;;
+    esac
 elif [ $KERNEL_TYPE = "none" ]; then
     KERNEL=""
 elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
@@ -45,6 +64,7 @@ else
     KERNEL=$(uname -r)
     KERNEL_VERSION=""
 fi
+
 if echo $KERNEL | grep -q 'pve'; then
     KERNEL=${KERNEL::-6}
 fi
