@@ -73,8 +73,8 @@ MOVE_KERNEL="false"
 # [en_US, ru_RU, es_ES]
 LOCALE="en_US"
 
-# Изменять часовой пояс необязательно, система автоматически определяет часовой пояс и устанавливает его по текущему местоположению при наличии доступа в Интернет.
 # It is not necessary to change the time zone, the system automatically determines the time zone and sets it to the current location if you have Internet access.
+# Изменять часовой пояс необязательно, система автоматически определяет часовой пояс и устанавливает его по текущему местоположению при наличии доступа в Интернет.
 # [any timezone]
 TIMEZONE="Etc/UTC"
 ###########################
@@ -83,29 +83,46 @@ TIMEZONE="Etc/UTC"
 USER_NAME="live"
 USER_PASSWORD="evil"
 ROOT_PASSWORD="toor"
+
 # this parameter only works for initrd livekit-mos
 # этот параметр работает только для initrd livekit-mos
 DEFAULT_TARGET="graphical"
+
 # this parameter only works for initrd livekit-mos
 # этот параметр работает только для initrd livekit-mos
 ENABLE_SERVICES="ssh"
+
 # this parameter only works for initrd livekit-mos
 # этот параметр работает только для initrd livekit-mos
 DISABLE_SERVICES=""
+
 # [true, false]
 SCRIPTS="true"
+
 # [true, false]
 AUTOLOGIN="true"
+
 # file name in the minios folder where the system will look for the ssh public key
 # имя файла в папке minios в котором система будет искать публичный ключ ssh
 # [any file name]
 SSH_KEY="authorized_keys"
+
 # [true, false]
 CLOUD="false"
+
 # Hide credentials displayed as a hint in the console
 # Скрыть учётные данные, отображаемые в качестве подсказки в консоли
 # [true, false]
 HIDE_CREDENTIALS="false"
+
+# When "puzzle" is set, operations necessary to handle modules that have been built relative to a certain common level are done at boot time; when "classic" is set, no such operations are done.
+# If you plan to plug/unplug modules while the system is running and you don't plan to put packages into the system using apt, then you should use "puzzle".
+# If you plan to use the system as a classic desktop system using saves, updating and installing packages with apt, you should use "classic".
+# При значении переменной "puzzle", при загрузке выполняются операции, необходимые для работы с модулями, которые были собраны относительно определённого общего уровня, при значении "classic" такие операции не выполняются.
+# Если вы планируете подключать/отключать модули во время работы с системой и не планируете ставить пакеты в систему пакеты с помощью apt, то вам следует использовать "puzzle".
+# Если вы планируете использовать систему в качестве классической настольной системы с использованием сохранений, обновлять и устанавливать пакеты с помощью apt, вам стоит использовать "classic". 
+# [сlassic, puzzle]
+SYSTEM_TYPE="puzzle"
 ###########################
 
 # path of the log file

@@ -8,6 +8,7 @@
 # list
 
 . /usr/lib/minioslib || exit 1
+. /etc/minios/minios.conf || exit 1
 allow_root_only
 
 if [ -d /run/initramfs/memory/bundles ]; then
@@ -156,25 +157,31 @@ usage() {
 
 if [ "$1" = "activate" ]; then
     activate "$2"
-    # fix caches
-    minios-update-cache $BUNDLES 2>/dev/null &
-    # fix dpkg
-    minios-update-dpkg $BUNDLES 2>/dev/null &
-    # reload XFCE menu
-    #xfce4-panel -r 2>/dev/null
-    killall -HUP xfce4-panel
+    if [ "$SYSTEM_TYPE" = "puzzle" ]; then
+        # fix users
+        minios-update-users $BUNDLES 2>/dev/null
+        # fix caches
+        minios-update-cache $BUNDLES 2>/dev/null &
+        # fix dpkg
+        minios-update-dpkg $BUNDLES 2>/dev/null &
+        # reload XFCE menu
+        killall -HUP xfce4-panel
+    fi
     exit
 fi
 
 if [ "$1" = "deactivate" ]; then
     deactivate "$2"
-    # fix caches
-    minios-update-cache $BUNDLES 2>/dev/null &
-    # fix dpkg
-    minios-update-dpkg $BUNDLES 2>/dev/null &
-    # reload XFCE menu
-    #xfce4-panel -r 2>/dev/null
-    killall -HUP xfce4-panel
+    if [ "$SYSTEM_TYPE" = "puzzle" ]; then
+        # fix users
+        minios-update-users $BUNDLES 2>/dev/null
+        # fix caches
+        minios-update-cache $BUNDLES 2>/dev/null &
+        # fix dpkg
+        minios-update-dpkg $BUNDLES 2>/dev/null &
+        # reload XFCE menu
+        killall -HUP xfce4-panel
+    fi
     exit
 fi
 
