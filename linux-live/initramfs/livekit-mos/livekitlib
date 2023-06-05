@@ -298,8 +298,7 @@ device_tag() {
 # $1 = device
 # $2 = prefix to add, like -t
 #
-device_bestfs()
-{
+device_bestfs() {
    debug_log "device_bestfs" "$*"
    local FS
 
@@ -323,10 +322,7 @@ device_bestfs()
 fs_options() {
    debug_log "fs_options" "$*"
 
-   if [ "$1" != "ntfs-3g" ]; then
-      echo -n "-t $1 "
-   fi
-
+   echo -n "-t $1 "
    echo -n "-o rw"
 
    if [ "$1" = "vfat" ]; then
@@ -340,18 +336,14 @@ fs_options() {
 mount_command() {
    debug_log "mount_command" "$*"
 
-   if [ "$1" = "ntfs-3g" ]; then
-      echo "@mount.ntfs-3g"
-   else
-      echo "mount"
-   fi
+   echo "mount"
 }
 
 # echo first network device known at the moment of calling, eg. eth0
 #
 network_device() {
    debug_log "network_device" "$*"
-   cat /proc/net/dev | grep : | grep -v lo: | cut -d : -f 1 | tr -d " " | head -n 1
+   cat /proc/net/dev | grep : | grep -v lo: | grep -v ip6tnl | cut -d : -f 1 | tr -d " " | head -n 1
 }
 
 # Modprobe network kernel modules until a working driver is found.
@@ -596,15 +588,12 @@ check_data_found() {
 persistent_changes() {
    debug_log "persistent_changes" "$*"
 
-   local CHANGES T1 T2 EXISTS CHANGES_SIZE CHANGES_FILE
+   local CHANGES T1 T2 EXISTS DEVICE
 
    CHANGES="$1/$(basename "$2")"
+   DEVICE="$(df $1 | tail -n 1 | cut -d " " -f 1)"
    T1="$CHANGES/.empty"
    T2="$T1"2
-   CHANGES_FILE="$(cmdline_value changes)"
-   if [ ! "$CHANGES_FILE" ]; then
-      CHANGES_FILE="changes.dat"
-   fi
 
    # Setup the directory anyway, it will be used in all cases
    mkdir -p "$2"
@@ -631,37 +620,26 @@ persistent_changes() {
       rm "$T1" "$T2" 2>/dev/null
 
    if [ $? -eq 0 ]; then
-      echo "* Activating native persistent changes"
-      mount --bind "$CHANGES" "$2"
-      return
+      if device_bestfs $DEVICE | grep -v ntfs >/dev/null; then
+         echo "* Activating native persistent changes"
+         mount --bind "$CHANGES" "$2"
+         return
+      fi
    fi
 
-   if grep -vq remove_changes /proc/cmdline; then
-      if [ -e "$CHANGES/$CHANGES_FILE" ]; then
-         echo "* Restoring persistent changes"
-         EXISTS="true"
-      else
-         echo "* Creating new persistent changes"
-         EXISTS=""
-      fi
+   if [ -e "$CHANGES/changes.dat.0" ]; then
+      echo "* Restoring persistent changes"
+      EXISTS="true"
    else
-      if [ -f "$CHANGES/$CHANGES_FILE" ]; then
-         rm -f "$CHANGES/$CHANGES_FILE"
-      fi
       echo "* Creating new persistent changes"
       EXISTS=""
    fi
 
-   CHANGES_SIZE=$(cmdline_value changes_size)
-   if [ ! "$CHANGES_SIZE" ]; then
-      @mount.dynfilefs "$CHANGES/$CHANGES_FILE" 4000 "$2"
-   else
-      @mount.dynfilefs "$CHANGES/$CHANGES_FILE" $CHANGES_SIZE "$2"
-   fi
+   @mount.dynfilefs -f "$CHANGES/changes.dat" -s 16000 -m "$2" -p 4000
    if [ ! "$EXISTS" ]; then
-      mke2fs -F "$2/loop.fs" >/dev/null 2>&1
+      mke2fs -F "$2/virtual.dat" >/dev/null 2>&1
    fi
-   mount -o loop,sync "$2/loop.fs" "$2"
+   mount -o loop "$2/virtual.dat" "$2"
 
    # if test failed at any point, we may have temp files left behind
    rm "$T1" "$T2" 2>/dev/null
