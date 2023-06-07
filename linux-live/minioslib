@@ -68,6 +68,12 @@ function common_variables() {
         KERNEL_TYPE="pve"
     fi
 
+    if [ $PACKAGE_VARIANT = "puzzle" ]; then
+        SYSTEM_TYPE="puzzle"
+    else
+        SYSTEM_TYPE="classic"
+    fi
+
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "orel" ]; then
         DISTRIBUTION_TYPE="debian"
     elif [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
@@ -357,7 +363,7 @@ function read_cmdline() {
             AUTOLOGIN="${i#*=}"
             shift # past argument=value
             ;;
-        system_type=classic|puzzle)
+        system_type=classic | puzzle)
             SYSTEM_TYPE="${i#*=}"
             shift # past argument=value
             ;;
