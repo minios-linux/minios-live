@@ -122,7 +122,10 @@ HIDE_CREDENTIALS="false"
 # Если вы планируете подключать/отключать модули во время работы с системой и не планируете ставить пакеты в систему пакеты с помощью apt, то вам следует использовать "puzzle".
 # Если вы планируете использовать систему в качестве классической настольной системы с использованием сохранений, обновлять и устанавливать пакеты с помощью apt, вам стоит использовать "classic". 
 # [сlassic, puzzle]
-SYSTEM_TYPE="puzzle"
+# !!!!!!!!!!!!!!!!!
+# This variable is redefined in minioslib. For all variants of the system, except Puzzle, it is "classic".
+# Данная переменная переопределена в minioslib. Для всех вариантов системы, кроме Puzzle, она равна "classic".
+#SYSTEM_TYPE="puzzle"
 ###########################
 
 # path of the log file
