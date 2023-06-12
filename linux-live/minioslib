@@ -131,6 +131,10 @@ function current_process() {
     echo -e "${LIGHTYELLOW}=====> running ${CYAN}${CMD[ii]}${ENDCOLOR}${LIGHTYELLOW} ...${ENDCOLOR}"
 }
 
+function current_function() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
+}
+
 # =================================================================
 # beautiful console
 # красивая консоль
@@ -558,7 +562,7 @@ function aufs_support() {
 # =================================================================
 
 function check_mounted() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if grep -qs "$INSTALL_DIR/dev" /proc/mounts || grep -qs "$INSTALL_DIR/run" /proc/mounts || grep -qs "$INSTALL_DIR/proc" /proc/mounts || grep -qs "$INSTALL_DIR/sys" /proc/mounts || grep -qs "$INSTALL_DIR/dev/pts" /proc/mounts || grep -qs "$INSTALL_DIR/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
         if [ "$UNATTENDED" = "true" ]; then
@@ -581,7 +585,7 @@ function check_mounted() {
 # =================================================================
 
 function check_install_dir() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ "$UNATTENDED" = "true" ]; then
         #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
         #INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
@@ -625,7 +629,7 @@ function check_install_dir() {
 # =================================================================
 
 function setup_install_dir() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
     if [ "$UNATTENDED" = "true" ] && [ "$INSTALL_DIR" = "" ]; then
         INSTALL_DIR="$WORK_DIR/basesystem"
@@ -668,7 +672,7 @@ function setup_install_dir() {
 # =================================================================
 
 function cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ "${CMD[ii]}" = "setup_host" ] || [ "${CMD[ii]}" = "build_bootstrap" ] || [ "${CMD[ii]}" = "build_chroot" ]; then
         if [ "$UNATTENDED" = "true" ]; then
             check_mounted
@@ -723,7 +727,7 @@ function cleanup() {
 # =================================================================
 
 function chroot_mount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     check_mounted
 
@@ -756,7 +760,7 @@ function chroot_mount_fs() {
 # =================================================================
 
 function chroot_umount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     set +e
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -789,7 +793,7 @@ function chroot_umount_fs() {
 # =================================================================
 
 function remove_log_file() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ -f $LOGPATH/$LIVEKITNAME.log ]; then
         rm -f $LOGPATH/$LIVEKITNAME.log
     fi
@@ -802,12 +806,12 @@ function remove_log_file() {
 # creating a backup of scripts (to run you need to set the variable
 # CREATE_BACKUP = "true" in linux-live/buildconfig)
 # создание бэкапа скриптов (для запуска необходимо установить
-# переменную CREATE_BACKUP="1" в linux-live/buildconfig)
+# переменную CREATE_BACKUP="true" в linux-live/buildconfig)
 # =================================================================
 
 function create_backup() {
     if [ $CREATE_BACKUP = "true" ]; then
-        echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+        current_function
         if [ ! -f $SCRIPT_DIR/.script_version ]; then
             cat "1" >$SCRIPT_DIR/.script_version >>$OUTPUT 2>&1
             chmod 644 $SCRIPT_DIR/.script_version >>$OUTPUT 2>&1
@@ -844,7 +848,7 @@ function create_backup() {
 }
 
 function add_unofficial_repository() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         if [ $USE_UNOFFICIAL_REPOSITORY = "true" ]; then
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list
@@ -855,7 +859,7 @@ EOF
 }
 
 function remove_unofficial_repository() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
         cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION-snapshot.list $INSTALL_DIR/etc/apt/sources.list
     else
@@ -901,7 +905,11 @@ function new_run() {
     echo "=================================================================" >>$OUTPUT 2>&1
     echo ""
 }
-
+# =================================================================
+# This function creates two configuration files for chroot environment
+# The first file contains various environment variables and their values
+# The second file contains several utility functions
+# =================================================================
 function add_chroot_configuration_files() {
     cat <<EOF >$1/$LIVEKITNAME.conf
 OUTPUT=$OUTPUT
@@ -1013,7 +1021,7 @@ function read_config() { # read_config file.cfg var_name1 var_name2
 # First we fix symlinks, then uncompress files
 # $1 = search directory
 uncompress_files() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     local LINK LINE
 
     find "$1" -type l -name "*.gz" | while read LINE; do
@@ -1028,7 +1036,7 @@ uncompress_files() {
 # remove broken links
 # $1 = search directory
 remove_broken_links() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 EOF
@@ -1075,7 +1083,7 @@ function language_to_array() {
 # =================================================================
 
 function create_apt_list() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
         if [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "bookworm" ]; then
             echo "deb     https://snapshot.debian.org/archive/debian/$SNAPSHOT_DATE/ $DISTRIBUTION main contrib non-free" >$SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION-snapshot.list
@@ -1095,11 +1103,10 @@ function create_apt_list() {
             sed -i "s,http://archive.ubuntu.com/ubuntu,$DISTRIBUTION_URL,g" $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list
         fi
     fi
-
 }
 
 function get_vars() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     set +u
     add_chroot_configuration_files $1
     . /functions
@@ -1109,7 +1116,7 @@ function get_vars() {
 }
 
 function chroot_run() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /functions
@@ -1124,7 +1131,7 @@ EOF
 # First we fix symlinks, then uncompress files
 # $1 = search directory
 uncompress_files() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     local LINK LINE
 
     find "$1" -type l -name "*.gz" | while read LINE; do
@@ -1139,7 +1146,7 @@ uncompress_files() {
 # remove broken links
 # $1 = search directory
 remove_broken_links() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 
@@ -1239,7 +1246,7 @@ function build_bootstrap() {
 }
 
 function mx_repo() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $USE_MX_REPO = "true" ]; then
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
             cd $INSTALL_DIR
@@ -1270,7 +1277,7 @@ EOF
 }
 
 function antix_repo() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $USE_ANTIX_REPO = "true" ]; then
         if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
             cd $INSTALL_DIR
@@ -1297,7 +1304,7 @@ EOF
 }
 
 function mint_repo() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         if [ $DISTRIBUTION = "jammy" ]; then
             cd $INSTALL_DIR
@@ -1326,7 +1333,7 @@ EOF
 }
 
 function build_rootfs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     if [ $USE_ROOTFS = "true" ]; then
         if [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
@@ -1469,7 +1476,7 @@ EOF
 #
 # =================================================================
 function copy_build_scripts() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     local DESTINATION
     set +u
@@ -2147,7 +2154,7 @@ function build_iso() {
 }
 
 function remove_sources() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $REMOVE_SOURCES = "true" ]; then
         cleanup
     fi
@@ -2201,7 +2208,7 @@ function chroot_setup_host() {
 #
 # =================================================================
 function chroot_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     set +eu
 
@@ -2621,7 +2628,7 @@ function chroot_finish_up() {
 # =================================================================
 
 function module_add_unofficial_repository() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
         if [ $USE_UNOFFICIAL_REPOSITORY = "true" ]; then
             if [ ! -d $MODULE_UPPER_DIR/etc/apt ]; then
@@ -2635,7 +2642,7 @@ EOF
 }
 
 function module_remove_unofficial_repository() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ -f $MODULE_UPPER_DIR/etc/apt/sources.list ]; then
         rm $MODULE_UPPER_DIR/etc/apt/sources.list
     fi
@@ -2646,7 +2653,7 @@ function module_remove_unofficial_repository() {
 #
 # =================================================================
 function module_check_mounted() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if grep -qs "$MODULE_MERGED_DIR" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/run" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/proc" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/sys" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev/pts" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
         if [ "$UNATTENDED" = "true" ]; then
@@ -2668,7 +2675,7 @@ function module_check_mounted() {
 #
 # =================================================================
 function module_check_install_dir() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ "$UNATTENDED" = "true" ]; then
         #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
         echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}."
@@ -2690,7 +2697,7 @@ function module_check_install_dir() {
 }
 
 function filter_modules() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $PACKAGE_VARIANT = "puzzle" ]; then
         FILTER_MODULES="true"
         if ! [[ $MODULE =~ ^0[0-9]-* ]]; then
@@ -2724,7 +2731,7 @@ function filter_modules() {
 #
 # =================================================================
 function module_chroot_mount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     local MODULES BUNDLE FILTER
 
@@ -2839,7 +2846,7 @@ function module_chroot_mount_fs() {
 #
 # =================================================================
 function module_chroot_umount_fs() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     local MODULES BUNDLE
 
@@ -2939,7 +2946,7 @@ function module_chroot_umount_fs() {
 #
 # =================================================================
 function module_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ "$UNATTENDED" = "true" ]; then
         module_check_mounted
         rm -rf $MODULE_UPPER_DIR
@@ -2967,7 +2974,7 @@ function module_cleanup() {
 #
 # =================================================================
 function module_chroot_finish_up() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     # truncate machine id (why??)
     chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
@@ -3000,7 +3007,7 @@ EOF
 #
 # =================================================================
 function module_chroot_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     set +e
     # clean up useless stuff
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -3084,7 +3091,7 @@ function module_chroot_cleanup() {
 #
 # =================================================================
 function module_build_cleanup() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
 
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         chroot_cleanup $MODULE_UPPER_DIR
@@ -3098,7 +3105,7 @@ function module_build_cleanup() {
 #
 # =================================================================
 function get_kernel_version() {
-    echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+    current_function
     if [ $DISTRIBUTION_ARCH = "amd64" ]; then
         KERNEL_ARCH="amd64"
     elif [ $DISTRIBUTION_ARCH = "i386-pae" ]; then
@@ -3138,7 +3145,7 @@ function get_kernel_version() {
 function export_kernel() {
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
         if [ $EXPORT_KERNEL = "true" ]; then
-            echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
+            current_function
             kernel_variables
             if [ ! -d $KERNEL_DIR ]; then
                 mkdir -p $KERNEL_DIR
