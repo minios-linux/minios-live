@@ -3,34 +3,64 @@
 # Author: crims0n <https://minios.dev>
 
 . /usr/lib/minioslib || exit 1
-allow_root_only
-
 read_config /etc/minios/buildconfig COMP_TYPE
 
+VERSION="1.0"
 TMP=/tmp/changes$$
-EXCLUDE="^\$|/\$|[.]wh[.][.]wh[.]orph/|^[.]wh[.][.]wh[.]plnk/|^[.]wh[.][.]wh[.]aufs|^var/cache/|^var/backups/|^var/tmp/|^var/log/|^var/lib/apt/|^var/lib/dhcp/|^var/lib/systemd/|^sbin/fsck[.]aufs|^etc/resolv[.]conf|^root/[.]Xauthority|^root/[.]xsession-errors|^root/[.]fehbg|^root/[.]fluxbox/lastwallpaper|^root/[.]fluxbox/menu_resolution|^etc/mtab|^etc/fstab|^boot/|^dev/|^mnt/|^proc/|^run/|^sys/|^tmp/"
-if [ -d /run/initramfs/memory/changes/changes ]; then
-   CHANGES=/run/initramfs/memory/changes/changes
-else
-   CHANGES=/run/initramfs/memory/changes
+EXCLUDE="^\$|/\$|[.]wh[.][.]wh[.]orph/|^[.]wh[.][.]pwd[.]lock|^[.]wh[.][.]wh[.]plnk/|^[.]wh[.][.]wh[.]aufs|^var/cache/|^var/backups/|^var/tmp/|^var/log/|^var/lib/apt/|^var/lib/dhcp/|^var/lib/systemd/|^sbin/fsck[.]aufs|^etc/resolv[.]conf|^root/[.]Xauthority|^root/[.]xsession-errors|^root/[.]fehbg|^root/[.]fluxbox/lastwallpaper|^root/[.]fluxbox/menu_resolution|^etc/mtab|^etc/fstab|^boot/|^dev/|^mnt/|^proc/|^run/|^sys/|^tmp/"
+CHANGES=/run/initramfs/memory/changes
+
+function help() {
+    echo "Usage: $(basename $0) [target_file.$BEXT] [changes_directory]"
+    echo "Saves all changed files in a compressed filesystem bundle,"
+    echo "excluding some predefined files such as /etc/mtab, temp & log files,"
+    echo "empty directories, apt cache, and such."
+    echo ""
+    echo "Options:"
+    echo "  --help            display this help and exit"
+    echo "  --version         display version information and exit"
+    echo ""
+    echo "If changes_directory is not specified,"
+    echo "/run/initramfs/memory/changes is used."
+    echo ""
+    exit 0
+}
+
+function brief_help() {
+    echo "Usage: $(basename $0) [target_file.$BEXT] [changes_directory]"
+    echo "Try '$(basename $0) --help' for more information."
+    exit 1
+}
+
+function version() {
+    echo "$(basename $0) $VERSION"
+    exit 0
+}
+
+if [[ "$(id -u)" != "0" ]]; then
+    echo "This script must be run as root."
+    brief_help
+    exit 1
 fi
 
-if [ "$1" = "" ]; then
-   echo ""
-   echo "savechanges - save all changed files in a compressed filesystem bundle"
-   echo "            - excluding some predefined files such as /etc/mtab,"
-   echo "              temp & log files, empty directories, apt cache, and such"
-   echo ""
-   echo "Usage:"
-   echo "        $0 [ target_file.$BEXT ] [ changes_directory ]"
-   echo ""
-   echo "If changes_directory is not specified, /run/initramfs/memory/changes is used."
-   echo ""
-   exit 1
+if [[ $# -eq 0 ]]; then
+    brief_help
+    exit 1
 fi
 
 if [ ! "$2" = "" ]; then
    CHANGES="$2"
+fi
+
+# Overlayfs requires one more subdir. Detect it this way
+if [ -d "$CHANGES/changes" -a -d "$CHANGES/workdir" -a "$(ls -1 "$CHANGES" | egrep -v '^changes$' | egrep -v '^workdir')" = "" ]; then
+   CHANGES="$CHANGES/changes"
+fi
+
+# exclude control files for automounted disk drives
+EXCLUDEDISKS=$(grep "Skip savechanges" /etc/systemd/system/{*,*/*} 2>/dev/null | cut -d : -f 1 | cut -b 2- | tr '\n' '|')
+if [ "$EXCLUDEDISKS" != "" ]; then
+   EXCLUDE="$EXCLUDE|^($EXCLUDEDISKS)\$"
 fi
 
 # exclude the save_file itself of course
@@ -51,7 +81,11 @@ find \( -type d -printf "%p/\n" , -not -type d -print \) |
 
 cd $CWD
 
-mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
+if [ $COMP_TYPE = "xz" ]; then
+   mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend
+else
+   mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
+fi
 
 umount $TMP
 rmdir $TMP

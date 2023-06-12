@@ -11,10 +11,12 @@
 if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
 fi
+
 exec 19>/var/log/minios/minios-update-cache.log
 BASH_XTRACEFD=19
 set -x
 
+# Function to configure kernel modules from bundles
 function configure_kernel_modules() {
     for D in $(find $BUNDLES/*/lib/modules/*$(uname -r) -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
         d1="$(basename $D | sed 's/.[gx]z$//')"
@@ -28,6 +30,7 @@ function configure_kernel_modules() {
     done
 }
 
+# Function to update various system caches from bundles
 function update_caches() {
     if [ ! "$UPDATE_MIME" ]; then
         [ -d "$1/usr/share/mime/" ] && UPDATE_MIME=true && update-mime-database /usr/share/mime &
@@ -62,22 +65,21 @@ function update_caches() {
 
 BUNDLES=$1
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
-if [ -z "$CORE_BUNDLE_PREFIX" ]; then
-    CORE_BUNDLE_PREFIX="00-core"
-fi
+CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
 read_config /etc/minios/config BEXT
-if [ -z "$BEXT" ]; then
-    BEXT="sb"
-fi
+BEXT=${BEXT:-"sb"}
 
 allow_root_only
 
+# Update library cache using ldconfig
 ldconfig
 
+# Iterate over all bundles except for the core bundle and call update_caches function for each of them
 for BUNDLE in $(ls -d $BUNDLES/*.$BEXT | egrep -v "^$BUNDLES/00"); do
     update_caches "$BUNDLE"
 done
 
+# Call configure_kernel_modules function to load kernel modules from bundles
 configure_kernel_modules
 
-exit 0
+exit

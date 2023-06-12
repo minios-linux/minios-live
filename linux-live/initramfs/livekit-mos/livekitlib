@@ -556,7 +556,7 @@ find_data() {
    if [ "$FROM" = "" ]; then FROM="$LIVEKITNAME"; fi
 
    echo_green_star >&2
-   echo -n "Looking for $LIVEKITNAME data in /$FROM .." | tr -s "/" >&2
+   echo -n "Looking for $SYSTEMNAME data in /$FROM .." | tr -s "/" >&2
    for timeout in $(seq 1 $1); do
       echo -n "." >&2
       refresh_devs
@@ -577,7 +577,7 @@ find_data() {
 #
 check_data_found() {
    if [ "$1" = "" -o ! -d "$1" ]; then
-      fatal "Could not locate $LIVEKITNAME data"
+      fatal "Could not locate $SYSTEMNAME data"
    fi
 }
 
@@ -691,7 +691,7 @@ copy_to_ram() {
       return
    fi
 
-   echo "* Copying $LIVEKITNAME data to RAM..." >&2
+   echo "* Copying $SYSTEMNAME data to RAM..." >&2
    RAM="$(dirname "$2")"/toram
    mkdir -p "$RAM"
    cp -a "$1"/* "$RAM"
@@ -811,6 +811,39 @@ fstab_create() {
    done
 }
 
+# MiniOS functions
+copy_file_if_exists() {
+    local SRC=$1 DST=$2
+
+    if [ -f "$SRC" ] && [ ! -f "$DST" ]; then
+        cp -fp "$SRC" "$DST"
+    fi
+
+    if [ "${DST##*.}" = "authorized_keys" ]; then 
+        chmod 600 "$DST"
+    fi 
+}
+
+synchronize_files() {
+    local SRC=$1 DST=$2
+
+    if [ -f "$SRC" ] && [ -f "$DST" ]; then 
+        if [ "$SRC" -nt "$DST" ]; then 
+            cp -fp "$SRC" "$DST"
+        elif [ "$SRC" -ot "$DST" ]; then 
+            cp -fp "$DST" "$SRC"
+        fi 
+    elif [ -f "$SRC" ]; then 
+        cp -fp "$SRC" "$DST"
+    elif [ -f "$DST" ]; then 
+        cp -fp "$DST" "$SRC"
+    fi 
+
+    if [ "${DST##*.}" = "authorized_keys" ]; then 
+        chmod 600 "$DST"
+    fi 
+}
+
 minios_boot() {
    debug_log "minios_boot" "$*"
 
@@ -837,62 +870,25 @@ minios_boot() {
             SSH_KEY="authorized_keys"
          fi
       fi
-      if [ -f $2/$LIVEKITNAME.conf ]; then
-         if [ ! -f $1/etc/minios/$LIVEKITNAME.conf ]; then
-            cp -fp $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
-         fi
-      fi
-      if [ -f $2/$SSH_KEY ]; then
-         if [ ! -d $1/root/.ssh ]; then
-            mkdir $1/root/.ssh
-            chmod 700 $1/root/.ssh
-            cp -fp $2/$SSH_KEY $1/root/.ssh/authorized_keys
-            chmod 600 $1/root/.ssh/authorized_keys
-         fi
-      fi
+      copy_file_if_exists $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
+      copy_file_if_exists $2/$SSH_KEY $1/root/.ssh/authorized_keys
    else
       WRITABLE="true"
       if [ -d $2/$LIVEKITNAME ]; then
-         if [ -f $2/$LIVEKITNAME.conf ] && [ -f $1/etc/minios/$LIVEKITNAME.conf ]; then
-            if [ "$2/$LIVEKITNAME.conf" -nt "$1/etc/minios/$LIVEKITNAME.conf" ]; then
-               cp -fp $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
-            elif [ "$2/$LIVEKITNAME.conf" -ot "$1/etc/minios/$LIVEKITNAME.conf" ]; then
-               cp -fp $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
-            fi
-         elif [ -f $2/$LIVEKITNAME.conf ]; then
-            cp -fp $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
-         elif [ -f $1/etc/minios/$LIVEKITNAME.conf ]; then
-            cp -fp $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
-         fi
+         synchronize_files $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
          if [ -z $SSH_KEY ]; then
             SSH_KEY=$(config_value $1/etc/minios/$LIVEKITNAME.conf SSH_KEY)
             if [ -z $SSH_KEY ]; then
                SSH_KEY="authorized_keys"
             fi
          fi
-         if [ ! -d $1/root/.ssh ]; then
-            mkdir $1/root/.ssh
-            chmod 700 $1/root/.ssh
-         fi
-         if [ -f $2/$SSH_KEY ] && [ -f $1/root/.ssh/authorized_keys ]; then
-            if [ "$2/$SSH_KEY" -nt "$1/root/.ssh/authorized_keys" ]; then
-               cp -fp $2/$SSH_KEY $1/root/.ssh/authorized_keys
-               chmod 600 $1/root/.ssh/authorized_keys
-            elif [ "$2/$SSH_KEY" -ot "$1/root/.ssh/authorized_keys" ]; then
-               cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
-            fi
-         elif [ -f $2/$SSH_KEY ]; then
-            cp -fp $2/$SSH_KEY $1/root/.ssh/authorized_keys
-            chmod 600 $1/root/.ssh/authorized_keys
-         elif [ -f $1/root/.ssh/authorized_keys ]; then
-            cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
-         fi
+         mkdir -p $1/root/.ssh && chmod 700 $1/root/.ssh
+         synchronize_files $2/$SSH_KEY $1/root/.ssh/authorized_keys
       fi
    fi
 
-   if [ ! -d $1/var/log/minios ]; then
-      mkdir -p $1/var/log/minios
-   fi
+   mkdir -p $1/var/log/minios
+
    if [ "$(ls -A $2/scripts 2>/dev/null)" ]; then
       chroot $1 /bin/bash -c "/minios-boot $2" >$1/var/log/minios/boot.output 2>&1
    else
@@ -900,17 +896,14 @@ minios_boot() {
    fi
 
    if [ "$WRITABLE" = "true" ]; then
-      if [ -f $1/etc/minios/$LIVEKITNAME.conf ]; then
-         cp -fp $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
-      fi
-      if [ -f $1/root/.ssh/authorized_keys ]; then
-         cp -fp $1/root/.ssh/authorized_keys $2/$SSH_KEY
-      fi
+      copy_file_if_exists $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
+      copy_file_if_exists $1/root/.ssh/authorized_keys $2/$SSH_KEY
    fi
 
    rm -f $1/cmdline
    rm -f $1/minios-boot
 }
+# End of MiniOS functions
 
 # Change root and execute init
 # $1 = where to change root

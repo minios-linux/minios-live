@@ -10,19 +10,16 @@
 if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
 fi
+
 exec 19>/var/log/minios/minios-update-users.log
 BASH_XTRACEFD=19
 set -x
 
 BUNDLES=$1
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
-if [ -z "$CORE_BUNDLE_PREFIX" ]; then
-    CORE_BUNDLE_PREFIX="00-core"
-fi
+CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
 read_config /etc/minios/config BEXT
-if [ -z "$BEXT" ]; then
-    BEXT="sb"
-fi
+BEXT=${BEXT:-"sb"}
 CORE_BUNDLE_PATH="$(ls -1d $BUNDLES/$CORE_BUNDLE_PREFIX*.$BEXT)"
 if [ -d /run/initramfs/memory/changes ]; then
     CHANGES="/run/initramfs/memory/changes"
@@ -32,24 +29,32 @@ elif [ -d /memory/changes ]; then
     INITRD_TYPE="uird"
 fi
 
+allow_root_only
+
+TMP=$(mktemp -d)
+trap 'rm -rf $TMP' EXIT
+
+# Copy passwd, shadow, group and gshadow files from core bundle and changes directory to temporary files in $TMP/
 for FILE in passwd shadow group gshadow; do
-    cp $CORE_BUNDLE_PATH/etc/$FILE /tmp/$FILE.bundlesfile || exit
+    cp $CORE_BUNDLE_PATH/etc/$FILE $TMP/$FILE.bundlesfile || exit
     if [ -f "$CHANGES/var/.minios-setup-completed" ]; then
-        cp $CHANGES/etc/$FILE /tmp/$FILE.changesfile || exit
+        cp $CHANGES/etc/$FILE $TMP/$FILE.changesfile || exit
     fi
 done
+
+# Iterate over all bundles except for the core bundle and append unique lines from their passwd, shadow, group and gshadow files to the corresponding temporary files in $TMP/
 for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
-    for FILE in passwd shadow group gshadow; do
+    for FILE in {passwd,shadow,group,gshadow}; do
         if [ -f "$BUNDLE/etc/$FILE" ]; then
-            grep -Fvf /tmp/$FILE.bundlesfile $BUNDLE/etc/$FILE >>/tmp/$FILE.bundlesfile
-            #awk '!x[$0]++' /tmp/$FILE.bundlesfile >/etc/$FILE
+            grep -Fvf $TMP/$FILE.bundlesfile $BUNDLE/etc/$FILE >>$TMP/$FILE.bundlesfile
         fi
     done
 done
+
+# Append unique lines from temporary bundle files to temporary changes files and remove duplicate lines using awk before copying them to their final location in /etc/
 for FILE in passwd shadow group gshadow; do
-    grep -Fvf /tmp/$FILE.changesfile /tmp/$FILE.bundlesfile >>/tmp/$FILE.changesfile
-    awk '!x[$0]++' /tmp/$FILE.changesfile >/etc/$FILE
+    grep -Fvf $TMP/$FILE.changesfile $TMP/$FILE.bundlesfile >>$TMP/$FILE.changesfile
+    awk '!x[$0]++' $TMP/$FILE.changesfile >/etc/$FILE
 done
 
-rm /tmp/*.bundlesfile
-rm /tmp/*.changesfile
+exit

@@ -1,0 +1,18 @@
+_minios-bundle() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD - 1]}"
+    opts="activate deactivate list"
+
+    if [[ ${prev} == "activate" || ${prev} == "deactivate" ]]; then
+        COMPREPLY=($(compgen -f -- "${cur}"))
+        return 0
+    fi
+
+    if [[ ${COMP_CWORD} == 1 ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+        return 0
+    fi
+}
+complete -F _minios-bundle minios-bundle
