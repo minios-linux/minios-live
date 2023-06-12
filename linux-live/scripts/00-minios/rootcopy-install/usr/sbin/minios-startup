@@ -198,73 +198,26 @@ cat <<EOF >>/etc/issue
 
 EOF
 
-# Reading variables
-if [ -z "$USER_NAME" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf USER_NAME
-    if [ -z "$USER_NAME" ]; then
-        USER_NAME="live"
+# Declare two arrays: one for the variable names and one for their default values
+VARIABLES=(USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET SSH_KEY CLOUD SCRIPTS HIDE_CREDENTIALS AUTOLOGIN SYSTEM_TYPE)
+DEFAULT_VALUES=("live" "evil" "toor" "minios" "graphical" "authorized_keys" "false" "true" "false" "true" "puzzle")
+
+# Iterate over the variable names
+for i in "${!VARIABLES[@]}"; do
+    # Get the current variable name and its default value
+    VAR_NAME="${VARIABLES[$i]}"
+    DEFAULT_VALUE="${DEFAULT_VALUES[$i]}"
+    # Check if the variable is not set
+    if [ -z "${!VAR_NAME}" ]; then
+        # Read the variable value from the configuration file
+        read_config /etc/minios/$LIVEKITNAME.conf "$VAR_NAME"
+        # Check if the variable is still not set
+        if [ -z "${!VAR_NAME}" ]; then
+            # Set the default value for the variable
+            declare "$VAR_NAME=$DEFAULT_VALUE"
+        fi
     fi
-fi
-if [ -z "$USER_PASSWORD" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf USER_PASSWORD
-    if [ -z "$USER_PASSWORD" ]; then
-        USER_PASSWORD="evil"
-    fi
-fi
-if [ -z "$ROOT_PASSWORD" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf ROOT_PASSWORD
-    if [ -z "$ROOT_PASSWORD" ]; then
-        ROOT_PASSWORD="toor"
-    fi
-fi
-if [ -z "$HOST_NAME" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf HOST_NAME
-    if [ -z "$HOST_NAME" ]; then
-        HOST_NAME="minios"
-    fi
-fi
-if [ -z "$DEFAULT_TARGET" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf DEFAULT_TARGET
-    if [ -z "$DEFAULT_TARGET" ]; then
-        DEFAULT_TARGET="graphical"
-    fi
-fi
-if [ -z "$SSH_KEY" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf SSH_KEY
-    if [ -z "$SSH_KEY" ]; then
-        SSH_KEY="authorized_keys"
-    fi
-fi
-if [ -z "$CLOUD" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf CLOUD
-    if [ -z "$CLOUD" ]; then
-        CLOUD="false"
-    fi
-fi
-if [ -z "$SCRIPTS" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf SCRIPTS
-    if [ -z "$SCRIPTS" ]; then
-        SCRIPTS="true"
-    fi
-fi
-if [ -z "$HIDE_CREDENTIALS" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf HIDE_CREDENTIALS
-    if [ -z "$HIDE_CREDENTIALS" ]; then
-        HIDE_CREDENTIALS="false"
-    fi
-fi
-if [ -z "$AUTOLOGIN" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf AUTOLOGIN
-    if [ -z "$AUTOLOGIN" ]; then
-        AUTOLOGIN="true"
-    fi
-fi
-if [ -z "$SYSTEM_TYPE" ]; then
-    read_config /etc/minios/$LIVEKITNAME.conf SYSTEM_TYPE
-    if [ -z "$SYSTEM_TYPE" ]; then
-        SYSTEM_TYPE="puzzle"
-    fi
-fi
+done
 
 if [[ "$SYSTEM_TYPE" != "classic" && "$SYSTEM_TYPE" != "puzzle" ]]; then
     echo "SYSTEM_TYPE must be either classic or puzzle"
@@ -429,18 +382,26 @@ fi
 echo "=====> Making changes to the configuration file..."
 echo "Changes:"
 
+# Define a function to update the value of a variable in the configuration file
 update_config_value() {
+    # Read the value of the variable from the configuration file
     local CONFIG_VALUE=$(read_config_value /etc/minios/$LIVEKITNAME.conf $1)
+    # Get the current value of the variable
     local VAR_NAME=$1
     local VAR_VALUE=${!VAR_NAME}
+    # Check if the current value is different from the value in the configuration file and is not empty
     if [ "$VAR_VALUE" != "$CONFIG_VALUE" ] && [ -n "$VAR_VALUE" ]; then
+        # Update the value of the variable in the configuration file using the sed command
         sed -i -e "/$1=/s/=.*/=\"$VAR_VALUE\"/" /etc/minios/$LIVEKITNAME.conf
     fi
 }
 
+# Iterate over a list of variable names
 for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS CLOUD AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE SYSTEM_TYPE; do
+    # Call the update_config_value function for each variable to update its value in the configuration file
     update_config_value $PARAM
 done
+
 
 echo "
 New /etc/minios/$LIVEKITNAME.conf configuration file contents:"

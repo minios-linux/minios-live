@@ -9,26 +9,25 @@
 
 . /usr/lib/minioslib || exit 1
 . /etc/minios/minios.conf || exit 1
-allow_root_only
 
+VERSION="1.0"
 if [ -d /run/initramfs/memory/bundles ]; then
-    BUNDLES=/run/initramfs/memory/bundles
     LIVE=/run/initramfs/memory
 elif [ -d /memory/bundles ]; then
-    BUNDLES=/memory/bundles
     LIVE=/memory
 fi
+BUNDLES=$LIVE/bundles
 RAMSTORE=$LIVE/modules
 
 # Print error message and exit
 # $1 = error message
 #
-die() {
+function die() {
     echo "$1" >&2
     exit 1
 }
 
-print_branches() {
+function print_branches() {
     local SI BUNDLE LOOP CWD
 
     SI="/sys/fs/aufs/$(cat /proc/mounts | grep 'aufs / aufs' | egrep -o 'si=([^,) ]+)' | tr = _)"
@@ -48,7 +47,7 @@ print_branches() {
 # Activate MiniOS Bundle
 # $1 = file to activate
 #
-activate() {
+function activate() {
     local SB TGT BAS
 
     SB="$(readlink -f "$1")"
@@ -56,7 +55,7 @@ activate() {
 
     # check if file exists
     if [ ! -r "$SB" ]; then
-        usage
+        brief_help
         die "file not found $SB"
     fi
 
@@ -92,13 +91,13 @@ activate() {
         die "Error attaching bundle filesystem to MiniOS"
     fi
 
-    echo "MiniOS Bundle activated: $BAS"
+    echo "MiniOS bundle activated: $BAS"
 }
 
 # Deactivate MiniOS bundle of the given name
 # $1 = path to bundle file, or its name
 #
-deactivate() {
+function deactivate() {
     local BUNDLES SB MATCH LOOP LOOPFILE
 
     BUNDLES=$LIVE/bundles
@@ -145,18 +144,38 @@ deactivate() {
         rm -f $LOOPFILE
     fi
 
-    echo "MiniOS Bundle deactivated: $SB"
+    echo "MiniOS bundle deactivated: $SB"
 }
 
-usage() {
-    echo "Usage: $0 [ activate | deactivate | list ] [ file.sb ]" >&2
-    if [ "$1" != "" ]; then
-        echo "$1" >&2
-    fi
+function help() {
+    echo "Usage: $(basename $0) [OPTION]... [FILE]..."
+    echo "Activate, deactivate or list MiniOS bundles."
+    echo ""
+    echo "Options:"
+    echo "  activate          activate a MiniOS bundle"
+    echo "  deactivate        deactivate a MiniOS bundle"
+    echo "  list              list active MiniOS bundles"
+    echo "  --help            display this help and exit"
+    echo "  --version         display version information and exit"
+    echo ""
+    echo "Examples:"
+    echo "  $(basename $0) activate file.sb"
+    echo "  $(basename $0) deactivate file.sb"
+    echo "  $(basename $0) list"
 }
 
-if [ "$1" = "activate" ]; then
-    activate "$2"
+function brief_help() {
+    echo "Usage: $(basename $0) [OPTION]... [FILE]..."
+    echo "Try '$(basename $0) --help' for more information."
+    exit 1
+}
+
+function version() {
+    echo "$(basename $0) $VERSION"
+    exit 0
+}
+
+function fix_system {
     if [ "$SYSTEM_TYPE" = "puzzle" ]; then
         # fix users
         minios-update-users $BUNDLES 2>/dev/null
@@ -165,23 +184,47 @@ if [ "$1" = "activate" ]; then
         # fix dpkg
         minios-update-dpkg $BUNDLES 2>/dev/null &
         # reload XFCE menu
-        killall -HUP xfce4-panel
+        if pgrep xfce4-panel >/dev/null; then
+            killall -HUP xfce4-panel
+        fi
     fi
+}
+
+if [[ "$(id -u)" != "0" ]]; then
+    echo "This script must be run as root."
+    brief_help
+    exit 1
+fi
+
+if [[ $# -eq 0 ]]; then
+    brief_help
+    exit 1
+fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --help)
+        help
+        ;;
+    --version)
+        version
+        ;;
+    *)
+        break
+        ;;
+    esac
+    shift
+done
+
+if [ "$1" = "activate" ]; then
+    activate "$2"
+    fix_system
     exit
 fi
 
 if [ "$1" = "deactivate" ]; then
     deactivate "$2"
-    if [ "$SYSTEM_TYPE" = "puzzle" ]; then
-        # fix users
-        minios-update-users $BUNDLES 2>/dev/null
-        # fix caches
-        minios-update-cache $BUNDLES 2>/dev/null &
-        # fix dpkg
-        minios-update-dpkg $BUNDLES 2>/dev/null &
-        # reload XFCE menu
-        killall -HUP xfce4-panel
-    fi
+    fix_system
     exit
 fi
 
@@ -195,5 +238,3 @@ if [ "$1" = "savechanges" ]; then
     savechanges "$@"
     exit
 fi
-
-usage

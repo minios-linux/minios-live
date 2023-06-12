@@ -218,9 +218,9 @@ if [ $PACKAGE_VARIANT = "minimum" ]; then
     if [ ! -d /usr/lib/usev/rules.d ]; then
         mkdir -p /usr/lib/udev/rules.d
     fi
-    cat <<EOF >/usr/lib/udev/rules.d/90-slax-automount.rules
+    cat <<EOF >/usr/lib/udev/rules.d/90-minios-automount.rules
 # we don't care about loop* and ram* devices
-KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/slax-automount %r/%k"
+KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/minios-automount %r/%k"
 
 EOF
 fi

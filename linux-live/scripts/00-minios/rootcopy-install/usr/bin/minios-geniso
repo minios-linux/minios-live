@@ -1,14 +1,19 @@
-#!/bin/bash
+*/**/#!/bin/bash
 
 # Author: Tomas M. <http://www.linux-live.org>
 # Author: crims0n. <https://minios.dev>
 
 . /usr/lib/minioslib || exit 1
 
+VERSION="1.0"
 CWD=$(pwd)
 read_config /etc/minios/config LIVEKITNAME
+LIVEKITNAME=${LIVEKITNAME:-"minios"}
 read_config /etc/minios/buildconfig BOOT_TYPE
+BOOT_TYPE=${BOOT_TYPE:-"hybrid"}
 read_config /etc/minios/buildconfig SYSTEMNAME
+SYSTEMNAME=${SYSTEMNAME:-"MiniOS"}
+
 if [ -d /run/initramfs/memory/bundles ]; then
     BUNDLES=/run/initramfs/memory/bundles
     INITRD="livekit"
@@ -16,37 +21,85 @@ elif [ -d /memory/bundles ]; then
     BUNDLES=/memory/bundles
     INITRD="uird"
 fi
+
 if [ "$INITRD" = "livekit" ]; then
     SOURCE="/run/initramfs/memory"
 elif [ "$INITRD" = "uird" ]; then
     SOURCE="/memory"
 fi
+
 TEMP=/tmp/"$LIVEKITNAME"iso.$$
 REGEX='^$'
+TARGET=""
+MODULES=()
 
-if [ "$1" = "-e" ]; then
-    REGEX="$2"
-    shift
-    shift
-fi
-
-TARGET="$(readlink -f "$1")"
-
-if [ "$TARGET" = "" ]; then
+help() {
+    echo "Usage: $(basename $0) [OPTIONS]... [MODULE.SB]..."
+    echo "Generate MiniOS ISO image, adding specified modules."
     echo ""
-    echo "Generate MiniOS ISO image, adding specified modules"
-    echo "Regular expression is used to exclude any existing path or file with -e regex"
-    echo ""
-    echo "Usage:"
-    echo "        $0 [[ -e regex ]] target.iso [[module.sb]] [[module.sb]] ..."
+    echo "Options:"
+    echo "  -e, --exclude=REGEX   exclude any existing path or file matching REGEX"
+    echo "  -f, --file=FILE       specify output ISO filename (default: $LIVEKITNAME-YYYYMMDD_HHMM.iso)"
+    echo "      --help            display this help and exit"
+    echo "      --version         display version information and exit"
     echo ""
     echo "Examples:"
-    echo "        # to create MiniOS iso without chromium.sb module:"
-    echo "        $0 -e 'chromium' minios_without_chromium.iso"
-    echo ""
-    echo "        # to create MiniOS text-mode core only:"
-    echo "        $0 -e 'firmware|xorg|desktop|apps|chromium' minios_textmode.iso"
+    echo "  # create MiniOS ISO without chromium.sb module:"
+    echo "  $(basename $0) -e 'chromium' -f minios_without_chromium.iso"
+    echo "  # create MiniOS text-mode core only:"
+    echo "  $(basename $0) --exclude='firmware|xorg|desktop|apps|chromium' --file=minios_textmode.iso"
+}
+
+function brief_help() {
+    echo "Usage: $(basename $0) [OPTIONS]... [MODULE.SB]..."
+    echo "Try '$(basename $0) --help' for more information."
     exit 1
+}
+
+function version() {
+    echo "$(basename $0) $VERSION"
+    exit 0
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    -e | --exclude=*)
+        if [[ "$1" == --* ]]; then
+            REGEX="${1#*=}"
+        else
+            REGEX="$2"
+            shift
+        fi
+        shift
+        ;;
+    -f | --file=*)
+        if [[ "$1" == --* ]]; then
+            TARGET="$(readlink -f "${1#*=}")"
+        else
+            TARGET="$(readlink -f "$2")"
+            shift
+        fi
+        shift
+        ;;
+    --help)
+        help
+        ;;
+    --version)
+        version
+        ;;
+    *) # unknown option
+        if [[ $1 == -* ]]; then
+            brief_help
+        elif [ -e "$1" ]; then
+            MODULES+=("$(readlink -f "$1")")
+            shift
+        fi
+        ;;
+    esac
+done
+
+if [ "$TARGET" = "" ]; then
+    TARGET="$LIVEKITNAME-$(date +%Y%m%d_%H%M).iso"
 fi
 
 if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
@@ -91,6 +144,7 @@ elif [ -x "$(which genisoimage 2>/dev/null)" ]; then
         D=""
     fi
 fi
+
 if [ $BOOT_TYPE = "hybrid" ]; then
     E="/$LIVEKITNAME/boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
 else
@@ -106,10 +160,8 @@ cat <<EOF >/tmp/README
   then run minios\boot\bootinst.bat on Windows, or minios/boot/bootinst.sh
   on Linux.
 * When installed on media with fat32 and ntfs file systems, changes in
-  persistent changes mode will be saved in the minios\changes\changes.dat file,
-  the file expands dynamically, the maximum file size is 4 GB (can be changed
-  with the changes_size parameter in the boot options, for example
-  changes_size=2000 will set the maximum file size to 2 GB).
+  persistent changes mode will be saved in the minios\changes\changes.dat.x
+  files, the files expands dynamically, the maximum size of each file is 4 GB.
 * When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
   the persistent changes mode will be saved in the minios\changes folder with
   no size limit.
@@ -133,15 +185,17 @@ GRAFT=$(
 )
 
 # add all modules
-while [ "$2" != "" ]; do
-    if [ ! -e "$2" ]; then
-        echo "File does not exist: $2"
+for MOD in "${MODULES[@]}"; do
+    if [ ! -e "$MOD" ]; then
+        echo "File does not exist: $MOD"
         exit 3
     fi
-    BAS="$(basename "$2")"
-    MOD="$(readlink -f "$2")"
-    GRAFT="$GRAFT $LIVEKITNAME/modules/$BAS=$MOD"
-    shift
+    BAS="$(basename "$MOD")"
+    if [[ $BAS =~ ^[0-9]{2}- ]]; then
+        GRAFT="$GRAFT $LIVEKITNAME/$BAS=$MOD"
+    else
+        GRAFT="$GRAFT $LIVEKITNAME/modules/$BAS=$MOD"
+    fi
 done
 
 (

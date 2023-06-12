@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Functions library :: for install scripts
+# Library of functions for installation scripts
 # Author: crims0n. <http://minios.dev>
 #
 
@@ -34,10 +34,6 @@ function common_variables() {
     if [[ (-f /.dockerenv || "$container" = "podman") && -f /.minios-live-container ]]; then
         CONTAINER_TYPE="2"
     fi
-
-    #if [ $EXPORT_KERNEL = "true" ]; then
-    #    NAMED_BOOT_FILES="true"
-    #fi
 
     if [ $DISTRIBUTION_ARCH = "amd64" ]; then
         ISO_ARCH="amd64"
@@ -121,11 +117,7 @@ function common_variables() {
     # No subdirectories are allowed, no slashes,
     # so You can't use /var/tmp here for example
     # Exclude directories like proc sys tmp
-    #if [[ $DISTRIBUTION_ARCH == *"i386"* ]]; then
-    #    MKMOD="bin etc home lib opt root sbin srv usr var"
-    #else
     MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
-    #fi
 
 }
 
@@ -478,16 +470,6 @@ function create_livekitname_install_symlink() {
             echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
         fi
     fi
-    : 'if [ ! -f /usr/bin/minios-modules ]; then
-        cp "$SCRIPT_DIR/linux-live/basesystem/00-core/rootcopy-install/usr/bin/minios-modules" /usr/bin/minios-modules
-        if [ "$0" != "/usr/bin/minios-modules" ]; then
-            if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Вы можете использовать команду ${CYAN}minios-modules${ENDCOLOR} для запуска программы сборки модулей."
-            else
-                echo -e "You can use the ${CYAN}minios-modules${ENDCOLOR} command to run the module build program."
-            fi
-        fi
-    fi'
 }
 
 # =================================================================
@@ -801,7 +783,7 @@ function chroot_umount_fs() {
     check_mounted
 }
 
-# =================================================================
+# ==================================================================
 # delete the log
 # удаляем лог
 # =================================================================
@@ -1345,7 +1327,6 @@ EOF
 
 function build_rootfs() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
-    #current_process
 
     if [ $USE_ROOTFS = "true" ]; then
         if [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
@@ -1397,19 +1378,7 @@ EOF
                         chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install ./libgost_2.0.2-5+ci2_amd64.deb
                         rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb
                         cd -
-                        #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9
                     fi
-                    #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-                    #    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install apt-transport-https
-                    #fi
-                    #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg
-                    #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                    #    echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
-                    #elif [ $DISTRIBUTION = "orel" ]; then
-                    #    echo "deb https://minios-linux.github.io/debian/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
-                    #else
-                    #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list
-                    #fi
                 else
                     chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
                     chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install gnupg ca-certificates >>$OUTPUT 2>&1
@@ -1419,19 +1388,7 @@ EOF
                         chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install ./libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                         rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                         cd - >>$OUTPUT 2>&1
-                        #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 >>$OUTPUT 2>&1
                     fi
-                    #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-                    #    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install apt-transport-https >>$OUTPUT 2>&1
-                    #fi
-                    #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
-                    #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                    #    echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
-                    #elif [ $DISTRIBUTION = "orel" ]; then
-                    #    echo "deb https://minios-linux.github.io/debian/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
-                    #else
-                    #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
-                    #fi
                 fi
             else
                 chroot $INSTALL_DIR apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1
@@ -1442,19 +1399,7 @@ EOF
                     chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install ./libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                     rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb >>$OUTPUT 2>&1
                     cd - >>$OUTPUT 2>&1
-                    #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 >>$OUTPUT 2>&1
                 fi
-                #if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-                #    chroot_run $INSTALL_DIR apt-get $INSTALL_OPTIONS install apt-transport-https >>$OUTPUT 2>&1
-                #fi
-                #curl https://minios-linux.github.io/debian/minios-linux.asc | gpg --dearmor >$INSTALL_DIR/etc/apt/trusted.gpg.d/minios-linux.gpg >>$OUTPUT 2>&1
-                #if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                #    echo "deb https://minios-linux.github.io/debian/ bookworm main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
-                #elif [ $DISTRIBUTION = "orel" ]; then
-                #    echo "deb https://minios-linux.github.io/debian/ stretch main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
-                #else
-                #    echo "deb https://minios-linux.github.io/debian/ $DISTRIBUTION main contrib non-free" >$INSTALL_DIR/etc/apt/sources.list.d/minios-linux.list >>$OUTPUT 2>&1
-                #fi
             fi
 
             if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
@@ -1555,7 +1500,6 @@ function copy_build_scripts() {
         done
     fi
 
-    #chmod +x $DESTINATION/linux-live/build
     chmod +x $DESTINATION/linux-live/install_chroot
 
     if [ "$DEV_SYSTEM" = "true" ]; then
@@ -1629,14 +1573,10 @@ function build_chroot() {
     else
         cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
     fi
-    #if [ $LOCALE = "ru_RU" ]; then
-    #    sed -i "s/deb.debian.org/mirror.yandex.ru/g;s/security.debian.org/mirror.yandex.ru/g" $INSTALL_DIR/etc/apt/sources.list
-    #fi
 
     VANILLA_ASTRA="true"
     if [ $DISTRIBUTION = "orel" ]; then
         if [ $VANILLA_ASTRA != "true" ]; then
-            #apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9
             cat $SCRIPT_DIR/linux-live/aptsources/stretch.list | sed '/backports/d' >$INSTALL_DIR/etc/apt/sources.list.d/stretch.list
         fi
     fi
@@ -1699,7 +1639,6 @@ function build_live() {
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
 
-    #mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -keep-as-directory -noappend || exit
     if [ $COMP_TYPE = "zstd" ]; then
         time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
     elif [ $COMP_TYPE = "xz" ]; then
@@ -1740,7 +1679,6 @@ EOF
 # =================================================================
 function build_boot() {
     current_process
-    #echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
 
     local OLD_KERNEL
 
@@ -1754,13 +1692,8 @@ function build_boot() {
 
     check_install_dir
 
-    #if [ $CLOUD != "true" ]; then
     cp -r $SCRIPT_DIR/linux-live/bootfiles/* $WORK_DIR/image/$LIVEKITNAME
-    #fi
 
-    #if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
-    #    BOOT_TYPE="hybrid"
-    #fi
     if [ $BOOT_TYPE = "hybrid" ]; then
         if [ $DISTRIBUTION_ARCH = "amd64" ]; then
             rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi
@@ -1859,13 +1792,8 @@ EOF
     fi
 
     if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
-        #BOOT_SETTINGS="hide_credentials enable_services=$ENABLE_SERVICES"
         BOOT_SETTINGS="hide_credentials"
     elif [ $PACKAGE_VARIANT = "minimum" ]; then
-        #if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
-        #BOOT_SETTINGS="user_name=root enable_services=$ENABLE_SERVICES"
-        #    BOOT_SETTINGS="user_name=root quiet"
-        #fi
         if [ $INITRD_TYPE = "livekit-mos" ]; then
             PERCH_SETTINGS="minios.flags=perch,automount"
             LIVE_SETTINGS="minios.flags=automount"
@@ -2054,10 +1982,6 @@ EOF
 EOF
     fi
 
-    #if [ $BOOT_TYPE = "hybrid" ]; then
-    #    cp $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg $WORK_DIR/image/$LIVEKITNAME/boot/grub/boot/grub
-    #fi
-
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
         # miniosbuild.conf generation is in linux-live/scripts/01-kernel/build
         if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
@@ -2108,7 +2032,7 @@ function build_iso() {
     fi
 
     mkdir -p $ISO_DIR >>$OUTPUT 2>&1
-    #VER=$SYSTEMVER
+
     DATE=$(date +%Y%m%d_%H%M)
 
     DIR=$WORK_DIR/image
@@ -2767,70 +2691,15 @@ function module_check_install_dir() {
 
 function filter_modules() {
     echo -e "=====> the ${CYAN}${FUNCNAME[0]}${ENDCOLOR} function is executing ..."
-    : 'if [ $PACKAGE_VARIANT = "puzzle" ] && ! { [[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"firmware"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]; }; then
+    if [ $PACKAGE_VARIANT = "puzzle" ]; then
         FILTER_MODULES="true"
-        FILTER_LEVEL="3"
-        #if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
-        #    read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_LEVEL
-        #else
-        #    read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_LEVEL
-        #fi
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && ([[ $MODULE == *"minios"* ]] || [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]); then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="0"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == *"firmware"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="1"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && ([[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]]); then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="2"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == *"-desktop"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="3"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == *"-apps"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="4"
-    elif ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]] || [[ $MODULE == *"firmware"* ]] || [[ $MODULE == *"xorg"* ]] || [[ $MODULE == *"gui-base"* ]] || [[ $MODULE == *"-desktop"* ]] || [[ $MODULE == *"-apps"* ]]); then
-        FILTER_MODULES="false"
-    else
-        if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
-            read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_MODULES FILTER_LEVEL
+        if ! [[ $MODULE =~ ^0[0-9]-* ]]; then
+            FILTER_LEVEL="3"
+        elif [[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]; then
+            FILTER_LEVEL="0"
         else
-            read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
+            FILTER_LEVEL=$((${MODULE:1:1}-1))
         fi
-    fi'
-    if [ $PACKAGE_VARIANT = "puzzle" ] && ! [[ $MODULE =~ ^0[0-9]-* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="3"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && ([[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]); then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="0"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "02-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="1"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "03-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="2"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "04-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="3"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "05-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="4"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "06-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="5"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "07-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="6"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "08-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="7"
-    elif [ $PACKAGE_VARIANT = "puzzle" ] && [[ $MODULE == "09-"* ]]; then
-        FILTER_MODULES="true"
-        FILTER_LEVEL="8"
-    #elif [[ $MODULE =~ ^0[0-9]-* ]]; then
-    #    FILTER_MODULES="false"
     else
         if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
             read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_MODULES FILTER_LEVEL
@@ -2863,7 +2732,6 @@ function module_chroot_mount_fs() {
 
     if [ $SCRIPT_DIR = "/usr/bin" ]; then
         mkdir -p $MODULES_DIR
-        #mount -t tmpfs none $MODULES_DIR
     fi
 
     set +u
@@ -2877,28 +2745,15 @@ function module_chroot_mount_fs() {
                     BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
                     mkdir -p $MODULES_DIR/bundles/$BUNDLE
                     mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
-                    #MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/bundles/$BUNDLE"
                 done
-                #MODULES_LIST=${MODULES_LIST:1}
                 set +e
                 filter_modules $MODULES_DIR/bundles/
-                #if [ $FILTER_MODULES = "true" ]; then
-                #    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
-                #else
-                #    MODULES_LIST=$(ls -1dr $MODULES_DIR/bundles/[0-9]* | tr '\n' ':')
-                #fi
                 MODULES_LIST=${MODULES_LIST/%:/}
                 set -e
             else
                 MODULES=$BUNDLES/
                 filter_modules $MODULES
-                #if [ $FILTER_MODULES = "true" ]; then
-                #    MODULES_LIST=$(ls -1dr $MODULES[0]* | egrep "0[0-$FILTER_LEVEL]" | tr '\n' ':')
-                #else
-                #    MODULES_LIST=$(ls -1dr $MODULES[0-9]* | tr '\n' ':')
-                #fi
                 MODULES_LIST=${MODULES_LIST/%:/}
-                #echo $MODULES_LIST
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
             mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -2916,11 +2771,6 @@ function module_chroot_mount_fs() {
             else
                 MODULES=$BUNDLES/
                 filter_modules $MODULES
-                #if [ $FILTER_MODULES = "true" ]; then
-                #    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | egrep "0[1-$FILTER_LEVEL]" | tr '\n' ':')
-                #else
-                #    MODULES_LIST=$(ls -1dr $MODULES[0-1]* | tr '\n' ':')
-                #fi
                 MODULES_LIST=${MODULES_LIST/%:/}
             fi
             mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
@@ -3425,34 +3275,6 @@ function build_modules() {
 
                 module_add_unofficial_repository
 
-                : 'if ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_TYPE != "default" ] && [ $KERNEL_BPO!= "true" ]) && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
-                    #KERNEL=$(get_latest_release minios-linux/aufs-kernel)
-                    kernel_variables
-                    if [ $KERNEL_TYPE = "default" ]; then
-                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz ]; then
-                            wget -O $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_ARCH.tar.xz
-                        fi
-                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz ]; then
-                            echo "$SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz does not exist. Installation cannot continue."
-                            echo "Download the file https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_ARCH.tar.xz"
-                            echo "and place it in the $SCRIPT_DIR/rootfs folder before running the installation."
-                            exit 0
-                        fi
-                        tar -xf $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_ARCH.tar.xz -C $MODULE_MERGED_DIR
-                    else
-                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz ]; then
-                            wget -O $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz
-                        fi
-                        if [ ! -f $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz ]; then
-                            echo "$SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz does not exist. Installation cannot continue."
-                            echo "Download the file https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz"
-                            echo "and place it in the $SCRIPT_DIR/rootfs folder before running the installation."
-                            exit 0
-                        fi
-                        tar -xf $SCRIPT_DIR/rootfs/linux-$KERNEL-$KERNEL_TYPE-$KERNEL_ARCH.tar.xz -C $MODULE_MERGED_DIR
-                    fi
-                    build_boot
-                else'
                 # run pre-install script
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/preinstall ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
@@ -3529,8 +3351,6 @@ function build_modules() {
                     else
                         echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                     fi
-
-                    #module_check_install_dir
 
                     module_chroot_mount_fs
 
@@ -3736,7 +3556,7 @@ function build_modules() {
 
                 mkmod_corefs $MODULE_UPPER_DIR
 
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then #|| ( ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ])); then
+                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
@@ -3874,7 +3694,6 @@ function repack_module() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
         mkmod_corefs $WORK_DIR/image/$LIVEKITNAME/squashfs-root
-        #mksquashfs squashfs-root $MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
         if [ $COMP_TYPE = "zstd" ]; then
             time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
         elif [ $COMP_TYPE = "xz" ]; then
@@ -3891,7 +3710,6 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-            #mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
             if [ $COMP_TYPE = "zstd" ]; then
                 time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
             elif [ $COMP_TYPE = "xz" ]; then
@@ -3937,47 +3755,6 @@ function repack_modules() {
     fi
 }
 
-# doesn't work, needs to be fixed
-function repack_modules1() { # old function
-    current_process
-
-    if [ $SCRIPT_DIR != "/usr/bin" ]; then
-        cd $WORK_DIR/image/$LIVEKITNAME/
-        for MODULE in *; do
-            echo "!!!Repacking module $MODULE"
-            if (ls ./*-xz.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="xz"
-                repack_module
-            elif (ls ./*-lz4.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="lz4"
-                repack_module
-            elif (ls ./*-zstd.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="zstd"
-                repack_module
-            elif (ls ./*-lzo.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="lzo"
-                repack_module
-            fi
-        done
-    else
-        cd $BUNDLES/
-        for MODULE in *; do
-            if (ls $BUNDLES/*-xz.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="xz"
-                repack_module
-            elif (ls $BUNDLES/*-lz4.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="lz4"
-                repack_module
-            elif (ls $BUNDLES/*-zstd.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="zstd"
-                repack_module
-            elif (ls $BUNDLES/*-lzo.$BEXT | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="lzo"
-                repack_module
-            fi
-        done
-    fi
-}
 
 function download_sources() {
     current_process
@@ -4230,8 +4007,7 @@ function container_build_run() {
         AUFS_SUFFIX="-aufs"
     fi
     CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
-    #CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH-$INITRD_TYPE-$KERNEL_TYPE$BPO_SUFFIX$AUFS_SUFFIX-${LNG[0]}-$COMP_TYPE"
-
+    
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
             # cleanup

@@ -32,6 +32,7 @@ elif [ "$INITRD" = "uird" ]; then
 fi
 
 FX=
+# Function to print a header before executing user scripts
 script_header() {
     if [ -z "$FX" ]; then
         echo -e "${CYAN}Executing user scripts... ${YELLOW}\n"
@@ -39,20 +40,21 @@ script_header() {
     fi
 }
 
+# Function to list and execute scripts in a given directory
 _script_list() {
-    for F in $(ls $1/scripts/* 2>/dev/null); do
+    for SCRIPT in $(ls $1/scripts/* 2>/dev/null); do
         script_header
-        echo ">>> $F"
-        if [ -x $F ]; then
-            $F
+        echo ">>> $SCRIPT"
+        if [ -x $SCRIPT ]; then
+            $SCRIPT
         else
-            read FF <$F &>/dev/null
-            FFF=${FF###!}
-            echo $FFF
-            [ ".$FFF" != ".$FF" ] && FFF=${FFF%% } || FFF=
-            [ -n "$FFF" ] && $FFF $F || /bin/sh $F
+            read FIRST_LINE <$SCRIPT &>/dev/null
+            INTERPRETER=${FIRST_LINE###!}
+            echo $INTERPRETER
+            [ ".$INTERPRETER" != ".$FIRST_LINE" ] && INTERPRETER=${INTERPRETER%% } || INTERPRETER=
+            [ -n "$INTERPRETER" ] && $INTERPRETER $SCRIPT || /bin/sh $SCRIPT
         fi
-        [ -n "$2" ] && rm -f $F
+        [ -n "$2" ] && rm -f $SCRIPT
     done
 }
 

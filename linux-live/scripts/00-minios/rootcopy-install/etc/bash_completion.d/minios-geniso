@@ -1,0 +1,38 @@
+_minios-geniso() {
+    local cur prev words cword
+    _init_completion -n = || return
+
+    if [[ ${words[@]} =~ --help ]] || [[ ${words[@]} =~ --version ]]; then
+        return
+    fi
+
+    case $prev in
+    -f)
+        _filedir
+        return
+        ;;
+    esac
+
+    if [[ "$cur" == *=* ]]; then
+        local opt="${cur%%=*}"
+        cur="${cur#*=}"
+        case $opt in
+        --file)
+            _filedir
+            return
+            ;;
+        *) ;;
+        esac
+    fi
+
+    if [[ "$cur" == --* ]]; then
+        COMPREPLY=($(compgen -W '--exclude= --file=' -- "$cur"))
+    elif [[ "$cur" == -* ]]; then
+        COMPREPLY=($(compgen -W '-e -f' -- "$cur"))
+    else
+        COMPREPLY=($(compgen -W '--exclude= --file=' -- "$cur"))
+    fi
+
+}
+
+complete -F _minios-geniso minios-geniso
