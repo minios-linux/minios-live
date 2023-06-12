@@ -802,51 +802,6 @@ function remove_log_file() {
     fi
 }
 
-# =================================================================
-# creating a backup of scripts (to run you need to set the variable
-# CREATE_BACKUP = "true" in linux-live/buildconfig)
-# создание бэкапа скриптов (для запуска необходимо установить
-# переменную CREATE_BACKUP="true" в linux-live/buildconfig)
-# =================================================================
-
-function create_backup() {
-    if [ $CREATE_BACKUP = "true" ]; then
-        current_function
-        if [ ! -f $SCRIPT_DIR/.script_version ]; then
-            cat "1" >$SCRIPT_DIR/.script_version >>$OUTPUT 2>&1
-            chmod 644 $SCRIPT_DIR/.script_version >>$OUTPUT 2>&1
-        fi
-        DATE=$(date +%Y%m%d_%H%M)
-        CHANGED="false"
-        rm -rf $SCRIPT_DIR/iso >>$OUTPUT 2>&1
-        rm -f $SCRIPT_DIR/.install_dir >>$OUTPUT 2>&1
-        rm -f $SCRIPT_DIR/*.log >>$OUTPUT 2>&1
-        if [ ! -d $BUILD_DIR/minios-live-current ]; then
-            CHANGED="true"
-            mkdir -p $BUILD_DIR/minios-live-current
-            (cd $SCRIPT_DIR && cp --parents -afr * $BUILD_DIR/minios-live-current)
-        else
-            for file in $(find $SCRIPT_DIR -path $SCRIPT_DIR/.git -prune -false -o -type f | sed "s,$SCRIPT_DIR/,,g" | sed "s,.script_version,,g"); do
-                if ! cmp $SCRIPT_DIR/$file $BUILD_DIR/minios-live-current/$file >>$OUTPUT 2>&1; then
-                    CHANGED="true"
-                    echo -e "$file has been modified since last backup." >>$OUTPUT 2>&1
-                    echo -e "Copying $SCRIPT_DIR/$file to $BUILD_DIR/minios-live-current/$file..." >>$OUTPUT 2>&1
-                    cp -f "$SCRIPT_DIR/$file" "$BUILD_DIR/minios-live-current/$file" >>$OUTPUT 2>&1
-                fi
-            done
-        fi
-        if [ $CHANGED = "true" ]; then
-            SCRIPT_VERSION=$(cat $SCRIPT_DIR/.script_version)
-            echo $(($SCRIPT_VERSION + 1)) >$SCRIPT_DIR/.script_version
-            echo $(($SCRIPT_VERSION + 1)) >$BUILD_DIR/minios-live-current/.script_version
-            cd $SCRIPT_DIR >>$OUTPUT 2>&1
-            rm -f $BUILD_DIR/minios-live-current.tar.gz
-            tar -czf $BUILD_DIR/minios-live-current.tar.gz ./ >>$OUTPUT 2>&1
-            cp $BUILD_DIR/minios-live-current.tar.gz $BUILD_DIR/minios-live-v$SCRIPT_VERSION-$DATE.tar.gz >>$OUTPUT 2>&1
-        fi
-    fi
-}
-
 function add_unofficial_repository() {
     current_function
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
