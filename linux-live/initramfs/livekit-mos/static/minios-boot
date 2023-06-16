@@ -8,136 +8,153 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 . /lib/minioslib
 
-console_colors
-allow_root_only
+function set_trace_log() {
+    if [ ! -d /var/log/minios ]; then
+        mkdir -p /var/log/minios
+    fi
+    exec 19>/var/log/minios/"$1"
+    BASH_XTRACEFD=19
 
-if [ ! -d /var/log/minios ]; then
-    mkdir -p /var/log/minios
-fi
-exec 19>/var/log/minios/boot.log
-BASH_XTRACEFD=19
+    set -x
+}
 
-set -x
+function set_variables() {
+    CONFIG=/etc/minios/config
+    BUILDCONFIG=/etc/minios/buildconfig
+    if [ -f "$CONFIG" ]; then
+        read_config "$CONFIG" LIVEKITNAME
+    else
+        LIVEKITNAME="minios"
+    fi
+    MINIOSCONFIG=/etc/minios/"$LIVEKITNAME".conf
+}
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-CONFIG=/etc/minios/config
-BUILDCONFIG=/etc/minios/buildconfig
-if [ -f /cmdline ]; then
-    CMDLINE=$(cat /cmdline)
-    read_cmdline $CMDLINE
-fi
-if [ -f $CONFIG ]; then
-    read_config $CONFIG LIVEKITNAME
-else
-    LIVEKITNAME="minios"
-fi
-MINIOSCONFIG=/etc/minios/$LIVEKITNAME.conf
+function read_cmdline_values() {
+    if [ -f /cmdline ]; then
+        read -r CMDLINE </cmdline
+        read_cmdline "$CMDLINE"
+    fi
+}
 
-if [ -z "$CLOUD" ]; then
-    if [ -f $MINIOSCONFIG ]; then
-        read_config $MINIOSCONFIG CLOUD
-        if [ -z "$CLOUD" ]; then
+function set_cloud() {
+    if [ -z "$CLOUD" ]; then
+        if [ -f "$MINIOSCONFIG" ]; then
+            read_config "$MINIOSCONFIG" CLOUD
+            if [ -z "$CLOUD" ]; then
+                CLOUD="false"
+            fi
+        else
             CLOUD="false"
         fi
-    else
-        CLOUD="false"
     fi
-fi
-if [ "$CLOUD" = "true" ]; then
-    USER_NAME="root"
-    DEFAULT_TARGET="multi-user"
-    systemctl enable ssh
-fi
+    if [ "$CLOUD" = "true" ]; then
+        user="root"
+        DEFAULT_TARGET="multi-user"
+        systemctl enable ssh
+    fi
+}
 
-if [ -z "$DEFAULT_TARGET" ]; then
-    if [ -f $MINIOSCONFIG ]; then
-        read_config $MINIOSCONFIG DEFAULT_TARGET
-        if [ -z "$DEFAULT_TARGET" ]; then
+function set_default_target() {
+    if [ -z "$DEFAULT_TARGET" ]; then
+        if [ -f "$MINIOSCONFIG" ]; then
+            read_config "$MINIOSCONFIG" DEFAULT_TARGET
+            if [ -z "$DEFAULT_TARGET" ]; then
+                DEFAULT_TARGET="graphical"
+            fi
+        else
             DEFAULT_TARGET="graphical"
         fi
+    fi
+    if [ -n "$DEFAULT_TARGET" ]; then
+        systemctl set-default "$DEFAULT_TARGET"
+    fi
+}
+
+function manage_services() {
+    local action="$1"
+    local services_var
+    if [ "$action" == "enable" ]; then
+        services_var="ENABLE_SERVICES"
+    elif [ "$action" == "disable" ]; then
+        services_var="DISABLE_SERVICES"
     else
-        DEFAULT_TARGET="graphical"
+        echo "Invalid action: $action"
+        return 1
     fi
-fi
-if [ -n "$DEFAULT_TARGET" ]; then
-    systemctl set-default $DEFAULT_TARGET
-fi
 
-if [ -z "$ENABLE_SERVICES" ]; then
-    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f $MINIOSCONFIG ]; then
-            read_config $MINIOSCONFIG ENABLE_SERVICES
+    if [ -z "${!services_var}" ]; then
+        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+            if [ -f "$MINIOSCONFIG" ]; then
+                read_config "$MINIOSCONFIG" "$services_var"
+            fi
         fi
     fi
-fi
-if [ -n "$ENABLE_SERVICES" ]; then
-    SERVICES=$(echo $ENABLE_SERVICES | tr "," "\n")
-    for SERVICE in $SERVICES; do
-        if [ $SERVICE = "cockpit" ]; then
-            systemctl enable cockpit.socket
+
+    if [ -n "${!services_var}" ]; then
+        IFS=',' read -ra SERVICES <<<"${!services_var}"
+        for SERVICE in "${SERVICES[@]}"; do
+            if [ "$SERVICE" = "cockpit" ]; then
+                systemctl "$action" cockpit.socket
+            else
+                systemctl "$action" "$SERVICE"
+            fi
+        done
+    fi
+}
+
+function set_autologin() {
+    if [ -z "$AUTOLOGIN" ]; then
+        if [ -f "$MINIOSCONFIG" ]; then
+            read_config "$MINIOSCONFIG" AUTOLOGIN
+            if [ -z "$AUTOLOGIN" ]; then
+                AUTOLOGIN="true"
+            fi
         else
-            systemctl enable $SERVICE
-        fi
-    done
-fi
-
-if [ -z "$DISABLE_SERVICES" ]; then
-    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f $MINIOSCONFIG ]; then
-            read_config $MINIOSCONFIG DISABLE_SERVICES
-        fi
-    fi
-fi
-if [ -n "$DISABLE_SERVICES" ]; then
-    SERVICES=$(echo $DISABLE_SERVICES | tr "," "\n")
-    for SERVICE in $SERVICES; do
-        if [ $SERVICE = "cockpit" ]; then
-            systemctl disable cockpit.socket
-        else
-            systemctl disable $SERVICE
-        fi
-    done
-fi
-
-if [ -z "$AUTOLOGIN" ]; then
-    if [ -f $MINIOSCONFIG ]; then
-        read_config $MINIOSCONFIG AUTOLOGIN
-        if [ -z "$AUTOLOGIN" ]; then
             AUTOLOGIN="true"
         fi
-    else
-        AUTOLOGIN="true"
     fi
-fi
 
-if [ -z "$USER_NAME" ]; then
-    if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-        if [ -f $MINIOSCONFIG ]; then
-            read_config $MINIOSCONFIG USER_NAME
+    if [ -z "$USER_NAME" ]; then
+        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
+            if [ -f "$MINIOSCONFIG" ]; then
+                read_config "$MINIOSCONFIG" USER_NAME
+            fi
         fi
     fi
-fi
 
-if [ $AUTOLOGIN = "true" ]; then
-    if [ -f /usr/lib/systemd/system/xorg.service ]; then
-        cat <<EOF >/usr/lib/systemd/system/xorg.service
+    if [ "$AUTOLOGIN" = "true" ]; then
+        if [ -f /usr/lib/systemd/system/xorg.service ]; then
+            cat <<EOF >/usr/lib/systemd/system/xorg.service
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
 After=systemd-user-sessions.service
 
 [Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$USER_NAME"
 
 EOF
+        fi
     fi
-fi
 
-if [ -f /usr/bin/x11vnc ]; then
-    sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" /usr/lib/systemd/system/x11vnc.service
-fi
+    if [ -f /usr/bin/x11vnc ]; then
+        sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" /usr/lib/systemd/system/x11vnc.service
+    fi
+}
+
+console_colors
+allow_root_only
+set_trace_log "boot.log"
+set_variables
+read_cmdline_values
+set_cloud
+set_default_target
+manage_services enable
+manage_services disable
+disable_services
+set_autologin
 
 echo ""
 echo "/etc/minios/$LIVEKITNAME.conf configuration file contents:"
-cat /etc/minios/$LIVEKITNAME.conf
+cat /etc/minios/"$LIVEKITNAME".conf
 echo ""

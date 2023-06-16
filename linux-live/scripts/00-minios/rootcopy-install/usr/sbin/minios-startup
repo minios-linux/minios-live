@@ -21,12 +21,12 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 CMDLINE=$(cat /proc/cmdline)
 CONFIG=/etc/minios/config
 BUILDCONFIG=/etc/minios/buildconfig
-read_cmdline $CMDLINE
+read_cmdline "$CMDLINE"
 if [ "$STATIC_PROFILES" = "true" ]; then
     exit 0
 fi
-if [ -f $CONFIG ]; then
-    read_config $CONFIG LIVEKITNAME
+if [ -f "$CONFIG" ]; then
+    read_config "$CONFIG" LIVEKITNAME
 else
     LIVEKITNAME="minios"
 fi
@@ -38,8 +38,8 @@ elif [ -d /memory/bundles ]; then
     BUNDLES=/memory/bundles
     INITRD_TYPE="uird"
 fi
-if [ -n $SFLAGS ] && [ -z $FLAGS ]; then
-    FLAGS=$SFLAGS
+if [ -n "$SFLAGS" ] && [ -z "$FLAGS" ]; then
+    FLAGS="$SFLAGS"
 fi
 CORE_BUNDLE_PREFIX=00-
 BEXT=sb
@@ -61,78 +61,78 @@ fi
 touch "$MEDIA/.empty" 2>/dev/null && rm -f "$MEDIA/.empty" 2>/dev/null
 if [ $? -ne 0 ]; then
     WRITABLE="false"
-    if [ -z $SSH_KEY ]; then
+    if [ -z "$SSH_KEY" ]; then
         SSH_KEY="authorized_keys"
     fi
-    if [ -f $MEDIA/$LIVEKITNAME.conf ]; then
-        if [ ! -f /etc/minios/$LIVEKITNAME.conf ]; then
-            cp -fp $MEDIA/$LIVEKITNAME.conf /etc/minios/$LIVEKITNAME.conf
+    if [ -f "$MEDIA/$LIVEKITNAME.conf" ]; then
+        if [ ! -f "/etc/minios/$LIVEKITNAME.conf" ]; then
+            cp -fp "$MEDIA/$LIVEKITNAME.conf" "/etc/minios/$LIVEKITNAME.conf"
         fi
     fi
-    if [ -f $MEDIA/$SSH_KEY ]; then
-        if [ ! -d /root/.ssh ]; then
+    if [ -f "$MEDIA/$SSH_KEY" ]; then
+        if [ ! -d "/root/.ssh" ]; then
             mkdir /root/.ssh
             chmod 700 /root/.ssh
-            cp -fp $MEDIA/$SSH_KEY /root/.ssh/authorized_keys
-            chmod 600 /root/.ssh/authorized_keys
+            cp -fp "$MEDIA/$SSH_KEY" "/root/.ssh/authorized_keys"
+            chmod 600 "/root/.ssh/authorized_keys"
         fi
     fi
 else
     WRITABLE="true"
-    if [ -d $MEDIA ]; then
-        if [ -f $MEDIA/$LIVEKITNAME.conf ] && [ -f /etc/minios/$LIVEKITNAME.conf ]; then
+    if [ -d "$MEDIA" ]; then
+        if [ -f "$MEDIA/$LIVEKITNAME.conf" ] && [ -f "/etc/minios/$LIVEKITNAME.conf" ]; then
             if [ "$MEDIA/$LIVEKITNAME.conf" -nt "/etc/minios/$LIVEKITNAME.conf" ]; then
-                cp -fp $MEDIA/$LIVEKITNAME.conf /etc/minios/$LIVEKITNAME.conf
+                cp -fp "$MEDIA/$LIVEKITNAME.conf" "/etc/minios/$LIVEKITNAME.conf"
             elif [ "$MEDIA/$LIVEKITNAME.conf" -ot "/etc/minios/$LIVEKITNAME.conf" ]; then
-                cp -fp /etc/minios/$LIVEKITNAME.conf $MEDIA/$LIVEKITNAME.conf
+                cp -fp "/etc/minios/$LIVEKITNAME.conf" "$MEDIA/$LIVEKITNAME.conf"
             fi
-        elif [ -f $MEDIA/$LIVEKITNAME.conf ]; then
-            cp -fp $MEDIA/$LIVEKITNAME.conf /etc/minios/$LIVEKITNAME.conf
-        elif [ -f /etc/minios/$LIVEKITNAME.conf ]; then
-            cp -fp /etc/minios/$LIVEKITNAME.conf $MEDIA/$LIVEKITNAME.conf
+        elif [ -f "$MEDIA/$LIVEKITNAME.conf" ]; then
+            cp -fp "$MEDIA/$LIVEKITNAME.conf" "/etc/minios/$LIVEKITNAME.conf"
+        elif [ -f "/etc/minios/$LIVEKITNAME.conf" ]; then
+            cp -fp "/etc/minios/$LIVEKITNAME.conf" "$MEDIA/$LIVEKITNAME.conf"
         fi
-        if [ -z $SSH_KEY ]; then
-            SSH_KEY=$(read_config_value /etc/minios/$LIVEKITNAME.conf SSH_KEY)
-            if [ -z $SSH_KEY ]; then
+        if [ -z "$SSH_KEY" ]; then
+            SSH_KEY=$(read_config_value "/etc/minios/$LIVEKITNAME.conf" SSH_KEY)
+            if [ -z "$SSH_KEY" ]; then
                 SSH_KEY="authorized_keys"
             fi
         fi
-        if [ ! -d /root/.ssh ]; then
+        if [ ! -d "/root/.ssh" ]; then
             mkdir /root/.ssh
             chmod 700 /root/.ssh
         fi
-        if [ -f $MEDIA/$SSH_KEY ] && [ -f /root/.ssh/authorized_keys ]; then
+        if [ -f "$MEDIA/$SSH_KEY" ] && [ -f "/root/.ssh/authorized_keys" ]; then
             if [ "$MEDIA/$SSH_KEY" -nt "/root/.ssh/authorized_keys" ]; then
-                cp -fp $MEDIA/$SSH_KEY /root/.ssh/authorized_keys
-                chmod 600 /root/.ssh/authorized_keys
+                cp -fp "$MEDIA/$SSH_KEY" "/root/.ssh/authorized_keys"
+                chmod 600 "/root/.ssh/authorized_keys"
             elif [ "$MEDIA/$SSH_KEY" -ot "/root/.ssh/authorized_keys" ]; then
-                cp -fp /root/.ssh/authorized_keys $MEDIA/$SSH_KEY
+                cp -fp "/root/.ssh/authorized_keys" "$MEDIA/$SSH_KEY"
             fi
-        elif [ -f $MEDIA/$SSH_KEY ]; then
-            cp -fp $MEDIA/$SSH_KEY /root/.ssh/authorized_keys
-            chmod 600 /root/.ssh/authorized_keys
-        elif [ -f /root/.ssh/authorized_keys ]; then
-            cp -fp /root/.ssh/authorized_keys $MEDIA/$SSH_KEY
+        elif [ -f "$MEDIA/$SSH_KEY" ]; then
+            cp -fp "$MEDIA/$SSH_KEY" "/root/.ssh/authorized_keys"
+            chmod 600 "/root/.ssh/authorized_keys"
+        elif [ -f "/root/.ssh/authorized_keys" ]; then
+            cp -fp "/root/.ssh/authorized_keys" "$MEDIA/$SSH_KEY"
         fi
     fi
 fi
 if [ "$WRITABLE" = "true" ]; then
-    if [ -f /etc/minios/$LIVEKITNAME.conf ]; then
-        cp -fp /etc/minios/$LIVEKITNAME.conf $MEDIA/$LIVEKITNAME.conf
+    if [ -f "/etc/minios/$LIVEKITNAME.conf" ]; then
+        cp -fp "/etc/minios/$LIVEKITNAME.conf" "$MEDIA/$LIVEKITNAME.conf"
     fi
-    if [ -f /root/.ssh/authorized_keys ]; then
-        cp -fp /root/.ssh/authorized_keys $MEDIA/$SSH_KEY
+    if [ -f "/root/.ssh/authorized_keys" ]; then
+        cp -fp "/root/.ssh/authorized_keys" "$MEDIA/$SSH_KEY"
     fi
 fi
 
 # Copying bootloader configuration files to the system
-if [ -f $MEDIA/boot/grub/grub.cfg ]; then
-    cp -fp $MEDIA/boot/grub/grub.cfg /etc/$LIVEKITNAME/grub.cfg
+if [ -f "$MEDIA/boot/grub/grub.cfg" ]; then
+    cp -fp "$MEDIA/boot/grub/grub.cfg" "/etc/$LIVEKITNAME/grub.cfg"
 fi
-cp -fp $MEDIA/boot/syslinux.cfg /etc/$LIVEKITNAME/syslinux.cfg
+cp -fp "$MEDIA/boot/syslinux.cfg" "/etc/$LIVEKITNAME/syslinux.cfg"
 
 echo "Original /etc/minios/$LIVEKITNAME.conf configuration file contents:"
-cat /etc/minios/$LIVEKITNAME.conf
+cat "/etc/minios/$LIVEKITNAME.conf"
 echo ""
 
 cat <<EOF >/etc/issue
@@ -147,26 +147,33 @@ cat <<EOF >/etc/issue
                         Thank you for using MiniOS.
 EOF
 
-if [ -f $BUILDCONFIG ]; then
-    read_config $BUILDCONFIG DISTRIBUTION DESKTOP_ENVIRONMENT
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "orel" ]; then
+if [ -f "$BUILDCONFIG" ]; then
+    read_config "$BUILDCONFIG" DISTRIBUTION DESKTOP_ENVIRONMENT
+    case $DISTRIBUTION in
+    stretch | buster | bullseye | bookworm | kali-rolling | sid | orel)
         DISTRIBUTION_TYPE="debian"
-    elif [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
+        ;;
+    bionic | cosmic | disco | eoan | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
-    fi
-    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        ;;
+    *)
+        echo "Unknown distribution: $DISTRIBUTION"
+        exit 1
+        ;;
+    esac
+    if [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
         cat <<EOF >>/etc/issue
                         Based on [1;33mUbuntu[0;29m.
 EOF
-    elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION = "kali-rolling" ]; then
+    elif [ "$DISTRIBUTION_TYPE" = "debian" ] && [ "$DISTRIBUTION" = "kali-rolling" ]; then
         cat <<EOF >>/etc/issue
                         Based on [1;36mKali Linux[0;29m.
 EOF
-    elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION = "orel" ]; then
+    elif [ "$DISTRIBUTION_TYPE" = "debian" ] && [ "$DISTRIBUTION" = "orel" ]; then
         cat <<EOF >>/etc/issue
                         Based on [1;34mAstra Linux[0;29m.
 EOF
-    elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION != "kali-rolling" ]; then
+    elif [ "$DISTRIBUTION_TYPE" = "debian" ] && [ "$DISTRIBUTION" != "kali-rolling" ]; then
         cat <<EOF >>/etc/issue
                         Based on [1;31mDebian GNU/Linux[0;29m.
 EOF
@@ -175,7 +182,7 @@ EOF
                         Based on [1;31mDebian GNU/Linux[0;29m.
 EOF
     fi
-    if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
+    if [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
         cat <<EOF >>/etc/issue
                         Powered by [1;32mSlax[0;29m.
 EOF
@@ -199,7 +206,7 @@ cat <<EOF >>/etc/issue
 EOF
 
 # Declare two arrays: one for the variable names and one for their default values
-VARIABLES=(USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET SSH_KEY CLOUD SCRIPTS HIDE_CREDENTIALS AUTOLOGIN SYSTEM_TYPE)
+VARIABLES=("USER_NAME" "USER_PASSWORD" "ROOT_PASSWORD" "HOST_NAME" "DEFAULT_TARGET" "SSH_KEY" "CLOUD" "SCRIPTS" "HIDE_CREDENTIALS" "AUTOLOGIN" "SYSTEM_TYPE")
 DEFAULT_VALUES=("live" "evil" "toor" "minios" "graphical" "authorized_keys" "false" "true" "false" "true" "puzzle")
 
 # Iterate over the variable names
@@ -210,7 +217,7 @@ for i in "${!VARIABLES[@]}"; do
     # Check if the variable is not set
     if [ -z "${!VAR_NAME}" ]; then
         # Read the variable value from the configuration file
-        read_config /etc/minios/$LIVEKITNAME.conf "$VAR_NAME"
+        read_config "/etc/minios/$LIVEKITNAME.conf" "$VAR_NAME"
         # Check if the variable is still not set
         if [ -z "${!VAR_NAME}" ]; then
             # Set the default value for the variable
@@ -226,11 +233,17 @@ fi
 
 if [ "$SYSTEM_TYPE" = "puzzle" ]; then
     # fix users
-    minios-update-users $BUNDLES #&
+    if [ -x "$(command -v minios-update-users)" ]; then
+        minios-update-users "$BUNDLES" #&
+    fi
     # fix caches
-    minios-update-cache $BUNDLES &
+    if [ -x "$(command -v minios-update-cache)" ]; then
+        minios-update-cache "$BUNDLES" &
+    fi
     # fix dpkg
-    minios-update-dpkg $BUNDLES &
+    if [ -x "$(command -v minios-update-dpkg)" ]; then
+        minios-update-dpkg "$BUNDLES" &
+    fi
 fi
 
 # Set up user 'root'
@@ -239,7 +252,7 @@ if [ ! -f /var/.minios-setup-completed ]; then
     # create root directories
     if [ -d /root ]; then
         for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-            mkdir -p /root/$dir
+            mkdir -p "/root/$dir"
         done
     fi
     chown 0:0 /root
@@ -260,33 +273,33 @@ if [ "$CLOUD" != "true" ]; then
         #USER_GROUP="live"
         USER_GROUP=$USER_NAME
         if [ ! -f /var/.minios-setup-completed ]; then
-            adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
-            usermod -a -G sudo $USER_NAME
+            adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
+            usermod -a -G sudo "$USER_NAME"
             if [ ! -f /usr/bin/pulseaudio ]; then
-                usermod -a -G audio $USER_NAME
+                usermod -a -G audio "$USER_NAME"
             fi
-            cp -rT /etc/skel /home/$USER_NAME
+            cp -rT /etc/skel "/home/$USER_NAME"
             # create user directories
-            if [ -d /home/$USER_NAME ]; then
+            if [ -d "/home/$USER_NAME" ]; then
                 for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-                    mkdir -p /home/$USER_NAME/$dir
+                    mkdir -p "/home/$USER_NAME/$dir"
                 done
-                if [ ! -d /home/$USER_NAME/.ssh ]; then
-                    mkdir /home/$USER_NAME/.ssh
-                    chmod 700 /home/$USER_NAME/.ssh
+                if [ ! -d "/home/$USER_NAME/.ssh" ]; then
+                    mkdir "/home/$USER_NAME/.ssh"
+                    chmod 700 "/home/$USER_NAME/.ssh"
                 fi
                 if [ -f /root/.ssh/authorized_keys ]; then
-                    cp /root/.ssh/authorized_keys /home/$USER_NAME/.ssh/authorized_keys
+                    cp /root/.ssh/authorized_keys "/home/$USER_NAME/.ssh/authorized_keys"
                 fi
-                USER_ID=$(id -u $USER_NAME)
-                GROUP_ID=$(id -g $USER_NAME)
-                chown $USER_ID:$GROUP_ID /home/$USER_NAME
-                chown -R $USER_ID:$GROUP_ID /home/$USER_NAME
+                USER_ID=$(id -u "$USER_NAME")
+                GROUP_ID=$(id -g "$USER_NAME")
+                chown $USER_ID:$GROUP_ID "/home/$USER_NAME"
+                chown -R $USER_ID:$GROUP_ID "/home/$USER_NAME"
             fi
-        elif [ -n $CURRENT_USER_NAME ] && [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
-            usermod -l $USER_NAME $CURRENT_USER_NAME
-            usermod -m -d /home/$USER_NAME $USER_NAME
-            groupmod -n $USER_GROUP $CURRENT_USER_GROUP
+        elif [ -n "$CURRENT_USER_NAME" ] && [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
+            usermod -l "$USER_NAME" "$CURRENT_USER_NAME"
+            usermod -m -d "/home/$USER_NAME" "$USER_NAME"
+            groupmod -n "$USER_GROUP" "$CURRENT_USER_GROUP"
         fi
     fi
 else
@@ -295,10 +308,10 @@ else
 fi
 
 # Set up password for root
-echo root:$ROOT_PASSWORD | chpasswd
+echo root:"$ROOT_PASSWORD" | chpasswd
 if [ "$USER_NAME" != "root" ]; then
     # Set up password for user
-    echo $USER_NAME:$USER_PASSWORD | chpasswd
+    echo "$USER_NAME":"$USER_PASSWORD" | chpasswd
 fi
 
 if [ "$USER_NAME" != "root" ]; then
@@ -368,7 +381,7 @@ fi
 
 if [ "$CLOUD" != "true" ]; then
     if [ -n "$HOST_NAME" ]; then
-        echo $HOST_NAME >/etc/hostname
+        echo "$HOST_NAME" >/etc/hostname
         cat <<EOF >/etc/hosts
 127.0.0.1       localhost $HOST_NAME
 ::1             localhost ip6-localhost ip6-loopback $HOST_NAME
@@ -385,32 +398,31 @@ echo "Changes:"
 # Define a function to update the value of a variable in the configuration file
 update_config_value() {
     # Read the value of the variable from the configuration file
-    local CONFIG_VALUE=$(read_config_value /etc/minios/$LIVEKITNAME.conf $1)
+    local CONFIG_VALUE=$(read_config_value "/etc/minios/$LIVEKITNAME.conf" "$1")
     # Get the current value of the variable
-    local VAR_NAME=$1
-    local VAR_VALUE=${!VAR_NAME}
+    local VAR_NAME="$1"
+    local VAR_VALUE="${!VAR_NAME}"
     # Check if the current value is different from the value in the configuration file and is not empty
     if [ "$VAR_VALUE" != "$CONFIG_VALUE" ] && [ -n "$VAR_VALUE" ]; then
         # Update the value of the variable in the configuration file using the sed command
-        sed -i -e "/$1=/s/=.*/=\"$VAR_VALUE\"/" /etc/minios/$LIVEKITNAME.conf
+        sed -i -e "/$1=/s/=.*/=\"$VAR_VALUE\"/" "/etc/minios/$LIVEKITNAME.conf"
     fi
 }
 
 # Iterate over a list of variable names
 for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS CLOUD AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE SYSTEM_TYPE; do
     # Call the update_config_value function for each variable to update its value in the configuration file
-    update_config_value $PARAM
+    update_config_value "$PARAM"
 done
-
 
 echo "
 New /etc/minios/$LIVEKITNAME.conf configuration file contents:"
-cat /etc/minios/$LIVEKITNAME.conf
+cat "/etc/minios/$LIVEKITNAME.conf"
 echo ""
 
 # If newer kernels are used, then xorg will not run on hyper-v without this configuration file.
-read_config $BUILDCONFIG DISTRIBUTION DISTRIBUTION_TYPE KERNEL_BPO KERNEL_AUFS
-if ([ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "kali-rolling" ] || [ "$DISTRIBUTION" = "sid" ]) || ([ "$DISTRIBUTION" = "bullseye" ] && [ $KERNEL_BPO = "true" ]) || ([ $DISTRIBUTION_TYPE = "ubuntu" ] && [ $KERNEL_AUFS = "true" ]); then
+read_config "$BUILDCONFIG" DISTRIBUTION DISTRIBUTION_TYPE KERNEL_BPO KERNEL_AUFS
+if ([ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "kali-rolling" ] || [ "$DISTRIBUTION" = "sid" ]) || ([ "$DISTRIBUTION" = "bullseye" ] && [ "$KERNEL_BPO" = "true" ]) || ([ "$DISTRIBUTION_TYPE" = "ubuntu" ] && [ "$KERNEL_AUFS" = "true" ]); then
     if [ "$(virt-what)" = "hyperv" ]; then
         if [ ! -d /etc/X11/xorg.conf.d ]; then
             mkdir -p /etc/X11/xorg.conf.d
@@ -426,11 +438,9 @@ EOF
 fi
 if [ "$AUTOLOGIN" = "true" ]; then
     if [ -f /etc/default/nodm ]; then
-        #sed -i "s/NODM_USER=live/NODM_USER=$USER_NAME/g" /etc/default/nodm
         sed -i -e "/NODM_USER=/s/=.*/=\"$USER_NAME\"/" /etc/default/nodm
     fi
     if [ -f /etc/slim.conf ]; then
-        #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
         sed -i -e "/default_user /s/ .*/ $USER_NAME/" /etc/slim.conf
         sed -i -e "/auto_login /s/ .*/ yes/" /etc/slim.conf
     fi
@@ -445,7 +455,6 @@ else
         sed -i -e "/NODM_USER=/s/=.*/=\"\"/" /etc/default/nodm
     fi
     if [ -f /etc/slim.conf ]; then
-        #sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
         sed -i -e "/default_user /s/ .*/ /" /etc/slim.conf
         sed -i -e "/auto_login /s/ .*/ no/" /etc/slim.conf
     fi

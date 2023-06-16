@@ -11,14 +11,15 @@ apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
         apt-get $INSTALL_OPTIONS install \
         software-properties-common >>$OUTPUT 2>&1
 
-apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5
+#apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5
+curl -fsSL https://download.onlyoffice.com/GPG-KEY-ONLYOFFICE | gpg --dearmor >/etc/apt/trusted.gpg.d/onlyoffice.gpg
 add-apt-repository 'deb https://download.onlyoffice.com/repo/debian squeeze main'
 
 # install packages
 apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
     DEBIAN_FRONTEND=noninteractive \
         apt-get $INSTALL_OPTIONS install \
-        libpulse0 libnss3 onlyoffice-desktopeditors >>$OUTPUT 2>&1
+        onlyoffice-desktopeditors >>$OUTPUT 2>&1
 
 PACKAGE="onlyoffice-desktopeditors"
 echo "PACKAGE=$PACKAGE" >/.package

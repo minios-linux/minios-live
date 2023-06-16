@@ -17,7 +17,7 @@ APP_GROUP="vboxusers"
 #else
 #    KERNEL=$(uname -r)
 #fi
-KERNEL="5.10.127"
+#KERNEL="5.10.127"
 
 VBOX_VERSION=$(wget -O- https://download.virtualbox.org/virtualbox/LATEST.TXT)
 
@@ -25,12 +25,15 @@ VBOX_VERSION=$(wget -O- https://download.virtualbox.org/virtualbox/LATEST.TXT)
 #apt-get $INSTALL_OPTIONS install dirmngr apt-transport-https >>$OUTPUT 2>&1
 
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2F683C52980AECF
-
-echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
+if [ $DISTRIBUTION = "bookworm" ]; then
+    echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian bullseye contrib" >/etc/apt/sources.list.d/virtualbox.list
+else
+    echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $DISTRIBUTION contrib" >/etc/apt/sources.list.d/virtualbox.list
+fi
 
 # install packages
 apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-apt-get $INSTALL_OPTIONS install virtualbox-6.1 >>$OUTPUT 2>&1
+apt-get $INSTALL_OPTIONS install virtualbox-7.0 >>$OUTPUT 2>&1
 
 wget https://download.virtualbox.org/virtualbox/$VBOX_VERSION/Oracle_VM_VirtualBox_Extension_Pack-$VBOX_VERSION.vbox-extpack
 

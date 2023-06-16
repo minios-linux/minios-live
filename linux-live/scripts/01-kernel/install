@@ -14,11 +14,11 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
+        wget https://mxrepo.com/mx/repo/pool/main/m/mx23-archive-keyring/mx23-archive-keyring_2023.6.6_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-        #wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.13~mx15_all.deb
         apt-get $INSTALL_OPTIONS install ./*.deb
         rm ./*.deb
-        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ]; then
             cat <<EOF >/etc/apt/sources.list.d/mx.list
 # MX Community Main and Test Repos
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
@@ -26,10 +26,6 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
-EOF
-        elif [ $DISTRIBUTION = "bookworm" ]; then
-            cat <<EOF >/etc/apt/sources.list.d/antix.list
-deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/testing/ testing main nonfree
 EOF
         elif [ $DISTRIBUTION = "sid" ]; then
             cat <<EOF >/etc/apt/s

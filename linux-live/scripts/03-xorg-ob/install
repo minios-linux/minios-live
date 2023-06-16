@@ -43,12 +43,6 @@ EOF
     fi
 fi
 
-if [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "standard" ] || [ $DESKTOP_ENVIRONMENT = "mediaplayer" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-    sed -i "s/💀/@/g" /etc/skel/.bashrc
-    sed -i "s/💻/@/g" /etc/skel/.bashrc
-    sed -i "s/🎄/@/g" /etc/skel/.bashrc
-fi
-
 if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
     USER_NAME="root"
 fi
