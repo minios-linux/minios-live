@@ -12,7 +12,7 @@
 
 function common_variables() {
     # List of variables passed to chroot.
-    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO CREATE_BACKUP DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT INSTALL_OPTIONS"
+    VARIABLES="OUTPUT LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE APT_CMD APT_OPTIONS DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT INSTALL_OPTIONS"
 
     #
     CONTAINER_TYPE="0"
@@ -68,13 +68,21 @@ function common_variables() {
         SYSTEM_TYPE="puzzle"
     else
         SYSTEM_TYPE="classic"
+        #SYSTEM_TYPE="puzzle"
     fi
 
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "orel" ]; then
+    case $DISTRIBUTION in
+    stretch | buster | bullseye | bookworm | kali-rolling | sid | orel)
         DISTRIBUTION_TYPE="debian"
-    elif [ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ]; then
+        ;;
+    bionic | cosmic | disco | eoan | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
-    fi
+        ;;
+    *)
+        echo "Unknown distribution: $DISTRIBUTION"
+        exit 1
+        ;;
+    esac
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
             DISTRIBUTION_URL="https://snapshot.debian.org/archive/debian/$SNAPSHOT_DATE"
@@ -181,23 +189,21 @@ function help() {
                     echo -e $1
                     echo
                 fi
-                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOR}"
+                echo -e "Поддерживаемые команды: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
                 echo -e
                 echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                fi
                 echo -e "\tзапуск от start_cmd до end_cmd"
                 echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
                 echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
                 echo -e "\tвведите одну команду, чтобы запустить определенную команду"
                 echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
                 echo -e "\t"
-                echo -e "\tПримеры:${LIGHTYELLOW}$0 -${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
+                echo -e "Примеры:"
+                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
                 exit 0
             else
                 if [ -z ${1+x} ]; then
@@ -207,23 +213,21 @@ function help() {
                     echo -e $1
                     echo
                 fi
-                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}"
+                echo -e "Supported commands: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
                 echo -e
                 echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                fi
                 echo -e "\trun from start_cmd to end_cmd"
                 echo -e "\tif start_cmd is omitted, start from first command"
                 echo -e "\tif end_cmd is omitted, end with last command"
                 echo -e "\tenter single cmd to run the specific command"
                 echo -e "\tenter '-' as only argument to run all commands"
                 echo -e "\t"
-                echo -e "\tExamples:${LIGHTYELLOW}$0 -${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
-                echo -e "\t\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
+                echo -e "Examples:"
+                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
+                echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
 
                 exit 0
             fi
@@ -239,12 +243,9 @@ function help() {
                     echo -e $1
                     echo
                 fi
-                echo -e "Поддерживаемые команды : ${CYAN}${CMD[*]}${ENDCOLOR}"
+                echo -e "Поддерживаемые команды: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
                 echo -e
                 echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                fi
                 echo -e "\tзапуск от start_cmd до end_cmd"
                 echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
                 echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
@@ -254,7 +255,7 @@ function help() {
                 echo -e "\tСкрипты установки должны находиться в папке с именем будущего модуля."
                 echo -e "\tНапример, чтобы собрать модуль с именем 05-vscode, скрипты сборки"
                 echo -e "\tдолжны находиться по следующему пути: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
-                echo -e "\tПримеры:"
+                echo -e "Примеры:"
                 echo -e "\t${LIGHTYELLOW}$0 build_modules${ENDCOLOR} сборка модулей"
                 echo -e "\t${LIGHTYELLOW}$0 repack_modules${ENDCOLOR} перепаковка системы с типом сжатия, указанным"
                 echo -e "\tв /etc/$LIVEKITNAME/config в переменной COMP_TYPE"
@@ -268,12 +269,9 @@ function help() {
                     echo -e $1
                     echo
                 fi
-                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}"
+                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
                 echo -e
                 echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                if [ -L /usr/bin/$LIVEKITNAME-install ] && [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-                    echo -e "\t${CYAN}$LIVEKITNAME-install${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                fi
                 echo -e "\trun from start_cmd to end_cmd"
                 echo -e "\tif start_cmd is omitted, start from first command"
                 echo -e "\tif end_cmd is omitted, end with last command"
@@ -284,7 +282,7 @@ function help() {
                 echo -e "\tname of the future module. For example, to build a module"
                 echo -e "\tnamed 05-vscode, build scripts should be in the following"
                 echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
-                echo -e "\tExamples:"
+                echo -e "Examples:"
                 echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOR} build modules"
                 echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOR} repack the system with the"
                 echo -e "\tcompression type specified by /etc/$LIVEKITNAME/config in COMP_TYPE variable"
@@ -483,36 +481,14 @@ function create_livekitname_install_symlink() {
 
 function create_completion() {
     if [ -d /etc/bash_completion.d ]; then
-        if [ ! -f /etc/bash_completion.d/$LIVEKITNAME-install ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$LIVEKITNAME-install >/dev/null 2>&1; then
-            cat <<EOF >/etc/bash_completion.d/$LIVEKITNAME-install
+        for cmd in $LIVEKITNAME-install minios-modules; do
+            if [ ! -f /etc/bash_completion.d/$cmd ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$cmd >/dev/null 2>&1; then
+                cat <<EOF >/etc/bash_completion.d/$cmd
 #!/usr/bin/env bash
-complete -W "${CMD[*]}" $LIVEKITNAME-install
+complete -W "${CMD[*]}" $cmd
 EOF
-        fi
-        if [ "$0" = "/usr/bin/$LIVEKITNAME-install" ]; then
-            if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Дополнение команд работает только при использовании команды ${CYAN}$LIVEKITNAME-install${ENDCOLOR}."
-                echo -e
-            else
-                echo -e "Command completion only works when using the ${CYAN}$LIVEKITNAME-install${ENDCOLOR} command."
-                echo -e
             fi
-        fi
-        if [ ! -f /etc/bash_completion.d/minios-modules ] || ! grep "${CMD[*]}" /etc/bash_completion.d/minios-modules >/dev/null 2>&1; then
-            cat <<EOF >/etc/bash_completion.d/minios-modules
-#!/usr/bin/env bash
-complete -W "build_modules repack_modules download_sources" minios-modules
-EOF
-        fi
-        if [ "$0" = "/usr/bin/minios-modules" ]; then
-            if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Дополнение команд работает только при использовании команды ${CYAN}minios-modules${ENDCOLOR}."
-                echo -e
-            else
-                echo -e "Command completion only works when using the ${CYAN}minios-modules${ENDCOLOR} command."
-                echo -e
-            fi
-        fi
+        done
     fi
 }
 
@@ -870,7 +846,6 @@ function add_chroot_configuration_files() {
 OUTPUT=$OUTPUT
 LOGPATH=$LOGPATH
 BUILD_TEST_ISO=$BUILD_TEST_ISO
-CREATE_BACKUP=$CREATE_BACKUP
 DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE
 APT_CMD=$APT_CMD
 APT_OPTIONS=$APT_OPTIONS
@@ -899,11 +874,6 @@ EOF
 
     cat <<'EOF' >$1/functions
 #!/bin/bash
-
-# =================================================================
-# beautiful console
-# красивая консоль
-# =================================================================
 function console_colors() {
     RED="\e[31m"
     GREEN="\e[32m"
@@ -928,10 +898,9 @@ function console_colors() {
     ENDCOLOR="\e[0m"
 }
 
-# =================================================================
-# reading configuration file
-# чтение конфигурационного файла
-# =================================================================
+function current_function() {
+    echo -e "=====> the ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
+}
 
 function read_config() { # read_config file.cfg var_name1 var_name2
     # ref: https://stackoverflow.com/a/20815951
@@ -972,9 +941,6 @@ function read_config() { # read_config file.cfg var_name1 var_name2
     shopt -u extglob # Switching it back off after use
 }
 
-# Unzip gzipped files (man pages), so LZMA can compress 2times better.
-# First we fix symlinks, then uncompress files
-# $1 = search directory
 uncompress_files() {
     current_function
     local LINK LINE
@@ -988,8 +954,6 @@ uncompress_files() {
     find "$1" -type f -name "*.gz" | xargs -r gunzip
 }
 
-# remove broken links
-# $1 = search directory
 remove_broken_links() {
     current_function
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
@@ -1095,7 +1059,7 @@ uncompress_files() {
         ln -sfn "$LINK" "$FILE"
         rm -f "$LINE"
     done
-    find "$1" -type f -name "*.gz" | xargs -r gunzip
+    find "$1" -type f -name "*.gz" | xargs -r gunzip 2>/dev/null
 }
 
 # remove broken links
@@ -2167,54 +2131,66 @@ function chroot_cleanup() {
 
     set +eu
 
-    rm -f $1/$LIVEKITNAME.conf
-    rm -f $1/functions
-    rm -f $1/preinstall
-    rm -f $1/install
-    rm -f $1/build
-    rm -f $1/cleanup
-    rm -f $1/$PACKAGE_VARIANT.list
-    rm -f $1/package.list
-    rm -f $1/postinstall
-    rm -rf $1/rootcopy-install
-    rm -rf $1/rootcopy
-    rm -rf $1/patches
-
-    rm -f $1/etc/fstab
-    rm -f $1/etc/mtab
-    rm -f $1/etc/apt/sources.list~
-    rm -Rf $1/etc/systemd/system/timers.target.wants
-    #rm -f $1/etc/systemd/system/multi-user.target.wants/ssh.service
-    rm -f $1/etc/systemd/system/multi-user.target.wants/dnsmasq.service
-
-    rm -f $1/etc/ssh/ssh_host*
-
-    rm -f $1/var/backups/*
-    rm -f $1/var/cache/ldconfig/*
-    rm -f $1/var/cache/debconf/*
-    rm -f $1/var/cache/fontconfig/*
-    rm -f $1/var/lib/apt/extended_states
-    rm -f $1/var/lib/systemd/random-seed
-    rm -f $1/var/lib/apt/lists/deb.*
-    rm -Rf $1/root/.local/share/mc
-    rm -Rf $1/root/.cache
-    rm -f $1/root/.wget-hsts
-
-    rm -f $1/var/lib/dpkg/*-old
-    rm -f $1/var/log/*
-    rm -f $1/var/log/*/*
-    rm -f $1/var/log/*/*/*
-    rm -f $1/var/cache/apt/archives/*.deb
-    rm -f $1/var/cache/apt/*.bin
-    rm -f $1/var/cache/debconf/*-old
-    rm -f $1/var/lib/dhcp/dhclient.leases
-    rm -f $1/root/.bash_history
-    rm -f $1/root/.wget-hsts
-    rm -Rf $1/usr/share/doc/*
-    rm -Rf $1/usr/share/info/*
-    rm -f $1/usr/share/images/fluxbox/debian-squared.jpg
-    rm -Rf $1/usr/share/fluxbox/nls/??*
-    rm -Rf $1/usr/share/gnome/help
+    rm -f $1/$LIVEKITNAME.conf 2>/dev/null
+    rm -f $1/$PACKAGE_VARIANT.list 2>/dev/null
+    rm -f $1/build 2>/dev/null
+    rm -f $1/cleanup 2>/dev/null
+    rm -f $1/functions 2>/dev/null
+    rm -f $1/install 2>/dev/null
+    rm -f $1/package.list 2>/dev/null
+    rm -f $1/postinstall 2>/dev/null
+    rm -f $1/preinstall 2>/dev/null
+    rm -rf $1/patches 2>/dev/null
+    rm -rf $1/rootcopy 2>/dev/null
+    rm -rf $1/rootcopy-install 2>/dev/null
+    rm -f $1/etc/apt/sources.list~ 2>/dev/null
+    rm -f $1/etc/fstab 2>/dev/null
+    rm -f $1/etc/mtab 2>/dev/null
+    rm -f $1/etc/ssh/ssh_host* 2>/dev/null
+    rm -f $1/etc/systemd/system/multi-user.target.wants/dnsmasq.service 2>/dev/null
+    rm -f $1/root/.bash_history 2>/dev/null
+    rm -f $1/root/.wget-hsts 2>/dev/null
+    rm -f $1/root/.wget-hsts 2>/dev/null
+    rm -f $1/usr/share/applications/compton.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/debian-uxterm.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/debian-xterm.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/htop.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/mc.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/mcedit.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/pcmanfm-desktop-pref.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/python2.*.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/python3.*.desktop 2>/dev/null
+    rm -f $1/usr/share/applications/vim.desktop 2>/dev/null
+    rm -f $1/usr/share/images/fluxbox/debian-squared.jpg 2>/dev/null
+    rm -f $1/var/backups/* 2>/dev/null
+    rm -f $1/var/cache/apt/*.bin 2>/dev/null
+    rm -f $1/var/cache/apt/archives/*.deb 2>/dev/null
+    rm -f $1/var/cache/debconf/* 2>/dev/null
+    rm -f $1/var/cache/debconf/*-old 2>/dev/null
+    rm -f $1/var/cache/fontconfig/* 2>/dev/null
+    rm -f $1/var/cache/ldconfig/* 2>/dev/null
+    rm -f $1/var/lib/apt/extended_states 2>/dev/null
+    rm -f $1/var/lib/apt/lists/deb.* 2>/dev/null
+    rm -f $1/var/lib/dhcp/dhclient.leases 2>/dev/null
+    rm -f $1/var/lib/dpkg/*-old 2>/dev/null
+    rm -f $1/var/lib/systemd/random-seed 2>/dev/null
+    rm -f $1/var/log/* 2>/dev/null
+    rm -f $1/var/log/*/* 2>/dev/null
+    rm -f $1/var/log/*/*/* 2>/dev/null
+    rm -Rf $1/etc/systemd/system/timers.target.wants 2>/dev/null
+    rm -Rf $1/root/.cache 2>/dev/null
+    rm -Rf $1/root/.local/share/mc 2>/dev/null
+    rm -Rf $1/usr/share/doc/* 2>/dev/null
+    rm -Rf $1/usr/share/fluxbox/nls/??* 2>/dev/null
+    rm -Rf $1/usr/share/gnome/help 2>/dev/null
+    rm -Rf $1/usr/share/icons/elementaryXubuntu-dark 2>/dev/null
+    rm -Rf $1/usr/share/icons/gnome/256x256 2>/dev/null
+    rm -Rf $1/usr/share/info/* 2>/dev/null
+    rm -Rf $1/usr/share/man/?? 2>/dev/null
+    rm -Rf $1/usr/share/man/*_* 2>/dev/null
+    if [ $REMOVE_LARGE_ICONS = "true" ]; then
+        find $1/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
+    fi
     if [ $LOCALE != "en_US" ]; then
         language_to_array
         for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? | sed "/en/d;/${LNG[0]}/d"); do
@@ -2232,35 +2208,16 @@ function chroot_cleanup() {
         for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* | sed "/en/d;/${LNG[0]}/d"); do
             UNUSED_LOCALE=$(basename $UNUSED_LOCALE)
             if [ $UNUSED_LOCALE == "i18n"* ] || [ $UNUSED_LOCALE == "iso14651"* ]; then
-                rm -Rf $1/usr/share/i18n/locales/$UNUSED_LOCALE
+                rm -Rf $1/usr/share/i18n/locales/$UNUSED_LOCALE 2>/dev/null
             fi
         done
     else
-        rm -Rf $1/usr/share/locale/??
-        rm -Rf $1/usr/share/locale/??_*
-        rm -Rf $1/usr/share/locale/??@*
-        rm -Rf $1/usr/share/locale/???
-        rm -Rf $1/usr/share/i18n/locales/*_*
+        rm -Rf $1/usr/share/locale/?? 2>/dev/null
+        rm -Rf $1/usr/share/locale/??_* 2>/dev/null
+        rm -Rf $1/usr/share/locale/??@* 2>/dev/null
+        rm -Rf $1/usr/share/locale/??? 2>/dev/null
+        rm -Rf $1/usr/share/i18n/locales/*_* 2>/dev/null
     fi
-    rm -Rf $1/usr/share/man/??
-    rm -Rf $1/usr/share/man/*_*
-
-    rm -Rf $1/usr/share/icons/elementaryXubuntu-dark
-    rm -Rf $1/usr/share/icons/gnome/256x256
-    if [ $REMOVE_LARGE_ICONS = "true" ]; then
-        find $1/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf
-    fi
-
-    rm $1/usr/share/applications/compton.desktop
-    rm $1/usr/share/applications/debian-uxterm.desktop
-    rm $1/usr/share/applications/debian-xterm.desktop
-    rm $1/usr/share/applications/htop.desktop
-    rm $1/usr/share/applications/mc.desktop
-    rm $1/usr/share/applications/mcedit.desktop
-    rm $1/usr/share/applications/pcmanfm-desktop-pref.desktop
-    rm $1/usr/share/applications/python2.*.desktop
-    rm $1/usr/share/applications/python3.*.desktop
-    rm $1/usr/share/applications/vim.desktop
 
     if [ -z $1 ]; then
         uncompress_files $1/etc/alternatives
@@ -2279,21 +2236,29 @@ function chroot_cleanup() {
 # =================================================================
 function hostreq_pkg_list() {
     echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOR}"
-    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
+    pkgs_to_install=""
     if [ -f $SCRIPT_DIR/linux-live/package_lists/required_for_host.list ]; then
-        apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/required_for_host.list | tr "\n" " ") >>$OUTPUT 2>&1
+        pkgs_to_install=$(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/required_for_host.list | tr "\n" " ")
     else
-        apt-get $INSTALL_OPTIONS install \
-            sudo debootstrap genisoimage >>$OUTPUT 2>&1
+        pkgs_to_install="sudo debootstrap genisoimage"
     fi
     if [ $DISTRIBUTION_ARCH = "arm64" ]; then
-        apt-get $INSTALL_OPTIONS install \
-            grub-efi-arm64-bin >>$OUTPUT 2>&1
+        pkgs_to_install="$pkgs_to_install grub-efi-arm64-bin"
     else
-        apt-get $INSTALL_OPTIONS install \
-            grub-efi-amd64-bin grub-pc-bin >>$OUTPUT 2>&1
+        pkgs_to_install="$pkgs_to_install grub-efi-amd64-bin grub-pc-bin"
+    fi
+
+    pkgs_to_install_filtered=""
+    for pkg in $pkgs_to_install; do
+        if ! dpkg-query -W -f='${Status}' $pkg 2>/dev/null | grep -q "ok installed"; then
+            pkgs_to_install_filtered="$pkgs_to_install_filtered $pkg"
+        fi
+    done
+
+    if [ -n "$pkgs_to_install_filtered" ]; then
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS install $pkgs_to_install_filtered >>$OUTPUT 2>&1
     fi
 }
 
@@ -2468,7 +2433,7 @@ WantedBy=multi-user.target
 WantedBy=network-online.target
 EOF
         systemctl enable dhclient >>$OUTPUT 2>&1
-    elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" || $DISTRIBUTION = "jammy" ]]; then
+    elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" || $DISTRIBUTION = "jammy" || $DISTRIBUTION = "lunar" ]]; then
         if [ ! -d /etc/netplan/ ]; then
             mkdir -p /etc/netplan/
         fi
@@ -2549,31 +2514,30 @@ function chroot_finish_up() {
     truncate -s 0 /etc/machine-id >>$OUTPUT 2>&1
 
     # remove diversion (why??)
-    rm /sbin/initctl >>$OUTPUT 2>&1
+    rm /sbin/initctl >>$OUTPUT 2>/dev/null
     dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>&1
 
     # remove ssh config
     #rm -f /etc/ssh/ssh_host*
 
     # clean up useless stuff
-    rm -rf /tmp/* ~/.bash_history >>$OUTPUT 2>&1
-    rm -rf ~/.cache
-    find /var/log/ -type f | xargs rm -f >>$OUTPUT 2>&1
-    rm -f /etc/ssh/ssh_host*
-    rm -f /var/backups/* >>$OUTPUT 2>&1
-    rm -f /var/cache/ldconfig/* >>$OUTPUT 2>&1
-    #rm -f /var/cache/debconf/* >>$OUTPUT 2>&1
-    rm -f /var/cache/fontconfig/* >>$OUTPUT 2>&1
-    rm -f /var/cache/apt/archives/*.deb >>$OUTPUT 2>&1
-    rm -f /var/cache/apt/*.bin >>$OUTPUT 2>&1
-    rm -f /var/cache/debconf/*-old >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/extended_states >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/lists/*Packages >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/lists/*Translation* >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/lists/*InRelease >>$OUTPUT 2>&1
-    rm -f /var/lib/apt/lists/deb.* >>$OUTPUT 2>&1
-    rm -f /var/lib/dpkg/*-old >>$OUTPUT 2>&1
-
+    rm -rf /tmp/* ~/.bash_history rm /sbin/initctl >>$OUTPUT 2>/dev/null
+    rm -rf ~/.cache rm /sbin/initctl >>$OUTPUT 2>/dev/null
+    find /var/log/ -type f | xargs rm -f rm /sbin/initctl >>$OUTPUT 2>/dev/null
+    rm -f /etc/ssh/ssh_host* rm /sbin/initctl >>$OUTPUT 2>/dev/null
+    rm -f /var/backups/* >>$OUTPUT 2>/dev/null
+    rm -f /var/cache/ldconfig/* >>$OUTPUT 2>/dev/null
+    #rm -f /var/cache/debconf/* >>$OUTPUT 2>/dev/null
+    rm -f /var/cache/fontconfig/* >>$OUTPUT 2>/dev/null
+    rm -f /var/cache/apt/archives/*.deb >>$OUTPUT 2>/dev/null
+    rm -f /var/cache/apt/*.bin >>$OUTPUT 2>/dev/null
+    rm -f /var/cache/debconf/*-old >>$OUTPUT 2>/dev/null
+    rm -f /var/lib/apt/extended_states >>$OUTPUT 2>/dev/null
+    rm -f /var/lib/apt/lists/*Packages >>$OUTPUT 2>/dev/null
+    rm -f /var/lib/apt/lists/*Translation* >>$OUTPUT 2>/dev/null
+    rm -f /var/lib/apt/lists/*InRelease >>$OUTPUT 2>/dev/null
+    rm -f /var/lib/apt/lists/deb.* >>$OUTPUT 2>/dev/null
+    rm -f /var/lib/dpkg/*-old >>$OUTPUT 2>/dev/null
 }
 
 # =================================================================
@@ -2634,12 +2598,12 @@ function module_check_install_dir() {
     if [ "$UNATTENDED" = "true" ]; then
         #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
         echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}."
-        if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+        if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
             module_cleanup
             module_check_mounted
         fi
     else
-        if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+        if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is not empty."
             module_cleanup
             module_check_mounted
@@ -2660,7 +2624,7 @@ function filter_modules() {
         elif [[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]; then
             FILTER_LEVEL="0"
         else
-            FILTER_LEVEL=$((${MODULE:1:1}-1))
+            FILTER_LEVEL=$((${MODULE:1:1} - 1))
         fi
     else
         if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
@@ -2933,26 +2897,26 @@ function module_chroot_finish_up() {
 
     # truncate machine id (why??)
     chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
-truncate -s 0 /etc/machine-id
+truncate -s 0 /etc/machine-id 2>/dev/null
 EOF
 
     # remove diversion (why??)
     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
         chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
-    rm /sbin/initctl
-    dpkg-divert --rename --remove /sbin/initctl
+    rm /sbin/initctl 2>/dev/null
+    dpkg-divert --rename --remove /sbin/initctl 2>/dev/null
 EOF
     else
         chroot $MODULE_MERGED_DIR /bin/bash -x <<EOF
-    rm /sbin/initctl >>$OUTPUT 2>&1
-    dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>&1
+    rm /sbin/initctl >>$OUTPUT 2>/dev/null
+    dpkg-divert --rename --remove /sbin/initctl >>$OUTPUT 2>/dev/null
 EOF
     fi
 
     if [ $SCRIPT_DIR = "/usr/bin" ]; then
-        if [ -d $MODULE_UPPER_DIR/home/live ]; then
-            chown 1000:1000 $MODULE_UPPER_DIR/home/live
-            chown -R 1000:1000 $MODULE_UPPER_DIR/home/live
+        if [ -d $MODULE_UPPER_DIR/home/$USER_NAME ]; then
+            chown 1000:1000 $MODULE_UPPER_DIR/home/$USER_NAME
+            chown -R 1000:1000 $MODULE_UPPER_DIR/home/$USER_NAME
         fi
     fi
 }
@@ -3170,9 +3134,9 @@ function create_initrfs() {
         chroot $MODULE_MERGED_DIR /linux-live/initrfs
         # copy boot files
         kernel_variables
-        if [ ls $MODULE_MERGED_DIR/boot/vmlinuz-**-**-* ]; then
+        if [ ls $MODULE_MERGED_DIR/boot/vmlinuz-**-**-* ] 2>/dev/null; then
             cp $MODULE_MERGED_DIR/boot/vmlinuz-**-**-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
-        elif [ ls $MODULE_MERGED_DIR/boot/vmlinuz-**.**.* ]; then
+        elif [ ls $MODULE_MERGED_DIR/boot/vmlinuz-**.**.* ] 2>/dev/null; then
             cp $MODULE_MERGED_DIR/boot/vmlinuz-**.**.* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
         else
             cp $MODULE_MERGED_DIR/boot/vmlinuz-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
@@ -3220,10 +3184,8 @@ function build_modules() {
         fi
 
         for MODULE in *; do
-            if [ $SCRIPT_DIR != "/usr/bin" ] && (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT | grep -q $MODULE 2>/dev/null); then
-                echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-                echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
-                echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
+            if [ $SCRIPT_DIR != "/usr/bin" ] && (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT 2>/dev/null | grep -q $MODULE 2>/dev/null); then
+                echo -e "${MAGENTA}$MODULE${ENDCOLOR} module building is skipped, because it is already present in the image folder." #| fold -w 80 -s
             elif ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_TYPE = "none" ]; then
                 exit
             else
@@ -3253,22 +3215,22 @@ function build_modules() {
                 # copy files
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ] >>$OUTPUT 2>&1; then
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     fi
                 else
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ]; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-install
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
                         fi
                     else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-install
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
                         fi
@@ -3303,7 +3265,7 @@ function build_modules() {
                     module_remove_unofficial_repository
 
                     # run external actions
-                    if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+                    if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                         mkdir -p $WORK_DIR/modules/tmp >>$OUTPUT 2>&1
                         mkmod_corefs $MODULE_UPPER_DIR
                         time mksquashfs $MODULE_UPPER_DIR $WORK_DIR/modules/tmp/$MODULE-stock.$BEXT -comp lz4 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1 || exit
@@ -3322,7 +3284,7 @@ function build_modules() {
                     if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                         cp $SOURCE_MODULES_DIR/$MODULE/build $MODULE_MERGED_DIR/build
                         chmod +x $MODULE_MERGED_DIR/build
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/patches 2>/dev/null)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/patches
                             (cd $SOURCE_MODULES_DIR/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
                         fi
@@ -3365,10 +3327,10 @@ function build_modules() {
                     set -e
                     if [ $MODULE = "01-kernel" ]; then
                         cd $MODULE_UPPER_DIR/squashfs-root
-                        if ls initrd*; then
+                        if ls initrd* 2>/dev/null; then
                             rm initrd*
                         fi
-                        if ls vmlinuz*; then
+                        if ls vmlinuz* 2>/dev/null; then
                             rm vmlinuz*
                         fi
                         if [ $KERNEL_MODULES_ONLY = "true" ]; then
@@ -3423,22 +3385,22 @@ function build_modules() {
                 fi
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall 2>/dev/null)" != "" ]; then
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall 2>/dev/null)" != "" ] >>$OUTPUT 2>&1; then
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/)
                         fi
                     fi
                 else
                     if [ $OUTPUT = "/dev/stdout" ] && [ ! -f /dev/stdout ]; then
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ]; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall 2>/dev/null)" != "" ]; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
                         fi
                     else
-                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall)" != "" ] >>$OUTPUT 2>&1; then
+                        if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall 2>/dev/null)" != "" ] >>$OUTPUT 2>&1; then
                             mkdir $MODULE_MERGED_DIR/rootcopy-postinstall
                             (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-postinstall && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-postinstall/)
                         fi
@@ -3520,7 +3482,7 @@ function build_modules() {
 
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ $SCRIPT_DIR = "/usr/bin" ]; then
-                        if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+                        if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                 if [ $KERNEL_BUILD_DKMS = "true" ]; then
                                     if [ $COMP_TYPE = "zstd" ]; then
@@ -3557,7 +3519,7 @@ function build_modules() {
                         module_chroot_umount_fs
                     else
                         if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
-                            if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+                            if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                                 if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                     if [ $KERNEL_BUILD_DKMS = "true" ]; then
                                         if [ $COMP_TYPE = "zstd" ]; then
@@ -3629,7 +3591,7 @@ function build_modules_live() {
             MODULE_WORK_DIR="$MODULES_DIR/$MODULE-work"
             MODULE_MERGED_DIR="$MODULES_DIR/$MODULE-merged"
             mkmod_corefs $MODULE_UPPER_DIR
-            if [ "$(ls -A $MODULE_UPPER_DIR)" != "" ]; then
+            if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                 if [ $COMP_TYPE = "zstd" ]; then
                     time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
                 elif [ $COMP_TYPE = "xz" ]; then
@@ -3716,7 +3678,6 @@ function repack_modules() {
         done
     fi
 }
-
 
 function download_sources() {
     current_process
@@ -3808,7 +3769,6 @@ function container_run() {
             -e LOGPATH="/var/log" \
             -e OUTPUT="/dev/stdout" \
             -e BUILD_TEST_ISO="false" \
-            -e CREATE_BACKUP="false" \
             -e DEV_SYSTEM="false" \
             -e DEBIAN_FRONTEND_TYPE="noninteractive" \
             -e APT_CMD="apt-get" \
@@ -3874,7 +3834,6 @@ function live_run() {
         LOGPATH="/var/log" \
         OUTPUT="/dev/stdout" \
         BUILD_TEST_ISO="false" \
-        CREATE_BACKUP="false" \
         DEV_SYSTEM="false" \
         DEBIAN_FRONTEND_TYPE="noninteractive" \
         APT_CMD="apt-get" \
@@ -3958,9 +3917,11 @@ function container_build_run() {
 
     language_to_array
 
-    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
+    case $1 in
+    trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
-    fi
+        ;;
+    esac
 
     if [ $KERNEL_BPO = "true" ]; then
         BPO_SUFFIX="-bpo"
@@ -3969,7 +3930,7 @@ function container_build_run() {
         AUFS_SUFFIX="-aufs"
     fi
     CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
-    
+
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
             # cleanup
@@ -4014,9 +3975,11 @@ function live_build_run() {
     COMP_TYPE="$9"
     LOCALE="${10}"
     TIMEZONE="${11}"
-    if [ $1 = "trusty" ] || [ $1 = "xenial" ] || [ $1 = "bionic" ] || [ $1 = "focal" ] || [ $1 = "jammy" ]; then
+    case $1 in
+    trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
-    fi
+        ;;
+    esac
 
     live_run
 }

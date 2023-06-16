@@ -22,7 +22,7 @@ DEBIAN_FRONTEND=noninteractive \
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $DISTRIBUTION = "jammy" ]; then
+    if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install software-properties-common >>$OUTPUT 2>&1
         DEBIAN_FRONTEND=noninteractive \

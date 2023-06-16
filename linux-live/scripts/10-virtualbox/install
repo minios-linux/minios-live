@@ -9,26 +9,53 @@ APP="virtualbox"
 APP_NAME="VirtualBox"
 APP_GROUP="vboxusers"
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-apt-get $INSTALL_OPTIONS install fasttrack-archive-keyring >>$OUTPUT 2>&1
-echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-fasttrack main contrib" >/etc/apt/sources.list.d/fasttrack.list
-echo "deb http://fasttrack.debian.net/debian-fasttrack/ bullseye-backports-staging main contrib" >>/etc/apt/sources.list.d/fasttrack.list
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-if ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]) && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
-    apt-get $INSTALL_OPTIONS install linux-headers-mos-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
+if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    echo "This $APP_NAME module can only be built on Debian."
 else
-    apt-get $INSTALL_OPTIONS install linux-headers-$DISTRIBUTION_ARCH  >>$OUTPUT 2>&1
-fi
-apt-get $INSTALL_OPTIONS install virtualbox-qt >>$OUTPUT 2>&1
+    if [ $DISTRIBUTION = "bookworm" ]; then
+        wget https://mxrepo.com/mx/repo/pool/main/m/mx23-archive-keyring/mx23-archive-keyring_2023.6.6_all.deb
+        apt-get $INSTALL_OPTIONS install ./*.deb
+        cat <<EOF >/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
+#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
 
-cat <<EOF >/usr/bin/$APP-allowuser.sh
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
+EOF
+    else
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+        apt-get $INSTALL_OPTIONS install fasttrack-archive-keyring >>$OUTPUT 2>&1
+        echo "deb http://fasttrack.debian.net/debian-fasttrack/ $DISTRIBUTION-fasttrack main contrib" >/etc/apt/sources.list.d/fasttrack.list
+        echo "deb http://fasttrack.debian.net/debian-fasttrack/ $DISTRIBUTION-backports-staging main contrib" >>/etc/apt/sources.list.d/fasttrack.list
+    fi
+    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+    apt-cache search virtualbox
+    if ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]) && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
+        apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH >>$OUTPUT 2>&1
+    else
+        apt-get $INSTALL_OPTIONS install linux-headers-$DISTRIBUTION_ARCH >>$OUTPUT 2>&1
+    fi
+    apt-get $INSTALL_OPTIONS install virtualbox-qt >>$OUTPUT 2>&1
+
+    if [ $DISTRIBUTION = "bookworm" ]; then
+        if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+            apt-get $INSTALL_OPTIONS remove linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH >>$OUTPUT 2>&1
+        else
+            apt-get $INSTALL_OPTIONS remove linux-headers-$DISTRIBUTION_ARCH >>$OUTPUT 2>&1
+        fi
+        apt-get $INSTALL_OPTIONS remove mx23-archive-keyring >>$OUTPUT 2>&1
+        rm /etc/apt/sources.list.d/mx.list
+    fi
+
+    cat <<EOF >/usr/bin/$APP-allowuser.sh
 #!/bin/bash
 if ! grep $APP_GROUP /etc/group | grep \$(id -nu 1000) >/dev/null; then
     usermod -a -G $APP_GROUP \$(id -nu 1000)
 fi
 EOF
-chmod +x /usr/bin/$APP-allowuser.sh
-cat <<EOF >/usr/lib/systemd/system/$APP-allowuser.service
+    chmod +x /usr/bin/$APP-allowuser.sh
+    cat <<EOF >/usr/lib/systemd/system/$APP-allowuser.service
 [Unit]
 Description=Allow user to use $APP_NAME
 #After=network.target
@@ -43,8 +70,9 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable $APP-allowuser.service >>$OUTPUT 2>&1
+    systemctl enable $APP-allowuser.service >>$OUTPUT 2>&1
 
-PACKAGE="virtualbox"
-echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
+    PACKAGE="virtualbox"
+    echo "PACKAGE=$PACKAGE" >/.package
+    echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
+fi

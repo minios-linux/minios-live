@@ -14,18 +14,66 @@ else
 fi
 
 # install packages
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
-        wget https://github.com/minios-linux/aufs-kernel/releases/download/$KERNEL/linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
-        apt-get $INSTALL_OPTIONS install ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb gcc make >>$OUTPUT 2>&1
-        rm ./linux-headers-$KERNEL\_$KERNEL-1_$DISTRIBUTION_ARCH.deb
+install_build_packages() {
+    local HEADERS_PACKAGE=$1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get $INSTALL_OPTIONS install $HEADERS_PACKAGE gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+}
+case $DISTRIBUTION_TYPE in
+"debian")
+    case $DISTRIBUTION in
+    "orel")
+        install_build_packages "linux-headers-$KERNEL"
+        ;;
+    "stretch" | "buster")
+        if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+            install_build_packages "linux-headers-$KERNEL_ARCH"
+            apt-get $INSTALL_OPTIONS install aufs-dkms >>$OUTPUT 2>&1
+        elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ]; then
+            if [ $KERNEL_TYPE = "default" ]; then
+                install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+            else
+                install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
+            fi
+        else
+            if [ $KERNEL_TYPE = "default" ]; then
+                install_build_packages "$BPO linux-headers-$KERNEL_ARCH"
+            else
+                install_build_packages "$BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH"
+            fi
+        fi
+        ;;
+    *)
+        if [ $KERNEL_AUFS = "true" ]; then
+            if [ $KERNEL_TYPE = "default" ]; then
+                install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+            else
+                install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
+            fi
+        else
+            if [ $KERNEL_TYPE = "default" ]; then
+                install_build_packages "$BPO linux-headers-$KERNEL_ARCH"
+            else
+                install_build_packages "$BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH"
+            fi
+        fi
+        ;;
+    esac
+    ;;
+"ubuntu")
+    if [ $KERNEL_AUFS = "true" ]; then
+        if [ $KERNEL_TYPE = "default" ]; then
+            install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+        else
+            install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
+        fi
     else
-        apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_ARCH gcc make >>$OUTPUT 2>&1
+        install_build_packages "linux-headers-$KERNEL"
     fi
-elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make >>$OUTPUT 2>&1
-fi
+    ;;
+esac
 echo "KERNEL=$KERNEL" >/miniosbuild.conf
 
 set -x

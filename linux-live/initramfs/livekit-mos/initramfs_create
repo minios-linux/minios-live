@@ -72,7 +72,7 @@ cp static/blkid $INITRAMFS/bin
 cp static/minios-boot $INITRAMFS/bin
 chmod a+x $INITRAMFS/bin/*
 mkdir -p $INITRAMFS/etc/modprobe.d
-echo "options loop max_loop=32" >$INITRAMFS/etc/modprobe.d/local-loop.conf
+echo "options loop max_loop=64" >$INITRAMFS/etc/modprobe.d/local-loop.conf
 
 $INITRAMFS/bin/busybox | grep , | grep -v Copyright | tr "," " " | while read LINE; do
    for TOOL in $LINE; do

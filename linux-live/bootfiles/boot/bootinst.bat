@@ -64,8 +64,10 @@ if %ERRORLEVEL% == 0 goto setupEFI
 goto errorFound
 
 :setupEFI
-mkdir %DISK%:\EFI
-copy \minios\boot\EFI\* %DISK%:\EFI
+mkdir %DISK%:\EFI\boot
+mkdir %DISK%:\EFI\debian
+copy \minios\boot\EFI\boot\* %DISK%:\EFI\boot\
+copy \minios\boot\EFI\debian\* %DISK%:\EFI\debian\
 goto setupDone
 
 :setupDone

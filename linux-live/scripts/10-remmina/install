@@ -17,7 +17,7 @@ language_to_array
 apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
 
 # install packages
-if [ $DISTRIBUTION = "jammy" ]; then
+if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
     DEBIAN_FRONTEND=noninteractive \
         apt-add-repository ppa:remmina-ppa-team/remmina-next >>$OUTPUT 2>&1
     cat <<EOF >/etc/apt/preferences.d/remmina-next

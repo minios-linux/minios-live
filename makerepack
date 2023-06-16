@@ -29,19 +29,17 @@ INSTALL_DIR=""
 
 common_variables
 
-if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-    new_run
-fi
-
 console_colors
 
 allow_root_only
 
+if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+    new_run
+fi
+
 create_livekitname_install_symlink
 
 create_completion
-
-create_backup
 
 # check number of args
 if [[ $# == 0 || $# > 3 ]]; then help; fi

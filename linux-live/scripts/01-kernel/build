@@ -2,7 +2,47 @@
 
 set -e          # exit on error
 set -o pipefail # exit on pipeline error
-#set -u          # treat unset variable as error
+set -u          # treat unset variable as error
+
+install_build_packages() {
+    local headers_package=$1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get $INSTALL_OPTIONS install $headers_package gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+}
+
+source_dkms_install() {
+    local DRIVER_NAME DRIVER_VERSION
+    cd /usr/src
+    git clone $1 >>$OUTPUT 2>&1
+    DRIVER_NAME=$(basename $1 | sed 's/\.git$//')
+    DRIVER_VERSION=$(cat $DRIVER_NAME/dkms.conf | grep 'PACKAGE_VERSION=' | cut -d '"' -f 2)
+    sed -i "s/uname -r/echo $KERNEL/g" $DRIVER_NAME/Makefile
+    sed -i "s/uname -m/echo $DISTRIBUTION_ARCH/g" $DRIVER_NAME/Makefile
+    sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k $KERNEL/g" $DRIVER_NAME/Makefile
+    sed -i "s/\${kernelver}/$KERNEL/g" $DRIVER_NAME/dkms.conf
+    mv $DRIVER_NAME $DRIVER_NAME-$DRIVER_VERSION
+    for ACTION in add build install; do
+        dkms $ACTION -m $DRIVER_NAME -v $DRIVER_VERSION >>$OUTPUT 2>&1
+    done
+    cd -
+}
+
+source_install() {
+    local DRIVER_NAME DRIVER_VERSION
+    git clone $1 >>$OUTPUT 2>&1
+    DRIVER_NAME=$(basename $1 | sed 's/\.git$//')
+    DRIVER_VERSION=$(cat $DRIVER_NAME/dkms.conf | grep 'PACKAGE_VERSION=' | cut -d '"' -f 2)
+    cd $DRIVER_NAME
+    sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
+    sed -i "s/uname -m/echo $KERNEL_BUILD_ARCH/g" ./Makefile
+    sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile
+    sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
+    make
+    make install
+    cd -
+}
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 if [ $DISTRIBUTION_ARCH = "amd64" ]; then
@@ -11,12 +51,11 @@ elif [ $DISTRIBUTION_ARCH = "i386" ]; then
     KERNEL_BUILD_ARCH="i386"
 fi
 
-if [ $KERNEL_BPO = "true" ] && ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]); then
+if [ $KERNEL_BPO = "true" ] && ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ] | [ $DISTRIBUTION = "bookworm" ]); then
     BPO="-t $DISTRIBUTION-backports"
 else
     BPO=""
 fi
-echo $KERNEL
 if [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; }; then
     if [ $KERNEL_TYPE = "default" ]; then
         KERNEL=$(apt-cache depends linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')
@@ -34,71 +73,66 @@ if [ $DISTRIBUTION_ARCH = "amd64" ] && [ $DISTRIBUTION = "orel" ]; then
     DISTRIBUTION_ARCH="x86_64"
 fi
 
-if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]) && [ $KERNEL_AUFS = "true" ]; then
-    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-    apt-get $INSTALL_OPTIONS install $BPO aufs-dkms >>$OUTPUT 2>&1
-fi
-if [ "$KERNEL_BUILD_DKMS" != "false" ]; then
-    wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
-    wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
-    wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
-    wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-    apt-get $INSTALL_OPTIONS install ./*.deb
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        cat <<EOF >/etc/apt/sources.list.d/mx.list
-# MX Community Main and Test Repos
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
-#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
-
-#ahs hardware stack repo
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
-EOF
-        cat /etc/apt/sources.list.d/mx.list
-    elif [ $DISTRIBUTION = "bookworm" ]; then
-        cat <<EOF >/etc/apt/sources.list.d/antix.list
-deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/testing/ testing main nonfree
-EOF
-    elif [ $DISTRIBUTION = "sid" ]; then
-        cat <<EOF >/etc/apt/sources.list.d/antix.list
-deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
-EOF
+if [ "$KERNEL_BUILD_DKMS" = "false" ]; then
+    if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]) && ([ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "false" ]); then
+        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+        install_build_packages "$BPO linux-headers-$KERNEL_ARCH"
+        apt-get $INSTALL_OPTIONS install $BPO aufs-dkms >>$OUTPUT 2>&1
     fi
-    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-    if [ $DISTRIBUTION_TYPE = "debian" ]; then
-        if [ $DISTRIBUTION = "orel" ]; then
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
-        elif [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; }; then
-            if [ $KERNEL_TYPE = "default" ]; then
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+elif [ "$KERNEL_BUILD_DKMS" = "true" ]; then
+    case $DISTRIBUTION_TYPE in
+    "debian")
+        case $DISTRIBUTION in
+        "orel")
+            install_build_packages "linux-headers-$KERNEL"
+            ;;
+        "stretch" | "buster")
+            if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
+                install_build_packages "linux-headers-$KERNEL_ARCH"
+                apt-get $INSTALL_OPTIONS install aufs-dkms >>$OUTPUT 2>&1
+            elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ]; then
+                if [ $KERNEL_TYPE = "default" ]; then
+                    install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+                else
+                    install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
+                fi
             else
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                if [ $KERNEL_TYPE = "default" ]; then
+                    install_build_packages "$BPO linux-headers-$KERNEL_ARCH"
+                else
+                    install_build_packages "$BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH"
+                fi
             fi
-        else
-            if [ $KERNEL_TYPE = "default" ]; then
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            ;;
+        *)
+            if [ $KERNEL_AUFS = "true" ]; then
+                if [ $KERNEL_TYPE = "default" ]; then
+                    install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+                else
+                    install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
+                fi
             else
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get $INSTALL_OPTIONS install $BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                if [ $KERNEL_TYPE = "default" ]; then
+                    install_build_packages "$BPO linux-headers-$KERNEL_ARCH"
+                else
+                    install_build_packages "$BPO linux-headers-$KERNEL_TYPE-$KERNEL_ARCH"
+                fi
             fi
-        fi
-    elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+            ;;
+        esac
+        ;;
+    "ubuntu")
         if [ $KERNEL_AUFS = "true" ]; then
             if [ $KERNEL_TYPE = "default" ]; then
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
             else
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+                install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
             fi
         else
-            apt-get $INSTALL_OPTIONS install linux-headers-$KERNEL gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+            install_build_packages "linux-headers-$KERNEL"
         fi
-    fi
+        ;;
+    esac
 
     apt-get $INSTALL_OPTIONS install $BPO broadcom-sta-dkms >>$OUTPUT 2>&1
 
@@ -108,7 +142,12 @@ EOF
     fi
     if [ $DISTRIBUTION = "kali-rolling" ]; then
         DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install realtek-rtl88xxau-dkms >>$OUTPUT 2>&1
+            apt-get $INSTALL_OPTIONS install \
+            realtek-rtl88xxau-dkms \
+            realtek-rtl8814au-dkms \
+            realtek-rtl8188eus \
+            realtek-rtl8723cs-dkms \
+            >>$OUTPUT 2>&1
     elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || ([ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_BPO != "true" ]); then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install \
@@ -123,85 +162,79 @@ EOF
             realtek-rtl8723cs-dkms \
             rtl8821ce-dkms \
             >>$OUTPUT 2>&1
-    elif ([ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]) && [ $KERNEL_BPO != "true" ]; then
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl88xxau-dkms/realtek-rtl88xxau-dkms_5.6.4.2~git20220606.cab4e4e-0kali1_all.deb
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8814au-dkms/realtek-rtl8814au-dkms_5.8.5.1~git20220614.af00239-0kali3_all.deb
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8188eus-dkms/realtek-rtl8188eus-dkms_5.3.9~git20220319.0958f29-0kali3_all.deb
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8723cs-dkms/realtek-rtl8723cs-dkms_0.0~git20210902.0fb0c24-0kali1_all.deb
+    elif [ $DISTRIBUTION = "bookworm" ]; then
+        DEBIAN_FRONTEND=noninteractive
+        apt-get $INSTALL_OPTIONS install \
+            realtek-rtl8188eus-dkms \
+            realtek-rtl8814au-dkms \
+            realtek-rtl88xxau-dkms \
+            rtl8821cu-dkms \
+            >>$OUTPUT 2>&1
+        source_install https://github.com/cilynx/rtl88x2bu.git
+    elif [ $DISTRIBUTION = "sid" ] && [ $KERNEL_BPO != "true" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install \
-            ./realtek-rtl*.deb \
-            rtl8821ce-dkms \
+            realtek-rtl88xxau-dkms \
+            realtek-rtl8814au-dkms \
+            realtek-rtl8188eus \
+            realtek-rtl8723cs-dkms \
             >>$OUTPUT 2>&1
-    elif ([ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]) && [ $KERNEL_BPO = "true" ]; then
-        #wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl88xxau-dkms/realtek-rtl88xxau-dkms_5.6.4.2~git20220606.cab4e4e-0kali1_all.deb
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8814au-dkms/realtek-rtl8814au-dkms_5.8.5.1~git20220614.af00239-0kali3_all.deb
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8188eus-dkms/realtek-rtl8188eus-dkms_5.3.9~git20220319.0958f29-0kali3_all.deb
-        wget https://archive-8.kali.org/kali/pool/contrib/r/realtek-rtl8723cs-dkms/realtek-rtl8723cs-dkms_0.0~git20210902.0fb0c24-0kali1_all.deb
+    elif [ $DISTRIBUTION = "sid" ] && [ $KERNEL_BPO = "true" ]; then
         DEBIAN_FRONTEND=noninteractive \
             apt-get $INSTALL_OPTIONS install \
-            ./realtek-rtl*.deb \
-            rtl8821ce-dkms \
+            realtek-rtl88xxau-dkms \
+            realtek-rtl8814au-dkms \
+            realtek-rtl8188eus \
+            realtek-rtl8723cs-dkms \
             >>$OUTPUT 2>&1
     else
-        #apt-get $INSTALL_OPTIONS install git build-essential libelf-dev debhelper dpkg-dev dkms bc >>$OUTPUT 2>&1
-        git clone https://github.com/aircrack-ng/rtl8812au
-        cd rtl8812au
-        #sed -i "1140s/.*/KVER  := $KERNEL/g" ./Makefile
-        sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
-        sed -i "s/uname -m/echo $DISTRIBUTION_ARCH/g" ./Makefile
-        sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile
-        sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
-        make dkms_install
+        DEBIAN_FRONTEND=noninteractive
+        apt-get $INSTALL_OPTIONS install \
+            realtek-rtl8188eus-dkms \
+            realtek-rtl8723cs-dkms \
+            realtek-rtl8814au-dkms \
+            realtek-rtl88xxau-dkms \
+            rtl8821cu-dkms \
+            >>$OUTPUT 2>&1
+        source_install https://github.com/cilynx/rtl88x2bu.git
+    fi
+    if ! [[ $DISTRIBUTION =~ ^(kali-rolling|sid|bookworm)$ ]] && ! ([[ $KERNEL_AUFS = "true" ]] && [[ $DISTRIBUTION = "stretch" ]]); then
+        cd /usr/src
+        DRIVER_VERSION=""
+        git clone https://github.com/cilynx/rtl88x2bu
+        DRIVER_VERSION=$(cat rtl88x2bu/dkms.conf | grep 'PACKAGE_VERSION=' | cut -d '"' -f 2)
+        mv rtl88x2bu rtl88x2bu-$DRIVER_VERSION
+        for ACTION in add build install; do
+            dkms $ACTION -m rtl88x2bu -v $DRIVER_VERSION
+        done
         cd -
     fi
-    : 'if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]) && [ $KERNEL_BPO != "true" ]; then
-        git clone https://github.com/aircrack-ng/rtl8812au
-        cd rtl8812au
-        #sed -i "1140s/.*/KVER  := $KERNEL/g" ./Makefile
-        sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
-        sed -i "s/uname -m/echo $DISTRIBUTION_ARCH/g" ./Makefile
-        sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k $KERNEL/g" ./Makefile
-        sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
-        make dkms_install
-        cd -
-    fi'
-    if [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ]; then
-        break
-    elif [ $KERNEL_AUFS = "true" ] && ([ $DISTRIBUTION = "stretch" ]); then
-        break
-    else
-        git clone https://github.com/cilynx/rtl88x2bu.git
-        cd rtl88x2bu
-        sed -i "s/uname -r/echo $KERNEL/g" ./Makefile
-        sed -i "s/uname -m/echo $KERNEL_BUILD_ARCH/g" ./Makefile
-        sed -i "s/\${kernelver}/$KERNEL/g" ./dkms.conf
-        make
-        make install
-        cd -
-    fi
-    if ([ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]) && [ $KERNEL_BPO != "true" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install virtualbox-guest-dkms >>$OUTPUT 2>&1
-    else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install genisoimage >>$OUTPUT 2>&1
-        TARGET_VER=$KERNEL
-        export TARGET_VER
-        VBOX_VER=$(curl https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT)
-        cd /tmp
-        wget https://download.virtualbox.org/virtualbox/$VBOX_VER/VBoxGuestAdditions_$VBOX_VER.iso
-        cd /tmp
-        isoinfo -f -R -i /tmp/VBoxGuestAdditions_$VBOX_VER.iso -x /VBoxLinuxAdditions.run >/tmp/VBoxLinuxAdditions.run
-        chmod +x /tmp/VBoxLinuxAdditions.run
-        set +e
-        /tmp/VBoxLinuxAdditions.run
-        set -e
-    fi
-    if [ -f /etc/apt/sources.list.d/mx.list ]; then
-        rm /etc/apt/sources.list.d/mx.list
-    fi
-    if [ -f /etc/apt/sources.list.d/antix.list ]; then
-        rm /etc/apt/sources.list.d/antix.list
-    fi
+
+    case $DISTRIBUTION in
+    "stretch" | "buster" | "bullseye" | "bookworm")
+        if [ $KERNEL_BPO != "true" ]; then
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
+            wget https://mxrepo.com/mx/repo/pool/main/m/mx23-archive-keyring/mx23-archive-keyring_2023.6.6_all.deb
+            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+            apt-get $INSTALL_OPTIONS install ./*.deb
+            cat <<EOF >/etc/apt/sources.list.d/mx.list
+# MX Community Main and Test Repos
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
+#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
+
+#ahs hardware stack repo
+deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
+EOF
+            apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+            DEBIAN_FRONTEND=noninteractive \
+                apt-get $INSTALL_OPTIONS install virtualbox-guest-dkms >>$OUTPUT 2>&1
+        fi
+        ;;
+    *)
+        echo "virtualbox-guest-dkms: unsupported distribution $DISTRIBUTION"
+        ;;
+    esac
+
 fi
