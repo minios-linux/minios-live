@@ -4,22 +4,18 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
 language_to_array
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        add-apt-repository ppa:atareao/telegram >>$OUTPUT 2>&1
+    add-apt-repository ppa:atareao/telegram
     cat <<EOF >/etc/apt/preferences.d/telegram
 Package: *
 Pin: release o=LP-PPA-atareao-telegram
@@ -27,22 +23,22 @@ Pin-Priority: 1001
 EOF
 fi
 if [ -f $SCRIPT_DIR/package.list ]; then
-    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | sed "s,$,/$DISTRIBUTION-backports," | tr "\n" " ") >>$OUTPUT 2>&1
+    case $DISTRIBUTION in
+    buster | bullseye)
+        install_packages --package-list="$SCRIPT_DIR/package.list" --sed-script="s,$,/$DISTRIBUTION-backports,"
         PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
-    elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            telegram >>$OUTPUT 2>&1
-        PACKAGE="telegram"
-    else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
-        PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
-    fi
+        ;;
+    *)
+        if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+            pkg install telegram
+            PACKAGE="telegram"
+        else
+            install_packages --package-list="$SCRIPT_DIR/package.list"
+            PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
+        fi
+        ;;
+    esac
+
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
 fi

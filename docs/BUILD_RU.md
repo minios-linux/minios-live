@@ -67,13 +67,13 @@ docker run -it --name mlc --privileged --device-cgroup-rule='b 7:* rmw' -v /dev:
 
 ```
 if [ $COMP_TYPE = "zstd" ]; then
-    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend
 else
-    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
 fi
 ```
 
-. Пакеты, установленые скриптом **build** не сохраняются в системе. Пример такого скрипта можно посмотреть здесь **minios-live/linux-live/scripts/04-slax-desktop**. Если вам необходимо установить модуль DKMS так, чтобы в системе не осталось пакетов, необходимых для сборки (заголовки ядра и прочие), создайте в папке скриптов модуля файл **is\_dkms\_build**, тогда в модуль после работы скрипта **build** будут скопированы только модули ядра. Пример: **minios-live/linux-live/scripts/01-kernel**.
+. Пакеты, установленые скриптом **build** не сохраняются в системе. Пример такого скрипта можно посмотреть здесь **minios-live/linux-live/scripts/04-flux-desktop**. Если вам необходимо установить модуль DKMS так, чтобы в системе не осталось пакетов, необходимых для сборки (заголовки ядра и прочие), создайте в папке скриптов модуля файл **is\_dkms\_build**, тогда в модуль после работы скрипта **build** будут скопированы только модули ядра. Пример: **minios-live/linux-live/scripts/01-kernel**.
 Для создания простого модуля, где необходима только установка пакетов, используйте в качестве примера скрипты модуля **10-galculator**:
 
 ```

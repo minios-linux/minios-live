@@ -4,21 +4,21 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)" | debconf-set-selections
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
 if [ DESKTOP_ENVIRONMENT = "astra-fly" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        xorg-all-main >>$OUTPUT 2>&1
+    pkg install \
+        xorg-all-main
 elif [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    pkg install \
+        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ")
 fi
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
@@ -35,10 +35,8 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
-        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            virtualbox-guest-x11 >>$OUTPUT 2>&1
+        pkg update
+        pkg install virtualbox-guest-x11
         rm /etc/apt/sources.list.d/mx.list
     fi
 fi

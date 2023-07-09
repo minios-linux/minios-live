@@ -4,6 +4,8 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 APP="codium"
 APP_NAME="VSCodium"
@@ -19,9 +21,8 @@ get_latest_package_url() {
 URL=$(get_latest_package_url VSCodium/vscodium)
 
 wget $URL &&
-    apt-get $INSTALL_OPTIONS update -y &&
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
+    pkg update -y &&
+    pkg install ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
     rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
 
 if grep slax /etc/hostname >/dev/null; then
@@ -82,7 +83,7 @@ if [ "\$1" = "$APP" ]; then
 fi
 
 EOF
-    systemctl enable fblive-add-$APP.service >>$OUTPUT 2>&1
+    systemctl enable fblive-add-$APP.service 
 fi
 
 PACKAGE=$APP_EXECUTABLE

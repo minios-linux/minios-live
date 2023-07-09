@@ -1,21 +1,23 @@
 #!/bin/bash
 
-apt-get $INSTALL_OPTIONS purge vim* grub* debconf-i18n installation-report >>$OUTPUT 2>&1
-apt-get $INSTALL_OPTIONS autoremove
+. /minioslib || exit 1
 
-if [[ $DISTRIBUTION_TYPE != "ubuntu" || $PACKAGE_VARIANT != "cloud" ]]; then
+pkg purge vim* grub* debconf-i18n installation-report
+pkg autoremove
+
+: 'if [ $DISTRIBUTION_TYPE != "ubuntu" ] && [ $PACKAGE_VARIANT != "cloud" ]; then
     cd /tmp
-    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-    apt-get download acpi-support >>$OUTPUT 2>&1
-    dpkg -x acpi-support*.deb /tmp/acpisupport >>$OUTPUT 2>&1
+    pkg update 
+    apt-get download acpi-support 
+    dpkg -x acpi-support*.deb /tmp/acpisupport 
     if [ -L "/lib" ]; then
         mkdir -p /tmp/acpisupport/usr/lib
         (cd /tmp/acpisupport/lib && cp --parents -afr * /tmp/acpisupport/usr/lib)
         rm -rf /tmp/acpisupport/lib
     fi
     cd /tmp/acpisupport
-    cp -aR * / >>$OUTPUT 2>&1
-fi
+    cp -aR * / 
+fi'
 
 if [ $LOCALE != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then

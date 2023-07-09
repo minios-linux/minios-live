@@ -10,17 +10,14 @@ APP_NAME="Microsoft Edge"
 APP_EXECUTABLE="microsoft-edge-stable"
 APP_MODULE_NUMBER="5"
 
-#apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-#    apt-get $INSTALL_OPTIONS install gnupg >>$OUTPUT 2>&1
-
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
 install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
 sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" >/etc/apt/sources.list.d/microsoft-edge.list'
 rm -f packages.microsoft.gpg
 
 # install packages
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-    apt-get $INSTALL_OPTIONS install microsoft-edge-stable >>$OUTPUT 2>&1
+pkg update
+pkg install microsoft-edge-stable
 
 # Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
@@ -103,7 +100,7 @@ if [ "\$1" = "$APP" ]; then
 fi
 
 EOF
-    systemctl enable fblive-add-$APP.service >>$OUTPUT 2>&1
+    systemctl enable fblive-add-$APP.service
 fi
 
 PACKAGE=$APP_EXECUTABLE

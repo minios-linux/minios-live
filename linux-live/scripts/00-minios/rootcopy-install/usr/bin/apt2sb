@@ -34,21 +34,15 @@ function version() {
     exit 0
 }
 
-if [[ "$(id -u)" != "0" ]]; then
-    echo "This script must be run as root."
+if [ $# -eq 0 ]; then
     brief_help
     exit 1
 fi
 
-if [[ $# -eq 0 ]]; then
-    brief_help
-    exit 1
-fi
-
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
     case "$1" in
     -f | --file=*)
-        if [[ "$1" == --* ]]; then
+        if [ "$1" == --* ]; then
             FILENAME="${1#*=}"
         else
             FILENAME="$2"
@@ -57,7 +51,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     -l | --level=*)
-        if [[ "$1" == --* ]]; then
+        if [ "$1" == --* ]; then
             FILTER_LEVEL=$(printf "%02d" "${1#*=}")
         else
             FILTER_LEVEL=$(printf "%02d" "$2")
@@ -72,7 +66,7 @@ while [[ $# -gt 0 ]]; do
         version
         ;;
     *) # unknown option
-        if [[ "$1" == -* ]]; then
+        if [ "$1" == -* ]; then
             brief_help
             shift
         else
@@ -82,6 +76,12 @@ while [[ $# -gt 0 ]]; do
         ;;
     esac
 done
+
+if [ "$(id -u)" != "0" ]; then
+    echo "This script must be run as root."
+    brief_help
+    exit 1
+fi
 
 if [ ! "$INSTALL_ALL" ]; then
     brief_help
@@ -94,9 +94,9 @@ UNION=$TMP/union
 
 trap 'umount $UNION; umount $TMP; rm -rf $TMP' EXIT
 
-if [[ -d /run/initramfs/memory/bundles ]]; then
+if [ -d /run/initramfs/memory/bundles ]; then
     BUNDLES=/run/initramfs/memory/bundles
-elif [[ -d /memory/bundles ]]; then
+elif [ -d /memory/bundles ]; then
     BUNDLES=/memory/bundles
 fi
 
@@ -107,10 +107,10 @@ mount -t tmpfs tmpfs $TMP
 mkdir -p $CHANGES
 mkdir -p $UNION
 
-if [[ -n "$FILTER_LEVEL" ]]; then
+if [ -n "$FILTER_LEVEL" ]; then
     LOWERS=$(for BUNDLE in $(ls -1dr "$BUNDLES"/*); do
         if [[ $(basename "$BUNDLE") =~ ^[0-9]+ ]]; then
-            if [[ ${BASH_REMATCH[0]} -gt $FILTER_LEVEL ]]; then
+            if [ ${BASH_REMATCH[0]} -gt $FILTER_LEVEL ]; then
                 continue
             fi
         fi
@@ -148,9 +148,14 @@ umount $UNION/dev
 rm $CHANGES/install
 rmdir $CHANGES/* 2>/dev/null
 
-if [[ "$FAILED" != "true" ]]; then
-    if [[ ! "$FILENAME" ]]; then
-        FILENAME="$INSTALL".$BEXT
+if [ "$FAILED" != "true" ]; then
+    if [ ! "$FILENAME" ]; then
+        if [ -n "$FILTER_LEVEL" ]; then
+            PREFIX="$(printf "%02d" $((10#$FILTER_LEVEL + 1)))-"
+        else
+            PREFIX=""
+        fi
+        FILENAME="$PREFIX$INSTALL".$BEXT
     fi
 
     echo "Saving changes made by installing packages into a module "$FILENAME"..."

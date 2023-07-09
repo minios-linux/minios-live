@@ -12,21 +12,21 @@ if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
 fi
 
-exec 19>/var/log/minios/minios-update-cache.log
+exec 19>/var/log/minios/minios-update-cache.trace
 BASH_XTRACEFD=19
 set -x
 
 # Function to configure kernel modules from bundles
 function configure_kernel_modules() {
-    for D in $(find $BUNDLES/*/lib/modules/*$(uname -r) -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
-        d1="$(basename $D | sed 's/.[gx]z$//')"
-        [ "$(cat /etc/modprobe.d/*.conf | awk '/^blacklist / && / '$D1'$/ {print $2}')" ] && continue
-        [ "$(lsmod | egrep '^'$D1' ')" ] && continue # module already loaded -> next D
-        if [ ! "$DM" ]; then                         # if DM is empty, i.e. depmod did not
-            sudo insmod "$D" && continue
-            sudo depmod && DM=true
+    for MODULE_PATH in $(find $BUNDLES/*/lib/modules/*$(uname -r) -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
+        MODULE_NAME="$(basename $MODULE_PATH | sed 's/.[gx]z$//')"
+        [ "$(cat /etc/modprobe.d/*.conf | awk '/^blacklist / && / '$MODULE_NAME'$/ {print $2}')" ] && continue
+        [ "$(lsmod | egrep '^'$MODULE_NAME' ')" ] && continue # module already loaded -> next MODULE_PATH
+        if [ ! "$DEPMOD" ]; then                              # if DEPMOD is empty, i.e. depmod did not
+            sudo insmod "$MODULE_PATH" && continue
+            sudo depmod && DEPMOD=true
         fi
-        sudo modprobe "$D1"
+        sudo modprobe "$MODULE_NAME"
     done
 }
 

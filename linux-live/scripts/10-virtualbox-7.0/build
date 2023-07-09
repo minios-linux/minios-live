@@ -4,6 +4,8 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 #set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 KERNEL="$KERNEL"
@@ -16,10 +18,8 @@ fi
 # install packages
 install_build_packages() {
     local HEADERS_PACKAGE=$1
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install $HEADERS_PACKAGE gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git >>$OUTPUT 2>&1
+    pkg update
+    pkg install $HEADERS_PACKAGE gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git
 }
 case $DISTRIBUTION_TYPE in
 "debian")
@@ -30,7 +30,7 @@ case $DISTRIBUTION_TYPE in
     "stretch" | "buster")
         if [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO != "true" ]; then
             install_build_packages "linux-headers-$KERNEL_ARCH"
-            apt-get $INSTALL_OPTIONS install aufs-dkms >>$OUTPUT 2>&1
+            pkg install aufs-dkms
         elif [ $KERNEL_AUFS = "true" ] && [ $KERNEL_BPO = "true" ]; then
             if [ $KERNEL_TYPE = "default" ]; then
                 install_build_packages "linux-headers-$KERNEL_VERSION-mos-$KERNEL_ARCH"
@@ -102,8 +102,8 @@ set +x
 : 'if [ ! -d /squashfs-root/usr/lib/modules/$KERNEL/misc ]; then
     mkdir -p /squashfs-root/usr/lib/modules/$KERNEL/misc
 fi
-cp /usr/lib/modules/$KERNEL/misc/vboxdrv.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ >>$OUTPUT 2>&1
-cp /usr/lib/modules/$KERNEL/misc/vboxnetadp.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ >>$OUTPUT 2>&1
-cp /usr/lib/modules/$KERNEL/misc/vboxnetflt.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ >>$OUTPUT 2>&1
+cp /usr/lib/modules/$KERNEL/misc/vboxdrv.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ 
+cp /usr/lib/modules/$KERNEL/misc/vboxnetadp.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ 
+cp /usr/lib/modules/$KERNEL/misc/vboxnetflt.ko /squashfs-root/usr/lib/modules/$KERNEL/misc/ 
 
-dir2sb /squashfs-root /$MODULE.sb >>$OUTPUT 2>&1'
+dir2sb /squashfs-root /$MODULE.sb '

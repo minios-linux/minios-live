@@ -4,14 +4,12 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
 language_to_array
+
 if [ $LOCALE != "en_US" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -30,7 +28,7 @@ if [ $LOCALE != "en_US" ]; then
 EOF
 fi
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
@@ -38,7 +36,7 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 if [ $PACKAGE_VARIANT != "puzzle" ]; then
     wget http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/sid/pool/main/a/adwaita-icon-theme-antix/adwaita-icon-theme-antix_3.30.2~antix1_all.deb
     apt install yad ./adwaita-icon-theme-antix_*_all.deb
-    rm -f /*.deb >>$OUTPUT 2>&1
+    rm -f /*.deb
     if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
         rm -f /usr/share/applications/yad-icon-browser.desktop
     fi
@@ -47,44 +45,28 @@ fi
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
     elif [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/slim/d" | tr "\n" " ") librsvg2-common network-manager-gnome lightdm >>$OUTPUT 2>&1
+        install_packages --delete-packages="slim" --add-packages="librsvg2-common network-manager-gnome lightdm"
     else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
     fi
 fi
 
 # install packages
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
     wget http://ftp.debian.org/debian/pool/main/e/elementary-xfce/elementary-xfce-icon-theme_0.17-1_all.deb
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
-    rm -f ./elementary-xfce-icon-theme_*_all.deb >>$OUTPUT 2>&1
+    pkg install ./elementary-xfce-icon-theme_*_all.deb
+    rm -f ./elementary-xfce-icon-theme_*_all.deb
 else
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        elementary-xfce-icon-theme >>$OUTPUT 2>&1
+    pkg install elementary-xfce-icon-theme
 fi
 
-#if [ $PACKAGE_VARIANT = "maximum" ]; then
-#    wget http://ftp.debian.org/debian/pool/main/f/fonts-inter/fonts-inter_3.19+ds-2_all.deb
-#    wget http://ftp.debian.org/debian/pool/main/f/fonts-jetbrains-mono/fonts-jetbrains-mono_2.242+ds-2_all.deb
-#    apt-get $INSTALL_OPTIONS install ./fonts-jetbrains-mono*.deb ./fonts-inter*.deb
-#    rm -f ./fonts*.deb
 sed -i 's,<property name="FontName" type="empty"/>,<property name="FontName" type="string" value="Inter 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="MonospaceFontName" type="empty"/>,<property name="MonospaceFontName" type="string" value="JetBrains Mono 10"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" type="int" value="1"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<property name="HintStyle" type="string" value="hintfull"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
-#fi
 
 if [ $DISTRIBUTION = "stretch" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
@@ -112,8 +94,8 @@ if [ $DISTRIBUTION = "stretch" ]; then
 EOF
 fi
 
-if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
+if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
 fi
 if [ -f /usr/share/applications/pavucontrol.desktop ]; then
     rm -f /usr/share/applications/pavucontrol.desktop
@@ -125,7 +107,7 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
     fi
 fi
 
-if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
         echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
@@ -334,14 +316,13 @@ fi
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     curl -s https://api.github.com/repos/minios-linux/rescuezilla/releases/latest | grep browser_download_url | grep '\.deb' | cut -d '"' -f 4 | wget -i - &&
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install ./rescuezilla*.deb >>$OUTPUT 2>&1 &&
+        pkg install ./rescuezilla*.deb &&
         rm -f ./rescuezilla*.deb
     if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
         rm -f /usr/share/applications/yad-icon-browser.desktop
     fi
     #        wget $(curl -s https://api.github.com/repos/iongion/podman-desktop-companion/releases | grep browser_download_url | grep '\.deb' | head -n1 | cut -d '"' -f 4)
-    #        apt-get $INSTALL_OPTIONS install ./podman-desktop-companion-amd64-*.deb >>$OUTPUT 2>&1 &&
+    #        pkg install ./podman-desktop-companion-amd64-*.deb  &&
     #            rm -f ./podman-desktop-companion-amd64-*.deb
 fi
 
@@ -402,8 +383,7 @@ update-icon-caches /usr/share/icons/*
 
 if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     if [ $LOCALE != "en_US" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install vlc-l10n >>$OUTPUT 2>&1
+        pkg install vlc-l10n
     fi
 fi
 if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then

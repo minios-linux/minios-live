@@ -4,56 +4,46 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
     FIREFOX_BRANDING="/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js"
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     FIREFOX_BRANDING="/etc/firefox/syspref.js"
 fi
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
 language_to_array
-DEBIAN_FRONTEND=noninteractive \
-    apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+
+pkg update
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install software-properties-common >>$OUTPUT 2>&1
-        DEBIAN_FRONTEND=noninteractive \
-            add-apt-repository ppa:mozillateam/ppa >>$OUTPUT 2>&1
+        pkg install software-properties-common
+        add-apt-repository ppa:mozillateam/ppa
         cat <<EOF >/etc/apt/preferences.d/mozilla-firefox
 Package: *
 Pin: release o=LP-PPA-mozillateam
 Pin-Priority: 1001
 EOF
-        #echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:${distro_codename}";' | tee /etc/apt/apt.conf.d/51unattended-upgrades-firefox
     fi
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        firefox >>$OUTPUT 2>&1
+    pkg install \
+        firefox
     if [ $LOCALE != "en_US" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            firefox-locale-${LNG[0]} >>$OUTPUT 2>&1
+        pkg install \
+            firefox-locale-${LNG[0]}
     fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        firefox-esr >>$OUTPUT 2>&1
+    pkg install \
+        firefox-esr
     if [ $LOCALE = "es_ES" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            firefox-esr-l10n-es-es >>$OUTPUT 2>&1
+        pkg install \
+            firefox-esr-l10n-es-es
     elif [ $LOCALE != "en_US" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            firefox-esr-l10n-${LNG[0]} >>$OUTPUT 2>&1
+        pkg install \
+            firefox-esr-l10n-${LNG[0]}
     fi
 fi
 
@@ -88,7 +78,7 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
     fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ ${LNG[0]} = "en" ] || [ ${LNG[0]} = "ru" ]|| [ ${LNG[0]} = "es" ]; then
+    if [ ${LNG[0]} = "en" ] || [ ${LNG[0]} = "ru" ] || [ ${LNG[0]} = "es" ]; then
         cat <<EOF >>$FIREFOX_BRANDING
 
 pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/${LNG[0]}.html");
@@ -110,13 +100,6 @@ pref("browser.uidensity", 1);
 EOF
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    #if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
-    #if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ]; then
-    #    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
-    #else
-    #    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
-    #fi
-    #sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
     sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
 fi
 
@@ -127,4 +110,3 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 echo "PACKAGE=$PACKAGE" >/.package
 echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
-#echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

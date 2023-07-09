@@ -150,6 +150,7 @@ function deactivate() {
 function help() {
     echo "Usage: $(basename $0) [OPTION]... [FILE]..."
     echo "Activate, deactivate or list MiniOS bundles."
+    echo "To run this script, the Linux kernel must support AUFS."
     echo ""
     echo "Options:"
     echo "  activate          activate a MiniOS bundle"
@@ -166,6 +167,7 @@ function help() {
 
 function brief_help() {
     echo "Usage: $(basename $0) [OPTION]... [FILE]..."
+    echo "To run this script, the Linux kernel must support AUFS."
     echo "Try '$(basename $0) --help' for more information."
     exit 1
 }
@@ -175,7 +177,7 @@ function version() {
     exit 0
 }
 
-function fix_system {
+function fix_system() {
     if [ "$SYSTEM_TYPE" = "puzzle" ]; then
         # fix users
         minios-update-users $BUNDLES 2>/dev/null
@@ -190,11 +192,20 @@ function fix_system {
     fi
 }
 
-if [[ "$(id -u)" != "0" ]]; then
-    echo "This script must be run as root."
-    brief_help
-    exit 1
-fi
+function aufs_support() {
+    if cat /proc/filesystems | grep aufs >/dev/null; then
+        AUFS="true"
+    else
+        AUFS="false"
+    fi
+    if [ $AUFS = "false" ]; then
+        echo "AUFS is not supported by the $(uname -r) kernel."
+        brief_help
+        exit 1
+    fi
+}
+
+aufs_support
 
 if [[ $# -eq 0 ]]; then
     brief_help
@@ -215,6 +226,12 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+if [[ "$(id -u)" != "0" ]]; then
+    echo "This script must be run as root."
+    brief_help
+    exit 1
+fi
 
 if [ "$1" = "activate" ]; then
     activate "$2"
