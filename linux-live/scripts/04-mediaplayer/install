@@ -4,14 +4,15 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    apt-get $INSTALL_OPTIONS install \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    install_packages
 fi
 
 cat >/usr/lib/systemd/system/x11vnc.service <<'EOF'

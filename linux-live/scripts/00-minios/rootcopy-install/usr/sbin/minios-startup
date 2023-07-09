@@ -12,7 +12,7 @@ allow_root_only
 if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
 fi
-exec 19>/var/log/minios/startup.log
+exec 19>/var/log/minios/startup.trace
 BASH_XTRACEFD=19
 set -x
 
@@ -234,20 +234,20 @@ fi
 if [ "$SYSTEM_TYPE" = "puzzle" ]; then
     # fix users
     if [ -x "$(command -v minios-update-users)" ]; then
-        minios-update-users "$BUNDLES" #&
+        minios-update-users "$BUNDLES" >/var/log/minios/minios-update-users.output 2>&1
     fi
     # fix caches
     if [ -x "$(command -v minios-update-cache)" ]; then
-        minios-update-cache "$BUNDLES" &
+        minios-update-cache "$BUNDLES" >/var/log/minios/minios-update-cache.output 2>&1 &
     fi
     # fix dpkg
     if [ -x "$(command -v minios-update-dpkg)" ]; then
-        minios-update-dpkg "$BUNDLES" &
+        minios-update-dpkg "$BUNDLES" >/var/log/minios/minios-update-dpkg.output 2>&1 &
     fi
 fi
 
 # Set up user 'root'
-if [ ! -f /var/.minios-setup-completed ]; then
+if [ ! -f /var/.system_configured ]; then
     cp -rT /etc/skel /root
     # create root directories
     if [ -d /root ]; then
@@ -264,7 +264,6 @@ if [ -f /usr/bin/x11vnc ]; then
     x11vnc -storepasswd "$ROOT_PASSWORD" /etc/vncpassword
 fi
 
-#sed -i -e "/CLOUD=/s/=.*/=$CLOUD/" /etc/minios/$LIVEKITNAME.conf
 if [ "$CLOUD" != "true" ]; then
     if [ "$USER_NAME" != "root" ]; then
         echo "User name is $USER_NAME"
@@ -272,9 +271,9 @@ if [ "$CLOUD" != "true" ]; then
         #USER_NAME="live"
         #USER_GROUP="live"
         USER_GROUP=$USER_NAME
-        if [ ! -f /var/.minios-setup-completed ]; then
+        if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
-            usermod -a -G sudo "$USER_NAME"
+            usermod -a -G adm,cdrom,sudo,dip,plugdev,users,lpadmin,sambashare "$USER_NAME"
             if [ ! -f /usr/bin/pulseaudio ]; then
                 usermod -a -G audio "$USER_NAME"
             fi
@@ -323,7 +322,6 @@ EOF
 fi
 
 if [ "$HIDE_CREDENTIALS" != "true" ]; then
-    echo "HIDE_CREDENTIALS is $HIDE_CREDENTIALS"
     if [ "$CLOUD" != "true" ]; then
         if [ "$USER_NAME" != "root" ]; then
             cat <<EOF >>/etc/issue
@@ -397,15 +395,15 @@ echo "Changes:"
 
 # Define a function to update the value of a variable in the configuration file
 update_config_value() {
-    # Read the value of the variable from the configuration file
-    local CONFIG_VALUE=$(read_config_value "/etc/minios/$LIVEKITNAME.conf" "$1")
     # Get the current value of the variable
     local VAR_NAME="$1"
     local VAR_VALUE="${!VAR_NAME}"
+    # Read the value of the variable from the configuration file
+    local CONFIG_VALUE=$(read_config_value "/etc/minios/$LIVEKITNAME.conf" "$VAR_NAME")
     # Check if the current value is different from the value in the configuration file and is not empty
     if [ "$VAR_VALUE" != "$CONFIG_VALUE" ] && [ -n "$VAR_VALUE" ]; then
         # Update the value of the variable in the configuration file using the sed command
-        sed -i -e "/$1=/s/=.*/=\"$VAR_VALUE\"/" "/etc/minios/$LIVEKITNAME.conf"
+        sed -i -e "/$VAR_NAME=/s/=.*/=\"$VAR_VALUE\"/" "/etc/minios/$LIVEKITNAME.conf"
     fi
 }
 
@@ -473,8 +471,36 @@ if [ -d /usr/share/minios/html ] && [ -f /usr/share/firefox-esr/browser/defaults
     /usr/sbin/minios-firefox-patch
 fi
 
-if [ ! -f /var/.minios-setup-completed ]; then
-    echo "MiniOS setup is completed." >/var/.minios-setup-completed
+if [ ! -f /var/.system_configured ]; then
+    echo "MiniOS setup is completed." >/var/.system_configured
+fi
+
+set +x
+
+read_config "/etc/minios/$LIVEKITNAME.conf" EXPORT_LOGS
+DATE=$(date +%Y%m%d)
+TIME=$(date +%H%M%S)
+if [ "$EXPORT_LOGS" = "true" ]; then
+    if [ "$WRITABLE" = "true" ]; then
+        if [ ! -d "$MEDIA/log/$DATE" ]; then
+            mkdir -p "$MEDIA/log/$DATE"
+        fi
+        for FILE in /var/log/minios/*; do
+            if [ ! -d "$FILE" ] && [[ ! $(basename "$FILE") == boot* ]]; then
+                FILE=$(basename "$FILE")
+                NEW_FILENAME="${FILE%.*}-$TIME.${FILE##*.}"
+                cp -fp "/var/log/minios/$FILE" "$MEDIA/log/$DATE/$NEW_FILENAME"
+            fi
+        done
+        mkdir -p "$MEDIA/log/$DATE/users"
+        for FILE in /var/log/minios/users/*; do
+            if [ ! -d "$FILE" ]; then
+                FILE=$(basename "$FILE")
+                NEW_FILENAME="${FILE%.*}-$TIME.${FILE##*.}"
+                cp -fp "/var/log/minios/users/$FILE" "$MEDIA/log/$DATE/users/$NEW_FILENAME"
+            fi
+        done
+    fi
 fi
 
 exit 0

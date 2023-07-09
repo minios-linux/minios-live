@@ -4,18 +4,10 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-function timezone_to_array() {
-    local IFS
-    IFS="/"
-    TIMEZONE=($TIMEZONE)
-}
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
+. /minioslib || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
 # To change ubuntu kernel type, you must also edit the values in the firmware module. This will be fixed later.
 UBUNTU_IMAGE_HWE="true"
 
@@ -35,161 +27,128 @@ fi
 
 timezone_to_array
 language_to_array
+
 if [ $LOCALE != "en_US" ]; then
-    # Keyboard settings
-    #echo "keyboard-configuration  keyboard-configuration/optionscode      string  grp:alt_shift_toggle,grp_led:scroll" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/switch   select  No temporary switch" | debconf-set-selections -v >>$OUTPUT 2>&1
-    echo "keyboard-configuration  keyboard-configuration/layoutcode       string  us,${LNG[0]}" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/model    select  Generic 105-key PC (intl.)" | debconf-set-selections -v >>$OUTPUT 2>&1
-    echo "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/xkb-keymap       select  us" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/ctrl_alt_bksp    boolean false" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/altgr    select  The default for the keyboard layout" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/modelcode        string  pc105" | debconf-set-selections -v >>$OUTPUT 2>&1
-    #echo "keyboard-configuration  keyboard-configuration/compose  select  No compose key" | debconf-set-selections -v >>$OUTPUT 2>&1
-    echo "keyboard-configuration  keyboard-configuration/toggle   select  Alt+Shift" | debconf-set-selections -v >>$OUTPUT 2>&1
-    # Timezone settings
-    echo "tzdata  tzdata/Zones/${TIMEZONE[0]}     select  ${TIMEZONE[1]}" | debconf-set-selections -v >>$OUTPUT 2>&1
-    # Locales settings
-    #echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8, $LOCALE.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
-    echo "locales locales/locales_to_be_generated multiselect     $LOCALE.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
+    DEBCONF_SETTINGS=(
+        "keyboard-configuration  keyboard-configuration/layoutcode       string  us,${LNG[0]}"
+        "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT"
+        "keyboard-configuration  keyboard-configuration/toggle   select  Alt+Shift"
+        "tzdata  tzdata/Zones/${TIMEZONE[0]}     select  ${TIMEZONE[1]}"
+        "locales locales/locales_to_be_generated multiselect     $LOCALE.UTF-8 UTF-8"
+    )
 else
-    echo "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
+    DEBCONF_SETTINGS=(
+        "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8"
+    )
     if [ $DISTRIBUTION = "buster" ]; then
-        echo "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
+        DEBCONF_SETTINGS+=(
+            "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT"
+        )
     fi
 fi
-# Locales settings
-echo "locales locales/default_environment_locale      select  $LOCALE.UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
+
+DEBCONF_SETTINGS+=(
+    "locales locales/default_environment_locale      select  $LOCALE.UTF-8"
+    "davfs2 davfs2/suid_file boolean true"
+    "console-setup   console-setup/codeset47 select  Guess optimal character set"
+    "console-setup   console-setup/charmap47 select  UTF-8"
+    "console-setup   console-setup/fontsize-fb47 select  8x16"
+    "console-setup   console-setup/fontface47select  Fixed"
+    "console-setup   console-setup/fontsize-text47   select  8x16"
+    "openssh-server  openssh-server/password-authentication  boolean true"
+    "openssh-server  openssh-server/permit-root-login        boolean false"
+)
+
 if [ $DISTRIBUTION != "buster" ]; then
-    # Keyboard settings
-    echo "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT" | debconf-set-selections -v >>$OUTPUT 2>&1
+    DEBCONF_SETTINGS+=(
+        "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
+    )
 fi
-# webdav settings
-echo "davfs2 davfs2/suid_file boolean true" | debconf-set-selections -v >>$OUTPUT 2>&1
-# Console settings
-echo "console-setup   console-setup/codeset47 select  Guess optimal character set" | debconf-set-selections -v >>$OUTPUT 2>&1
-echo "console-setup   console-setup/charmap47 select  UTF-8" | debconf-set-selections -v >>$OUTPUT 2>&1
-echo "console-setup   console-setup/fontsize-fb47 select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
-echo "console-setup   console-setup/fontface47select  Fixed" | debconf-set-selections -v >>$OUTPUT 2>&1
-echo "console-setup   console-setup/fontsize-text47   select  8x16" | debconf-set-selections -v >>$OUTPUT 2>&1
-# SSH settings
-echo "openssh-server  openssh-server/password-authentication  boolean true" | debconf-set-selections -v >>$OUTPUT 2>&1
-echo "openssh-server  openssh-server/permit-root-login        boolean false" | debconf-set-selections -v >>$OUTPUT 2>&1
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+    echo "$SETTING" | debconf-set-selections -v
+done
 
-# install packages
+# Check if package variant list file exists
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/netcat/netcat-traditional/g;/davfs2/d;s/exfat-utils/exfatprogs/g" | tr "\n" " ") >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "bullseye" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/exfat-utils/exfatprogs/g" | tr "\n" " ") fuse3 >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "buster" ]; then
-        apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/cockpit-podman/cockpit-docker/g;s/podman/docker/g" | tr "\n" " ") >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "stretch" ]; then
-        apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g;" | tr "\n" " ") >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "bionic" ]; then
-        apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/fuse3/fuse/g;s/acpi-support-base/acpi-support/g" | tr "\n" " ") >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "focal" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g") netplan.io >>$OUTPUT 2>&1
-    elif [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "s/acpi-support-base/acpi-support/g;s/exfat-utils/exfatprogs/g") netplan.io >>$OUTPUT 2>&1
-    else
-        #if [ $KERNEL_TYPE = "aufs" ] || [ $KERNEL_TYPE = "none" ]; then
-        if [ $KERNEL_TYPE = "none" ]; then
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get $INSTALL_OPTIONS install \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/zfsutils-linux/d" | tr "\n" " ") >>$OUTPUT 2>&1
+    # Install packages based on distribution
+    case $DISTRIBUTION in
+    "bookworm" | "kali-rolling" | "sid")
+        if [ $KERNEL_BUILD_DKMS = "false" ]; then
+            install_packages --delete-packages="davfs2 acpi-support-base acpid zfsutils-linux" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
         else
-            DEBIAN_FRONTEND=noninteractive \
-                apt-get $INSTALL_OPTIONS install \
-                $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+            install_packages --delete-packages="davfs2 acpi-support-base acpid" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
         fi
-    fi
+        ;;
+    "bullseye")
+        install_packages --replace-packages="exfat-utils=exfatprogs" --add-packages="fuse3"
+        ;;
+    "buster")
+        install_packages --delete-packages="systemd-timesyncd" --replace-packages="cockpit-podman=cockpit-docker podman=docker"
+        ;;
+    "stretch")
+        install_packages --delete-packages="systemd-timesyncd" --replace-packages="fuse3=fuse"
+        ;;
+    "bionic")
+        install_packages --replace-packages="fuse3=fuse acpi-support-base=acpi-support"
+        ;;
+    "focal")
+        install_packages --replace-packages="acpi-support-base=acpi-support" --add-packages="netplan.io"
+        ;;
+    "jammy")
+        install_packages --delete-packages="acpi-support-base" --replace-packages="exfat-utils=exfatprogs" --add-packages="netplan.io"
+        ;;
+    "lunar")
+        install_packages --delete-packages="acpi-support-base" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs" --add-packages="netplan.io"
+        ;;
+    *)
+        # Install packages with or without zfsutils-linux based on kernel type
+        if [ $KERNEL_TYPE = "none" ]; then
+            install_packages --delete-packages="zfsutils-linux"
+        else
+            install_packages
+        fi
+        ;;
+    esac
 fi
 
 # install packages
 if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        zstd >>$OUTPUT 2>&1
+    pkg install \
+        zstd
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            liblz4-tool >>$OUTPUT 2>&1
+        pkg install \
+            liblz4-tool
     else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            lz4 >>$OUTPUT 2>&1
+        pkg install \
+            lz4
     fi
 fi
 
 # install packages
 if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        isc-dhcp-client >>$OUTPUT 2>&1
+    pkg install \
+        isc-dhcp-client
 elif [ $DESKTOP_ENVIRONMENT = "flux" ] || ([ $PACKAGE_VARIANT = "minimum" ] && [ $DISTRIBUTION != "stretch" ]); then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        connman >>$OUTPUT 2>&1
+    pkg install \
+        connman
 else
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        network-manager >>$OUTPUT 2>&1
+    pkg install \
+        network-manager
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        cpio >>$OUTPUT 2>&1
-fi
-
-#if ([ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "kali-rolling" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ] || ([ $DISTRIBUTION = "buster" ] && [ $KERNEL_BPO = "true" ]) || ([ $DISTRIBUTION = "focal" ] && [ $KERNEL_AUFS = "true" ])) && [ $PACKAGE_VARIANT != "tiny" ]; then
-#    DEBIAN_FRONTEND=noninteractive \
-#        apt-get $INSTALL_OPTIONS install \
-#        selinux-policy-default >>$OUTPUT 2>&1
-#    sed -i "s,SELINUX=permissive,SELINUX=disabled,g" /etc/selinux/config
-#fi
-
-if [ -d /etc/NetworkManager ]; then
-    if [ ! -d /etc/NetworkManager/dispatcher.d ]; then
-        mkdir -p /etc/NetworkManager/dispatcher.d
-    fi
-fi
-if [ -d /etc/NetworkManager/dispatcher.d ]; then
-    cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timezone
-#!/bin/sh
-case "$2" in
-    up)
-        #tzupdate
-        timedatectl set-timezone "$(curl --fail https://ipapi.co/timezone)"
-    ;;
-esac
-EOF
-    chmod +x /etc/NetworkManager/dispatcher.d/09-timezone
+    pkg install \
+        cpio
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    apt-get $INSTALL_OPTIONS autoremove linux-modules-extra-* linux-firmware >>$OUTPUT 2>&1
+    pkg autoremove linux-modules-extra-* linux-firmware
 fi
 
 if [ $KERNEL_TYPE != "none" ]; then
     if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install wireguard wireguard-tools
+        pkg install wireguard wireguard-tools
     fi
 fi
 
@@ -221,7 +180,7 @@ fi
 
 if [ ! -d /etc/NetworkManager ]; then
     if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then
-        echo "Enable dhclient.service autostart." >>$OUTPUT 2>&1
+        echo "Enable dhclient.service autostart."
         cat <<EOF >$SYSTEMD_PATH/system/dhclient.service
 [Unit]
 Description=DHCP Client
@@ -240,7 +199,7 @@ PIDFile=/run/dhclient.pid
 WantedBy=multi-user.target
 WantedBy=network-online.target
 EOF
-        systemctl enable dhclient >>$OUTPUT 2>&1
+        systemctl enable dhclient
     fi
 elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" || $DISTRIBUTION = "jammy" || $DISTRIBUTION = "lunar" ]]; then
     if [ ! -d /etc/netplan/ ]; then
@@ -271,13 +230,8 @@ if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service
     systemctl disable grub-initrd-fallback.service
 fi
 
-if grep -q ssh $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-    echo "Enable ssh.service autostart." >>$OUTPUT 2>&1
-    #    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
-    #if [ ! -d /usr/lib/systemd/system ]; then
-    #    mkdir -p /usr/lib/systemd/system
-    #fi
-    #    fi
+if grep -q ssh $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+    echo "Enable ssh.service autostart."
     cat <<EOF >$SYSTEMD_PATH/system/ssh-keygen.service
 [Unit]
 Description=Generate sshd keys
@@ -292,16 +246,13 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-    #sed -i 's,#PermitRootLogin prohibit-password,PermitRootLogin yes,g' /etc/ssh/sshd_config
-    #sed -i 's,#PasswordAuthentication yes,PasswordAuthentication yes,g' /etc/ssh/sshd_config
-    systemctl enable ssh-keygen >>$OUTPUT 2>&1
-    #systemctl enable ssh >>$OUTPUT 2>&1
+    systemctl enable ssh-keygen
 fi
 
 if [ $DISTRIBUTION = "bullseye" ]; then
-    if grep -q podman $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    if grep -q podman $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
         wget http://ftp.debian.org/debian/pool/main/p/podman-compose/podman-compose_1.0.3-2_all.deb
-        apt-get $INSTALL_OPTIONS install ./podman-compose_1.0.3-2_all.deb
+        pkg install ./podman-compose_1.0.3-2_all.deb
         rm -f ./podman-compose_1.0.3-2_all.deb
         cat <<EOF >>/etc/containers/registries.conf
 
@@ -330,7 +281,7 @@ fi
 
 # configure locales
 if [ -f /etc/locale.gen ]; then
-    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen >>$OUTPUT 2>&1
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
@@ -346,10 +297,10 @@ XKBOPTIONS=""
 
 BACKSPACE="guess"
 EOF
-    dpkg-reconfigure -f noninteractive keyboard-configuration >>$OUTPUT 2>&1
+    dpkg-reconfigure -f noninteractive keyboard-configuration
 fi
 
-if grep console-setup $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep console-setup $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     cat >/etc/default/console-setup <<'EOF'
 # CONFIGURATION FILE FOR SETUPCON
 
@@ -368,42 +319,29 @@ VIDEOMODE=
 # The following is an example how to use a braille font
 # FONT='lat9w-08.psf.gz brl-8x8.psf'
 EOF
-    dpkg-reconfigure -f noninteractive console-setup >>$OUTPUT 2>&1
+    dpkg-reconfigure -f noninteractive console-setup
 fi
 
-#if grep busybox $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-#    busybox --install
-#fi
-
-if grep -q firewalld $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q firewalld $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     systemctl disable firewalld
 else
     rm -rf /etc/firewalld
 fi
-if grep -q cockpit $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q cockpit $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     systemctl disable cockpit.socket
 fi
 
-if grep -q laptop-mode-tools $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q laptop-mode-tools $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     if [ -f /usr/share/applications/laptop-mode-tools.desktop ]; then
         rm /usr/share/applications/laptop-mode-tools.desktop
     fi
 fi
 
-# user setup
-#adduser --uid 1000 --gecos '' $USER_NAME --disabled-password
-#usermod -a -G sudo $USER_NAME
-#usermod -a -G netdev $USER_NAME
-#if grep -q qemu $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-#    usermod -a -G libvirt $USER_NAME
-#fi
-
-if ! grep -q LANG /etc/default/locale >>$OUTPUT 2>&1; then
+if ! grep -q LANG /etc/default/locale; then
     echo "LANG=\"$LOCALE.UTF-8\"" >>/etc/default/locale
 fi
 
 echo root:$ROOT_PASSWORD | chpasswd
-#echo $USER_NAME:$USER_PASSWORD | chpasswd
 
 wget -O /usr/bin/pacapt https://github.com/icy/pacapt/raw/ng/pacapt
 chmod 755 /usr/bin/pacapt

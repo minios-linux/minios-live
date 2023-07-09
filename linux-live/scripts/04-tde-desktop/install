@@ -4,13 +4,10 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-  local IFS
-  IFS="_"
-  LNG=($LOCALE)
-}
 language_to_array
 
 cat <<EOF >/etc/apt/sources.list.d//tde.list
@@ -20,20 +17,18 @@ deb http://mirror.ppa.trinitydesktop.org/trinity/deb/trinity-builddeps-r14.0.x  
 #deb-src http://mirror.ppa.trinitydesktop.org/trinity/deb/trinity-builddeps-r14.0.x $DISTRIBUTION main
 EOF
 
-wget http://mirror.ppa.trinitydesktop.org/trinity/deb/trinity-keyring.deb >>$OUTPUT 2>&1
-apt-get $INSTALL_OPTIONS install ./trinity-keyring.deb >>$OUTPUT 2>&1
-rm ./trinity-keyring.deb >>$OUTPUT 2>&1
+wget http://mirror.ppa.trinitydesktop.org/trinity/deb/trinity-keyring.deb
+pkg install ./trinity-keyring.deb
+rm ./trinity-keyring.deb
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
-apt-get $INSTALL_OPTIONS upgrade trinity-keyring >>$OUTPUT 2>&1
+pkg upgrade trinity-keyring
 
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-  DEBIAN_FRONTEND=noninteractive \
-    apt-get $INSTALL_OPTIONS install \
-    $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+    install_packages --delete-packages="wicd" --add-packages"librsvg2-common network-manager-gnome"
 fi

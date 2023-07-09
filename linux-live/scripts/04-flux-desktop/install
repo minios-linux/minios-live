@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /minioslib || exit 1
+
 CWD=$(dirname $(readlink -f $0))
 
 NAME=fluxbox
@@ -7,9 +9,9 @@ VERSION=1.3.5
 
 # first install stock version
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
-apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
+pkg install \
     $NAME \
     feh \
     compton \
@@ -17,7 +19,7 @@ apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
     murrine-themes \
     libnotify4 \
     scrot \
-    adwaita-icon-theme-antix >>$OUTPUT 2>&1
+    adwaita-icon-theme-antix
 
 (cd /rootcopy-install && cp --parents -afr * /)
 
@@ -29,8 +31,7 @@ fi
 rm -f /usr/share/applications/5chromium.desktop
 
 if [ $LOCALE = "ru_RU" ]; then
-    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
-        fbxkb >>$OUTPUT 2>&1
+    pkg install fbxkb
     # Locale
     echo 'LC_ALL="ru_RU.UTF-8"
     ' >/etc/profile.d/locale_ru.sh
@@ -58,8 +59,7 @@ if [ $LOCALE = "ru_RU" ]; then
     sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5firefox.desktop
     sed -i "s/Name=Video Player/Name=Видео-плеер/g" /usr/share/applications/videoplayer.desktop
 elif [ $LOCALE = "es_ES" ]; then
-    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
-        fbxkb >>$OUTPUT 2>&1
+    pkg install fbxkb
     # Locale
     echo 'LC_ALL="es_ES.UTF-8"
     ' >/etc/profile.d/locale_es.sh

@@ -4,24 +4,22 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 APP="virt-manager"
 APP_NAME="Virtual Machine Manager"
 APP_GROUP="libvirt"
 
 # install packages
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-    apt-get $INSTALL_OPTIONS install \
-        qemu-kvm \
-        libvirt-clients \
-        libvirt-daemon-system \
-        bridge-utils \
-        virt-manager \
-        gir1.2-spiceclientgtk-3.0 >>$OUTPUT 2>&1
-
-#if [ $(id -nu 1000) = "live" ]; then
-#    usermod -a -G libvirt $(id -nu 1000)
-#fi
+pkg update
+pkg install \
+    qemu-kvm \
+    libvirt-clients \
+    libvirt-daemon-system \
+    bridge-utils \
+    virt-manager \
+    gir1.2-spiceclientgtk-3.0
 
 cat <<EOF >/usr/bin/$APP-allowuser.sh
 #!/bin/bash
@@ -45,7 +43,7 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable $APP-allowuser.service >>$OUTPUT 2>&1
+systemctl enable $APP-allowuser.service
 
 PACKAGE="virt-manager"
 echo "PACKAGE=$PACKAGE" >/.package

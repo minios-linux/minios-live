@@ -71,32 +71,32 @@ function set_default_target() {
 }
 
 function manage_services() {
-    local action="$1"
-    local services_var
-    if [ "$action" == "enable" ]; then
-        services_var="ENABLE_SERVICES"
-    elif [ "$action" == "disable" ]; then
-        services_var="DISABLE_SERVICES"
+    local ACTION="$1"
+    local SERVICES_VAR
+    if [ "$ACTION" == "enable" ]; then
+        SERVICES_VAR="ENABLE_SERVICES"
+    elif [ "$ACTION" == "disable" ]; then
+        SERVICES_VAR="DISABLE_SERVICES"
     else
-        echo "Invalid action: $action"
+        echo "Invalid ACTION: $ACTION"
         return 1
     fi
 
-    if [ -z "${!services_var}" ]; then
+    if [ -z "${!SERVICES_VAR}" ]; then
         if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
             if [ -f "$MINIOSCONFIG" ]; then
-                read_config "$MINIOSCONFIG" "$services_var"
+                read_config "$MINIOSCONFIG" "$SERVICES_VAR"
             fi
         fi
     fi
 
-    if [ -n "${!services_var}" ]; then
-        IFS=',' read -ra SERVICES <<<"${!services_var}"
+    if [ -n "${!SERVICES_VAR}" ]; then
+        IFS=',' read -ra SERVICES <<<"${!SERVICES_VAR}"
         for SERVICE in "${SERVICES[@]}"; do
             if [ "$SERVICE" = "cockpit" ]; then
-                systemctl "$action" cockpit.socket
+                systemctl "$ACTION" cockpit.socket
             else
-                systemctl "$action" "$SERVICE"
+                systemctl "$ACTION" "$SERVICE"
             fi
         done
     fi
@@ -144,14 +144,13 @@ EOF
 
 console_colors
 allow_root_only
-set_trace_log "boot.log"
+set_trace_log "boot.trace"
 set_variables
 read_cmdline_values
 set_cloud
 set_default_target
 manage_services enable
 manage_services disable
-disable_services
 set_autologin
 
 echo ""

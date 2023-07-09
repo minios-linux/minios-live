@@ -4,24 +4,22 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 APP="chrome"
 APP_NAME="Google Chrome"
 APP_EXECUTABLE="google-chrome-stable"
 APP_MODULE_NUMBER="5"
 
-#apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-#    apt-get $INSTALL_OPTIONS install gnupg >>$OUTPUT 2>&1
-
 wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor >packages.google.gpg
 install -o root -g root -m 644 packages.google.gpg /etc/apt/trusted.gpg.d/
 rm -f packages.google.gpg
-#apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 78BD65473CB3BD13
 sh -c 'echo "deb [arch=amd64,i386,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.google.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >/etc/apt/sources.list.d/google-chrome.list'
 
 # install packages
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-    apt-get $INSTALL_OPTIONS install google-chrome-stable >>$OUTPUT 2>&1
+pkg update
+pkg install google-chrome-stable
 
 # Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
@@ -104,7 +102,7 @@ if [ "\$1" = "$APP" ]; then
 fi
 
 EOF
-    systemctl enable fblive-add-$APP.service >>$OUTPUT 2>&1
+    systemctl enable fblive-add-$APP.service
 fi
 
 PACKAGE=$APP_EXECUTABLE

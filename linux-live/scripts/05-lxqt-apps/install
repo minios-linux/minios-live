@@ -4,26 +4,24 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 function language_to_array() {
-  local IFS
-  IFS="_"
-  LNG=($LOCALE)
+    local IFS
+    IFS="_"
+    LNG=($LOCALE)
 }
 language_to_array
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-  DEBIAN_FRONTEND=noninteractive \
-    apt-get $INSTALL_OPTIONS install \
-    $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ")  >>$OUTPUT 2>&1
+    install_packages
 fi
 
-f [ $LOCALE != "en_US" ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        featherpad-l10n lximage-qt-l10n lxqt-admin-l10n lxqt-archiver-l10n lxqt-config-l10n lxqt-globalkeys-l10n lxqt-notificationd-l10n lxqt-openssh-askpass-l10n lxqt-panel-l10n lxqt-policykit-l10n lxqt-powermanagement-l10n lxqt-runner-l10n lxqt-session-l10n pcmanfm-qt-l10n qterminal-l10n  >>$OUTPUT 2>&1
+if [ $LOCALE != "en_US" ]; then
+    pkg install featherpad-l10n lximage-qt-l10n lxqt-admin-l10n lxqt-archiver-l10n lxqt-config-l10n lxqt-globalkeys-l10n lxqt-notificationd-l10n lxqt-openssh-askpass-l10n lxqt-panel-l10n lxqt-policykit-l10n lxqt-powermanagement-l10n lxqt-runner-l10n lxqt-session-l10n pcmanfm-qt-l10n qterminal-l10n
 fi

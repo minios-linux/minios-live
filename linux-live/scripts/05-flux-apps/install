@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /minioslib || exit 1
+
 CWD=$(dirname $(readlink -f $0))
 
 echo "wicd-daemon	wicd/users	multiselect	live" | debconf-set-selections
@@ -20,19 +22,14 @@ else
     exit 0
 fi
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update 
 
-#wget https://github.com/minios-linux/packages/releases/download/v1.0/mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb
-#wget https://github.com/minios-linux/packages/releases/download/v1.0/pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb
-#apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
-#    ./mousepad_"$MOUSEPAD"_$DISTRIBUTION_ARCH.deb \
-#    ./pcmanfm_"$PCMANFM"_$DISTRIBUTION_ARCH.deb \
-apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
+pkg install \
     mousepad \
     pcmanfm \
     galculator \
     lxtask \
-    xarchiver xdg-utils libgconf-2-4 >>$OUTPUT 2>&1
+    xarchiver xdg-utils libgconf-2-4 
 
 #rm -f ./mousepad*.deb ./pcmanfm*.deb
 
@@ -40,11 +37,11 @@ apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
 #apt-mark hold pcmanfm mousepad
 
 if [ $DISTRIBUTION = "stretch" ]; then
-    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
-        wicd >>$OUTPUT 2>&1
+    pkg install \
+        wicd 
 else
-    apt-get $INSTALL_OPTIONS install --no-install-recommends --yes \
-        connman-gtk >>$OUTPUT 2>&1
+    pkg install \
+        connman-gtk 
 fi
 
 (cd /rootcopy-install && cp --parents -afr * /)
@@ -59,15 +56,15 @@ else
     rm -f /lib/systemd/system/resume_wifi.service
 fi
 
-rm -f /usr/share/applications/mousepad.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/qalculate-gtk.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/galculator.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/pcmanfm.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/wicd.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/connman-gtk.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/nm-applet.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/nm-connection-editor.desktop >>$OUTPUT 2>&1
-rm -f /usr/share/applications/lxtask.desktop >>$OUTPUT 2>&1
+rm -f /usr/share/applications/mousepad.desktop 
+rm -f /usr/share/applications/qalculate-gtk.desktop 
+rm -f /usr/share/applications/galculator.desktop 
+rm -f /usr/share/applications/pcmanfm.desktop 
+rm -f /usr/share/applications/wicd.desktop 
+rm -f /usr/share/applications/connman-gtk.desktop 
+rm -f /usr/share/applications/nm-applet.desktop 
+rm -f /usr/share/applications/nm-connection-editor.desktop 
+rm -f /usr/share/applications/lxtask.desktop 
 
 if [ $LOCALE = "ru_RU" ]; then
     # Fluxbox menu

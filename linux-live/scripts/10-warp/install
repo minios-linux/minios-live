@@ -4,12 +4,14 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-apt-get $INSTALL_OPTIONS update -y >>$OUTPUT 2>&1 &&
-    apt-get $INSTALL_OPTIONS install curl wget python3-httpx wireguard >>$OUTPUT 2>&1
+pkg update
+pkg install curl wget python3-httpx wireguard
 
-if [ ! -f ./wgcf ];then
+if [ ! -f ./wgcf ]; then
     curl -s https://api.github.com/repos/ViRb3/wgcf/releases/latest | grep browser_download_url | grep '\linux_amd64' | cut -d '"' -f 4 | wget -i - && mv wgcf_*_linux_amd64 wgcf
 fi
 chmod +x wgcf

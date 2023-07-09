@@ -4,16 +4,13 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
 language_to_array
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update 
 
 if [ $LOCALE != "en_US" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
@@ -32,7 +29,7 @@ if [ $LOCALE != "en_US" ]; then
 
 EOF
     if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        apt-get $INSTALL_OPTIONS install language-pack-gnome-$LNG-base >>$OUTPUT
+        pkg install language-pack-gnome-$LNG-base
     fi
 fi
 
@@ -42,11 +39,11 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 if [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-            apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-fake >>$OUTPUT 2>&1
+            pkg install yad adwaita-icon-theme-fake 
         elif grep -q adwaita-icon-theme-fake $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-            apt-get $INSTALL_OPTIONS install yad >>$OUTPUT 2>&1
+            pkg install yad 
         else
-            apt-get $INSTALL_OPTIONS install yad adwaita-icon-theme-antix >>$OUTPUT 2>&1
+            pkg install yad adwaita-icon-theme-antix 
         fi
     fi
 
@@ -58,69 +55,22 @@ fi
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     if [ $DISTRIBUTION != "stretch" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common connman-gtk >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common connman-gtk"
     elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
     elif [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome policykit-1-gnome >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome policykit-1-gnome"
     elif [ $DISTRIBUTION = "bionic" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d;/blueman/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd blueman" --add-packages="librsvg2-common network-manager-gnome"
     else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "/wicd/d" | tr "\n" " ") librsvg2-common network-manager-gnome >>$OUTPUT 2>&1
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
+    fi
+    if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+        if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ]; then
+            pkg install pulseaudio-module-xrdp 
+        fi
     fi
 fi
-
-: 'if grep -q volumeicon-alsa $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-    if [ ! -d /etc/skel/.config/autostart ]; then
-        mkdir -p /etc/skel/.config/autostart
-    fi
-    cat <<EOF >/etc/skel/.config/autostart/volumeicon.desktop
-[Desktop Entry]
-Encoding=UTF-8
-Version=0.9.4
-Type=Application
-Name=volumeicon
-Comment=
-Exec=pkexec volumeicon
-OnlyShowIn=XFCE;
-StartupNotify=false
-Terminal=false
-Hidden=false
-
-EOF
-    cat <<EOF >/usr/share/polkit-1/actions/org.gtk.volumeicon.policy
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
-<policyconfig>
-
-    <action id="org.gtk.volumeicon">
-
-        <description>Systray volume icon for alsa</description>
-        <description xml:lang="ru">Значок громкости на панели задач для alsa</description>
-        <message>Authentication is required to run systray volume icon for alsa as root.</message>
-        <message xml:lang="ru">Требуется аутентификация для запуска значка громкости на панели задач для alsa от суперпользователя.</message>
-        <defaults>
-            <allow_any>yes</allow_any>
-            <allow_inactive>yes</allow_inactive>
-            <allow_active>yes</allow_active>
-        </defaults>
-        <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/volumeicon</annotate>
-        <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
-    </action>
-
-</policyconfig>
-EOF
-fi'
 
 if [ -f /usr/bin/connman-gtk ]; then
     if [ ! -d /etc/skel/.config/autostart ]; then
@@ -139,8 +89,8 @@ Terminal=false
 Hidden=false
 
 EOF
-    apt-get $INSTALL_OPTIONS install \
-        dconf-cli >>$OUTPUT 2>&1
+    pkg install \
+        dconf-cli 
     cat <<EOF >/usr/bin/connman-tray
 #!/bin/bash
 
@@ -157,7 +107,7 @@ EOF
     rm /usr/share/applications/connman-gtk.desktop
 fi
 
-if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
     sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
     sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
@@ -166,7 +116,7 @@ if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
     sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
 fi
 
-if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
     cat <<EOF >/etc/default/nodm
 # nodm configuration
 
@@ -237,8 +187,8 @@ if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
 EOF
 fi
 
-if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
-    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
+if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper 
 fi
 if [ -f /usr/share/applications/pavucontrol.desktop ]; then
     rm -f /usr/share/applications/pavucontrol.desktop
@@ -250,7 +200,7 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
     fi
 fi
 
-if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
         echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ] || [ $DISTRIBUTION = "kali-rolling" ]; then

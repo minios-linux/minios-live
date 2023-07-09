@@ -4,13 +4,10 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
 language_to_array
 
 cat <<EOF >/etc/apt/sources.list.d/mx.list
@@ -26,17 +23,15 @@ wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring
 wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
 wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
 wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-apt-get $INSTALL_OPTIONS install ./*.deb
+pkg install ./*.deb
 rm ./*.deb
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/package.list | tr "\n" " ") >>$OUTPUT 2>&1
+    install_packages --package-list="$SCRIPT_DIR/package.list"
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

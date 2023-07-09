@@ -4,21 +4,20 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 APP="brave"
 APP_NAME="Brave Web Browser"
 APP_EXECUTABLE="brave-browser-stable"
 APP_MODULE_NUMBER="5"
 
-#apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-#    apt-get $INSTALL_OPTIONS install gnupg apt-transport-https >>$OUTPUT 2>&1
-
 wget -qO- https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg | gpg --dearmor | dd of=/usr/share/keyrings/brave-browser-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
 
 # install packages
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-    apt-get $INSTALL_OPTIONS install brave-browser >>$OUTPUT 2>&1
+pkg update
+pkg install brave-browser
 
 # Everything below is universal for all browsers on the chromium engine
 if [ ! -d /etc/$APP.d/ ]; then
@@ -103,5 +102,5 @@ if [ "\$1" = "$APP" ]; then
 fi
 
 EOF
-    systemctl enable fblive-add-$APP.service >>$OUTPUT 2>&1
+    systemctl enable fblive-add-$APP.service
 fi

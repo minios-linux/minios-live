@@ -107,7 +107,7 @@ else
     SSH="true"
 fi
 
-if [ ! -f /var/.minios-setup-completed ] && [ "$USER_NAME" != "root" ]; then
+if [ ! -f /var/.system_configured ] && [ "$USER_NAME" != "root" ]; then
     cp -rT /etc/skel /home/$USER_NAME
     # create user directories
     if [ -d /home/$USER_NAME ]; then

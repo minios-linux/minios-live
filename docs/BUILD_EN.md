@@ -67,13 +67,13 @@ The scripts from which the modules are assembled are located in **minios-live/li
 
 ```
 if [ $COMP_TYPE = "zstd" ]; then
-time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend
 else
-time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
 fi
 ```
 
-. Packages installed by the **build** script are not stored on the system. An example of such a script can be found here **minios-live/linux-live/scripts/04-slax-desktop**. If you need to install the DKMS module so that the system does not have any packages required for assembly (kernel headers and others), create the **is\_dkms\_build** file in the module's scripts folder, then add the \*\*build script to the module after running the script \*\* only kernel modules will be copied. Example: **minios-live/linux-live/scripts/01-kernel**.
+. Packages installed by the **build** script are not stored on the system. An example of such a script can be found here **minios-live/linux-live/scripts/04-flux-desktop**. If you need to install the DKMS module so that the system does not have any packages required for assembly (kernel headers and others), create the **is\_dkms\_build** file in the module's scripts folder, then add the \*\*build script to the module after running the script \*\* only kernel modules will be copied. Example: **minios-live/linux-live/scripts/01-kernel**.
 To create a simple module where only packages need to be installed, use the **10-galculator** module scripts as an example:
 
 ```

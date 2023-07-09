@@ -4,12 +4,13 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
-    apt-get $INSTALL_OPTIONS install \
-        flatpak >>$OUTPUT 2>&1
+pkg install flatpak
 
 flatpak install https://dl.flathub.org/repo/appstream/com.thincast.client.flatpakref

@@ -4,6 +4,8 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 #export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true
@@ -12,14 +14,14 @@ debconf-set-selections /preseed.txt
 rm /preseed.txt
 
 # install packages
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1 &&
-    apt-get $INSTALL_OPTIONS install --reinstall locales >>$OUTPUT 2>&1
-    apt-get $INSTALL_OPTIONS install firefox-esr-l10n-ru >>$OUTPUT 2>&1
+pkg update
+pkg install --reinstall locales
+pkg install firefox-esr-l10n-ru
 
-dpkg-reconfigure locales >>$OUTPUT 2>&1
-dpkg-reconfigure keyboard-configuration >>$OUTPUT 2>&1
-dpkg-reconfigure tzdata >>$OUTPUT 2>&1
-dpkg-reconfigure console-setup >>$OUTPUT 2>&1
+dpkg-reconfigure locales
+dpkg-reconfigure keyboard-configuration
+dpkg-reconfigure tzdata
+dpkg-reconfigure console-setup
 
 if [ ! -d /etc/systemd/system/console-setup.service.d ]; then
     mkdir -p /etc/systemd/system/console-setup.service.d

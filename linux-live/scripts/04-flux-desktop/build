@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /minioslib || exit 1
+
 CWD=$(dirname $(readlink -f $0))
 
 NAME=fluxbox
@@ -21,63 +23,63 @@ cd /
 
 REBUILD=/tmp/$NAME-rebuild-$$
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-apt-get --yes build-dep $NAME >>$OUTPUT 2>&1
+pkg update
+pkg build-dep $NAME
 
-mkdir -p $REBUILD >>$OUTPUT 2>&1
+mkdir -p $REBUILD
 cd $REBUILD
 
-apt-get source $NAME >>$OUTPUT 2>&1
+pkg source $NAME
 
 cd $NAME-$VERSION
 
 cat $CWD/patches/fluxbox-slax.diff >debian/patches/fluxbox-slax.diff
 echo fluxbox-slax.diff >>debian/patches/series
 
-dpkg-buildpackage -us -uc >>$OUTPUT 2>&1
+dpkg-buildpackage -us -uc
 
-rm -Rf debian/$NAME/DEBIAN >>$OUTPUT 2>&1
-rm -Rf debian/$NAME/usr/share/doc >>$OUTPUT 2>&1
-rm -Rf debian/$NAME/usr/share/images >>$OUTPUT 2>&1
+rm -Rf debian/$NAME/DEBIAN
+rm -Rf debian/$NAME/usr/share/doc
+rm -Rf debian/$NAME/usr/share/images
 
-cp debian/$NAME/usr/bin/fluxbox /squashfs-root/usr/bin >>$OUTPUT 2>&1
+cp debian/$NAME/usr/bin/fluxbox /squashfs-root/usr/bin
 
 # add xlunch from sources
-wget -O /tmp/xlunch.tar.gz https://github.com/Tomas-M/xlunch/archive/v$XLUNCH.tar.gz >>$OUTPUT 2>&1
+wget -O /tmp/xlunch.tar.gz https://github.com/Tomas-M/xlunch/archive/v$XLUNCH.tar.gz
 cd /tmp
-tar -xf xlunch.tar.gz >>$OUTPUT 2>&1
+tar -xf xlunch.tar.gz
 cd xlunch-$XLUNCH
-make >>$OUTPUT 2>&1
-cp xlunch /squashfs-root/usr/bin >>$OUTPUT 2>&1
-cp extra/gentriesquick /squashfs-root/usr/bin/xlunch_genquick >>$OUTPUT 2>&1
-mkdir -p /squashfs-root/usr/share/icons/hicolor/48x48/apps/ >>$OUTPUT 2>&1
+make
+cp xlunch /squashfs-root/usr/bin
+cp extra/gentriesquick /squashfs-root/usr/bin/xlunch_genquick
+mkdir -p /squashfs-root/usr/share/icons/hicolor/48x48/apps/
 cp extra/ghost.png /squashfs-root/usr/share/icons/hicolor/48x48/apps/xlunch_ghost.png
 
 # add tray icon launcher
-wget -O /tmp/systrayiconlauncher.tar.gz https://github.com/Tomas-M/SystrayIconLauncher/archive/master.tar.gz >>$OUTPUT 2>&1
+wget -O /tmp/systrayiconlauncher.tar.gz https://github.com/Tomas-M/SystrayIconLauncher/archive/master.tar.gz
 cd /tmp
-tar -xf systrayiconlauncher.tar.gz >>$OUTPUT 2>&1
+tar -xf systrayiconlauncher.tar.gz
 cd SystrayIconLauncher-master
-apt-get $INSTALL_OPTIONS install --yes libgtk2.0-dev >>$OUTPUT 2>&1
-make >>$OUTPUT 2>&1
-cp systrayicon /squashfs-root/usr/bin >>$OUTPUT 2>&1
+pkg install libgtk2.0-dev
+make
+cp systrayicon /squashfs-root/usr/bin
 
 # add gtkdialog
-wget -O /tmp/gtkdialog.tar.gz https://github.com/Tomas-M/GTKdialog/archive/master.tar.gz >>$OUTPUT 2>&1
+wget -O /tmp/gtkdialog.tar.gz https://github.com/Tomas-M/GTKdialog/archive/master.tar.gz
 cd /tmp
-tar -xf gtkdialog.tar.gz >>$OUTPUT 2>&1
+tar -xf gtkdialog.tar.gz
 cd GTKdialog-master
-make >>$OUTPUT 2>&1
-cp gtkdialog /squashfs-root/usr/bin >>$OUTPUT 2>&1
+make
+cp gtkdialog /squashfs-root/usr/bin
 
 # battery icon app
 cd /tmp
-wget https://github.com/valr/cbatticon/archive/$CBATTICON.tar.gz >>$OUTPUT 2>&1
-tar -xf $CBATTICON.tar.gz >>$OUTPUT 2>&1
+wget https://github.com/valr/cbatticon/archive/$CBATTICON.tar.gz
+tar -xf $CBATTICON.tar.gz
 cd cbatticon-$CBATTICON
-cp -R /usr/include/glib-2.0/* /usr/include >>$OUTPUT 2>&1
-cp -R /usr/include/gtk-2.0/* /usr/include >>$OUTPUT 2>&1
-apt install --yes libnotify-dev >>$OUTPUT 2>&1
+cp -R /usr/include/glib-2.0/* /usr/include
+cp -R /usr/include/gtk-2.0/* /usr/include
+pkg install libnotify-dev
 sed -i "s/WITH_GTK3 = 1/WITH_GTK3 = 0/" Makefile
 CFLAGS="-O2 \
 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/ \
@@ -88,12 +90,11 @@ CFLAGS="-O2 \
 -I/usr/include/pango-1.0 \
 -I/usr/include/glib-2.0 \
 -I/usr/include/gtk-2.0" \
-    make >>$OUTPUT 2>&1
-cp cbatticon /squashfs-root/usr/bin >>$OUTPUT 2>&1
+    make
+cp cbatticon /squashfs-root/usr/bin
 
 if [ $COMP_TYPE = "zstd" ]; then
-    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend
 else
-    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend >>$OUTPUT 2>&1
+    time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
 fi
-#time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend

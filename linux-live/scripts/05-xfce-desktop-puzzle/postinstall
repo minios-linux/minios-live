@@ -35,7 +35,7 @@ else
 fi
 
 if [ $DISTRIBUTION != "bookworm" ] || [ $DISTRIBUTION != "kali-rolling" ] || [ $DISTRIBUTION != "sid" ]; then
-    if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list >>$OUTPUT 2>&1; then
+    if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
         sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
         sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
         sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
@@ -208,5 +208,5 @@ if [ $PACKAGE_VARIANT = "minimum" ]; then
 fi
 
 if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
-    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper >>$OUTPUT 2>&1
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper 
 fi

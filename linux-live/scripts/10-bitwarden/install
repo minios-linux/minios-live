@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+install_packages
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+USER="bitwarden"
+REPO="clients"
+
+RELEASE=$(curl -s "https://api.github.com/repos/$USER/$REPO/releases/latest")
+
+URL=$(echo $RELEASE | grep -oP '"browser_download_url": "\K(.*amd64.deb)')
+
+FILENAME=$(basename $URL)
+
+if [ -f $SCRIPT_DIR/$FILENAME ]; then
+    rm $SCRIPT_DIR/$FILENAME 
+fi
+
+curl -LJO $URL 
+
+pkg update 
+
+cd $SCRIPT_DIR
+pkg install $SCRIPT_DIR/$FILENAME 
+rm -f $SCRIPT_DIR/$FILENAME 
+
+PACKAGE="bitwarden"
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

@@ -4,36 +4,28 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
 language_to_array
 
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
+pkg update
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get $INSTALL_OPTIONS install \
-        $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
+    install_packages
 fi
 if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports libssh-4/$DISTRIBUTION-backports >>$OUTPUT 2>&1
+        pkg install \
+            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports libssh-4/$DISTRIBUTION-backports
     elif [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports >>$OUTPUT 2>&1
+        pkg install \
+            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports
     else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            remmina remmina-plugin-rdp remmina-plugin-vnc >>$OUTPUT 2>&1
+        pkg install \
+            remmina remmina-plugin-rdp remmina-plugin-vnc
     fi
 fi
 
@@ -44,64 +36,10 @@ fi
 if grep -q "imagemagick" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     rm -f /usr/share/applications/display-im6.q16.desktop
 fi
-: 'if grep -q "gsmartcontrol" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s ../../devices/$FOLDER/drive-harddisk.png gsmartcontrol.png
-    done
-fi
-if grep -q "grsync" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s ../../status/$FOLDER/sync-synchronizing.png grsync.png
-    done
-    sed -i "s/grsync.png/grsync/g" /usr/share/applications/grsync.desktop
-fi
-if grep -q "galculator" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s accessories-calculator.png galculator.png
-    done
-fi
-if grep -q "baobab" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s baobab.png org.gnome.baobab.png
-    done
-fi
-if grep -q "pdfarranger" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s pdfshuffler.png com.github.jeromerobert.pdfarranger.png
-        ln -s pdfshuffler.png pdfarranger.png
-    done
-fi
-if grep -q "pdfmod" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s pdfshuffler.png pdfmod.png
-    done
-fi'
-
-: 'for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E "^[0-9]+$"); do
-    cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-    ln -s accessories-calculator.png galculator.png
-    if [ ! -e org.gnome.baobab.png ]; then
-        ln -s baobab.png org.gnome.baobab.png
-    fi
-    ln -s pdfshuffler.png com.github.jeromerobert.pdfarranger.png
-    ln -s pdfshuffler.png pdfarranger.png
-    ln -s pdfshuffler.png pdfmod.png
-    ln -s ../../status/$FOLDER/sync-synchronizing.png grsync.png
-    ln -s ../../devices/$FOLDER/drive-harddisk.png gsmartcontrol.png
-done
-
-update-icon-caches /usr/share/icons/*'
 
 if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     if [ $LOCALE != "en_US" ]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install vlc-l10n >>$OUTPUT 2>&1
+        pkg install vlc-l10n
     fi
 fi
 if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
@@ -128,9 +66,7 @@ WebBrowser=
 EOF
 fi
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
-#sed -i 's,FontName=Monospace 10,FontName=JetBrains Mono Light 10,g' /etc/skel/.config/xfce4/terminal/terminalrc
+
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; then
     sed -i -e "/FontUseSystem=/s/=.*/=FALSE/" /etc/skel/.config/xfce4/terminal/terminalrc
-    #sed -i 's,FontUseSystem=TRUE,FontUseSystem=FALSE,g' /etc/skel/.config/xfce4/terminal/terminalrc
 fi
-#fi

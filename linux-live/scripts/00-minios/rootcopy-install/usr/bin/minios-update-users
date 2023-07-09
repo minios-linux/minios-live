@@ -11,9 +11,12 @@ if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
 fi
 
-exec 19>/var/log/minios/minios-update-users.log
+exec 19>/var/log/minios/minios-update-users.trace
 BASH_XTRACEFD=19
 set -x
+if [ ! -d /var/log/minios/users ]; then
+    mkdir -p /var/log/minios/users
+fi
 
 BUNDLES=$1
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
@@ -29,32 +32,51 @@ elif [ -d /memory/changes ]; then
     INITRD_TYPE="uird"
 fi
 
+if [ -d "$CHANGES/changes" -a -d "$CHANGES/workdir" -a "$(ls -1 "$CHANGES" | egrep -v '^changes$' | egrep -v '^workdir')" = "" ]; then
+    CHANGES="$CHANGES/changes"
+fi
+
 allow_root_only
 
 TMP=$(mktemp -d)
 trap 'rm -rf $TMP' EXIT
 
-# Copy passwd, shadow, group and gshadow files from core bundle and changes directory to temporary files in $TMP/
-for FILE in passwd shadow group gshadow; do
-    cp $CORE_BUNDLE_PATH/etc/$FILE $TMP/$FILE.bundlesfile || exit
-    if [ -f "$CHANGES/var/.minios-setup-completed" ]; then
-        cp $CHANGES/etc/$FILE $TMP/$FILE.changesfile || exit
+for FILE in {passwd,shadow,group,gshadow}; do
+    if [ -f "$CORE_BUNDLE_PATH/etc/$FILE" ]; then
+        cp "$CORE_BUNDLE_PATH/etc/$FILE" "$TMP/$FILE.bundles" || exit
+        cp "$TMP/$FILE.bundles" "/var/log/minios/users/$FILE.core"
     fi
+
+    if [ -f "$CHANGES/etc/$FILE" ]; then
+        cp "$CHANGES/etc/$FILE" "$TMP/$FILE.changes" || exit
+        cp "$CHANGES/etc/$FILE" "/var/log/minios/users/$FILE.changes"
+    fi
+
 done
 
-# Iterate over all bundles except for the core bundle and append unique lines from their passwd, shadow, group and gshadow files to the corresponding temporary files in $TMP/
 for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
     for FILE in {passwd,shadow,group,gshadow}; do
         if [ -f "$BUNDLE/etc/$FILE" ]; then
-            grep -Fvf $TMP/$FILE.bundlesfile $BUNDLE/etc/$FILE >>$TMP/$FILE.bundlesfile
+            echo "$FILE exists in $(basename $BUNDLE)."
+            grep -Fvf "$TMP/$FILE.bundles" "$BUNDLE/etc/$FILE" >>"$TMP/$FILE.bundles"
+            cp "$BUNDLE/etc/$FILE" "/var/log/minios/users/$FILE.$(basename $BUNDLE)"
+            cp "$TMP/$FILE.bundles" "/var/log/minios/users/$FILE.bundles"
         fi
     done
 done
 
-# Append unique lines from temporary bundle files to temporary changes files and remove duplicate lines using awk before copying them to their final location in /etc/
-for FILE in passwd shadow group gshadow; do
-    grep -Fvf $TMP/$FILE.changesfile $TMP/$FILE.bundlesfile >>$TMP/$FILE.changesfile
-    awk '!x[$0]++' $TMP/$FILE.changesfile >/etc/$FILE
+for FILE in {passwd,shadow,group,gshadow}; do
+    if [ -f "$TMP/$FILE.changes" ]; then
+        
+        grep -Fvf "$TMP/$FILE.changes" "$TMP/$FILE.bundles" >>"$TMP/$FILE.changes"
+        cp "$TMP/$FILE.changes" "/var/log/minios/users/$FILE.bundles"
+
+        awk '!x[$0]++' "$TMP/$FILE.changes" >"/etc/$FILE"
+        cp "/etc/$FILE" "/var/log/minios/users/$FILE"
+
+    elif [ -f "$TMP/$FILE.bundles" ]; then
+        awk '!x[$0]++' "$TMP/$FILE.bundles" >"/etc/$FILE"
+    fi
 done
 
 exit

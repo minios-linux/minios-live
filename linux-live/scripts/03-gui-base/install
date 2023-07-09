@@ -4,49 +4,36 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-
-apt-get $INSTALL_OPTIONS update >>$OUTPUT 2>&1
-
-# install packages
-function install_packages() {
-    local sed_script="$1"
-    if [[ -z "$sed_script" ]]; then
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | tr "\n" " ") >>$OUTPUT 2>&1
-    else
-        DEBIAN_FRONTEND=noninteractive \
-            apt-get $INSTALL_OPTIONS install \
-            $(grep -vE "^\s*#" $SCRIPT_DIR/$PACKAGE_VARIANT.list | sed "$sed_script" | tr "\n" " ") >>$OUTPUT 2>&1
-    fi
-}
 
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case $DISTRIBUTION in
     "stretch" | "buster")
-        install_packages "s/libgdk-pixbuf-2.0-0/libgdk-pixbuf2.0-0/g;/libgdk-pixbuf-xlib-2.0-0/d"
+        install_packages --delete-packages "libgdk-pixbuf-xlib-2.0-0" --replace-packages "libgdk-pixbuf-2.0-0=libgdk-pixbuf2.0-0"
         ;;
     "bionic")
-        install_packages "s/libgdk-pixbuf-2.0-0/libgdk-pixbuf2.0-0/g;/libgdk-pixbuf-xlib-2.0-0/d;s/libjpeg62-turbo/libjpeg-turbo8/g;/libdeflate0/d"
+        install_packages --delete-packages "libgdk-pixbuf-xlib-2.0-0 libdeflate0" --replace-packages "libgdk-pixbuf-2.0-0=libgdk-pixbuf2.0-0 libjpeg62-turbo=libjpeg-turbo8"
         ;;
     "focal")
-        install_packages "s/libgdk-pixbuf-2.0-0/libgdk-pixbuf2.0-0/g;/libgdk-pixbuf-xlib-2.0-0/d;s/libjpeg62-turbo/libjpeg-turbo8/g"
+        install_packages --delete-packages "libgdk-pixbuf-xlib-2.0-0" --replace-packages "libgdk-pixbuf-2.0-0=libgdk-pixbuf2.0-0 libjpeg62-turbo=libjpeg-turbo8"
         ;;
     "jammy" | "lunar")
-        install_packages "s/libjpeg62-turbo/libjpeg-turbo8/g;s/libwebp6/libwebp7/g"
+        install_packages --replace-packages "libjpeg62-turbo=libjpeg-turbo8 libwebp6=libwebp7"
         ;;
     "bookworm" | "kali-rolling")
-        install_packages "s/libwebp6/libwebp7/g;/libatk1.0-data/d;s/librest-0.7-0/librest-1.0-0/g;;s/libtiff5/libtiff6/g"
+        install_packages --delete-packages "libatk1.0-data" --replace-packages "libwebp6=libwebp7 librest-0.7-0=librest-1.0-0 libtiff5=libtiff6"
         ;;
     "sid")
-        install_packages "s/libwebp6/libwebp7/g;/libatk1.0-data/d"
+        install_packages --delete-packages "libatk1.0-data" --replace-packages "libwebp6=libwebp7"
         ;;
     *)
-        install_packages ""
+        install_packages
         ;;
     esac
 fi
+
 
 if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
