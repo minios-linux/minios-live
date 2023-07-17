@@ -254,6 +254,8 @@ if [ ! -f /var/.system_configured ]; then
         for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
             mkdir -p "/root/$dir"
         done
+        cp /usr/share/applications/minios-installer.desktop /root/Desktop/
+        chmod +x /root/Desktop/minios-installer.desktop
     fi
     chown 0:0 /root
     chown -R 0:0 /root
@@ -283,6 +285,8 @@ if [ "$CLOUD" != "true" ]; then
                 for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
                     mkdir -p "/home/$USER_NAME/$dir"
                 done
+                cp /usr/share/applications/minios-installer.desktop /home/$USER_NAME/Desktop/
+                chmod +x /home/$USER_NAME/Desktop/minios-installer.desktop
                 if [ ! -d "/home/$USER_NAME/.ssh" ]; then
                     mkdir "/home/$USER_NAME/.ssh"
                     chmod 700 "/home/$USER_NAME/.ssh"

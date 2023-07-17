@@ -883,22 +883,22 @@ function language_to_array() {
 function pkg() {
     local PACKAGE_MANAGER INSTALL_OPTIONS
 
-    case "$DISTRIBUTION_TYPE" in
-    debian | ubuntu)
+    if command -v apt-get >/dev/null 2>&1; then
         PACKAGE_MANAGER="apt-get"
-        ;;
-    fedora | mageia)
+    elif command -v apt >/dev/null 2>&1; then
+        PACKAGE_MANAGER="apt"
+    elif command -v dnf >/dev/null 2>&1; then
         PACKAGE_MANAGER="dnf"
-        ;;
-    *)
-        echo "Error: Unsupported distribution type: $DISTRIBUTION_TYPE" >&2
+    elif command -v yum >/dev/null 2>&1; then
+        PACKAGE_MANAGER="yum"
+    else
+        echo "Error: Could not find a supported package manager" >&2
         exit 1
-        ;;
-    esac
+    fi
 
     case "$PACKAGE_MANAGER" in
-    apt | apt-get | yum | dnf)
-        INSTALL_OPTIONS="-y"
+    apt-get | apt | dnf | yum)
+        INSTALL_OPTIONS="--yes"
         ;;
     esac
 
@@ -907,14 +907,14 @@ function pkg() {
 
     case "$COMMAND" in
     install | remove | update | upgrade | autoremove | purge | clean | build-dep | source)
-        if [ "$DISTRIBUTION_TYPE" = "debian" ] || [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
+        if [ "$PACKAGE_MANAGER" = "apt-get" ] || [ "$PACKAGE_MANAGER" = "apt" ]; then
             DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE $PACKAGE_MANAGER $INSTALL_OPTIONS "$COMMAND" "$@"
         else
             $PACKAGE_MANAGER $INSTALL_OPTIONS "$COMMAND" "$@"
         fi
         ;;
     update)
-        if [ "$DISTRIBUTION_TYPE" = "debian" ] || [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
+        if [ "$PACKAGE_MANAGER" = "apt-get" ] || [ "$PACKAGE_MANAGER" = "apt" ]; then
             DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE $PACKAGE_MANAGER $INSTALL_OPTIONS "$COMMAND"
         else
             $PACKAGE_MANAGER $INSTALL_OPTIONS "$COMMAND"

@@ -1,0 +1,294 @@
+#!/bin/bash
+
+# This script is used for installing MiniOS on a disk.
+
+# Include the minioslib library and exit if it fails
+. /usr/lib/minioslib || exit 1
+
+# Set the version number and current working directory
+VERSION="1.0"
+CWD=$(pwd)
+
+# Read the configuration from /etc/minios/config for LIVEKITNAME and SYSTEMNAME variables
+read_config /etc/minios/config LIVEKITNAME
+LIVEKITNAME=${LIVEKITNAME:-"minios"}
+read_config /etc/minios/buildconfig SYSTEMNAME
+SYSTEMNAME=${SYSTEMNAME:-"MiniOS"}
+
+# Regular expression pattern for filtering disks
+REGEX='^$'
+
+# Check if the script is running as root, if not, run with root privileges using pkexec
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        pkexec "$0"
+        exit 0
+    fi
+}
+
+# Translate text based on the system's locale
+translate() {
+    local TEXT=$1
+    local LNG=$(locale | grep LANG | cut -d= -f2 | cut -d_ -f1)
+    local TRANSLATION_FILE="/usr/share/minios/minios-installer/$LNG.json"
+    if [ -f "$TRANSLATION_FILE" ]; then
+        local TRANSLATION=$(jq -r --arg TEXT "$TEXT" '.[$TEXT]' "$TRANSLATION_FILE")
+        if [ "$TRANSLATION" != "null" ]; then
+            echo $TRANSLATION
+        else
+            echo $TEXT
+        fi
+    else
+        echo $TEXT
+    fi
+}
+
+# List available disks
+list_disks() {
+    DISKS=$(lsblk -Jo NAME,SIZE -n -d -I 3,8,259,252 | jq -r '.blockdevices[] | .name + "(" + .size + ")"')
+    DISKS=$(echo $DISKS | tr ' ' '!')
+    FILESYSTEMS="btrfs!ext2!ext4!fat32!ntfs!xfs"
+}
+
+# Partition the disk
+partition_disk() {
+    echo -e "o\nn\np\n1\n\n\nw" | fdisk $DEV
+}
+
+# Wipe the disk
+wipe_disk() {
+    dd if=/dev/zero of=$DEV bs=4096 count=273
+}
+
+# Format the partition
+format_partition() {
+    if [ "$FS" = "fat32" ]; then
+        mkfs.vfat "$PART"
+    elif [ "$FS" = "btrfs2" ] || [ "$FS" = "ntfs" ]; then
+        mkfs."$FS" -f "$PART"
+    else
+        mkfs."$FS" "$PART"
+    fi
+}
+
+# Mount the partition
+mount_part() {
+    if [ ! -d $DESTINATION ]; then
+        mkdir -p $DESTINATION
+        if ! mount $PART $DESTINATION; then
+            exit 1
+        fi
+    fi
+}
+
+# Unmount the partition
+umount_part() {
+    if mountpoint -q $DESTINATION; then
+        umount $DESTINATION
+        rmdir $DESTINATION
+    fi
+}
+
+# Copy MiniOS files to the destination partition
+copy_files() {
+    if [ -d /run/initramfs/memory ]; then
+        SOURCE="/run/initramfs/memory"
+    elif [ -d /memory ]; then
+        SOURCE="/memory"
+    fi
+    LIVEKITNAME="minios"
+    if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
+        MINIOS=$SOURCE/data/$LIVEKITNAME
+    elif [ -e "$SOURCE/iso/$LIVEKITNAME/boot/isolinux.bin" ]; then
+        MINIOS=$SOURCE/iso/$LIVEKITNAME
+    elif [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
+        MINIOS=$SOURCE/toram
+    elif [ -e "$SOURCE/data/from/0/$LIVEKITNAME/boot/isolinux.bin" ]; then
+        MINIOS=$SOURCE/data/from/0/$LIVEKITNAME
+    fi
+
+    if [ "$MINIOS" = "" ]; then
+        echo "Cannot find boot/isolinux.bin in MiniOS data" >&2
+        exit 2
+    fi
+    EFI="$MINIOS/boot/EFI"
+    echo $SYSTEMNAME >/tmp/info
+    cat <<EOF >/tmp/README
+# README file contents
+
+* To install MiniOS, copy the contents of the ISO to the root of the media,
+  then run minios\boot\bootinst.bat on Windows, or minios/boot/bootinst.sh
+  on Linux.
+* When installed on media with fat32 and ntfs file systems, changes in
+  persistent changes mode will be saved in the minios\changes\changes.dat.x
+  files, the files expands dynamically, the maximum size of each file is 4 GB.
+* When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
+  the persistent changes mode will be saved in the minios\changes folder with
+  no size limit.
+EOF
+    GRAFT=$(
+        cd "$MINIOS"
+        find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^boot/isohdpfx.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
+            echo "$LIVEKITNAME/$LINE=$MINIOS/$LINE"
+        done
+        cd "$EFI"
+        find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
+            echo "EFI/$LINE=$EFI/$LINE"
+        done
+        echo ".disk/info=/tmp/info"
+        echo "README=/tmp/README"
+        echo "$LIVEKITNAME/$LIVEKITNAME.conf=/etc/$LIVEKITNAME/$LIVEKITNAME.conf"
+        echo "$LIVEKITNAME/boot/grub/grub.cfg=/etc/$LIVEKITNAME/grub.cfg"
+        echo "$LIVEKITNAME/boot/syslinux.cfg=/etc/$LIVEKITNAME/syslinux.cfg"
+    )
+    while IFS='=' read -r DESTINATION_FILE SOURCE_FILE; do
+        echo "Copying $SOURCE_FILE to $DESTINATION/$DESTINATION_FILE"
+        mkdir -p "$DESTINATION/$(dirname "$DESTINATION_FILE")"
+        cp "$SOURCE_FILE" "$DESTINATION/$DESTINATION_FILE"
+    done <<<"$GRAFT"
+    mkdir -p $DESTINATION/$LIVEKITNAME/{boot,modules,changes,scripts}
+}
+
+# Install the boot record
+install_boot_record() {
+    BOOT="$DESTINATION/$LIVEKITNAME/boot"
+    cd "$BOOT"
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then ARCH=64; else ARCH=32; fi
+    EXTLINUX=extlinux.x$ARCH
+    if [ ! -x ./$EXTLINUX ]; then
+        mount -o remount,exec $DEV
+        chmod a+x ./$EXTLINUX
+    fi
+    if [ ! -x ./$EXTLINUX ]; then
+        cp -f ./$EXTLINUX ./extlinux.exe
+        EXTLINUX=extlinux.exe
+    fi
+    ./"$EXTLINUX" --install "$BOOT"
+    if [ $? -ne 0 ]; then
+        echo "Error installing boot loader."
+        exit 1
+    fi
+    if [ "$DEV" != "$PART" ]; then
+        dd bs=440 count=1 conv=notrunc if="$BOOT/mbr.bin" of="$DEV" 2>/dev/null
+        PART="$(echo "$PART" | sed -r "s:.*[^0-9]::")"
+        (
+            fdisk -l "$DEV" | fgrep "*" | fgrep "$DEV" | cut -d " " -f 1 |
+                sed -r "s:.*[^0-9]::" | xargs -I '{}' echo -ne "a\n{}\n"
+            echo a
+            echo $PART
+            echo w
+        ) | fdisk $DEV >/dev/null 2>&1
+    fi
+    #cp -r "EFI" "$BOOT/../../"
+    echo "Boot installation finished."
+    cd "$CWD"
+}
+
+# Perform the MiniOS installation process
+install_minios() {
+    (
+        echo "0"
+        umount_part
+        echo "5"
+        wipe_disk
+        echo "10"
+        echo "$(translate "Creating a new partition on disk $PART...")"
+        partition_disk
+        echo "15"
+        echo "$(translate "Formatting disk $PART with MBR partition table and") $FS $(translate "file system...")"
+        format_partition
+        echo "20"
+        echo "$(translate "Mounting the new partition on disk $PART...")"
+        mount_part
+        echo "25"
+        echo "$(translate "Copying MiniOS files to the new partition on disk $PART...")"
+        copy_files
+        echo "90"
+        echo "$(translate "Running the MiniOS boot installer on disk $PART...")"
+        install_boot_record
+        echo "95"
+        umount_part
+        echo "100"
+    ) | yad --progress --title="$(translate "Installing MiniOS")" --text="$(translate "Starting installation of MiniOS on disk $PART...")" --auto-close --auto-kill
+    echo $FAILED
+    if [ "$FAILED" != "true" ]; then
+        yad --info --title="$(translate "Installation Complete")" --text="$(translate "Installation of MiniOS on disk") $PART $(translate "has been completed successfully.")" --no-wrap
+    else
+        yad --error --title="$(translate "Error")" --text="$(translate "An error occurred during the installation of MiniOS on disk") $PART ."
+    fi
+    final_question
+}
+
+# Display the main menu for selecting installation options
+main_menu() {
+    list_disks
+    MAIN_FORM=$(
+        yad --form \
+            --title="$(translate "Options Menu")" \
+            --text="$(translate "Select installation options for MiniOS"):\n" \
+            --width=300 --height=200 \
+            --buttons-layout="center" \
+            --on-top \
+            --form \
+            --field="$(translate "Select device"):CB" "${DISKS}" \
+            --field="$(translate "Select file system"):CB" "${FILESYSTEMS}" \
+            --field="$(translate "EFI"):CHK" "" "$(translate "GPT"):CHK" \
+            --button=gtk-cancel:101 \
+            --button="$(translate "Install")!ubiquity":102 \
+            --button=gtk-refresh:103
+    )
+    local BUTTON=$?
+    echo $BUTTON $MAIN_FORM
+    DEV_DESC=$(echo "$MAIN_FORM" | cut -d"|" -f1)
+    DEV_NAME=$(echo $DEV_DESC | cut -d "(" -f 1)
+    PART_NAME="${DEV_NAME}1"
+    DEV="/dev/$DEV_NAME"
+    PART="/dev/$PART_NAME"
+    FS=$(echo "$MAIN_FORM" | cut -d "|" -f2)
+    EFI_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f3)
+    GPT_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f4)
+    DESTINATION="/mnt/$PART_NAME"
+
+    case $BUTTON in
+    101)
+        exit 0
+        ;;
+    102)
+        install_minios
+        ;;
+    103)
+        main_menu
+        ;;
+    esac
+}
+
+final_question() {
+    FINAL_FORM=$(
+        yad --form \
+            --title="$(translate "Completion Message")" \
+            --text="$(translate "Thank you for installing MiniOS")" \
+            --width=300 --height=200 \
+            --buttons-layout="center" \
+            --on-top \
+            --form \
+            --button="$(translate "Return to Installer")!open-menu":101 \
+            --button="$(translate "Restart the Computer")!gtk-refresh":102
+    )
+    local BUTTON=$?
+
+    case $BUTTON in
+    101) # Return to Main Menu
+        main_menu
+        ;;
+    102) # Restart the Computer
+        reboot
+        ;;
+    esac
+}
+
+# Check if the script is running as root, if not, run with root privileges using pkexec
+check_root
+
+# Start the installation process by displaying the main menu
+main_menu

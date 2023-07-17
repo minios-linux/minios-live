@@ -10,7 +10,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 language_to_array
 
-pkg update 
+pkg update
 
 if [ $LOCALE != "en_US" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
@@ -39,11 +39,11 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 if [ $PACKAGE_VARIANT != "puzzle" ]; then
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-            pkg install yad adwaita-icon-theme-fake 
+            pkg install yad adwaita-icon-theme-fake
         elif grep -q adwaita-icon-theme-fake $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-            pkg install yad 
+            pkg install yad
         else
-            pkg install yad adwaita-icon-theme-antix 
+            pkg install yad adwaita-icon-theme-antix
         fi
     fi
 
@@ -54,23 +54,40 @@ fi
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if [ $DISTRIBUTION != "stretch" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common connman-gtk"
-    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "focal" ]; then
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
-    elif [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome policykit-1-gnome"
-    elif [ $DISTRIBUTION = "bionic" ]; then
-        install_packages --delete-packages="wicd blueman" --add-packages="librsvg2-common network-manager-gnome"
-    else
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
-    fi
-    if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-        if [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ]; then
-            pkg install pulseaudio-module-xrdp 
+    case $DISTRIBUTION in
+    stretch)
+        if [ $PACKAGE_VARIANT = "minimum" ]; then
+            install_packages --delete-packages="wicd" --add-packages="librsvg2-common connman-gtk"
         fi
+        ;;
+    bullseye | focal)
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
+        ;;
+    bookworm | trixie | sid)
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome policykit-1"
+        ;;
+    jammy | lunar)
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome policykit-1-gnome"
+        ;;
+    bionic)
+        install_packages --delete-packages="wicd blueman" --add-packages="librsvg2-common network-manager-gnome"
+        ;;
+    *)
+        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
+        ;;
+    esac
+    if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ]; then
+        case $DISTRIBUTION in
+        bullseye | bookworm)
+            pkg install pulseaudio-module-xrdp
+            ;;
+        jammy)
+            tar -xzf /pulseaudio-module-xrdp.u2204.tar.gz -C /
+            ;;
+        esac
     fi
 fi
+rm /pulseaudio-module-xrdp.u2204.tar.gz
 
 if [ -f /usr/bin/connman-gtk ]; then
     if [ ! -d /etc/skel/.config/autostart ]; then
@@ -89,8 +106,7 @@ Terminal=false
 Hidden=false
 
 EOF
-    pkg install \
-        dconf-cli 
+    pkg install dconf-cli
     cat <<EOF >/usr/bin/connman-tray
 #!/bin/bash
 
@@ -107,7 +123,7 @@ EOF
     rm /usr/share/applications/connman-gtk.desktop
 fi
 
-if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
+if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
     sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
@@ -116,7 +132,7 @@ if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
     sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
 fi
 
-if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
+if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     cat <<EOF >/etc/default/nodm
 # nodm configuration
 
@@ -187,8 +203,8 @@ if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
 EOF
 fi
 
-if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
-    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper 
+if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
 fi
 if [ -f /usr/share/applications/pavucontrol.desktop ]; then
     rm -f /usr/share/applications/pavucontrol.desktop
@@ -200,7 +216,7 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
     fi
 fi
 
-if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
+if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
         echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
