@@ -14,17 +14,9 @@ BOOT_TYPE=${BOOT_TYPE:-"hybrid"}
 read_config /etc/minios/buildconfig SYSTEMNAME
 SYSTEMNAME=${SYSTEMNAME:-"MiniOS"}
 
-if [ -d /run/initramfs/memory/bundles ]; then
-    BUNDLES=/run/initramfs/memory/bundles
-    INITRD="livekit"
-elif [ -d /memory/bundles ]; then
-    BUNDLES=/memory/bundles
-    INITRD="uird"
-fi
-
-if [ "$INITRD" = "livekit" ]; then
-    SOURCE="/run/initramfs/memory"
-elif [ "$INITRD" = "uird" ]; then
+if [ -d /run/initramfs/memory ]; then
+    SOURCE=/run/initramfs/memory/bundles
+elif [ -d /memory ]; then
     SOURCE="/memory"
 fi
 
@@ -104,17 +96,11 @@ fi
 
 if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
     MINIOS=$SOURCE/data/$LIVEKITNAME
-fi
-
-if [ -e "$SOURCE/iso/$LIVEKITNAME/boot/isolinux.bin" ]; then
+elif [ -e "$SOURCE/iso/$LIVEKITNAME/boot/isolinux.bin" ]; then
     MINIOS=$SOURCE/iso/$LIVEKITNAME
-fi
-
-if [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
+elif [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
     MINIOS=$SOURCE/toram
-fi
-
-if [ -e "$SOURCE/data/from/0/$LIVEKITNAME/boot/isolinux.bin" ]; then
+elif [ -e "$SOURCE/data/from/0/$LIVEKITNAME/boot/isolinux.bin" ]; then
     MINIOS=$SOURCE/data/from/0/$LIVEKITNAME
 fi
 

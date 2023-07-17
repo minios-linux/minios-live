@@ -5,7 +5,7 @@
 # дистрибутив
 # if Debian [stretch, buster, bullseye, bookworm, sid, kali-rolling, orel]
 # if Ubuntu [bionic, focal, jammy]
-DISTRIBUTION="bullseye"
+DISTRIBUTION="bookworm"
 
 # distribution arch
 # архитектура дистрибутива
@@ -14,7 +14,7 @@ DISTRIBUTION_ARCH="amd64"
 
 # окружение рабочего стола
 # desktop environment
-# [core, xfce, flux, xfce-puzzle, xfce-puzzle-base]
+# [core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base]
 DESKTOP_ENVIRONMENT="xfce"
 
 # system variant, indicates the used list of packages in modules
@@ -27,8 +27,6 @@ PACKAGE_VARIANT="standard"
 # stretch: [xz, lzo, gz]
 # buster+: [xz, lzo, gz, lz4, zstd]
 COMP_TYPE="zstd"
-
-INSTALL_OPTIONS="-y"
 
 ###########################
 
@@ -67,6 +65,11 @@ EXPORT_KERNEL="true"
 # Если true, то initrfs.img и vmlinuz будут перемещены в папку minios-install/build/[distribution name]/kernel при установке ядра.
 # [true, false]
 MOVE_KERNEL="false"
+
+# If true, a log folder is created in the minios folder on the media, into which the system startup logs are copied.
+# Если true, то в папке minios на носителе создаётся папка log, в которую копируются логи запуска системы.
+# [true, false]
+EXPORT_LOGS="false"
 ###########################
 
 ##### LOCALE&TIMEZONE SETTINGS #####
@@ -128,16 +131,6 @@ HIDE_CREDENTIALS="false"
 #SYSTEM_TYPE="puzzle"
 ###########################
 
-# path of the log file
-# путь файла лога
-LOGPATH="/var/log"
-
-# default is output to stdout. you can use OUTPUT="$LOGPATH/$LIVEKITNAME.log" if you want to route events to log file.
-# по умолчанию выводится на стандартный вывод. вы можете использовать OUTPUT="$LOGPATH/$LIVEKITNAME.log", если хотите направлять события в файл журнала.
-OUTPUT="/dev/stdout"
-#OUTPUT="$LOGPATH/$LIVEKITNAME.log"
-#OUTPUT="/dev/null"
-
 # if ="true", creates a second iso with a constant filename
 # если ="true", создаёт второй iso с постоянным именем файла
 # [true, false]
@@ -158,10 +151,7 @@ DEV_SYSTEM="false"
 DOWNLOAD_SOURCES="false"
 
 # [noninteractive, dialog, text]
-DEBIAN_FRONTEND_TYPE="dialog"
-
-APT_CMD="apt-get"
-APT_OPTIONS="-y"
+DEBIAN_FRONTEND_TYPE="noninteractive"
 
 # iso type
 # тип iso

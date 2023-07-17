@@ -4,29 +4,31 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-install_packages
+. /minioslib || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
 USER="bitwarden"
 REPO="clients"
 
 RELEASE=$(curl -s "https://api.github.com/repos/$USER/$REPO/releases/latest")
 
-URL=$(echo $RELEASE | grep -oP '"browser_download_url": "\K(.*amd64.deb)')
+#URL=$(echo $RELEASE | grep -oP '"browser_download_url": "\K(.*amd64.deb)')
+URL="https://github.com/bitwarden/clients/releases/download/desktop-v2023.5.1/Bitwarden-2023.5.1-amd64.deb"
 
 FILENAME=$(basename $URL)
 
 if [ -f $SCRIPT_DIR/$FILENAME ]; then
-    rm $SCRIPT_DIR/$FILENAME 
+    rm $SCRIPT_DIR/$FILENAME
 fi
 
-curl -LJO $URL 
+curl -LJO $URL
 
-pkg update 
+pkg update
 
 cd $SCRIPT_DIR
-pkg install $SCRIPT_DIR/$FILENAME 
-rm -f $SCRIPT_DIR/$FILENAME 
+pkg install $SCRIPT_DIR/$FILENAME
+rm -f $SCRIPT_DIR/$FILENAME
 
 PACKAGE="bitwarden"
 echo "PACKAGE=$PACKAGE" >/.package

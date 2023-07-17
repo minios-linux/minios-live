@@ -4,6 +4,8 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
+. /minioslib || exit 1
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 pkg update 
@@ -36,6 +38,7 @@ if [[ $? -eq 0 ]]; then
     echo "UID and GID of user 'citrixlog' have been changed to 2000."
 else
     echo "Failed to change UID and GID of user 'citrixlog'."
+    exit 1
 fi
 
 PACKAGE="icaclient"

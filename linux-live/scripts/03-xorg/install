@@ -22,9 +22,9 @@ fi
 if [ $PACKAGE_VARIANT != "minimum" ]; then
     pkg install xrdp xorgxrdp
     adduser xrdp ssl-cert
-    mkdir /etc/xrdp/certs
-    chown root:ssl-cert /etc/xrdp/certs
-    chmod 750 /etc/xrdp/certs
+    #mkdir /etc/xrdp/certs
+    #chown root:ssl-cert /etc/xrdp/certs
+    #chmod 750 /etc/xrdp/certs
     #sed -i -e "/$VAR_NAME=/s/=.*/=\"$VAR_VALUE\"/" "/etc/minios/$LIVEKITNAME.conf"
     #sed -i -e "/certificate=/s/=.*/=\/etc\/xrdp\/certs\/cert.pem/" "/etc/xrdp/xrdp.ini"
     #sed -i -e "/key_file=/s/=.*/=\/etc\/xrdp\/certs\/key.pem/" "/etc/xrdp/xrdp.ini"
@@ -39,7 +39,7 @@ Before=xrdp.service
 
 [Service]
 Type=oneshot
-ExecStart=-/bin/sh -c 'if [ ! -f /var/log/xrdp.log ]; then touch /var/log/xrdp.log; chown xrdp:adm /var/log/xrdp.log; chmod 640 /var/log/xrdp.log; fi; if [ ! -f /etc/xrdp/certs/key.pem ]; then make-ssl-cert generate-default-snakeoil; cp /etc/ssl/private/ssl-cert-snakeoil.key /etc/xrdp/certs/key.pem; cp /etc/ssl/certs/ssl-cert-snakeoil.pem /etc/xrdp/certs/cert.pem; chown root:ssl-cert /etc/xrdp/certs/*; fi'
+ExecStart=-/bin/sh -c 'if [ ! -f /var/log/xrdp.log ]; then touch /var/log/xrdp.log; chown xrdp:adm /var/log/xrdp.log; chmod 640 /var/log/xrdp.log; fi; if [ ! -f /etc/ssl/private/ssl-cert-snakeoil.key ]; then make-ssl-cert generate-default-snakeoil; fi'
 RemainAfterExit=true
 StandardOutput=journal
 
