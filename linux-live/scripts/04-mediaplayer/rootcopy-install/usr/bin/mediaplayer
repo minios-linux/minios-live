@@ -1,7 +1,7 @@
 #!/bin/bash
 
 . /etc/minios/config
-. /etc/minios.conf
+. /etc/minios/minios.conf
 
 X11VNC_PASSWORD=$ROOT_PASSWORD
 SAMBA_PASSWORD=$USER_PASSWORD
@@ -46,7 +46,7 @@ if [ "$PLAYLOCALLY" = "true" ]; then
         MEDIA_SOURCE=/mnt$MEDIA_SOURCE
         PLAYING_SOURCE=/mnt$PLAYING_SOURCE
         LOCAL_SOURCE=/mnt
-        local_mounted="true"
+        LOCAL_MOUNTED="true"
     fi
 fi
 
@@ -116,11 +116,11 @@ fi
 
 if [ "$PLAYLOCALLY" != "true" ]; then
     if mount -L $LOCAL_SOURCE_LABEL $LOCAL_SOURCE >/dev/null 2>&1; then
-        local_mounted="true"
+        LOCAL_MOUNTED="true"
     fi
 fi
 
-if [ "$local_mounted" = "true" ]; then
+if [ "$LOCAL_MOUNTED" = "true" ]; then
     if [ ! -d "$LOCAL_SOURCE/media" ]; then
         sudo mkdir -p "$LOCAL_SOURCE/media"
         sudo chown $USER_NAME:$USER_NAME "$LOCAL_SOURCE/media"
