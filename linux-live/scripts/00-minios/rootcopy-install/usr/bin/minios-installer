@@ -50,9 +50,34 @@ list_disks() {
     FILESYSTEMS="btrfs!ext2!ext4!fat32!ntfs!xfs"
 }
 
+# Get disk size in MiBs
+get_disk_size() {
+    parted -s $1 unit MiB print 2>/dev/null | grep Disk | cut -d' ' -f3 | tr -d MiB
+}
+
 # Partition the disk
 partition_disk() {
-    echo -e "o\nn\np\n1\n\n\nw" | fdisk $DEV
+    #echo -e "o\nn\np\n1\n\n\nw" | fdisk $DEV
+    if [ "$EFI_SUPPORT" = "TRUE" ]; then
+        if [ "$GPT_SUPPORT" = "TRUE" ]; then
+            parted -s $DEV mklabel gpt
+            DISK_SIZE=$(get_disk_size $DEV)
+            ESP_START=$((DISK_SIZE - 100))
+            parted -s $DEV mkpart primary 1MiB ${ESP_START}MiB
+            parted -s $DEV mkpart ESP fat32 ${ESP_START}MiB 100%
+            parted -s $DEV set 2 boot on
+        else
+            parted -s $DEV mklabel msdos
+            DISK_SIZE=$(get_disk_size $DEV)
+            ESP_START=$((DISK_SIZE - 100))
+            parted -s $DEV mkpart primary fat32 1MiB ${ESP_START}MiB
+            parted -s $DEV mkpart primary fat32 ${ESP_START}MiB 100%
+            parted -s $DEV set 1 boot on
+        fi
+    else
+        parted -s $DEV mklabel msdos
+        parted -s $DEV mkpart primary ext2 1MiB 100%
+    fi
 }
 
 # Wipe the disk
@@ -69,6 +94,9 @@ format_partition() {
     else
         mkfs."$FS" "$PART"
     fi
+    if [ "$EFI_SUPPORT" = "TRUE" ]; then
+        mkfs.vfat "$EFI_PART"
+    fi
 }
 
 # Mount the partition
@@ -79,6 +107,14 @@ mount_part() {
             exit 1
         fi
     fi
+    if [ "$EFI_SUPPORT" = "TRUE" ]; then
+        if [ ! -d $EFI_DESTINATION ]; then
+            mkdir -p $EFI_DESTINATION
+            if ! mount $EFI_PART $EFI_DESTINATION; then
+                exit 1
+            fi
+        fi
+    fi
 }
 
 # Unmount the partition
@@ -86,6 +122,10 @@ umount_part() {
     if mountpoint -q $DESTINATION; then
         umount $DESTINATION
         rmdir $DESTINATION
+    fi
+    if mountpoint -q $EFI_DESTINATION; then
+        umount $EFI_DESTINATION
+        rmdir $EFI_DESTINATION
     fi
 }
 
@@ -96,7 +136,6 @@ copy_files() {
     elif [ -d /memory ]; then
         SOURCE="/memory"
     fi
-    LIVEKITNAME="minios"
     if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
         MINIOS=$SOURCE/data/$LIVEKITNAME
     elif [ -e "$SOURCE/iso/$LIVEKITNAME/boot/isolinux.bin" ]; then
@@ -147,6 +186,19 @@ EOF
         cp "$SOURCE_FILE" "$DESTINATION/$DESTINATION_FILE"
     done <<<"$GRAFT"
     mkdir -p $DESTINATION/$LIVEKITNAME/{boot,modules,changes,scripts}
+    if [ "$EFI_SUPPORT" = "TRUE" ]; then
+        GRAFT=$(
+            cd "$EFI"
+            find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
+                echo "EFI/$LINE=$EFI/$LINE"
+            done
+        )
+        while IFS='=' read -r DESTINATION_FILE SOURCE_FILE; do
+            echo "Copying $SOURCE_FILE to $EFI_DESTINATION/$DESTINATION_FILE"
+            mkdir -p "$EFI_DESTINATION/$(dirname "$DESTINATION_FILE")"
+            cp "$SOURCE_FILE" "$EFI_DESTINATION/$DESTINATION_FILE"
+        done <<<"$GRAFT"
+    fi
 }
 
 # Install the boot record
@@ -186,46 +238,46 @@ install_boot_record() {
 }
 
 # Perform the MiniOS installation process
-install_minios() {
-    (
-        echo "0"
-        umount_part
-        echo "5"
-        wipe_disk
-        echo "10"
-        echo "$(translate "Creating a new partition on disk $PART...")"
-        partition_disk
-        echo "15"
-        echo "$(translate "Formatting disk $PART with MBR partition table and") $FS $(translate "file system...")"
-        format_partition
-        echo "20"
-        echo "$(translate "Mounting the new partition on disk $PART...")"
-        mount_part
-        echo "25"
-        echo "$(translate "Copying MiniOS files to the new partition on disk $PART...")"
-        copy_files
-        echo "90"
-        echo "$(translate "Running the MiniOS boot installer on disk $PART...")"
-        install_boot_record
-        echo "95"
-        umount_part
-        echo "100"
-    ) | yad --progress --title="$(translate "Installing MiniOS")" --text="$(translate "Starting installation of MiniOS on disk $PART...")" --auto-close --auto-kill
-    echo $FAILED
-    if [ "$FAILED" != "true" ]; then
-        yad --info --title="$(translate "Installation Complete")" --text="$(translate "Installation of MiniOS on disk") $PART $(translate "has been completed successfully.")" --no-wrap
-    else
-        yad --error --title="$(translate "Error")" --text="$(translate "An error occurred during the installation of MiniOS on disk") $PART ."
-    fi
-    final_question
+show_error_message() {
+    local error_message="$1"
+    yad --error --title="$(translate "Error")" --text="$(translate "An error occurred while executing the function.")"
+    exit 1
 }
 
+# Perform the MiniOS installation process
+install_minios() {
+    echo "0"
+    umount_part || show_error_message
+    echo "5"
+    wipe_disk || show_error_message
+    echo "10"
+    echo "$(translate "Creating a new partition on disk $PART...")"
+    partition_disk || show_error_message
+    echo "15"
+    echo "$(translate "Formatting disk $PART with MBR partition table and") $FS $(translate "file system...")"
+    format_partition || show_error_message
+    echo "20"
+    echo "$(translate "Mounting the new partition on disk $PART...")"
+    mount_part || show_error_message
+    echo "25"
+    echo "$(translate "Copying MiniOS files to the new partition on disk $PART...")"
+    copy_files || show_error_message
+    echo "90"
+    if [ $GPT_SUPPORT != "TRUE" ]; then
+        echo "$(translate "Running the MiniOS boot installer on disk $PART...")"
+        install_boot_record || show_error_message
+    fi
+    echo "95"
+    umount_part || show_error_message
+    echo "100"
+    final_question
+}
 # Display the main menu for selecting installation options
 main_menu() {
     list_disks
     MAIN_FORM=$(
         yad --form \
-            --title="$(translate "Options Menu")" \
+            --title="$(translate "MiniOS Installer")" \
             --text="$(translate "Select installation options for MiniOS"):\n" \
             --width=300 --height=200 \
             --buttons-layout="center" \
@@ -233,7 +285,8 @@ main_menu() {
             --form \
             --field="$(translate "Select device"):CB" "${DISKS}" \
             --field="$(translate "Select file system"):CB" "${FILESYSTEMS}" \
-            --field="$(translate "EFI"):CHK" "" "$(translate "GPT"):CHK" \
+            --field="$(translate "EFI"):CHK" \
+            --field="$(translate "GPT"):CHK" \
             --button=gtk-cancel:101 \
             --button="$(translate "Install")!ubiquity":102 \
             --button=gtk-refresh:103
@@ -243,19 +296,22 @@ main_menu() {
     DEV_DESC=$(echo "$MAIN_FORM" | cut -d"|" -f1)
     DEV_NAME=$(echo $DEV_DESC | cut -d "(" -f 1)
     PART_NAME="${DEV_NAME}1"
+    EFI_PART_NAME="${DEV_NAME}2"
     DEV="/dev/$DEV_NAME"
     PART="/dev/$PART_NAME"
+    EFI_PART="/dev/$EFI_PART_NAME"
     FS=$(echo "$MAIN_FORM" | cut -d "|" -f2)
     EFI_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f3)
     GPT_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f4)
     DESTINATION="/mnt/$PART_NAME"
+    EFI_DESTINATION="/mnt/$EFI_PART_NAME"
 
     case $BUTTON in
     101)
         exit 0
         ;;
     102)
-        install_minios
+        install_minios | yad --progress --width=250 --height=100 --title="$(translate "MiniOS Installer")" --text="$(translate "Installing...")" --auto-close --auto-kill
         ;;
     103)
         main_menu
@@ -266,20 +322,20 @@ main_menu() {
 final_question() {
     FINAL_FORM=$(
         yad --form \
-            --title="$(translate "Completion Message")" \
+            --title="$(translate "MiniOS Installer")" \
             --text="$(translate "Thank you for installing MiniOS")" \
-            --width=300 --height=200 \
+            --width=200 --height=100 \
             --buttons-layout="center" \
             --on-top \
             --form \
-            --button="$(translate "Return to Installer")!open-menu":101 \
-            --button="$(translate "Restart the Computer")!gtk-refresh":102
+            --button="$(translate "Finish")!open-menu":101 \
+            --button="$(translate "Reboot")!gtk-refresh":102
     )
     local BUTTON=$?
 
     case $BUTTON in
-    101) # Return to Main Menu
-        main_menu
+    101) # Finish MiniOS Installer
+        exit
         ;;
     102) # Restart the Computer
         reboot

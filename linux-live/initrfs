@@ -32,6 +32,6 @@ elif [ $INITRD_TYPE = "uird" ]; then
 	fi
 	cd /linux-live/initramfs/uird-$DISTRIBUTION_ARCH
 	sed -i -e "/LANG=/s/=.*/=\"$LOCALE\"/" configs/etc/initvars
-	./mkuird minios -e plymouth,mc,httpfs -k $KERNEL
+	./mkuird minios -e plymouth,network,fsck,rsync,crypt,virtio,fuse,i18n,uird-soft,reiserfs,cifs,qemu,mc,httpfs -k $KERNEL
 	mv ./uird.minios.cpio.xz /boot/initrfs.img
 fi
