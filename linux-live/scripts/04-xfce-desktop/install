@@ -87,7 +87,9 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         esac
     fi
 fi
-rm /pulseaudio-module-xrdp.u2204.tar.gz
+if [ -f /pulseaudio-module-xrdp.u2204.tar.gz ]; then
+    rm /pulseaudio-module-xrdp.u2204.tar.gz
+fi
 
 if [ -f /usr/bin/connman-gtk ]; then
     if [ ! -d /etc/skel/.config/autostart ]; then
