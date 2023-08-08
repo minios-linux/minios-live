@@ -373,7 +373,7 @@ mount_command()
 network_device()
 {
    debug_log "network_device" "$*"
-   cat /proc/net/dev | grep : | grep -v lo: | cut -d : -f 1 | tr -d " " | head -n 1
+   cat /proc/net/dev | grep : | grep -v lo: | grep -v ip6tnl | cut -d : -f 1 | tr -d " " | head -n 1
 }
 
 
@@ -633,9 +633,10 @@ persistent_changes()
 {
    debug_log "persistent_changes" "$*"
 
-   local CHANGES T1 T2 EXISTS
+   local CHANGES T1 T2 EXISTS DEVICE PERCHFILE PERCHSIZE SPLITSIZE SUFFIX
 
    CHANGES="$1/$(basename "$2")"
+   DEVICE="$(df $1 | tail -n 1 | cut -d " " -f 1)"
    T1="$CHANGES/.empty"
    T2="$T1"2
 
@@ -656,32 +657,61 @@ persistent_changes()
       return
    fi
 
-   echo_green_star
-   echo "Testing persistent changes for posix compatibility"
-   touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null && \
-   chmod +x "$T1" 2>/dev/null && test -x "$T1" && \
-   chmod -x "$T1" 2>/dev/null && test ! -x "$T1" && \
-   rm "$T1" "$T2" 2>/dev/null
+   PERCHSIZE=$(cmdline_value perchsize)
+   PERCHFILE=$(cmdline_value perchfile)
 
-   if [ $? -eq 0 ]; then
-      echo "* Activating native persistent changes"
-      mount --bind "$CHANGES" "$2"
-      return
+   # if neither perchfile nor perchsize is specified, try to use native fs
+   if [ "$PERCHFILE" = "" -a "$PERCHSIZE" = "" ]; then
+      echo_green_star
+      echo "Testing persistent changes for posix compatibility"
+      touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null && \
+      chmod +x "$T1" 2>/dev/null && test -x "$T1" && \
+      chmod -x "$T1" 2>/dev/null && test ! -x "$T1" && \
+      rm "$T1" "$T2" 2>/dev/null
+
+      if [ $? -eq 0 ]; then
+         if device_bestfs $DEVICE | grep -v ntfs >/dev/null; then
+            echo "* Activating native persistent changes"
+            mount --bind "$CHANGES" "$2"
+            return
+         fi
+      fi
    fi
 
-   if [ -e "$CHANGES/changes.dat" ]; then
-      echo "* Restoring persistent changes"
+   # If we are here, native fs was not supported or user requested perchfile anyway
+
+   SPLITSIZE=4000
+
+   if [ "$PERCHFILE" = "" ]; then
+      PERCHFILE="changes.dat"
+   fi
+
+   if [ "$PERCHSIZE" = "" ]; then
+      PERCHSIZE=16000
+   fi
+
+   # suffix for changes.dat based on final size, like 0, 00, 000 etc
+   SUFFIX=$(echo $((($PERCHSIZE + $SPLITSIZE - 1) / $SPLITSIZE)) | sed -r 's/./0/g')
+
+   # for backward compatibility, can be removed in 2025
+   if [ -e "$CHANGES/$PERCHFILE.$SUFFIX" -a ! -e "$CHANGES/$PERCHFILE" ]; then
+      dd if="$CHANGES/$PERCHFILE.$SUFFIX" of="$CHANGES/$PERCHFILE" bs=4k count=1
+   fi
+
+   # restore or use new
+   if [ -e "$CHANGES/$PERCHFILE" ]; then
+      echo "* Restoring persistent changes from $PERCHFILE"
       EXISTS="true"
    else
-      echo "* Creating new persistent changes"
+      echo "* Creating new persistent changes in $PERCHFILE"
       EXISTS=""
    fi
 
-   @mount.dynfilefs "$CHANGES/changes.dat" 4000 "$2"
+   @mount.dynfilefs -f "$CHANGES/$PERCHFILE" -s $PERCHSIZE -m "$2" -p $SPLITSIZE
    if [ ! "$EXISTS" ]; then
-      mke2fs -F "$2/loop.fs" >/dev/null 2>&1
+      mke2fs -F "$2/virtual.dat" >/dev/null 2>&1
    fi
-   mount -o loop,sync "$2/loop.fs" "$2"
+   mount -o loop "$2/virtual.dat" "$2"
 
    # if test failed at any point, we may have temp files left behind
    rm "$T1" "$T2" 2>/dev/null

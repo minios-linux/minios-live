@@ -13,40 +13,44 @@ is_mounted() {
 }
 
 # Get the path to search for mount points
-search_path="${1:-/build/minios-live/build}"
+SEARCH_PATH="${1:-/build/minios-live/build}"
 
 # Get the list of mount points containing the search path and extract the next column after "on"
-mount_points=$(mount | grep "$search_path" | awk '{for(i=1;i<=NF;i++) if ($i=="on") print $(i+1)}')
+MOUNT_POINTS=$(mount | grep "$SEARCH_PATH" | awk '{for(i=1;i<=NF;i++) if ($i=="on") print $(i+1)}')
+
+# Sort the mount points in reverse order
+MOUNT_POINTS=$(echo "$MOUNT_POINTS" | sort -r)
 
 # Check if there are any mount points to unmount
-if [[ -z $mount_points ]]; then
+if [[ -z $MOUNT_POINTS ]]; then
    echo -e "\e[32mNo mount points to unmount.\e[0m"
    exit 0
 fi
 
 # Perform unmount iterations until all mount points are unmounted
-while [[ ! -z $mount_points ]]; do
-    all_unmounted=true
+while [[ ! -z $MOUNT_POINTS ]]; do
+    ALL_UNMOUNTED=true
 
-    for mount_point in $mount_points; do
-        if is_mounted "$mount_point"; then
-            umount "$mount_point" >/dev/null 2>&1
+    for MOUNT_POINT in $MOUNT_POINTS; do
+        if is_mounted "$MOUNT_POINT"; then
+            umount "$MOUNT_POINT" >/dev/null 2>&1
             if [[ $? -eq 0 ]]; then
-                echo "Unmounted mount point: $mount_point successfully."
+                echo "Unmounted mount point: $MOUNT_POINT successfully."
             else
-                all_unmounted=false
+                ALL_UNMOUNTED=false
             fi
         fi
     done
 
-    # Update the list of mount points
-    mount_points=$(mount | grep "$search_path" | awk '{for(i=1;i<=NF;i++) if ($i=="on") print $(i+1)}')
+    # Update the list of mount points and sort them in reverse order
+    MOUNT_POINTS=$(mount | grep "$SEARCH_PATH" | awk '{for(i=1;i<=NF;i++) if ($i=="on") print $(i+1)}')
+    MOUNT_POINTS=$(echo "$MOUNT_POINTS" | sort -r)
 
-    if [[ ! -z $mount_points ]]; then
-        all_unmounted=false
+    if [[ ! -z $MOUNT_POINTS ]]; then
+        ALL_UNMOUNTED=false
     fi
 
-    if [[ $all_unmounted == true ]]; then
+    if [[ $ALL_UNMOUNTED == true ]]; then
         echo -e "\e[32mAll mount points have been unmounted.\e[0m"
     fi
 done

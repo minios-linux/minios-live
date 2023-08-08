@@ -12,27 +12,20 @@ echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)"
 
 # install packages
 if [ DESKTOP_ENVIRONMENT = "astra-fly" ]; then
-    pkg update 
+    pkg update
     pkg install \
-        xorg-all-main 
+        xorg-all-main
 elif [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     install_packages
 fi
 
-if [ $PACKAGE_VARIANT != "minimum" ]; then
+if [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "standard" ]; then
     pkg install xrdp xorgxrdp
     adduser xrdp ssl-cert
-    #mkdir /etc/xrdp/certs
-    #chown root:ssl-cert /etc/xrdp/certs
-    #chmod 750 /etc/xrdp/certs
-    #sed -i -e "/$VAR_NAME=/s/=.*/=\"$VAR_VALUE\"/" "/etc/minios/$LIVEKITNAME.conf"
-    #sed -i -e "/certificate=/s/=.*/=\/etc\/xrdp\/certs\/cert.pem/" "/etc/xrdp/xrdp.ini"
-    #sed -i -e "/key_file=/s/=.*/=\/etc\/xrdp\/certs\/key.pem/" "/etc/xrdp/xrdp.ini"
     rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
-fi
 
-echo "Enable xrdp.service autostart." 
-cat <<EOF >/usr/lib/systemd/system/xrdp-configure.service
+    echo "Enable xrdp.service autostart."
+    cat <<EOF >/usr/lib/systemd/system/xrdp-configure.service
 [Unit]
 Description=Configure xrdp service
 Before=xrdp.service
@@ -46,7 +39,8 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable xrdp-configure 
+    systemctl enable xrdp-configure
+fi
 
 if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
@@ -62,9 +56,9 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 #ahs hardware stack repo
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
-        pkg update 
-                    pkg install \
-            virtualbox-guest-x11 
+        pkg update
+        pkg install \
+            virtualbox-guest-x11
         rm /etc/apt/sources.list.d/mx.list
     fi
 fi
