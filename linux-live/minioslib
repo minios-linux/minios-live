@@ -2268,7 +2268,7 @@ function chroot_finish_up() {
 function install_packages() {
     local SED_SCRIPT=""
     local ADD_PACKAGES=()
-    local REMOVE_PACKAGES=""
+    local DELETE_PACKAGES=""
     local REPLACE_PACKAGES=""
     local PACKAGE_LIST=""
     local TARGET_RELEASE=""
@@ -2295,9 +2295,9 @@ function install_packages() {
             ;;
         -d | --delete-packages=*)
             if [[ "$1" == --* ]]; then
-                REMOVE_PACKAGES="${1#*=}"
+                DELETE_PACKAGES="${1#*=}"
             else
-                REMOVE_PACKAGES="$2"
+                DELETE_PACKAGES="$2"
                 shift
             fi
             shift
@@ -2341,7 +2341,7 @@ function install_packages() {
     fi
 
     # Build sed script for removing and replacing packages.
-    for PKG in $REMOVE_PACKAGES; do
+    for PKG in $DELETE_PACKAGES; do
         SED_SCRIPT+="/$PKG/d;"
     done
 
