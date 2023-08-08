@@ -9,8 +9,11 @@ VERSION=1.3.5
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
     XLUNCH=4.5.3
     CBATTICON=1.6.7
-else
+elif [ $DISTRIBUTION = "bookworm" ]; then
     XLUNCH=4.7.3
+    CBATTICON=1.6.10
+else
+    XLUNCH=4.7.5
     CBATTICON=1.6.10
 fi
 
@@ -35,6 +38,12 @@ cd $NAME-$VERSION
 
 cat $CWD/patches/fluxbox-slax.diff >debian/patches/fluxbox-slax.diff
 echo fluxbox-slax.diff >>debian/patches/series
+
+if [ $DISTRIBUTION != "stretch" ] || [ $DISTRIBUTION != "buster" ] || [ $DISTRIBUTION != "bullseye" ]; then
+    # enable imlib2 support
+    cat $CWD/patches/imlib2-config >/usr/bin/imlib2-config
+    chmod ugo+x /usr/bin/imlib2-config
+fi
 
 dpkg-buildpackage -us -uc
 
