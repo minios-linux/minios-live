@@ -47,7 +47,7 @@ translate() {
 list_disks() {
     DISKS=$(lsblk -Jo NAME,SIZE -n -d -I 3,8,259,252 | jq -r '.blockdevices[] | .name + "(" + .size + ")"')
     DISKS=$(echo $DISKS | tr ' ' '!')
-    FILESYSTEMS="btrfs!ext2!ext4!fat32!ntfs!xfs"
+    FILESYSTEMS="btrfs!exfat!ext2!ext4!fat32!ntfs"
 }
 
 # Get disk size in MiBs
