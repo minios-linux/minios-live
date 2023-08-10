@@ -2,24 +2,35 @@
 
 . /minioslib || exit 1
 
-CWD=$(dirname $(readlink -f $0))
-
-NAME=fluxbox
-VERSION=1.3.5
-
-# first install stock version
-
 pkg update
 
-pkg install \
-    $NAME \
-    feh \
-    compton \
-    volumeicon-alsa \
-    murrine-themes \
-    libnotify4 \
-    scrot \
-    adwaita-icon-theme-antix
+if [ $DISTRIBUTION = "bookworm" ]; then
+    pkg install \
+        fluxbox-slax \
+        feh \
+        compton \
+        volumeicon-alsa \
+        murrine-themes \
+        libnotify4 \
+        scrot \
+        adwaita-icon-theme-antix \
+        xlunch-slax \
+        systrayicon \
+        gtkdialog-slax \
+        cbatticon
+else
+    pkg install \
+        fluxbox \
+        feh \
+        compton \
+        volumeicon-alsa \
+        murrine-themes \
+        libnotify4 \
+        scrot \
+        adwaita-icon-theme-antix
+fi
+
+sleep 10
 
 (cd /rootcopy-install && cp --parents -afr * /)
 
