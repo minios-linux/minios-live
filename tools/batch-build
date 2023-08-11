@@ -3,8 +3,10 @@
 # Example:  container_build_run bullseye       xfce                  standard          amd64               livekit       default       true         true          true                zstd        en_US    Etc/UTC
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+PARENT_DIR="$(dirname $SCRIPT_DIR)"
 
-. $SCRIPT_DIR/../linux-live/minioslib || exit 1
+. $PARENT_DIR/linux-live/minioslib || exit 1
+SCRIPT_DIR=$PARENT_DIR
 
 container_engine="docker"
 
