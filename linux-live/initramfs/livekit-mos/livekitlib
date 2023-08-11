@@ -306,7 +306,11 @@ device_bestfs() {
    if [ "$FS" = "msdos" -o "$FS" = "fat" -o "$FS" = "vfat" ]; then
       FS="vfat"
    elif [ "$FS" = "ntfs" ]; then
-      FS="ntfs-3g"
+      if [ -f /bin/@mount.ntfs-3g ]; then
+         FS="ntfs-3g"
+      else
+         FS="ntfs3"
+      fi
    fi
 
    if [ "$2" != "" ]; then
