@@ -45,29 +45,25 @@ rm -f /usr/share/applications/wicd.desktop
 rm -f /usr/share/applications/connman-gtk.desktop
 rm -f /usr/share/applications/nm-applet.desktop
 rm -f /usr/share/applications/nm-connection-editor.desktop
+rm -f /usr/share/applications/xarchiver.desktop
 rm -f /usr/share/applications/lxtask.desktop
 
 if [ $LOCALE = "ru_RU" ]; then
-    # Fluxbox menu
-    sed -i "s/Desktop menu/Меню рабочего стола/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Terminal/Терминал/g" /etc/skel/.fluxbox/menu
-    sed -i "s/File Manager/Менеджер файлов/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Web Browser/Браузер/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Text Editor/Текстовый редактор/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Calculator/Калькулятор/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Network Manager/Менеджер сети/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Run/Запустить/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Workspaces                .../Рабочие пространства    .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Screen resolution         .../Разрешение экрана       .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Keyboard layout           .../Раскладка клавиатуры    .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Exit \/ Logout/Выход/g" /etc/skel/.fluxbox/menu
-    sed -ie '15d;17,21d;23,64d' /etc/skel/.fluxbox/menu
     # Apps
     sed -i "s/Name=File Manager/Name=Менеджер файлов/g" /usr/share/applications/2pcmanfm.desktop
     sed -i "s/Name=Calculator/Name=Калькулятор/g" /usr/share/applications/3calculator.desktop
     sed -i "s/Name=Text editor/Name=Текстовый редактор/g" /usr/share/applications/4mousepad.desktop
     sed -i "s/Name=Net Manager/Name=Менеджер сети/g" /usr/share/applications/6connman.desktop
     sed -i "s/Name=Net Manager/Name=Менеджер сети/g" /usr/share/applications/6wicd.desktop
-    sed -i "s/Name=Archiver/Name=Архиватор/g" /usr/share/applications/xarchiver.desktop
+    sed -i "s/Name=Archiver/Name=Архиватор/g" /usr/share/applications/zxarchiver.desktop
     sed -i "s/Name=Task Manager/Name=Диспетчер задач/g" /usr/share/applications/zlxtask.desktop
+elif [ $LOCALE = "es_ES" ]; then
+    # Apps
+    sed -i "s/Name=File Manager/Name=Gestor de archivos/g" /usr/share/applications/2pcmanfm.desktop
+    sed -i "s/Name=Calculator/Name=Calculadora/g" /usr/share/applications/3calculator.desktop
+    sed -i "s/Name=Text editor/Name=Editor de texto/g" /usr/share/applications/4mousepad.desktop
+    sed -i "s/Name=Net Manager/Name=Gestor de redes/g" /usr/share/applications/6connman.desktop
+    sed -i "s/Name=Net Manager/Name=Gestor de redes/g" /usr/share/applications/6wicd.desktop
+    sed -i "s/Name=Archiver/Name=Archivador/g" /usr/share/applications/zxarchiver.desktop
+    sed -i "s/Name=Task Manager/Name=Gestor de tareas/g" /usr/share/applications/zlxtask.desktop
 fi

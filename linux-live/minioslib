@@ -353,7 +353,7 @@ function read_cmdline() {
             AUTOLOGIN="${i#*=}"
             shift # past argument=value
             ;;
-        system_type=classic | puzzle)
+        system_type=*)
             SYSTEM_TYPE="${i#*=}"
             shift # past argument=value
             ;;

@@ -2,9 +2,9 @@
 
 . /etc/minios/minios.conf
 function language_to_array() {
-    local IFS
-    IFS="_"
-    L=($LANG)
+   local IFS
+   IFS="_"
+   L=($LANG)
 }
 language_to_array
 
@@ -37,8 +37,10 @@ if [ "$1" = "firefox-esr" ]; then
    ABOUT="Firefox is a free and open source browser."
    EXECUTABLE="/usr/bin/firefox-esr"
    PREINSTALL="apt update"
-   if [ "${L[0]}" != "en" ]; then
+   if [ "${L[0]}" = "ru" ]; then
       INSTALL="apt install --yes firefox-esr firefox-esr-l10n-${L[0]} && minios-firefox-patch"
+   elif [ "${L[0]}" = "es" ]; then
+      INSTALL="apt install --yes firefox-esr firefox-esr-l10n-${L[0]}-${L[0]} && minios-firefox-patch"
    else
       INSTALL="apt install --yes firefox-esr && minios-firefox-patch"
    fi
@@ -81,7 +83,7 @@ if [ -f "$EXECUTABLE" ]; then
 
    if [ "$GUEST" = "true" -a "$EUID" -eq 0 ]; then
       xhost + >/dev/null 2>/dev/null
-      exec su -c "$EXECUTABLE "$@"" $USER_NAME
+      exec su -c "$EXECUTABLE "$@"" guest
    fi
 
    exec "$EXECUTABLE" "$@"
