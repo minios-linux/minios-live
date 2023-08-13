@@ -205,15 +205,25 @@ cat <<EOF >>/etc/issue
 
 EOF
 
-# Declare two arrays: one for the variable names and one for their default values
-VARIABLES=("USER_NAME" "USER_PASSWORD" "ROOT_PASSWORD" "HOST_NAME" "DEFAULT_TARGET" "SSH_KEY" "CLOUD" "SCRIPTS" "HIDE_CREDENTIALS" "AUTOLOGIN" "SYSTEM_TYPE")
-DEFAULT_VALUES=("live" "evil" "toor" "minios" "graphical" "authorized_keys" "false" "true" "false" "true" "puzzle")
+# Declare an associative array for the variable names and their default values
+declare -A VARIABLES_DEFAULTS=(
+    ["USER_NAME"]="live"
+    ["USER_PASSWORD"]="evil"
+    ["ROOT_PASSWORD"]="toor"
+    ["HOST_NAME"]="minios"
+    ["DEFAULT_TARGET"]="graphical"
+    ["SSH_KEY"]="authorized_keys"
+    ["CLOUD"]="false"
+    ["SCRIPTS"]="true"
+    ["HIDE_CREDENTIALS"]="false"
+    ["AUTOLOGIN"]="true"
+    ["SYSTEM_TYPE"]="classic"
+)
 
 # Iterate over the variable names
-for i in "${!VARIABLES[@]}"; do
-    # Get the current variable name and its default value
-    VAR_NAME="${VARIABLES[$i]}"
-    DEFAULT_VALUE="${DEFAULT_VALUES[$i]}"
+for VAR_NAME in "${!VARIABLES_DEFAULTS[@]}"; do
+    # Get the default value for the current variable name
+    DEFAULT_VALUE="${VARIABLES_DEFAULTS[$VAR_NAME]}"
     # Check if the variable is not set
     if [ -z "${!VAR_NAME}" ]; then
         # Read the variable value from the configuration file
@@ -226,12 +236,43 @@ for i in "${!VARIABLES[@]}"; do
     fi
 done
 
-if [[ "$SYSTEM_TYPE" != "classic" && "$SYSTEM_TYPE" != "puzzle" ]]; then
-    echo "SYSTEM_TYPE must be either classic or puzzle"
-    exit 1
+# Check if DEFAULT_TARGET is not a valid systemd target
+if [[ ! "$DEFAULT_TARGET" =~ ^(graphical|multi-user|rescue|emergency)$ ]]; then
+    # Set DEFAULT_TARGET to its default value
+    DEFAULT_TARGET="${VARIABLES_DEFAULTS[DEFAULT_TARGET]}"
 fi
 
-if [ "$SYSTEM_TYPE" = "puzzle" ]; then
+# Check if SYSTEM_TYPE is not a valid value
+if [[ ! "$SYSTEM_TYPE" =~ ^(classic|puzzle)$ ]]; then
+    # Set SYSTEM_TYPE to its default value
+    SYSTEM_TYPE="${VARIABLES_DEFAULTS[SYSTEM_TYPE]}"
+fi
+
+# Check if CLOUD is not a valid value
+if [[ ! "$CLOUD" =~ ^(true|false)$ ]]; then
+    # Set CLOUD to its default value
+    CLOUD="${VARIABLES_DEFAULTS[CLOUD]}"
+fi
+
+# Check if SCRIPTS is not a valid value
+if [[ ! "$SCRIPTS" =~ ^(true|false)$ ]]; then
+    # Set SCRIPTS to its default value
+    SCRIPTS="${VARIABLES_DEFAULTS[SCRIPTS]}"
+fi
+
+# Check if HIDE_CREDENTIALS is not a valid value
+if [[ ! "$HIDE_CREDENTIALS" =~ ^(true|false)$ ]]; then
+    # Set HIDE_CREDENTIALS to its default value
+    HIDE_CREDENTIALS="${VARIABLES_DEFAULTS[HIDE_CREDENTIALS]}"
+fi
+
+# Check if AUTOLOGIN is not a valid value
+if [[ ! "$AUTOLOGIN" =~ ^(true|false)$ ]]; then
+    # Set AUTOLOGIN to its default value
+    AUTOLOGIN="${VARIABLES_DEFAULTS[AUTOLOGIN]}"
+fi
+
+if [ "$SYSTEM_TYPE" = "puzzle" ] && [ ! -f /var/.system_configured ]; then
     # fix users
     if [ -x "$(command -v minios-update-users)" ]; then
         minios-update-users "$BUNDLES" >/var/log/minios/minios-update-users.output 2>&1
@@ -270,8 +311,6 @@ if [ "$CLOUD" != "true" ]; then
     if [ "$USER_NAME" != "root" ]; then
         echo "User name is $USER_NAME"
         # Set up user
-        #USER_NAME="live"
-        #USER_GROUP="live"
         USER_GROUP=$USER_NAME
         if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
@@ -285,8 +324,6 @@ if [ "$CLOUD" != "true" ]; then
                 for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
                     mkdir -p "/home/$USER_NAME/$dir"
                 done
-                #cp /usr/share/applications/minios-installer.desktop /home/$USER_NAME/Desktop/
-                #chmod +x /home/$USER_NAME/Desktop/minios-installer.desktop
                 if [ ! -d "/home/$USER_NAME/.ssh" ]; then
                     mkdir "/home/$USER_NAME/.ssh"
                     chmod 700 "/home/$USER_NAME/.ssh"
@@ -303,6 +340,19 @@ if [ "$CLOUD" != "true" ]; then
             usermod -l "$USER_NAME" "$CURRENT_USER_NAME"
             usermod -m -d "/home/$USER_NAME" "$USER_NAME"
             groupmod -n "$USER_GROUP" "$CURRENT_USER_GROUP"
+        fi
+    elif [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
+        echo "User name is guest"
+        # Set up user
+        if [ ! -f /var/.system_configured ]; then
+            adduser --uid 1000 --gecos '' "guest" --disabled-password
+            usermod -a -G adm,cdrom,sudo,dip,plugdev,users,lpadmin,sambashare guest
+            if [ ! -f /usr/bin/pulseaudio ]; then
+                usermod -a -G audio "guest"
+            fi
+            cp -rT /etc/skel "/home/guest"
+            chown guest:guest "/home/guest"
+            chown -R guest:guest "/home/guest"
         fi
     fi
 else

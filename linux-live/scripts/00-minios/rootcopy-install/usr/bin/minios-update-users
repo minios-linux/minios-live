@@ -24,17 +24,6 @@ CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
 read_config /etc/minios/config BEXT
 BEXT=${BEXT:-"sb"}
 CORE_BUNDLE_PATH="$(ls -1d $BUNDLES/$CORE_BUNDLE_PREFIX*.$BEXT)"
-if [ -d /run/initramfs/memory/changes ]; then
-    CHANGES="/run/initramfs/memory/changes"
-    INITRD_TYPE="livekit"
-elif [ -d /memory/changes ]; then
-    CHANGES="/memory/changes"
-    INITRD_TYPE="uird"
-fi
-
-if [ -d "$CHANGES/changes" -a -d "$CHANGES/workdir" -a "$(ls -1 "$CHANGES" | egrep -v '^changes$' | egrep -v '^workdir')" = "" ]; then
-    CHANGES="$CHANGES/changes"
-fi
 
 allow_root_only
 
@@ -45,11 +34,6 @@ for FILE in {passwd,shadow,group,gshadow}; do
     if [ -f "$CORE_BUNDLE_PATH/etc/$FILE" ]; then
         cp "$CORE_BUNDLE_PATH/etc/$FILE" "$TMP/$FILE.bundles" || exit
         cp "$TMP/$FILE.bundles" "/var/log/minios/users/$FILE.core"
-    fi
-
-    if [ -f "$CHANGES/etc/$FILE" ]; then
-        cp "$CHANGES/etc/$FILE" "$TMP/$FILE.changes" || exit
-        cp "$CHANGES/etc/$FILE" "/var/log/minios/users/$FILE.changes"
     fi
 
 done
@@ -66,17 +50,7 @@ for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
 done
 
 for FILE in {passwd,shadow,group,gshadow}; do
-    if [ -f "$TMP/$FILE.changes" ]; then
-        
-        grep -Fvf "$TMP/$FILE.changes" "$TMP/$FILE.bundles" >>"$TMP/$FILE.changes"
-        cp "$TMP/$FILE.changes" "/var/log/minios/users/$FILE.bundles"
-
-        awk '!x[$0]++' "$TMP/$FILE.changes" >"/etc/$FILE"
-        cp "/etc/$FILE" "/var/log/minios/users/$FILE"
-
-    elif [ -f "$TMP/$FILE.bundles" ]; then
+    if [ -f "$TMP/$FILE.bundles" ]; then
         awk '!x[$0]++' "$TMP/$FILE.bundles" >"/etc/$FILE"
     fi
 done
-
-exit

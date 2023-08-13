@@ -12,6 +12,8 @@ if [ -f /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js 
 
 pref("general.smoothScroll", false);
 pref("browser.uidensity", 1);
+pref("browser.newtabpage.activity-stream.feeds.topsites", false);
+pref("browser.toolbars.bookmarks.visibility", "never");
 
 EOF
         else
@@ -21,6 +23,9 @@ pref("browser.tabs.drawInTitlebar", true);
 pref("general.smoothScroll", false);
 pref("browser.compactmode.show", true);
 pref("browser.uidensity", 1);
+pref("browser.tabs.inTitlebar", 1);
+pref("browser.newtabpage.activity-stream.feeds.topsites", false);
+pref("browser.toolbars.bookmarks.visibility", "never");
 
 EOF
         fi

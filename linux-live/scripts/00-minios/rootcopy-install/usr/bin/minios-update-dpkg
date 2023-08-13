@@ -33,16 +33,6 @@ DPKG_STATUS_FILE=/var/lib/dpkg/status
 
 [ -d $(dirname $DPKG_STATUS_FILE) ] || exit
 
-if [ -d /run/initramfs/memory/changes ]; then
-    CHANGES="/run/initramfs/memory/changes"
-elif [ -d /memory/changes ]; then
-    CHANGES="/memory/changes"
-fi
-
-if [ -d "$CHANGES/changes" -a -d "$CHANGES/workdir" -a "$(ls -1 "$CHANGES" | egrep -v '^changes$' | egrep -v '^workdir')" = "" ]; then
-    CHANGES="$CHANGES/changes"
-fi
-
 allow_root_only
 
 cat "$BUNDLES"/*."$BEXT"/var/lib/dpkg/statoverride | sort -u >/var/lib/dpkg/statoverride
@@ -62,11 +52,6 @@ for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
 done
 
 cp "$TEMP_FILE-packages.list" "/var/log/minios/packages-bundles.list"
-
-cat "$CHANGES$DPKG_STATUS_FILE" >>"$TEMP_FILE"
-get_installed_packages "$CHANGES" >>"$TEMP_FILE-packages.list"
-
-cp "$TEMP_FILE-packages.list" "/var/log/minios/packages-changes.list"
 
 get_installed_packages "$CORE_BUNDLE_PATH" | sort -u >>"$TEMP_FILE-core_bundle_packages.list"
 sort -u "$TEMP_FILE-packages.list" >"$TEMP_FILE-packages_sorted.list"

@@ -47,7 +47,7 @@ translate() {
 list_disks() {
     DISKS=$(lsblk -Jo NAME,SIZE -n -d -I 3,8,259,252 | jq -r '.blockdevices[] | .name + "(" + .size + ")"')
     DISKS=$(echo $DISKS | tr ' ' '!')
-    FILESYSTEMS="btrfs!exfat!ext2!ext4!fat32!ntfs"
+    FILESYSTEMS="btrfs!ext2!ext3!ext4!fat32!ntfs"
 }
 
 # Get disk size in MiBs
@@ -57,7 +57,9 @@ get_disk_size() {
 
 # Partition the disk
 partition_disk() {
-    #echo -e "o\nn\np\n1\n\n\nw" | fdisk $DEV
+    if [ "$FS" = "exfat" ]; then
+        EFI_SUPPORT="TRUE"
+    fi
     if [ "$EFI_SUPPORT" = "TRUE" ]; then
         if [ "$GPT_SUPPORT" = "TRUE" ]; then
             parted -s $DEV mklabel gpt
@@ -89,7 +91,7 @@ wipe_disk() {
 format_partition() {
     if [ "$FS" = "fat32" ]; then
         mkfs.vfat "$PART"
-    elif [ "$FS" = "btrfs2" ] || [ "$FS" = "ntfs" ]; then
+    elif [ "$FS" = "btrfs" ] || [ "$FS" = "ntfs" ]; then
         mkfs."$FS" -f "$PART"
     else
         mkfs."$FS" "$PART"
@@ -115,6 +117,7 @@ mount_part() {
             fi
         fi
     fi
+    trap "umount $DESTINATION $EFI_DESTINATION 2>/dev/null; rmdir $DESTINATION $EFI_DESTINATION 2>/dev/null" EXIT
 }
 
 # Unmount the partition
@@ -136,18 +139,18 @@ copy_files() {
     elif [ -d /memory ]; then
         SOURCE="/memory"
     fi
-    if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
+    if [ -e "$SOURCE/data/$LIVEKITNAME/boot/vmlinuz" ]; then
         MINIOS=$SOURCE/data/$LIVEKITNAME
-    elif [ -e "$SOURCE/iso/$LIVEKITNAME/boot/isolinux.bin" ]; then
+    elif [ -e "$SOURCE/iso/$LIVEKITNAME/boot/vmlinuz" ]; then
         MINIOS=$SOURCE/iso/$LIVEKITNAME
-    elif [ -e "$SOURCE/toram/boot/isolinux.bin" ]; then
+    elif [ -e "$SOURCE/toram/boot/vmlinuz" ]; then
         MINIOS=$SOURCE/toram
-    elif [ -e "$SOURCE/data/from/0/$LIVEKITNAME/boot/isolinux.bin" ]; then
+    elif [ -e "$SOURCE/data/from/0/$LIVEKITNAME/boot/vmlinuz" ]; then
         MINIOS=$SOURCE/data/from/0/$LIVEKITNAME
     fi
 
     if [ "$MINIOS" = "" ]; then
-        echo "Cannot find boot/isolinux.bin in MiniOS data" >&2
+        echo "Cannot find boot/vmlinuz in MiniOS data" >&2
         exit 2
     fi
     EFI="$MINIOS/boot/EFI"
@@ -263,7 +266,7 @@ install_minios() {
     echo "$(translate "Copying MiniOS files to the new partition on disk $PART...")"
     copy_files || show_error_message
     echo "90"
-    if [ $GPT_SUPPORT != "TRUE" ]; then
+    if [ "$GPT_SUPPORT" != "TRUE" ] && [ "$FS" != "exfat" ]; then
         echo "$(translate "Running the MiniOS boot installer on disk $PART...")"
         install_boot_record || show_error_message
     fi
@@ -286,7 +289,6 @@ main_menu() {
             --field="$(translate "Select device"):CB" "${DISKS}" \
             --field="$(translate "Select file system"):CB" "${FILESYSTEMS}" \
             --field="$(translate "EFI"):CHK" \
-            --field="$(translate "GPT"):CHK" \
             --button=gtk-cancel:101 \
             --button="$(translate "Install")!ubiquity":102 \
             --button=gtk-refresh:103
@@ -302,9 +304,9 @@ main_menu() {
     EFI_PART="/dev/$EFI_PART_NAME"
     FS=$(echo "$MAIN_FORM" | cut -d "|" -f2)
     EFI_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f3)
-    GPT_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f4)
-    DESTINATION="/mnt/$PART_NAME"
-    EFI_DESTINATION="/mnt/$EFI_PART_NAME"
+    #GPT_SUPPORT=$(echo "$MAIN_FORM" | cut -d "|" -f4)
+    DESTINATION="/mnt/install/$PART_NAME"
+    EFI_DESTINATION="/mnt/install/$EFI_PART_NAME"
 
     case $BUTTON in
     101)

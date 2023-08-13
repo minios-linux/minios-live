@@ -2,6 +2,8 @@
 
 . /minioslib || exit 1
 
+language_to_array
+
 pkg update
 
 if [ $DISTRIBUTION = "bookworm" ]; then
@@ -41,6 +43,15 @@ fi
 
 rm -f /usr/share/applications/5chromium.desktop
 
+# Fluxbox menu
+for file in /etc/skel/.fluxbox/menu*; do
+    if [ $file != "/etc/skel/.fluxbox/menu_${LNG[0]}" ]; then
+        echo $file
+        sleep 1
+        rm $file
+    fi
+done
+mv /etc/skel/.fluxbox/menu_${LNG[0]} /etc/skel/.fluxbox/menu
 if [ $LOCALE = "ru_RU" ]; then
     pkg install fbxkb
     # Locale
@@ -49,21 +60,6 @@ if [ $LOCALE = "ru_RU" ]; then
     sed -i '37G' /etc/skel/.fluxbox/startup
     sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
     sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
-    # Fluxbox menu
-    sed -i "s/Desktop menu/Меню рабочего стола/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Terminal/Терминал/g" /etc/skel/.fluxbox/menu
-    sed -i "s/File Manager/Менеджер файлов/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Web Browser/Браузер/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Text Editor/Текстовый редактор/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Calculator/Калькулятор/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Network Manager/Менеджер сети/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Run/Запустить/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Workspaces                .../Рабочие пространства    .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Screen resolution         .../Разрешение экрана       .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Keyboard layout           .../Раскладка клавиатуры    .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Exit \/ Logout/Выход/g" /etc/skel/.fluxbox/menu
-    sed -ie '15d;17,21d;23,64d' /etc/skel/.fluxbox/menu
-    sed -ie '3d;5,7d' /etc/skel/.fluxbox/menu
     # Apps
     sed -i "s/Name=Terminal/Name=Терминал/g" /usr/share/applications/1terminal.desktop
     sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5chromium.desktop
@@ -77,21 +73,6 @@ elif [ $LOCALE = "es_ES" ]; then
     sed -i '37G' /etc/skel/.fluxbox/startup
     sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
     sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
-    # Fluxbox menu
-    sed -i "s/Desktop menu/Menú de escritorio/g" /etc/skel/.fluxbox/menu
-    #sed -i "s/Terminal/Terminal/g" /etc/skel/.fluxbox/menu
-    sed -i "s/File Manager/Gestor de archivos/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Web Browser/Navegador web/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Text Editor/Editor de texto/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Calculator/Calculadora/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Network Manager/Gestor de red/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Run/Ejecutar/g" /etc/skel/.fluxbox/menu
-    sed -i "s/Workspaces                .../Espacios de trabajo     .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Screen resolution         .../Resolución de pantalla  .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Keyboard layout           .../Disposición del teclado .../g" /etc/skel/.fluxbox/menu
-    sed -i "s/Exit \/ Logout/Salida/g" /etc/skel/.fluxbox/menu
-    sed -ie '15d;17,21d;23,64d' /etc/skel/.fluxbox/menu
-    sed -ie '3d;5,7d' /etc/skel/.fluxbox/menu
     # Apps
     #sed -i "s/Name=Terminal/Name=Терминал/g" /usr/share/applications/1terminal.desktop
     sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5chromium.desktop
