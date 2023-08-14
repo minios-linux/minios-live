@@ -89,3 +89,37 @@ v3.1
 - Added console script minios-resolution, which allows to add a non-standard resolution to the screen settings (it does not work perfectly and not always, additional testing is needed).
 - Optimized the code of some scripts.
 - A new version of dynfilefs has been added, it is no longer necessary to specify the size of the change file, this option has been removed.
+v3.2
+- Fixed some bugs that caused problems when starting the system with saving changes.
+- A long process of code refactoring has been started. Useless functions will be removed from minios-live scripts, and those that remain will become more convenient, simple and clear.
+- The apt2sb utility has been completely redesigned and now makes it easier to create modules from the list of packages provided to it.
+- Added scr2sb utility to create modules based on the script provided to it.
+- Added more detailed help in man for apt2sb and scr2sb.
+- Reworked minios-geniso, minios-bundle utilities.
+- Recycled utilities for working with Puzzle: minios-update-cache, minios-update-dpkg, minios-update-users. You should not run them manually, they are triggered automatically at system boot or when connecting/disconnecting modules using minios-bundle.
+- Added SYSTEM_TYPE variable to minios.conf, it can also be called in kernel parameters as system_type=. It can take the values "classic" and "puzzle".
+  - If "classic" is selected, all modules in the system must be built on the basis of one another. Modules built on the basis of a common module may cause errors and loss of system performance.
+  - If "puzzle" is selected, then at system startup user lists are synchronized, dpkg bases from different modules are synchronized, and different caches are updated. This allows multiple modules built on the basis of a common module to work together (this is how MiniOS Puzzle works).
+  - "puzzle" can be used with any variant of the system, "classic" cannot be used with MiniOS Puzzle.
+  - !!! If you use the save changes mode with "puzzle" value, after the first system boot you can't add/remove modules anymore, this mode is designed to work only outside of save changes mode !!!! 
+- added GTK3 layout to LibreOffice module (in those MiniOS versions where it exists).
+- Added EXPORT_LOGS variable in minios.conf. If it is "true", then after system startup in minios folder on flash drive there will be logs folder, where will be trace and output logs of system startup.
+- Various Network Manager modules in MiniOS Puzzle are combined into one to reduce the number of layers (the more layers a system has, the more RAM it consumes).
+- Updated VirtualBox installation scripts in minios-live scripts.
+- Removed the CREATE_BACKUP variable, which used to be used for script backups, from buildconfig in minios-live scripts, along with its associated functionality.
+- Time zone setting functionality at network startup was moved from 00-core to 00-minios, time synchronization at network startup was added.
+- Added wpasupplicant to package lists (in bullseye it was installed with other packages automatically, in bookworm its absence in dependencies caused problems with Wi-Fi performance).
+- In Standard and higher versions xrdp server with pulseaudio-module-xrdp is added
+- In minios-live scripts instead of apt/apt-get the pkg function with similar functionality is used, thanks to which the code in scripts will be smaller
+- Added install_packages function to minios-live scripts to install from package lists. Help on how to use it can be found in the function comments in minioslib
+- Added a small utility to prevent windows from locking. Not included in the standard modules yet.
+- Added minios-installer utility, which allows you to install the system on the foyer directly from the system.
+- Updated livekitlib functions to match a future version of Slax.
+- Similar to Slax, added perchsize and perchname command line parameters that allow you to specify the size of the change storage space and the name of the change storage files.
+- Fixed a bug that caused NTFS booting not to work.
+- Added packages for programs used in Flux to speed up building of this variant.
+- Pressing F1 and F10 in the XFCE terminal no longer opens help or menus, but is handled in the terminal.
+- Improved the appearance of Firefox, removing unnecessary garbage in the form of advertising links.
+- Added value checker in minios.conf, which resets parameters that only accept certain values (true/false, for example) to default values on startup.
+- In Flux, fixed bugs with installing a browser with Spanish language, fixed a bug where an unreveligated user was not created, which resulted in the inability to start VLC.
+- Ultra adds the lazydocker utility, which allows you to conveniently monitor containers from the terminal.

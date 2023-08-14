@@ -46,8 +46,6 @@ rm -f /usr/share/applications/5chromium.desktop
 # Fluxbox menu
 for file in /etc/skel/.fluxbox/menu*; do
     if [ $file != "/etc/skel/.fluxbox/menu_${LNG[0]}" ]; then
-        echo $file
-        sleep 1
         rm $file
     fi
 done
