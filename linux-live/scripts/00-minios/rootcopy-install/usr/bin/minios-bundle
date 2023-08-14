@@ -163,6 +163,7 @@ function help() {
     echo "  $(basename $0) activate file.sb"
     echo "  $(basename $0) deactivate file.sb"
     echo "  $(basename $0) list"
+    exit 0
 }
 
 function brief_help() {
@@ -201,7 +202,6 @@ function aufs_support() {
     if [ $AUFS = "false" ]; then
         echo "AUFS is not supported by the $(uname -r) kernel."
         brief_help
-        exit 1
     fi
 }
 
@@ -209,7 +209,6 @@ aufs_support
 
 if [[ $# -eq 0 ]]; then
     brief_help
-    exit 1
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -230,7 +229,6 @@ done
 if [[ "$(id -u)" != "0" ]]; then
     echo "This script must be run as root."
     brief_help
-    exit 1
 fi
 
 if [ "$1" = "activate" ]; then
