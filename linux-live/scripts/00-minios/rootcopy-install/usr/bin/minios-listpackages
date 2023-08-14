@@ -2,8 +2,7 @@
 # Author: sfs <https://puppyrus.org>
 # Author: crims0n <https://minios.dev>
 
-. /usr/lib/minioslib || exit 1
-read_config /etc/minios/config BEXT
+BEXT="sb"
 
 [ ! "$1" ] && echo "List packages.deb in dir or module.$BEXT
     Usage:    $0 [dir|*.$BEXT]

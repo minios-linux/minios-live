@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Author: crims0n. <http://minios.dev>
-# Author of original idea: parrothead. <https://groups.google.com/g/slax-users/c/3nsx5a8bu8s>
 
 VERSION="1.0"
 BEXT="sb"
@@ -70,7 +69,6 @@ done
 if [ "$(id -u)" != "0" ]; then
     echo "This script must be run as root."
     brief_help
-    exit 1
 fi
 
 TMP=$(mktemp -d)

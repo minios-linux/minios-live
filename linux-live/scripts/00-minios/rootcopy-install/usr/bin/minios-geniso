@@ -40,6 +40,7 @@ help() {
     echo "  $(basename $0) -e 'chromium' -f minios_without_chromium.iso"
     echo "  # create MiniOS text-mode core only:"
     echo "  $(basename $0) --exclude='firmware|xorg|desktop|apps|chromium' --file=minios_textmode.iso"
+    exit 0
 }
 
 function brief_help() {

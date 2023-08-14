@@ -37,7 +37,6 @@ function version() {
 
 if [ $# -eq 0 ]; then
     brief_help
-    exit 1
 fi
 
 INSTALL_SCRIPT=""
@@ -96,7 +95,6 @@ done
 if [ "$(id -u)" != "0" ]; then
     echo "This script must be run as root."
     brief_help
-    exit 1
 fi
 
 if [ ! "$INSTALL_SCRIPT" ]; then
