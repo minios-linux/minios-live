@@ -69,6 +69,20 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "$SETTING" | debconf-set-selections -v
 done
 
+curl https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
+if [ $DISTRIBUTION = "kali-rolling" ]; then
+    echo "deb https://minios.dev/debian/ bookworm main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+    echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free
+deb https://minios.dev/debian/ $DISTRIBUTION-backports main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+else
+    echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+fi
+cat <<EOF >/etc/apt/preferences.d/minios-linux
+Package: *
+Pin: release l=MiniOS Repository
+Pin-Priority: 1001
+EOF
 # Check if package variant list file exists
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     # Install packages based on distribution

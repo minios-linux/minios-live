@@ -9,6 +9,9 @@ else
 fi
 . /linux-live/kernelconfig || exit 1
 . /linux-live/minioslib || exit 1
+if [ -z $KERNEL ]; then
+. /miniosbuild.conf || exit 1
+fi
 
 console_colors
 
