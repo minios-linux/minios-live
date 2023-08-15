@@ -15,7 +15,7 @@ read_config /etc/minios/buildconfig SYSTEMNAME
 SYSTEMNAME=${SYSTEMNAME:-"MiniOS"}
 
 if [ -d /run/initramfs/memory ]; then
-    SOURCE=/run/initramfs/memory/bundles
+    SOURCE=/run/initramfs/memory
 elif [ -d /memory ]; then
     SOURCE="/memory"
 fi
