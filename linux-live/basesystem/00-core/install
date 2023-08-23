@@ -83,6 +83,7 @@ Package: *
 Pin: release l=MiniOS Repository
 Pin-Priority: 1001
 EOF
+
 # Check if package variant list file exists
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     # Install packages based on distribution
@@ -104,7 +105,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         install_packages --delete-packages="systemd-timesyncd" --replace-packages="fuse3=fuse"
         ;;
     "bionic")
-        install_packages --replace-packages="fuse3=fuse acpi-support-base=acpi-support"
+        install_packages --delete-packages="systemd-timesyncd" --replace-packages="fuse3=fuse acpi-support-base=acpi-support"
         ;;
     "focal")
         install_packages --replace-packages="acpi-support-base=acpi-support" --add-packages="netplan.io"
