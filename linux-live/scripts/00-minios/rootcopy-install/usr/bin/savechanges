@@ -80,9 +80,9 @@ find \( -type d -printf "%p/\n" , -not -type d -print \) |
 cd $CWD
 
 if [ $COMP_TYPE = "xz" ]; then
-   mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend
+   mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -Xbcj x86 -always-use-fragments -noappend  > /dev/null
 else
-   mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend
+   mksquashfs $TMP "$1" -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend  > /dev/null
 fi
 
 umount $TMP
