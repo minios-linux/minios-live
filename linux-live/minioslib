@@ -1534,13 +1534,15 @@ EOF
 
     if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         BOOT_SETTINGS="hide_credentials"
-    elif [ $PACKAGE_VARIANT = "minimum" ]; then
+    elif [ $DESKTOP_ENVIRONMENT = "flux" ]; then
         if [ $INITRD_TYPE = "livekit-mos" ]; then
             PERCH_SETTINGS="minios.flags=perch,automount"
             LIVE_SETTINGS="minios.flags=automount"
+            FLUX_SETTINGS=" automount"
         elif [ $INITRD_TYPE = "livekit-slax" ]; then
             PERCH_SETTINGS="slax.flags=perch,automount"
             LIVE_SETTINGS="slax.flags=automount"
+            FLUX_SETTINGS=" automount"
         fi
     fi
 
@@ -1612,7 +1614,7 @@ EOF
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS toram
 
 EOF
         if [ $BOOT_TYPE = "hybrid" ]; then
@@ -1620,7 +1622,7 @@ EOF
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_image
-    linux \$linux_image \$default_settings \$ram_settings \$console_settings $BOOT_SETTINGS
+    linux \$linux_image \$default_settings \$console_settings $BOOT_SETTINGS toram
     initrd \$initrd_img
 }
 
@@ -1646,7 +1648,7 @@ menuentry "Run MiniOS (Copy to RAM)"{
 
 EOF
         fi
-    else
+    elif [ $INITRD_TYPE = "uird" ]; then
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Persistent changes)
@@ -1682,6 +1684,69 @@ menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_image
     linux \$linux_image \$default_settings \$ram_settings $BOOT_SETTINGS
+    initrd \$initrd_img
+}
+
+EOF
+        fi
+    else
+        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+LABEL default
+MENU LABEL Run MiniOS (Resume previous session)
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS perchdir=resume
+
+LABEL perch
+MENU LABEL Run MiniOS (Start a new session)
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS perchdir=new
+
+LABEL asksession
+MENU LABEL Run MiniOS (Choose session during startup)
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS perchdir=ask
+
+LABEL live
+MENU LABEL Run MiniOS (Fresh start)
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS
+
+LABEL toram
+MENU LABEL Run MiniOS (Copy to RAM)
+KERNEL /$LIVEKITNAME/boot/vmlinuz
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS toram
+
+EOF
+        if [ $BOOT_TYPE = "hybrid" ]; then
+            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+menuentry "Run MiniOS (Resume previous session)"{
+    echo \$message
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings $BOOT_SETTINGS perchdir=resume
+    initrd \$initrd_img
+}
+menuentry "Run MiniOS (Start a new session)"{
+    echo \$message
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings $BOOT_SETTINGS perchdir=new
+    initrd \$initrd_img
+}
+menuentry "Run MiniOS (Choose session during startup)"{
+    echo \$message
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings $BOOT_SETTINGS perchdir=ask
+    initrd \$initrd_img
+}
+menuentry "Run MiniOS (Fresh start)"{
+    echo \$message
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings $BOOT_SETTINGS
+    initrd \$initrd_img
+}
+menuentry "Run MiniOS (Copy to RAM)"{
+    echo \$message
+    search --set -f \$linux_image
+    linux \$linux_image \$default_settings $BOOT_SETTINGS toram
     initrd \$initrd_img
 }
 
