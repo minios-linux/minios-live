@@ -38,13 +38,8 @@ elif [ -d /memory/bundles ]; then
     BUNDLES=/memory/bundles
     INITRD_TYPE="uird"
 fi
-if [ -n "$SFLAGS" ] && [ -z "$FLAGS" ]; then
-    FLAGS="$SFLAGS"
-fi
-CORE_BUNDLE_PREFIX=00-
-BEXT=sb
 if [ "$INITRD_TYPE" = "livekit" ]; then
-    if [ "$FLAGS" = "toram" ]; then
+    if [ "$TORAM" = "true" ]; then
         MEDIA="/run/initramfs/memory/toram"
     else
         MEDIA="/run/initramfs/memory/data/$LIVEKITNAME"
