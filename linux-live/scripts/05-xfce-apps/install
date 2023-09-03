@@ -50,21 +50,22 @@ if [ $LOCALE != "en_US" ]; then
     sed -i "s/doublecmd.en.po/doublecmd.${LNG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
 fi
 
-if [ $PACKAGE_VARIANT = "minimum" ]; then
-    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
-TerminalEmulator=xterm
-FileManager=Thunar
-WebBrowser=
-
-EOF
-elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
+if grep -q "xfce4-terminal" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
 WebBrowser=
 
 EOF
+else
+    cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=Thunar
+WebBrowser=
+
+EOF
 fi
+
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; then

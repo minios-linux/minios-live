@@ -52,14 +52,14 @@ if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; t
         mkdir -p /etc/skel/.config/xfce4
     fi
 
-    if [ $PACKAGE_VARIANT = "minimum" ]; then
+    if grep -q "xterm" /etc/skel/.config/xfce4/helpers.rc >/dev/null 2>&1; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
 WebBrowser=firefox
 
 EOF
-    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+    elif grep -q "xfce4-terminal" /etc/skel/.config/xfce4/helpers.rc >/dev/null 2>&1; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

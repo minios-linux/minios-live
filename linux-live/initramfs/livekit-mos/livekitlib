@@ -194,8 +194,13 @@ init_zram() {
    debug_log "init_zram" "$*"
    echo_green_star
    echo "Setting dynamic RAM compression using ZRAM if available"
+   ZRAMSIZE=$(cmdline_value zramsize)
+   if [ -z "$ZRAMSIZE" ]; then
+      ZRAMSIZE=512
+   fi
+   ZRAMSIZE=$(($ZRAMSIZE * 1024 * 1024))
    if [ -r /sys/block/zram0/disksize ]; then
-      echo 536870912 >/sys/block/zram0/disksize # 512MB
+      echo $ZRAMSIZE >/sys/block/zram0/disksize
       mkswap /dev/zram0 >/dev/null
       swapon /dev/zram0
       echo 100 >/proc/sys/vm/swappiness
