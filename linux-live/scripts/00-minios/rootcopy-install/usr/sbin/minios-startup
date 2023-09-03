@@ -143,7 +143,7 @@ cat <<EOF >/etc/issue
 EOF
 
 if [ -f "$BUILDCONFIG" ]; then
-    read_config "$BUILDCONFIG" DISTRIBUTION DESKTOP_ENVIRONMENT
+    read_config "$BUILDCONFIG" DISTRIBUTION DESKTOP_ENVIRONMENT PACKAGE_VARIANT
     case $DISTRIBUTION in
     stretch | buster | bullseye | bookworm | kali-rolling | sid | orel)
         DISTRIBUTION_TYPE="debian"
@@ -309,7 +309,10 @@ if [ "$CLOUD" != "true" ]; then
         USER_GROUP=$USER_NAME
         if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
-            usermod -a -G adm,cdrom,sudo,dip,plugdev,users,lpadmin,sambashare "$USER_NAME"
+            usermod -a -G adm,cdrom,sudo,dip,plugdev,users "$USER_NAME"
+            if [ "$PACKAGE_VARIANT" != "minimum" ]; then
+                usermod -a -G lpadmin,sambashare "$USER_NAME"
+            fi
             if [ ! -f /usr/bin/pulseaudio ]; then
                 usermod -a -G audio "$USER_NAME"
             fi
@@ -341,7 +344,10 @@ if [ "$CLOUD" != "true" ]; then
         # Set up user
         if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' "guest" --disabled-password
-            usermod -a -G adm,cdrom,sudo,dip,plugdev,users,lpadmin,sambashare guest
+            usermod -a -G adm,cdrom,sudo,dip,plugdev,users guest
+            if [ "$PACKAGE_VARIANT" != "minimum" ]; then
+                usermod -a -G lpadmin,sambashare guest
+            fi
             if [ ! -f /usr/bin/pulseaudio ]; then
                 usermod -a -G audio "guest"
             fi
@@ -457,7 +463,7 @@ update_config_value() {
 }
 
 # Iterate over a list of variable names
-for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS CLOUD AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE SYSTEM_TYPE; do
+for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE SYSTEM_TYPE EXPORT_LOGS; do
     # Call the update_config_value function for each variable to update its value in the configuration file
     update_config_value "$PARAM"
 done
