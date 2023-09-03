@@ -194,11 +194,19 @@ init_zram() {
    debug_log "init_zram" "$*"
    echo_green_star
    echo "Setting dynamic RAM compression using ZRAM if available"
+   ZRAMCOMP=$(cmdline_value zramcomp)
    ZRAMSIZE=$(cmdline_value zramsize)
    if [ -z "$ZRAMSIZE" ]; then
       ZRAMSIZE=512
    fi
    ZRAMSIZE=$(($ZRAMSIZE * 1024 * 1024))
+   if [ -r /sys/block/zram0/comp_algorithm ]; then
+      case "$ZRAMCOMP" in
+      lzo | lzo-rle | lz4 | lz4hc | zstd)
+         echo $ZRAMCOMP >/sys/block/zram0/comp_algorithm
+         ;;
+      esac
+   fi
    if [ -r /sys/block/zram0/disksize ]; then
       echo $ZRAMSIZE >/sys/block/zram0/disksize
       mkswap /dev/zram0 >/dev/null
