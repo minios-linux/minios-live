@@ -162,7 +162,8 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 if [ $KERNEL_TYPE != "none" ]; then
-    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && ([ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ]); then
+    # Installing wireguard in bookworm pulls the kernel. We need to figure this out.
+    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
         pkg install wireguard wireguard-tools
     fi
 fi
