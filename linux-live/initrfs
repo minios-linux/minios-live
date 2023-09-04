@@ -10,7 +10,7 @@ fi
 . /linux-live/kernelconfig || exit 1
 . /linux-live/minioslib || exit 1
 if [ -z $KERNEL ]; then
-. /miniosbuild.conf || exit 1
+	. /miniosbuild.conf || exit 1
 fi
 
 console_colors
@@ -27,6 +27,9 @@ if [[ $INITRD_TYPE == *"livekit"* ]]; then
 	chmod 755 ./initramfs_create
 	INITRAMFS=$(./initramfs_create $KERNEL)
 	if [ "$INITRAMFS" != "" ]; then
+		if [ ! -d /boot ]; then
+			mkdir /boot
+		fi
 		mv "$INITRAMFS" /boot/initrfs.img
 	fi
 elif [ $INITRD_TYPE = "uird" ]; then
