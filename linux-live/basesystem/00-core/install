@@ -162,7 +162,7 @@ if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 if [ $KERNEL_TYPE != "none" ]; then
-    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
+    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && ([ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ]); then
         pkg install wireguard wireguard-tools
     fi
 fi
@@ -171,9 +171,15 @@ if [ -f /bin/ping ]; then
     chmod +s /bin/ping
 fi
 
-if [ $PACKAGE_VARIANT = "ultra" ]; then
+if grep -q docker $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     systemctl disable docker.socket
+    systemctl disable docker.service
+    systemctl disable containerd.service
+fi
+if grep -q libvirt $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     systemctl disable libvirtd
+fi
+if grep -q open-iscsi $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     systemctl disable iscsid
 fi
 

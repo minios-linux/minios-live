@@ -309,12 +309,15 @@ if [ "$CLOUD" != "true" ]; then
         USER_GROUP=$USER_NAME
         if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
-            usermod -a -G adm,cdrom,sudo,dip,plugdev,users "$USER_NAME"
+            usermod -aG adm,cdrom,sudo,dip,plugdev,users "$USER_NAME"
             if [ "$PACKAGE_VARIANT" != "minimum" ]; then
-                usermod -a -G lpadmin,sambashare "$USER_NAME"
+                usermod -aG lpadmin,sambashare "$USER_NAME"
+            fi
+            if [ "$PACKAGE_VARIANT" = "ultra" ]; then
+                usermod -aG docker libvirt "$USER_NAME"
             fi
             if [ ! -f /usr/bin/pulseaudio ]; then
-                usermod -a -G audio "$USER_NAME"
+                usermod -aG audio "$USER_NAME"
             fi
             cp -rT /etc/skel "/home/$USER_NAME"
             # create user directories
@@ -343,13 +346,13 @@ if [ "$CLOUD" != "true" ]; then
         echo "User name is guest"
         # Set up user
         if [ ! -f /var/.system_configured ]; then
-            adduser --uid 1000 --gecos '' "guest" --disabled-password
-            usermod -a -G adm,cdrom,sudo,dip,plugdev,users guest
+            adduser --uid 1000 --gecos '' guest --disabled-password
+            usermod -aG adm,cdrom,sudo,dip,plugdev,users guest
             if [ "$PACKAGE_VARIANT" != "minimum" ]; then
-                usermod -a -G lpadmin,sambashare guest
+                usermod -aG lpadmin,sambashare guest
             fi
             if [ ! -f /usr/bin/pulseaudio ]; then
-                usermod -a -G audio "guest"
+                usermod -aG audio guest
             fi
             cp -rT /etc/skel "/home/guest"
             chown guest:guest "/home/guest"
