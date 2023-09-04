@@ -21,7 +21,7 @@ bullseye)
     install_packages --package-list="$SCRIPT_DIR/package.list" --replace-packages="inkscape=inkscape/$DISTRIBUTION-backports telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
     ;;
 bookworm)
-    install_packages --package-list="$SCRIPT_DIR/package.list" telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
+    install_packages --package-list="$SCRIPT_DIR/package.list" --replace-packages="telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
     ;;
 *)
     install_packages --package-list="$SCRIPT_DIR/package.list"
