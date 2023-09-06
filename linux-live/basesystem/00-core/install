@@ -96,7 +96,11 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         fi
         ;;
     "bullseye")
-        install_packages --replace-packages="exfat-utils=exfatprogs" --add-packages="fuse3"
+        if [ $KERNEL_BUILD_DKMS = "false" ]; then
+            install_packages --delete-packages="zfsutils-linux" --replace-packages="exfat-utils=exfatprogs" --add-packages="fuse3"
+        else
+            install_packages --replace-packages="exfat-utils=exfatprogs" --add-packages="fuse3"
+        fi
         ;;
     "buster")
         install_packages --delete-packages="systemd-timesyncd" --replace-packages="cockpit-podman=cockpit-docker podman=docker"
