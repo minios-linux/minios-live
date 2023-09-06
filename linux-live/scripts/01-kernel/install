@@ -10,9 +10,9 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 UBUNTU_IMAGE_HWE="false"
 
-pkg update 
+pkg update
 
-if [ $DISTRIBUTION_TYPE = "debian" ] && [ $DISTRIBUTION != "bookworm" ]; then
+if [ $DISTRIBUTION_TYPE = "debian" ]; then
     if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
@@ -35,9 +35,11 @@ EOF
 deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
 EOF
         fi
-        pkg update 
-                    pkg install \
-            virtualbox-guest-utils 
+        pkg update
+        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+            pkg install \
+                virtualbox-guest-utils
+        fi
         if [ -f /etc/apt/sources.list.d/mx.list ]; then
             rm /etc/apt/sources.list.d/mx.list
         fi
@@ -51,8 +53,8 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
     if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
         wget http://download.proxmox.com/debian/proxmox-release-bullseye.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bullseye.gpg
         echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" >/etc/apt/sources.list.d/pve-install-repo.list
-        pkg update  &&
-            apt-get full-upgrade -y 
+        pkg update &&
+            apt-get full-upgrade -y
         KERNEL_IMAGE=$(apt-cache depends pve-kernel-5.15 | grep -m 2 'Depends:' | tail -n1 | sed 's/  Depends: //g')
     elif [ $KERNEL_TYPE = "ubuntu-hwe" ]; then
         UBUNTU_KERNEL_VERSION="5.15.0-46"
@@ -95,7 +97,7 @@ fi
 
 if [ $KERNEL_TYPE != "none" ]; then
     if [ $KERNEL_AUFS != "true" ] && [ $KERNEL_BPO = "true" ]; then
-                    pkg install -t $DISTRIBUTION-backports $KERNEL_IMAGE 
+        pkg install -t $DISTRIBUTION-backports $KERNEL_IMAGE
     elif [ $KERNEL_TYPE = "ubuntu" ]; then
         wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux-signed/
         wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux-signed/linux-image-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
@@ -108,8 +110,8 @@ if [ $KERNEL_TYPE != "none" ]; then
         pkg install ./linux-*.deb
         rm ./linux-*.deb
     else
-                    pkg install $KERNEL_IMAGE 
+        pkg install $KERNEL_IMAGE
     fi
 
-            apt-mark hold $KERNEL_IMAGE 
+    apt-mark hold $KERNEL_IMAGE
 fi

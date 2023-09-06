@@ -14,6 +14,7 @@ if [ ! -d /var/log/minios ]; then
 fi
 exec 19>/var/log/minios/startup.trace
 BASH_XTRACEFD=19
+PS4='${LINENO}: '
 set -x
 
 # Variables
@@ -310,11 +311,11 @@ if [ "$CLOUD" != "true" ]; then
         if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
             usermod -aG adm,cdrom,sudo,dip,plugdev,users "$USER_NAME"
-            if [ "$PACKAGE_VARIANT" != "minimum" ]; then
+            if grep -q "lpadmin" /etc/group; then
                 usermod -aG lpadmin,sambashare "$USER_NAME"
             fi
-            if [ "$PACKAGE_VARIANT" = "ultra" ]; then
-                usermod -aG docker libvirt "$USER_NAME"
+            if grep -q "libvirt" /etc/group; then
+                usermod -aG docker,libvirt "$USER_NAME"
             fi
             if [ ! -f /usr/bin/pulseaudio ]; then
                 usermod -aG audio "$USER_NAME"
@@ -348,7 +349,7 @@ if [ "$CLOUD" != "true" ]; then
         if [ ! -f /var/.system_configured ]; then
             adduser --uid 1000 --gecos '' guest --disabled-password
             usermod -aG adm,cdrom,sudo,dip,plugdev,users guest
-            if [ "$PACKAGE_VARIANT" != "minimum" ]; then
+            if grep -q "lpadmin" /etc/group; then
                 usermod -aG lpadmin,sambashare guest
             fi
             if [ ! -f /usr/bin/pulseaudio ]; then

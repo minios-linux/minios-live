@@ -8,12 +8,7 @@ echo "wicd-daemon	wicd/users	multiselect	live" | debconf-set-selections
 
 pkg update
 
-pkg install \
-    mousepad \
-    pcmanfm \
-    galculator \
-    lxtask \
-    xarchiver xdg-utils libgconf-2-4
+pkg install mousepad pcmanfm galculator lxtask xarchiver xdg-utils libgconf-2-4
 
 if [ $DISTRIBUTION = "stretch" ]; then
     pkg install \
@@ -22,8 +17,6 @@ else
     pkg install \
         connman-gtk
 fi
-
-(cd /rootcopy-install && cp --parents -afr * /)
 
 if [ $DISTRIBUTION = "stretch" ]; then
     rm -f /usr/share/applications/6connman.desktop

@@ -2420,7 +2420,7 @@ function install_packages() {
     for PKG in $REPLACE_PACKAGES; do
         OLD_PKG="${PKG%%=*}"
         NEW_PKG="${PKG#*=}"
-        SED_SCRIPT+="s/$OLD_PKG/$NEW_PKG/g;"
+        SED_SCRIPT+="s#$OLD_PKG#$NEW_PKG#g;"
     done
 
     pkg update
