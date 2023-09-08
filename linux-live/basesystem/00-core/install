@@ -89,17 +89,23 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     # Install packages based on distribution
     case $DISTRIBUTION in
     "bookworm" | "kali-rolling" | "sid")
+        if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
+            install_packages --delete-packages="jq" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
+        fi
         if [ $KERNEL_BUILD_DKMS = "false" ]; then
-            install_packages --delete-packages="davfs2 acpi-support-base acpid zfsutils-linux" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
+            install_packages --delete-packages="exfat-fuse zfsutils-linux" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
         else
-            install_packages --delete-packages="davfs2 acpi-support-base acpid" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
+            install_packages --delete-packages="exfat-fuse" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs"
         fi
         ;;
     "bullseye")
+        if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
+            install_packages --delete-packages="jq" --replace-packages="exfat-utils=exfatprogs"
+        fi
         if [ $KERNEL_BUILD_DKMS = "false" ]; then
-            install_packages --delete-packages="zfsutils-linux" --replace-packages="exfat-utils=exfatprogs" --add-packages="fuse3"
+            install_packages --delete-packages="exfat-fuse zfsutils-linux" --replace-packages="exfat-utils=exfatprogs"
         else
-            install_packages --replace-packages="exfat-utils=exfatprogs" --add-packages="fuse3"
+            install_packages --delete-packages="exfat-fuse" --replace-packages="exfat-utils=exfatprogs"
         fi
         ;;
     "buster")
@@ -115,10 +121,10 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         install_packages --replace-packages="acpi-support-base=acpi-support" --add-packages="netplan.io"
         ;;
     "jammy")
-        install_packages --delete-packages="acpi-support-base" --replace-packages="exfat-utils=exfatprogs" --add-packages="netplan.io"
+        install_packages --delete-packages="exfat-fuse acpi-support-base" --replace-packages="exfat-utils=exfatprogs" --add-packages="netplan.io"
         ;;
     "lunar")
-        install_packages --delete-packages="acpi-support-base" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs" --add-packages="netplan.io"
+        install_packages --delete-packages="exfat-fuse acpi-support-base" --replace-packages="netcat=netcat-openbsd exfat-utils=exfatprogs" --add-packages="netplan.io"
         ;;
     *)
         # Install packages with or without zfsutils-linux based on kernel type
