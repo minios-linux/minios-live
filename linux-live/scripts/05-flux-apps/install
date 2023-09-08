@@ -11,17 +11,16 @@ pkg update
 pkg install mousepad pcmanfm galculator lxtask xarchiver xdg-utils libgconf-2-4
 
 if [ $DISTRIBUTION = "stretch" ]; then
-    pkg install \
-        wicd
+    pkg install wicd
 else
-    pkg install \
-        connman-gtk
+    pkg install connman-gtk
 fi
 
 if [ $DISTRIBUTION = "stretch" ]; then
     rm -f /usr/share/applications/6connman.desktop
 else
     rm -f /usr/share/applications/6wicd.desktop
+    rm -f /usr/share/applications/6connman.desktop
     rm -rf /etc/wicd
     rm -f /etc/systemd/system/suspend.target.wants/resume_wifi.service
     rm -f /usr/bin/wicd-manager

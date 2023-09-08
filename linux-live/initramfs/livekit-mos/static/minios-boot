@@ -10,6 +10,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 declare -A VARIABLES_DEFAULTS=(
     ["DEFAULT_TARGET"]="graphical"
     ["CLOUD"]="false"
+    ["SCRIPTS"]="false"
     ["AUTOLOGIN"]="true"
 )
 
@@ -163,6 +164,30 @@ EOF
     fi
 }
 
+function set_scripts() {
+    if [ -z "$SCRIPTS" ]; then
+        if [ -f "$MINIOSCONFIG" ]; then
+            read_config "$MINIOSCONFIG" SCRIPTS
+            if [ -z "$SCRIPTS" ]; then
+                SCRIPTS="false"
+            fi
+        else
+            SCRIPTS="false"
+        fi
+    fi
+    # Check if SCRIPTS is not a valid value
+    if [[ ! "$SCRIPTS" =~ ^(true|false)$ ]]; then
+        # Set SCRIPTS to its default value
+        SCRIPTS="${VARIABLES_DEFAULTS[SCRIPTS]}"
+    fi
+
+    if [ "$SCRIPTS" = "true" ]; then
+        systemctl enable minios-script-launcher.service
+    elif [ "$SCRIPTS" = "false" ]; then
+        systemctl disable minios-script-launcher.service
+    fi
+}
+
 console_colors
 allow_root_only
 set_trace_log "boot.trace"
@@ -173,6 +198,7 @@ set_default_target
 manage_services enable
 manage_services disable
 set_autologin
+set_scripts
 
 echo ""
 echo "/etc/minios/$LIVEKITNAME.conf configuration file contents:"
