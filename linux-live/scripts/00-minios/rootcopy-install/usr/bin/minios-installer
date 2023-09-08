@@ -52,7 +52,7 @@ list_disks() {
 
 # Get disk size in MiBs
 get_disk_size() {
-    parted -s $1 unit MiB print 2>/dev/null | grep Disk | cut -d' ' -f3 | tr -d MiB
+    parted -s $1 unit MiB print 2>/dev/null | grep $1 | cut -d' ' -f3 | tr -d MiB
 }
 
 # Partition the disk
@@ -258,9 +258,9 @@ installation_warning() {
             --borders=10 \
             --window-icon="ubiquity" \
             --title="$(translate 'WARNING')" \
-            --text="<span foreground=\"red\" font=\"Bold\" font-size=\"xx-large\">$(translate 'All data on the selected device will be lost!')</span>\n<span font-size=\"x-large\">$(translate 'Selected device'):</span><span font=\"Bold\" font-size=\"x-large\">$DEV</span>" \
+            --text="<span foreground=\"red\" font=\"Bold\" font-size=\"xx-large\">$(translate 'All data on the selected device will be lost!')</span>\n<span font-size=\"x-large\">$(translate 'Selected device:')</span><span font=\"Bold\" font-size=\"x-large\">$DEV</span>" \
             --text-align="center" \
-            --width=300 --height=200 \
+            --width=400 --height=200 \
             --buttons-layout="center" \
             --on-top \
             --form \
@@ -310,7 +310,7 @@ main_menu() {
             --borders=10 \
             --window-icon="ubiquity" \
             --title="$(translate 'MiniOS Installer')" \
-            --text="\n<span font-size=\"large\">$(translate 'Select installation options for MiniOS'):</span>\n" \
+            --text="<span font-size=\"large\">$(translate 'Select installation options for MiniOS:')</span>\n" \
             --text-align="center" \
             --width=300 --height=200 \
             --buttons-layout="center" \
@@ -358,7 +358,7 @@ final_question() {
             --borders=10 \
             --window-icon="ubiquity" \
             --title="$(translate 'MiniOS Installer')" \
-            --text="$(translate 'Thank you for installing MiniOS')" \
+            --text="$(translate 'Thank you for installing MiniOS.')" \
             --width=200 --height=100 \
             --buttons-layout="center" \
             --on-top \
