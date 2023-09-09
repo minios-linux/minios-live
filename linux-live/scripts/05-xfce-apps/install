@@ -49,6 +49,9 @@ fi
 if [ $LOCALE != "en_US" ]; then
     sed -i "s/doublecmd.en.po/doublecmd.${LNG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
 fi
+if grep -q "gnumeric" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+    sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
+fi
 
 if grep -q "xfce4-terminal" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
