@@ -257,10 +257,10 @@ installation_warning() {
         yad --form \
             --borders=10 \
             --window-icon="ubiquity" \
-            --title="$(translate 'WARNING')" \
-            --text="<span foreground=\"red\" font=\"Bold\" font-size=\"xx-large\">$(translate 'All data on the selected device will be lost!')</span>\n<span font-size=\"x-large\">$(translate 'Selected device:')</span><span font=\"Bold\" font-size=\"x-large\">$DEV</span>" \
+            --title="$(translate 'WARNING!')" \
+            --text="<span foreground=\"red\" font=\"Bold\" font-size=\"large\">$(translate 'All data on the selected device will be lost!')</span>\n<span font-size=\"large\">$(translate 'Selected device:')</span><span font=\"Bold\" font-size=\"large\">$DEV</span>" \
             --text-align="center" \
-            --width=400 --height=200 \
+            --width=400 \
             --buttons-layout="center" \
             --on-top \
             --form \
