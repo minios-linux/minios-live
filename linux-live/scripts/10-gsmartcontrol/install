@@ -14,10 +14,9 @@ pkg update
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
-if [ -f $SCRIPT_DIR/package.list ]; then
+if [ -f "$SCRIPT_DIR/package.list" ]; then
     install_packages --package-list="$SCRIPT_DIR/package.list"
-
-    PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
+    PACKAGE=$(head -n 1 "$SCRIPT_DIR/package.list")
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
 fi
