@@ -2409,7 +2409,14 @@ function install_packages() {
     done
 
     if [[ -z "$PACKAGE_LIST" ]]; then
-        PACKAGE_LIST="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+        if [ -f "$SCRIPT_DIR/$PACKAGE_VARIANT.list" ]; then
+            PACKAGE_LIST="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+        elif [ -f "$SCRIPT_DIR/package.list" ]; then
+            PACKAGE_LIST="$SCRIPT_DIR/package.list"
+        else
+            echo "There are no lists of packages here."
+            exit 1
+        fi
     fi
 
     # Build sed script for removing and replacing packages.
