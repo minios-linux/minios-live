@@ -102,8 +102,10 @@ pref("browser.toolbars.bookmarks.visibility", "never");
 
 EOF
 
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
+if [ $DISTRIBUTION_TYPE = "debian" ] && [ $DESKTOP_ENVIRONMENT != "flux" ]; then
     sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
+elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DESKTOP_ENVIRONMENT = "flux" ]; then
+    rm -f /usr/share/applications/firefox-esr.desktop
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then

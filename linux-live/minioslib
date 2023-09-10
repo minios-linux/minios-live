@@ -1509,12 +1509,12 @@ EOF
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
     else
-        DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 selinux=0 net.ifnames=0 biosdevname=0"
+        DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 selinux=0 apparmor=0 net.ifnames=0 biosdevname=0"
     fi
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
-        DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0 enable_services=$ENABLE_SERVICES"
+        DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
     else
-        DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 selinux=0 debug net.ifnames=0 biosdevname=0 enable_services=$ENABLE_SERVICES"
+        DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 selinux=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
     fi
     BOOT_SETTINGS="quiet"
     if [ $INITRD_TYPE = "livekit-mos" ]; then
