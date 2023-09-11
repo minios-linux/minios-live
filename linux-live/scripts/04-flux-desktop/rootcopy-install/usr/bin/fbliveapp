@@ -48,6 +48,16 @@ if [ "$1" = "firefox-esr" ]; then
    GUEST=false
 fi
 
+if [ "$1" = "minios-installer" ]; then
+   NAME="MiniOS Installer"
+   ABOUT="MiniOS Installer allows you to install MiniOS on the media."
+   EXECUTABLE="/usr/bin/minios-installer-flux"
+   PREINSTALL="apt update"
+   INSTALL="apt install --yes yad parted btrfs-progs && mv /usr/bin/minios-installer /usr/bin/minios-installer-flux"
+   POSTINSTALL="rm -f /usr/share/applications/yad-icon-browser.desktop"
+   GUEST=false
+fi
+
 shift
 
 # ------------------------------------------------

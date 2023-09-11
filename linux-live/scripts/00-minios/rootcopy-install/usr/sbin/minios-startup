@@ -27,11 +27,16 @@ if [ "$STATIC_PROFILES" = "true" ]; then
     exit 0
 fi
 if [ -f "$CONFIG" ]; then
-    read_config "$CONFIG" LIVEKITNAME
+    read_config "$CONFIG" LIVEKITNAME BEXT
 else
     LIVEKITNAME="minios"
+    BEXT="sb"
 fi
-
+echo "1. FROM=$FROM"
+if [ -z $FROM ] || echo "$FROM" | grep -q '^/dev/' || [ -n "$(echo $FROM | grep 'http://')" ]; then
+    FROM="$LIVEKITNAME"
+    echo "2. FROM=$FROM"
+fi
 if [ -d /run/initramfs/memory/bundles ]; then
     BUNDLES=/run/initramfs/memory/bundles
     INITRD_TYPE="livekit"
@@ -40,14 +45,26 @@ elif [ -d /memory/bundles ]; then
     INITRD_TYPE="uird"
 fi
 if [ "$INITRD_TYPE" = "livekit" ]; then
+    # search for bundles in the mounted directory
+    if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        # we found at least one bundle/module here
+        FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    fi
     if [ "$TORAM" = "true" ]; then
         MEDIA="/run/initramfs/memory/toram"
+    elif [ -d "/run/initramfs/memory/iso" ]; then
+        MEDIA="/run/initramfs/memory/iso"
     else
-        MEDIA="/run/initramfs/memory/data/$LIVEKITNAME"
+        MEDIA="$FROM"
     fi
 elif [ "$INITRD_TYPE" = "uird" ]; then
-    MEDIA="/memory/data/from/0/$LIVEKITNAME"
+    if [ "$(find "/memory/data/from/0/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        # we found at least one bundle/module here
+        FROM=$(echo "/memory/data/from/0/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    fi
+    MEDIA="$FROM"
 fi
+echo "3. FROM=$FROM"
 if id -nu 1000 2>/dev/null; then
     CURRENT_USER_NAME=$(id -nu 1000)
     CURRENT_USER_GROUP=$(id -ng 1000)
