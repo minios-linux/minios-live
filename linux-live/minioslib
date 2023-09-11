@@ -365,6 +365,10 @@ function read_cmdline() {
             SYSTEM_TYPE="${i#*=}"
             shift # past argument=value
             ;;
+        from=*)
+            FROM="${i#*=}"
+            shift # past argument=value
+            ;;
         *)
             UNKNOWN=true
             # unknown option

@@ -63,6 +63,7 @@ if [ $LOCALE = "ru_RU" ]; then
     sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5chromium.desktop
     sed -i "s/Name=Web Browser/Name=Браузер/g" /usr/share/applications/5firefox.desktop
     sed -i "s/Name=Video Player/Name=Видео-плеер/g" /usr/share/applications/videoplayer.desktop
+    sed -i "s/Name=Install/Name=Установить/g" /usr/share/applications/minios-installer.desktop
 elif [ $LOCALE = "es_ES" ]; then
     pkg install fbxkb
     # Locale
@@ -76,4 +77,5 @@ elif [ $LOCALE = "es_ES" ]; then
     sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5chromium.desktop
     sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5firefox.desktop
     sed -i "s/Name=Video Player/Name=Reproductor de vídeo/g" /usr/share/applications/videoplayer.desktop
+    sed -i "s/Name=Install/Name=Instalar/g" /usr/share/applications/minios-installer.desktop
 fi

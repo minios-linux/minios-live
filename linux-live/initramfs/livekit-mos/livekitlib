@@ -525,7 +525,7 @@ find_data_try() {
    mkdir -p "$1"
    # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
    blkid /dev/* | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
-      #blkid | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
+   #blkid | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
       FROM="$2"
 
       # supported syntax is even like from=/dev/sr0/livekitname. It is not so much

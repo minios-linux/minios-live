@@ -130,6 +130,12 @@ umount_part() {
         umount $EFI_DESTINATION
         rmdir $EFI_DESTINATION
     fi
+    if mount | grep -q "$PART"; then
+        umount $PART
+    fi
+    if mount | grep -q "$EFI_PART"; then
+        umount $EFI_PART
+    fi
 }
 
 # Copy MiniOS files to the destination partition
@@ -363,7 +369,7 @@ final_question() {
             --buttons-layout="center" \
             --on-top \
             --form \
-            --button="$(translate 'Finish')!open-menu":101 \
+            --button="$(translate 'Finish')!gtk-ok":101 \
             --button="$(translate 'Reboot')!gtk-refresh":102
     )
     local BUTTON=$?
