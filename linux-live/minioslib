@@ -1513,12 +1513,12 @@ EOF
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
     else
-        DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 selinux=0 apparmor=0 net.ifnames=0 biosdevname=0"
+        DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
     fi
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
     else
-        DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 selinux=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
+        DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
     fi
     BOOT_SETTINGS="quiet"
     if [ $INITRD_TYPE = "livekit-mos" ]; then
@@ -1553,8 +1553,11 @@ EOF
             LIVE_SETTINGS="slax.flags=automount"
             FLUX_SETTINGS=" automount"
         fi
+    elif [ $PACKAGE_VARIANT = "ultra" ]; then
+        ULTRA_SETTINGS=" apparmor=0 selinux=0"
     else
         FLUX_SETTINGS=""
+        ULTRA_SETTINGS=""
     fi
 
     cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
