@@ -1,0 +1,5 @@
+#!/bin/bash
+
+if [ $DESKTOP_ENVIRONMENT = "flux" ] || grep 'LIVEKITNAME="slax"' /run/initramfs/lib/config >/dev/null; then
+    rm -Rf /usr/share/applications/chromium.desktop 
+fi

@@ -1,0 +1,106 @@
+#!/bin/bash
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+. /minioslib || exit 1
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+APP="falkon"
+APP_NAME="falkon"
+APP_EXECUTABLE="falkon"
+APP_MODULE_NUMBER="5"
+
+language_to_array
+
+pkg update
+
+# install packages
+pkg install $APP
+
+if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
+    if [ ! -d /etc/skel/.config/xfce4 ]; then
+        mkdir -p /etc/skel/.config/xfce4
+    fi
+    if [ $PACKAGE_VARIANT = "minimum" ]; then
+        cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xterm
+FileManager=pcmanfm
+WebBrowser=$APP_EXECUTABLE
+
+EOF
+    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+        cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
+TerminalEmulator=xfce4-terminal
+FileManager=Thunar
+WebBrowser=$APP_EXECUTABLE
+
+EOF
+    fi
+fi
+if [[ $DESKTOP_ENVIRONMENT == *"lxqt"* ]] && [ -f /etc/skel/.config/lxqt/panel.conf ]; then
+    sed -i '46iapps\\3\\desktop=/usr/share/applications/org.kde.falkon.desktop' /etc/skel/.config/lxqt/panel.conf
+    sed -i 's/apps\\size=2/apps\\size=3/g'  /etc/skel/.config/lxqt/panel.conf
+fi
+
+if grep slax /etc/hostname >/dev/null; then
+    cat <<EOF >/usr/bin/fblive-add-$APP.sh
+#!/bin/bash
+if [ -f /var/cache/fblive-add-$APP.addon ]; then
+    if ! grep $APP_EXECUTABLE /usr/bin/fbliveapp >/dev/null; then
+        cp /usr/bin/fbliveapp /usr/bin/fbliveapp.$APP.bak
+        sed -i "/shift/ e cat /var/cache/fblive-add-$APP.addon" /usr/bin/fbliveapp
+        #rm /var/cache/fblive-add-$APP.addon
+        rm /usr/share/applications/$APP.desktop
+    fi
+fi
+
+EOF
+    chmod +x /usr/bin/fblive-add-$APP.sh
+    cat <<EOF >/usr/lib/systemd/system/fblive-add-$APP.service
+[Unit]
+Description=Adding $APP_NAME to fbliveapp
+#After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/fblive-add-$APP.sh
+RemainAfterExit=true
+ExecStop=
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+    cat <<EOF >/usr/share/applications/$APP_MODULE_NUMBER$APP.desktop
+[Desktop Entry]
+Version=1.0
+Name=$APP_NAME
+GenericName=$APP_NAME
+Exec=fbliveapp $APP %U
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=$APP.png
+Categories=Network;WebBrowser;
+MimeType=audio/*;image/*;video/*;application/pdf;application/x-pdf;text/html;text/xml;application/xhtml_xml;application/x-mimearchive;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=$APP
+StartupNotify=true
+
+EOF
+    cat <<EOF >/var/cache/fblive-add-$APP.addon
+if [ "\$1" = "$APP" ]; then
+   NAME="$APP_NAME"
+   EXECUTABLE="/usr/bin/$APP_EXECUTABLE"
+   GUEST=true
+fi
+
+EOF
+    systemctl enable fblive-add-$APP.service
+fi
+
+PACKAGE=$APP_EXECUTABLE
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
