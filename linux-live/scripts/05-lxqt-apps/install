@@ -8,20 +8,15 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
-}
-language_to_array
-
 pkg update
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages
+    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
 fi
 
 if [ $LOCALE != "en_US" ]; then
-    pkg install featherpad-l10n lximage-qt-l10n lxqt-admin-l10n lxqt-archiver-l10n lxqt-config-l10n lxqt-globalkeys-l10n lxqt-notificationd-l10n lxqt-openssh-askpass-l10n lxqt-panel-l10n lxqt-policykit-l10n lxqt-powermanagement-l10n lxqt-runner-l10n lxqt-session-l10n pcmanfm-qt-l10n qterminal-l10n
+    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"
 fi
+
+rm -f /usr/share/applications/xterm.desktop

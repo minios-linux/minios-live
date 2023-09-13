@@ -2027,6 +2027,7 @@ function chroot_cleanup() {
 
     rm -f $1/$LIVEKITNAME.conf 2>/dev/null
     rm -f $1/$PACKAGE_VARIANT.list 2>/dev/null
+    rm -f $1/$PACKAGE_VARIANT-l10n.list 2>/dev/null
     rm -f $1/build 2>/dev/null
     rm -f $1/cleanup 2>/dev/null
     rm -f $1/functions 2>/dev/null
@@ -2817,6 +2818,7 @@ function module_chroot_cleanup() {
     rm -f $MODULE_UPPER_DIR/build
     rm -f $MODULE_UPPER_DIR/cleanup
     rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT.list
+    rm -f $MODULE_UPPER_DIR/$PACKAGE_VARIANT-l10n.list
     rm -f $MODULE_UPPER_DIR/package.list
     rm -f $MODULE_UPPER_DIR/postinstall
     rm -rf $MODULE_UPPER_DIR/rootcopy
@@ -3050,6 +3052,9 @@ function build_modules() {
                     fi
                     if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list ]; then
                         cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+                    fi
+                    if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT-l10n.list ]; then
+                        cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT-l10n.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT-l10n.list
                     fi
                     if [ -f $SOURCE_MODULES_DIR/$MODULE/package.list ]; then
                         cp $SOURCE_MODULES_DIR/$MODULE/package.list $MODULE_MERGED_DIR/package.list

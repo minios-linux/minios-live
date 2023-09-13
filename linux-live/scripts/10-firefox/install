@@ -68,6 +68,9 @@ WebBrowser=firefox
 EOF
     fi
 fi
+if [[ $DESKTOP_ENVIRONMENT == *"lxqt"* ]] && [ -f /etc/skel/.config/lxqt/panel.conf ]; then
+    sed -i '46iapps\\3\\desktop=/usr/share/applications/firefox-esr.desktop' /etc/skel/.config/lxqt/panel.conf
+fi
 
 echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
 

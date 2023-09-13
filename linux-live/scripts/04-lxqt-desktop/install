@@ -17,12 +17,22 @@ echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages
+    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+fi
+sleep 3
+echo here1
+if [ $LOCALE != "en_US" ]; then
+    echo here2
+    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"
+fi
+echo here3
+sleep 3
+
+if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+    rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
-if [ $LOCALE != "en_US" ]; then
-    pkg install liblxqt-l10n lxqt-config-l10n lxqt-globalkeys-l10n lxqt-notificationd-l10n lxqt-openssh-askpass-l10n lxqt-panel-l10n lxqt-policykit-l10n lxqt-powermanagement-l10n lxqt-runner-l10n lxqt-session-l10n pcmanfm-qt-l10n qterminal-l10n
-fi
+rm -f /usr/share/applications/minios-installer.desktop
 
 if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#slim" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
