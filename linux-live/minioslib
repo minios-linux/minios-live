@@ -1541,6 +1541,9 @@ EOF
         fi
     fi
 
+    FLUX_SETTINGS=""
+    ULTRA_SETTINGS=""
+
     if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
         BOOT_SETTINGS="hide_credentials"
     elif [ $DESKTOP_ENVIRONMENT = "flux" ]; then
@@ -1555,9 +1558,6 @@ EOF
         fi
     elif [ $PACKAGE_VARIANT = "ultra" ]; then
         ULTRA_SETTINGS=" apparmor=0 selinux=0"
-    else
-        FLUX_SETTINGS=""
-        ULTRA_SETTINGS=""
     fi
 
     cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
