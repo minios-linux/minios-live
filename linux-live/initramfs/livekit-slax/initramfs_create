@@ -20,7 +20,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 exec 19>$SCRIPT_DIR/initramfs.log
 BASH_XTRACEFD=19
-
+PS4='${LINENO}: '
 set -x
 
 # copy file to initramfs tree, including
@@ -66,11 +66,11 @@ cp static/ncurses-menu $INITRAMFS/bin
 cp static/eject $INITRAMFS/bin
 cp static/mkfs.xfs.custom $INITRAMFS/bin
 cp static/xfs_growfs $INITRAMFS/bin
-cp static/mke2fs $INITRAMFS/bin
-cp static/e2fsck $INITRAMFS/bin
 cp static/mount.dynfilefs $INITRAMFS/bin/@mount.dynfilefs
 cp static/mount.httpfs2 $INITRAMFS/bin/@mount.httpfs2
 cp static/blkid $INITRAMFS/bin
+mkdir -p $INITRAMFS/usr/share/terminfo/l
+cp static/linux3.0 $INITRAMFS/usr/share/terminfo/l/linux
 chmod a+x $INITRAMFS/bin/*
 mkdir -p $INITRAMFS/etc/modprobe.d
 echo "options loop max_loop=32" >$INITRAMFS/etc/modprobe.d/local-loop.conf
@@ -148,9 +148,6 @@ fi
 copy_including_deps /$LMK/updates
 
 copy_including_deps /$LMK/modules.*
-
-copy_including_deps /usr/share/terminfo/l/linux
-
 
 find $INITRAMFS -name "*.ko.gz" -exec gunzip {} \;
 

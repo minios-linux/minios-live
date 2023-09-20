@@ -63,12 +63,14 @@ mkdir -p $INITRAMFS/{bin,dev,etc,lib,lib64,mnt,proc,root,run,sys,tmp,usr,var/log
 ln -s bin $INITRAMFS/sbin
 
 cp static/busybox $INITRAMFS/bin
-#cp static/ncurses-menu $INITRAMFS/bin
 cp static/eject $INITRAMFS/bin
 cp static/resize2fs $INITRAMFS/bin
 #cp static/bash $INITRAMFS/bin
 cp static/mount.dynfilefs $INITRAMFS/bin/@mount.dynfilefs
 cp static/mount.httpfs2 $INITRAMFS/bin/@mount.httpfs2
+cp static/ncurses-menu $INITRAMFS/bin
+mkdir -p $INITRAMFS/usr/share/terminfo/l
+cp other/linux3.0 $INITRAMFS/usr/share/terminfo/l/linux
 
 # if the kernel has a version lower than 5.15, it does not support NTFS, we use NTFS-3G.
 MAJOR_VERSION=$(echo $KERNEL | cut -d. -f1)
@@ -78,7 +80,7 @@ if [[ $MAJOR_VERSION -lt 5 ]] || [[ $MAJOR_VERSION -eq 5 && $MINOR_VERSION -lt 1
 fi
 
 cp static/blkid $INITRAMFS/bin
-cp static/minios-boot $INITRAMFS/bin
+cp scripts/minios-boot $INITRAMFS/bin
 chmod a+x $INITRAMFS/bin/*
 mkdir -p $INITRAMFS/etc/modprobe.d
 echo "options loop max_loop=64" >$INITRAMFS/etc/modprobe.d/local-loop.conf

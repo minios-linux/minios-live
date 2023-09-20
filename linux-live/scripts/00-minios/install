@@ -37,7 +37,7 @@ systemctl enable minios-startup.service
 #systemctl enable minios-shutdown.service
 systemctl enable minios-syncconfig.path
 systemctl enable minios-syncconfig.service
-systemctl enable minios-script-launcher.service
+#systemctl enable minios-script-launcher.service
 
 if [ $PACKAGE_VARIANT = "cloud" ] || [[ $DESKTOP_ENVIRONMENT == *"flux"* ]] || [[ $DESKTOP_ENVIRONMENT == *"rdp-kiosk"* ]]; then
     if [ -d /usr/share/minios/html ]; then

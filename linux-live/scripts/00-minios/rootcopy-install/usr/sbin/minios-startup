@@ -32,10 +32,11 @@ else
     LIVEKITNAME="minios"
     BEXT="sb"
 fi
-echo "1. FROM=$FROM"
-if [ -z $FROM ] || echo "$FROM" | grep -q '^/dev/' || [ -n "$(echo $FROM | grep 'http://')" ]; then
+
+if [ -z $FROM ] || echo $FROM | grep 'http://' || [ -d "/run/initramfs/memory/iso" ]; then
     FROM="$LIVEKITNAME"
-    echo "2. FROM=$FROM"
+elif [ -f /run/initramfs/var/log/from.log ]; then
+    FROM=$(cat /run/initramfs/var/log/from.log)
 fi
 if [ -d /run/initramfs/memory/bundles ]; then
     BUNDLES=/run/initramfs/memory/bundles
@@ -49,11 +50,11 @@ if [ "$INITRD_TYPE" = "livekit" ]; then
     if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
         # we found at least one bundle/module here
         FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    elif [ "$(find "/run/initramfs/memory/iso/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        FROM=$(echo "/run/initramfs/memory/iso/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
     fi
     if [ "$TORAM" = "true" ]; then
         MEDIA="/run/initramfs/memory/toram"
-    elif [ -d "/run/initramfs/memory/iso" ]; then
-        MEDIA="/run/initramfs/memory/iso"
     else
         MEDIA="$FROM"
     fi

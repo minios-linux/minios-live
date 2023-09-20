@@ -193,7 +193,7 @@ elif [ "$KERNEL_BUILD_DKMS" = "true" ]; then
 
         source_install https://github.com/cilynx/rtl88x2bu.git
     fi
-    if ! [[ $DISTRIBUTION =~ ^(kali-rolling|sid|bookworm)$ ]] && ! ([[ $KERNEL_AUFS = "true" ]] && [[ $DISTRIBUTION = "stretch" ]]); then
+    if ! [[ $DISTRIBUTION =~ ^(kali-rolling|sid|bookworm)$ ]] && ! ([[ $KERNEL_AUFS = "true" ]] && [[ $DISTRIBUTION = "stretch" ]]) && ! ([[ $KERNEL_AUFS = "true" ]] && [[ $DISTRIBUTION = "buster" ]]); then
         cd /usr/src
         DRIVER_VERSION=""
         git clone https://github.com/cilynx/rtl88x2bu

@@ -2,6 +2,10 @@
 # Initial script for Linux Live Kit
 # Author: Tomas M <http://www.linux-live.org/>
 
+exec 2>/var/log/init.trace
+PS4='${LINENO}: '
+set -x
+
 export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
 
 . /lib/config
@@ -29,7 +33,7 @@ if [ "$KERNEL_TYPE" != "cloud" ]; then
     init_zram
 fi
 
-#
+# modprobe the drivers needed to load in QEMU and VMware virtual machines, if any
 modprobe_cloud
 
 # modprobe all devices excluding network drivers
@@ -60,7 +64,7 @@ union_append_bundles "$BUNDLES" "$UNION"
 # rootcopy
 copy_rootcopy_content "$DATA" "$UNION"
 
-# configure
+# MiniOS setup 
 minios_boot "$UNION" "$DATA" "$DATAMNT"
                                                                                                                                                       debug_shell
 # create fstab

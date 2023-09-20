@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Functions library :: for Linux Live Kit scripts
 # Author: Tomas M. <http://www.linux-live.org>
@@ -141,7 +141,7 @@ init_proc_sysfs() {
    ln -sf /proc/mounts /etc/mtab
 }
 
-#
+# modprobe the drivers needed to load in QEMU and VMware virtual machines, if any
 modprobe_cloud() {
    modprobe virtio 2>/dev/null
    modprobe virtio_ring 2>/dev/null
@@ -512,6 +512,54 @@ download_data_pxe() {
    echo "$1/$LIVEKITNAME"
 }
 
+ask_disk() {
+   debug_log "ask_disk" "$*"
+   local WHERE MODE COMMAND PARTITION SIZE TYPE LABEL ASKPID DIR DEVICE
+
+   WHERE="$1"
+   MODE="$2"
+   if [ "$MODE" = "from" ]; then
+      COMMAND="ask"
+   elif [ "$MODE" = "perchdir" ]; then
+      COMMAND="askdisk"
+   fi
+
+   if echo "$WHERE" | grep -q "^$COMMAND"; then
+      (while true; do
+         # Among other things, filter out swap, since the user may have a hard disk with a swap partition on the actual hardware.
+         blkid -o full -s TYPE -s LABEL | grep -E -v "/loop|/ram|/zram|TYPE=\"swap\"" | while read -r LINE; do
+            PARTITION=$(echo "$LINE" | awk '{print $1}' | awk -F':' '{print $1}')
+            SIZE=$(fdisk -l "$PARTITION" 2>/dev/null | head -n 1 | awk '/Disk \// {print $3, $4}' | tr -d ",")
+            TYPE=$(echo $LINE | awk -F'TYPE="' '{print $2}' | awk -F'"' '{print $1}')
+            LABEL=$(echo $LINE | awk -F'LABEL="' '{print $2}' | awk -F'"' '{print $1}')
+            echo "$PARTITION: SIZE=\"$SIZE\" TYPE=\"$TYPE\" LABEL=\"$LABEL\" "
+         done >/tmp/0.txt
+         mv -f /tmp/0.txt /tmp/ask.txt
+         sleep 1
+      done) &
+      ASKPID=$!
+      sleep 1 # give blkid some chance to finish
+      if echo "$WHERE" | grep -q "^$COMMAND/"; then
+         DIR="$(echo "$WHERE" | cut -d '/' -f 2-)"
+      else
+         if [ "$MODE" = "from" ]; then
+            DIR="$LIVEKITNAME"
+         elif [ "$MODE" = "perchdir" ]; then
+            DIR="changes"
+         fi
+      fi
+      DEVICE="$(ncurses-menu -t "Look for /$DIR directory on:" -f /tmp/ask.txt -s 2>&1 >/dev/tty1 </dev/tty1)"
+      DEVICE="$(echo "$DEVICE" | cut -d : -f 1)"
+      if echo "$WHERE" | grep -q "^$COMMAND/"; then
+         WHERE="$DEVICE/$(echo "$WHERE" | cut -d '/' -f 2-)"
+      else
+         WHERE="$DEVICE/$DIR"
+      fi
+      kill $ASKPID
+   fi
+   echo $WHERE
+}
+
 # Find LIVEKIT data by mounting all devices
 # If found, keep mounted, else unmount
 # $1 = data directory target (mount here)
@@ -519,21 +567,25 @@ download_data_pxe() {
 #
 find_data_try() {
    debug_log "find_data_try" "$*"
-
    local DEVICE FS FROM OPTIONS MOUNT
 
    mkdir -p "$1"
-   # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
+
    blkid /dev/* | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
-   #blkid | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DEVICE; do
       FROM="$2"
 
       # supported syntax is even like from=/dev/sr0/livekitname. It is not so much
       # optiomal to put the following block of code here inside the while loop,
       # but there is no harm so lets modify DEVICE and FROM to make it work
       if echo "$FROM" | grep -q '^/dev/'; then
-         DEVICE="$(echo "$FROM" | cut -d '/' -f 1-3)"
-         FROM="$(echo "$FROM" | cut -d '/' -f 4-)"
+         if echo "$FROM" | grep -q '^/dev/disk/by-label/'; then
+            LABEL=$(echo "$FROM" | awk -F"/" '{print $5}')
+            DEVICE=$(blkid | grep "LABEL=\"$LABEL\"" | cut -d ':' -f 1 | cut -d ' ' -f 1)
+            FROM="$(echo "$FROM" | cut -d '/' -f 6-)"
+         else
+            DEVICE="$(echo "$FROM" | cut -d '/' -f 1-3)"
+            FROM="$(echo "$FROM" | cut -d '/' -f 4-)"
+         fi
          if [ "$FROM" = "" ]; then
             FROM="$LIVEKITNAME"
          fi
@@ -581,8 +633,7 @@ find_data_try() {
 #
 find_data() {
    debug_log "find_data" "$*"
-
-   local DATA FROM
+   local DATA FROM TIMEOUT
 
    FROM="$(cmdline_value from)"
 
@@ -598,23 +649,28 @@ find_data() {
       return
    fi
 
+   # If user wants to get asked, ask and periodically update list of devices
+   # boot parameter specified as from=ask or from=ask/directory/where/system/is/installed
+   FROM=$(ask_disk "$FROM" from)
+
+   # default to livekitname autodetected on all disks
    if [ "$FROM" = "" ]; then FROM="$LIVEKITNAME"; fi
 
    echo_green_star >&2
-   echo -n "Looking for $SYSTEMNAME data in /$FROM .." | tr -s "/" >&2
-   for timeout in $(seq 1 $1); do
-      echo -n "." >&2
+   echo -n "Looking for $SYSTEMNAME data in /$FROM .." | tr -s "/" >&2 >/dev/tty1
+   for TIMEOUT in $(seq 1 $1); do
+      echo -n "." >&2 >/dev/tty1
       refresh_devs
       DATA="$(find_data_try "$2" "$FROM")"
       if [ "$DATA" != "" ]; then
-         echo "" >&2
-         echo "* Found on $(mounted_device "$2")" >&2
+         echo "" >&2 >/dev/tty1
+         echo "* Found on $(mounted_device "$2")" >&2 >/dev/tty1
          echo "$DATA"
          return
       fi
       sleep 1
    done
-   echo "" >&2
+   echo "" >&2 >/dev/tty1
 }
 
 # Check if data is found and exists
@@ -630,78 +686,193 @@ check_data_found() {
 # $1 = date time
 #
 date_diff_since_now() {
-   now=$(date '+%s')
-   timestamp=$(date --date "$1" '+%s')
-   sec=$(($now - $timestamp))
-   mins=$(($sec / 60))
-   hours=$(($sec / 3600))
-   days=$(($sec / 86400))
+   local NOW TIMESTAMP SEC MINS HOURS DAYS
 
-   if [ "$days" -gt 0 ]; then
-      echo "$days days" | sed -r "s/^1 days/1 day/"
-   elif [ "$hours" -gt 0 ]; then
-      echo "$hours hours" | sed -r "s/^1 hours/1 hour/"
-   elif [ "$mins" -gt 0 ]; then
-      echo "$mins minutes" | sed -r "s/^1 minutes/1 minute/"
+   NOW=$(date '+%s')
+   TIMESTAMP=$(date --date "$1" '+%s')
+   SEC=$(($NOW - $TIMESTAMP))
+   MINS=$(($SEC / 60))
+   HOURS=$(($SEC / 3600))
+   DAYS=$(($SEC / 86400))
+
+   if [ "$DAYS" -gt 0 ]; then
+      echo "$DAYS days" | sed -r "s/^1 days/1 day/"
+   elif [ "$HOURS" -gt 0 ]; then
+      echo "$HOURS hours" | sed -r "s/^1 hours/1 hour/"
+   elif [ "$MINS" -gt 0 ]; then
+      echo "$MINS minutes" | sed -r "s/^1 minutes/1 minute/"
    else
-      echo "$sec seconds" | sed -r "s/^1 seconds/1 second/"
+      echo "$SEC seconds" | sed -r "s/^1 seconds/1 second/"
    fi
+}
+
+# Check if the directory is writable. If the directory is writable, 0 is returned, otherwise 1 is returned.
+# $1 = The directory to check for write access.
+# $2 = The device on which the directory resides.
+# $3 = An optional parameter that specifies the persistent changes directory.
+#      If not provided, it will be retrieved from the command line.
+#
+check_write_access() {
+   debug_log "check_write_access" "$*"
+   local CHANDIR DEVICE PERCHDIR T1
+
+   CHANDIR="$1"
+   PERCHDIR="$2"
+   T1="$CHANDIR/.empty"
+
+   # Supported syntax is even like perchdir=/dev/sda1/changes
+   # In this case, perchdir is mounted over $CHANDIR and is set to ask
+   if echo "$PERCHDIR" | grep -q '^/dev/'; then
+      if echo "$PERCHDIR" | grep -q '^/dev/disk/by-label/'; then
+         LABEL=$(echo "$PERCHDIR" | awk -F"/" '{print $5}')
+         DEVICE=$(blkid | grep "LABEL=\"$LABEL\"" | cut -d ':' -f 1 | cut -d ' ' -f 1)
+      else
+         DEVICE="$(echo "$PERCHDIR" | cut -d '/' -f 1-3)"
+      fi
+
+      FS="$(device_bestfs "$DEVICE")"
+      OPTIONS="$(fs_options $FS)"
+      MOUNT="$(mount_command $FS)"
+
+      refresh_devs
+      $MOUNT "$DEVICE" "$CHANDIR" $OPTIONS 2>/dev/null
+      if [ $? -eq 0 ]; then
+         # check if changes directory exists and is writable
+         touch "$T1" 2>/dev/null && rm -f "$T1" 2>/dev/null
+
+         # if not, return 1, otherwise return 0
+         if [ $? -ne 0 ]; then
+            umount "$CHANDIR"
+            return 1
+         else
+            umount "$CHANDIR"
+            return 0
+         fi
+      fi
+   else
+      # check if changes directory exists and is writable
+      touch "$T1" 2>/dev/null && rm -f "$T1" 2>/dev/null
+
+      # if not, return 1, otherwise return 0
+      if [ $? -ne 0 ]; then
+         return 1
+      else
+         return 0
+      fi
+   fi
+}
+
+# Attempt to mount a device to a specific directory.
+# $1 = The device to be mounted.
+# $2 = The directory where the device will be mounted.
+# $3 = Persistent changes directory within the mounted device.
+#
+mount_perch_device() {
+   debug_log "mount_perch_device" "$*"
+   local TIMEOUT DEVICE FS OPTIONS MOUNT PERCHDIR
+
+   DEVICE="$1"
+   CHANDIR="$2"
+   PERCHDIR="$3"
+
+   if echo "$PERCHDIR" | grep -q '^/dev/'; then
+      if echo "$PERCHDIR" | grep -q '^/dev/disk/by-label/'; then
+         LABEL=$(echo "$PERCHDIR" | awk -F"/" '{print $5}')
+         DEVICE=$(blkid | grep "LABEL=\"$LABEL\"" | cut -d ':' -f 1 | cut -d ' ' -f 1)
+         PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 6-)"
+      else
+         DEVICE="$(echo "$PERCHDIR" | cut -d '/' -f 1-3)"
+         PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 4-)"
+      fi
+   fi
+
+   FS="$(device_bestfs "$DEVICE")"
+   OPTIONS="$(fs_options $FS)"
+   MOUNT="$(mount_command $FS)"
+
+   echo -n "* Waiting for persistent changes on $DEVICE .." >&2
+   for TIMEOUT in $(seq 1 20); do
+      echo -n "." >&2
+      refresh_devs
+      $MOUNT "$DEVICE" "$CHANDIR" $OPTIONS 2>/dev/null
+      if [ $? -eq 0 ]; then
+         if [ "$PERCHDIR" != "" -a "$PERCHDIR" != "/" ]; then
+            mkdir -p "$CHANDIR/$PERCHDIR"
+            $MOUNT --bind "$CHANDIR/$PERCHDIR" "$CHANDIR"
+            if [ $? -eq 0 ]; then
+               echo -e "\n" >&2
+               PERCHDIR=ask
+               break
+            fi
+         else
+            echo -e "\n" >&2
+            PERCHDIR=ask
+            break
+         fi
+      fi
+      sleep 1
+   done
+   echo $PERCHDIR
 }
 
 # Restore persistent changes from previous session.
 # Store persistent changes to a directory and keep the directory in a session file,
 # so we know which session was active last time so we can resume it next time
 # $1 = changes directory
-# $2 = currently requested perch directory (e.g. '3')
+# $2 = persistent changes directory within changes directory
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-
-   local CHANDIR SESSDIR FILE LAST LASTMOD LASTSESSION NEW DIR USAGE LAST DAYS
+   local TIMEOUT DEVICE FS OPTIONS MOUNT
+   local CHANDIR PERCHDIR FILE LAST LASTMOD LASTSESSION NEW DIR USAGE LAST DAYS
 
    CHANDIR="$1"
-   SESSDIR="$2"
-   LAST=last_session.txt
+   PERCHDIR="$2"
 
+   # Supported syntax is even like perchdir=/dev/sda1/changes
+   # In this case, perchdir is mounted over $CHANDIR and is set to ask
+   if echo "$PERCHDIR" | grep -q '^/dev/'; then
+      PERCHDIR=$(mount_perch_device "$DEVICE" "$CHANDIR" "$PERCHDIR")
+   fi
+
+   LAST=last_session.txt
    LASTSESSION=$(cat "$CHANDIR/$LAST" 2>/dev/null)
 
    # ask for session, print msgs to stderr so it is visible
-   if [ "$LASTSESSION" != "" -a "$SESSDIR" = "ask" ]; then
-      echo "" >&2
-      echo "Choose session to resume from the list:" >&2
-      echo "---------------------------------------" >&2
-
+   if [ "$LASTSESSION" != "" -a "$PERCHDIR" = "ask" ]; then
       ls -1 $CHANDIR | grep -E "^[0-9]+" | while read DIR; do
          USAGE=$(du -s -h "$CHANDIR/$DIR" 2>/dev/null | sed -r "s/[[:space:]].*//")
          LASTMOD="$(date -r "$CHANDIR/$DIR" "+%Y-%m-%d %H:%M:%S")"
          DAYS=$(date_diff_since_now "$LASTMOD")
-         echo "$LASTMOD Session #$DIR - last access $DAYS ago - using $USAGE" | sed -r "s/(.)\$/ \\1B/"
-      done | sort -r | cut -d " " -f 3- >&2
+         echo "$LASTMOD Resume session #$DIR - last access $DAYS ago - using $USAGE" | sed -r "s/(.)\$/ \\1B/"
+      done | sort -r | cut -d " " -f 3- >/tmp/sessions.txt
 
-      echo "---------------------------------------" >&2
-      echo -ne "Type session number to resume and press Enter ($LASTSESSION): " >&2
-      read SESSDIR
+      PERCHDIR="$(ncurses-menu -t 'Select action:' -o 'Start a new session' -f /tmp/sessions.txt 2>&1 >/dev/tty1 </dev/tty1)"
 
-      SESSDIR=$(echo "$SESSDIR" | sed -r "s/[^0-9]//g")
+      if echo "$PERCHDIR" | grep -q "new"; then
+         PERCHDIR="new"
+      else
+         PERCHDIR="$(echo "$PERCHDIR" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')"
+      fi
    fi
 
    # restore name for previous session if empty
-   if [ "$SESSDIR" = "" -o "$SESSDIR" = "resume" ]; then
-      SESSDIR="$LASTSESSION"
+   if [ "$PERCHDIR" = "" -o "$PERCHDIR" = "resume" ]; then
+      PERCHDIR="$LASTSESSION"
    fi
 
    # if last is empty or new/nonexistent is requested, create new
-   if [ "$SESSDIR" = "" -o "$SESSDIR" = "new" -o ! -d "$CHANDIR/$SESSDIR" ]; then
+   if [ "$PERCHDIR" = "" -o "$PERCHDIR" = "new" -o ! -d "$CHANDIR/$PERCHDIR" ]; then
       NEW="$(ls -1 $CHANDIR | egrep '^[0-9]' | sed -r 's/[^0-9].*//' | sort | tail -n 1)"
       NEW=$(($NEW + 1))
       mkdir -p "$CHANDIR/$NEW"
-      SESSDIR="$NEW"
+      PERCHDIR="$NEW"
    fi
 
    # remember current, update timestamp
-   echo "$SESSDIR" >"$CHANDIR/$LAST"
-   touch "$CHANDIR/$SESSDIR"
-   echo "$SESSDIR"
+   echo "$PERCHDIR" >"$CHANDIR/$LAST"
+   touch "$CHANDIR/$PERCHDIR"
+   echo "$PERCHDIR"
 }
 
 # Activate persistent changes
@@ -710,9 +881,9 @@ restore_perch_session() {
 #
 persistent_changes() {
    debug_log "persistent_changes" "$*"
+   local CHANGES T1 T2 EXISTS DEVICE PERCHDIR PERCHSIZE PERCHFILE
 
-   local CHANGES T1 T2 EXISTS DEVICE PERCHDIR PERCHSIZE PERCHFILE SUFFIX
-
+   PERCHDIR="$(cmdline_value perchdir)"
    CHANGES="$1/$(basename "$2")"
    DEVICE="$(df $1 | tail -n 1 | cut -d " " -f 1)"
    T1="$CHANGES/.empty"
@@ -727,46 +898,45 @@ persistent_changes() {
       return
    fi
 
+   PERCHDIR=$(ask_disk "$PERCHDIR" perchdir)
    # check if changes directory exists and is writable
-   touch "$T1" 2>/dev/null && rm -f "$T1" 2>/dev/null
-
-   # if not, simply return back
-   if [ $? -ne 0 ]; then
+   if check_write_access "$CHANGES" "$PERCHDIR"; then
+      PERCHDIR=$(restore_perch_session "$CHANGES" "$PERCHDIR")
+   else
       echo "* Persistent changes not writable or not used"
       return
    fi
 
-   PERCHDIR=$(cmdline_value perchdir)
-   PERCHDIR=$(restore_perch_session "$CHANGES" "$PERCHDIR")
+   PERCHFILE="$PERCHDIR/changes.dat"
 
-   # try to use native fs if posix-compatible
-   echo_green_star
-   echo "Testing persistent changes for posix compatibility"
-   touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null &&
-      chmod +x "$T1" 2>/dev/null && test -x "$T1" &&
-      chmod -x "$T1" 2>/dev/null && test ! -x "$T1" &&
-      rm "$T1" "$T2" 2>/dev/null
+   if grep -vq dynfilefs /proc/cmdline && [ ! -e "$CHANGES/$PERCHFILE" ]; then
+      # try to use native fs if posix-compatible
+      echo_green_star
+      echo "Testing persistent changes for posix compatibility"
+      touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null &&
+         chmod +x "$T1" 2>/dev/null && test -x "$T1" &&
+         chmod -x "$T1" 2>/dev/null && test ! -x "$T1" &&
+         rm "$T1" "$T2" 2>/dev/null
 
-   if [ $? -eq 0 ]; then
-      if device_bestfs $DEVICE | grep -v ntfs >/dev/null; then
-         echo "* Activating native persistent changes for session #$PERCHDIR"
-         mount --bind "$CHANGES/$PERCHDIR" "$2"
-         return
+      if [ $? -eq 0 ]; then
+         if device_bestfs $DEVICE | grep -v ntfs >/dev/null; then
+            echo "* Activating native persistent changes for session #$PERCHDIR"
+            mount --bind "$CHANGES/$PERCHDIR" "$2"
+            return
+         fi
+      else
+         # if test failed at any point, we may have temp files left behind
+         rm "$T1" "$T2" 2>/dev/null
       fi
-   else
-      # if test failed at any point, we may have temp files left behind
-      rm "$T1" "$T2" 2>/dev/null
    fi
 
    # If we are here, native fs was not supported or user requested perchsize anyway
 
-   PERCHSIZE=$(cmdline_value perchsize)
+   PERCHSIZE=$(cmdline_value perchsize | sed -r "s/TB?/000000/i" | sed -r "s/GB?/000/i" | sed -r "s/[^0-9]//g")
 
    if [ "$PERCHSIZE" = "" ]; then
       PERCHSIZE=16000
    fi
-
-   PERCHFILE="$PERCHDIR/changes.dat"
 
    # resume or use new
    if [ -e "$CHANGES/$PERCHFILE" ]; then
@@ -778,12 +948,17 @@ persistent_changes() {
    fi
 
    # mount it, splitsize of 4000MB is hardcoded, it must be the same all the time anyway
+   echo "- mounting dynamically enlarged storage"
    @mount.dynfilefs -f "$CHANGES/$PERCHFILE" -s $PERCHSIZE -m "$2" -p 4000
-   if [ "$EXISTS" ]; then
-      resize2fs -f "$2/virtual.dat" >/dev/null 2>&1
-   else
+   if [ ! "$EXISTS" ]; then
+      echo "- creating filesystem"
       mke2fs -F "$2/virtual.dat" >/dev/null 2>&1
+   else
+      echo "- grow if needed"
+      resize2fs -f "$2/virtual.dat" >/dev/null 2>&1
    fi
+
+   echo "- mounting persistent changes"
    mount -o loop "$2/virtual.dat" "$2"
 
    rmdir "$2/lost+found" 2>/dev/null
@@ -807,7 +982,6 @@ copy_rootcopy_content() {
 # $2 = union directory
 user_preinit() {
    debug_log "user_preinit" "$*"
-
    local SRC
 
    SRC="$1/rootcopy/run/preinit.sh"
@@ -826,7 +1000,6 @@ user_preinit() {
 #
 copy_to_ram() {
    debug_log "copy_to_ram" "$*"
-
    local MDIR MDEV RAM CHANGES
 
    if grep -vq toram /proc/cmdline; then
@@ -851,9 +1024,9 @@ copy_to_ram() {
    fi
 }
 
-# load filter
+# filter modules
 #
-filter_load() {
+filter() {
    local FILTER NUM START END
    FILTER=$(cmdline_value load)
    FILTER=${FILTER//,/|}
@@ -873,33 +1046,11 @@ filter_load() {
    if [ "$FILTER" = "" ]; then
       cat -
    else
-      cat - | egrep "$FILTER"
-   fi
-}
-
-# noload filter
-#
-filter_noload() {
-   local FILTER NUM START END
-   FILTER=$(cmdline_value noload)
-   FILTER=${FILTER//,/|}
-   if [ "$FILTER" != "" ]; then
-      if echo $FILTER | grep -qE '^[0-9]+-[0-9]+$'; then
-         START=$(echo $FILTER | cut -d '-' -f 1)
-         END=$(echo $FILTER | cut -d '-' -f 2)
-         FILTER=""
-         while [ $START -le $END ]; do
-            NUM=$(printf "%02d" $START)
-            FILTER="$FILTER|$NUM"
-            START=$(($START + 1))
-         done
-         FILTER=${FILTER#|}
+      if [ "$1" = "load" ]; then
+         cat - | egrep "$FILTER"
+      elif [ "$1" = "noload" ]; then
+         cat - | egrep -v "$FILTER"
       fi
-   fi
-   if [ "$FILTER" = "" ]; then
-      cat -
-   else
-      cat - | egrep -v "$FILTER"
    fi
 }
 
@@ -919,7 +1070,7 @@ mount_bundles() {
       ls -1 "$1" | sort -n
       cd "$1"
       find modules/ 2>/dev/null | sortmod
-   ) | grep '[.]'$BEXT'$' | filter_load | filter_noload | while read BUNDLE; do
+   ) | grep '[.]'$BEXT'$' | filter load | filter noload | while read BUNDLE; do
       echo "* $BUNDLE"
       BUN="$(basename "$BUNDLE")"
       mkdir -p "$2/$BUN"
@@ -949,7 +1100,6 @@ union_append_bundles() {
 #
 fstab_create() {
    debug_log "fstab_create" "$*"
-
    local FSTAB DEVICE FS LABEL BOOTDEVICE OPTS
 
    FSTAB="$1/etc/fstab"
@@ -967,9 +1117,7 @@ fstab_create() {
 
    echo >>$FSTAB
 
-   # patch from Jeff Baitis: Problem is that livekitlib's blkid command cannot detect /dev/nvme devices.
    blkid /dev/* | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DEVICE; do
-      #blkid | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DEVICE; do
       FS="$(device_bestfs $DEVICE)"
       LABEL="$(basename $DEVICE)"
       OPTS="defaults,noatime,nofail,x-systemd.device-timeout=10"
@@ -981,7 +1129,7 @@ fstab_create() {
    done
 }
 
-# MiniOS functions
+# MiniOS boot functions
 copy_file_if_exists() {
    local SRC=$1 DST=$2
 
@@ -1016,12 +1164,11 @@ synchronize_files() {
 
 minios_boot() {
    debug_log "minios_boot" "$*"
+   local WRITABLE SSH_KEY
 
    if grep -q static_profiles /proc/cmdline; then
       return
    fi
-
-   local WRITABLE SSH_KEY
 
    SSH_KEY=$(cmdline_value ssh_key)
 
@@ -1033,7 +1180,6 @@ minios_boot() {
 
    if [ $? -ne 0 ]; then
       WRITABLE="false"
-      #echo "* Directory $3/$LIVEKITNAME not writable"
       if [ -z $SSH_KEY ]; then
          SSH_KEY=$(config_value $2/$LIVEKITNAME.conf SSH_KEY)
          if [ -z $SSH_KEY ]; then
@@ -1088,7 +1234,7 @@ minios_boot() {
    rm -f $1/cmdline
    rm -f $1/minios-boot
 }
-# End of MiniOS functions
+# End of MiniOS boot functions
 
 # Change root and execute init
 # $1 = where to change root

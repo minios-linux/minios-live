@@ -69,6 +69,10 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "$SETTING" | debconf-set-selections -v
 done
 
+if ! dpkg -s gpg &> /dev/null; then
+    pkg install gpg
+fi
+
 curl https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
 if [ $DISTRIBUTION = "kali-rolling" ]; then
     echo "deb https://minios.dev/debian/ bookworm main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
