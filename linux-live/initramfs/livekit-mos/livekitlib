@@ -38,6 +38,7 @@ echo_green_star() {
 }
 
 # log - store given text in /var/log/livedbg
+#
 log() {
    echo "$@" 2>/dev/null >>/var/log/livedbg
 }
@@ -48,6 +49,7 @@ echolog() {
 }
 
 # show information about the debug shell
+#
 show_debug_banner() {
    echo
    echo "====="
@@ -142,6 +144,7 @@ init_proc_sysfs() {
 }
 
 # modprobe the drivers needed to load in QEMU and VMware virtual machines, if any
+#
 modprobe_cloud() {
    modprobe virtio 2>/dev/null
    modprobe virtio_ring 2>/dev/null
@@ -174,6 +177,7 @@ refresh_devs() {
 }
 
 # make sure some devices are there
+#
 init_devs() {
    debug_log "init_devs" "$*"
    modprobe zram 2>/dev/null
@@ -432,6 +436,7 @@ init_network_ip() {
 # Mount data from http using httpfs
 # $1 = from URL
 # $2 = target
+#
 mount_data_http() {
    debug_log "mount_data_http" "$*"
    local CACHE
@@ -512,6 +517,10 @@ download_data_pxe() {
    echo "$1/$LIVEKITNAME"
 }
 
+# Interactively ask the user to select a disk partition.
+# $1 = action and folder path, e.g. for from: ask/where/is/my/system
+# $2 = mode: from or perchdir
+#
 ask_disk() {
    debug_log "ask_disk" "$*"
    local WHERE MODE COMMAND PARTITION SIZE TYPE LABEL ASKPID DIR DEVICE
@@ -967,6 +976,7 @@ persistent_changes() {
 # Copy content of rootcopy directory to union
 # $1 = data directory
 # $2 = union directory
+#
 copy_rootcopy_content() {
    debug_log "copy_rootcopy_content" "$*"
 
@@ -980,6 +990,7 @@ copy_rootcopy_content() {
 # Run user custom preinit script if it exists
 # $1 = data directory
 # $2 = union directory
+#
 user_preinit() {
    debug_log "user_preinit" "$*"
    local SRC
@@ -1063,6 +1074,7 @@ sortmod() {
 # Mount squashfs filesystem bundles
 # $1 = directory where to search for bundles
 # $2 = directory where to mount bundles
+#
 mount_bundles() {
    echo_green_star
    echo "Mounting bundles"
