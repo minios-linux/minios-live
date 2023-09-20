@@ -22,7 +22,7 @@ function set_trace_log() {
     fi
     exec 19>/var/log/minios/"$1"
     BASH_XTRACEFD=19
-
+    PS4='${LINENO}: '
     set -x
 }
 

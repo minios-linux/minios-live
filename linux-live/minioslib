@@ -313,6 +313,10 @@ function read_cmdline() {
             DEFAULT_TARGET="${i#*=}"
             shift # past argument=value
             ;;
+        text)
+            DEFAULT_TARGET="multi-user"
+            shift # past argument with no value
+            ;;
         enable_services=*)
             ENABLE_SERVICES="${i#*=}"
             shift # past argument=value
@@ -334,7 +338,7 @@ function read_cmdline() {
             shift # past argument=value
             ;;
         toram)
-            TORAM=true
+            TORAM="true"
             shift # past argument with no value
             ;;
         perchdir=*)
@@ -346,15 +350,15 @@ function read_cmdline() {
             shift # past argument=value
             ;;
         cloud)
-            CLOUD=true
+            CLOUD="true"
             shift # past argument with no value
             ;;
         hide_credentials)
-            HIDE_CREDENTIALS=true
+            HIDE_CREDENTIALS="true"
             shift # past argument with no value
             ;;
         static_profiles)
-            STATIC_PROFILES=true
+            STATIC_PROFILES="true"
             shift # past argument with no value
             ;;
         autologin=*)
@@ -370,7 +374,7 @@ function read_cmdline() {
             shift # past argument=value
             ;;
         *)
-            UNKNOWN=true
+            UNKNOWN="true"
             # unknown option
             ;;
         esac
@@ -1708,27 +1712,27 @@ EOF
 LABEL default
 MENU LABEL Run MiniOS (Resume previous session)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS perchdir=resume
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=resume
 
 LABEL perch
 MENU LABEL Run MiniOS (Start a new session)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS perchdir=new
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=new
 
 LABEL asksession
 MENU LABEL Run MiniOS (Choose session during startup)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS perchdir=ask
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=ask
 
 LABEL live
 MENU LABEL Run MiniOS (Fresh start)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS
 
 LABEL toram
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS toram
+APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$ULTRA_SETTINGS toram
 
 EOF
         if [ $BOOT_TYPE = "hybrid" ]; then
@@ -1736,31 +1740,31 @@ EOF
 menuentry "Run MiniOS (Resume previous session)"{
     echo \$message
     search --set -f \$linux_image
-    linux \$linux_image \$default_settings $BOOT_SETTINGS perchdir=resume
+    linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=resume
     initrd \$initrd_img
 }
 menuentry "Run MiniOS (Start a new session)"{
     echo \$message
     search --set -f \$linux_image
-    linux \$linux_image \$default_settings $BOOT_SETTINGS perchdir=new
+    linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=new
     initrd \$initrd_img
 }
 menuentry "Run MiniOS (Choose session during startup)"{
     echo \$message
     search --set -f \$linux_image
-    linux \$linux_image \$default_settings $BOOT_SETTINGS perchdir=ask
+    linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=ask
     initrd \$initrd_img
 }
 menuentry "Run MiniOS (Fresh start)"{
     echo \$message
     search --set -f \$linux_image
-    linux \$linux_image \$default_settings $BOOT_SETTINGS
+    linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS
     initrd \$initrd_img
 }
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_image
-    linux \$linux_image \$default_settings $BOOT_SETTINGS toram
+    linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS toram
     initrd \$initrd_img
 }
 

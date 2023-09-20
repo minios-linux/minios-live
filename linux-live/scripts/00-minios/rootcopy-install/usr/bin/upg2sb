@@ -2,7 +2,7 @@
 
 # Author: crims0n. <http://minios.dev>
 
-VERSION="1.0"
+VERSION="1.1"
 BEXT="sb"
 
 function help() {
@@ -31,6 +31,10 @@ function brief_help() {
 function version() {
     echo "$(basename $0) $VERSION"
     exit 0
+}
+
+function aufs_is_supported() {
+    grep -q aufs /proc/filesystems
 }
 
 while [ $# -gt 0 ]; do
@@ -71,62 +75,87 @@ if [ "$(id -u)" != "0" ]; then
     brief_help
 fi
 
-TMP=$(mktemp -d)
-CHANGES=$TMP/changes
-UNION=$TMP/union
-
-trap 'umount $UNION; umount $TMP; rm -rf $TMP' EXIT
-
-if [ -d /run/initramfs/memory/bundles ]; then
-    BUNDLES=/run/initramfs/memory/bundles
-elif [ -d /memory/bundles ]; then
-    BUNDLES=/memory/bundles
+if [ -d "/run/initramfs/memory/bundles" ]; then
+    BUNDLES="/run/initramfs/memory/bundles"
+    SYSTEMCHANGES="/run/initramfs/memory/changes"
+elif [ -d "/memory/bundles" ]; then
+    BUNDLES="/memory/bundles"
+    SYSTEMCHANGES="/memory/changes"
 fi
 
-mount -t tmpfs tmpfs $TMP
-mkdir -p $CHANGES
-mkdir -p $UNION
+# We use the changes folder to store temporary files and perform module
+# builds because it is on the physical file system, which will avoid RAM
+# leaks when building a large module.
+#
+TMP=$(mktemp -d "$SYSTEMCHANGES"/build2sb.XXXXX)
+CHANGES="$TMP/changes"
+UNION="$TMP/union"
+
+trap 'umount "$UNION/etc/resolv.conf" 2>/dev/null; umount "$UNION/sys" 2>/dev/null; umount "$UNION/proc" 2>/dev/null; umount "$UNION/dev/pts" 2>/dev/null; umount "$UNION/dev" 2>/dev/null; rm "$CHANGES/install" 2>/dev/null; rmdir "$CHANGES/*" 2>/dev/null; umount "$UNION"; umount "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
+
+INSTALL=$(echo "$INSTALL_ALL" | awk '{print $1}')
+[ -n "$INSTALL" ] || exit
+
+#mount -t tmpfs tmpfs "$TMP"
+mkdir -p "$CHANGES"
+mkdir -p "$UNION"
+
+ROFLAG=""
+ORDER=""
+if aufs_is_supported; then
+    ROFLAG="=ro"
+else
+    ORDER="r"
+fi
 
 if [ -n "$FILTER_LEVEL" ]; then
-    LOWERS=$(for BUNDLE in $(ls -1dr "$BUNDLES"/*); do
+    for BUNDLE in $(ls -1d"$ORDER" "$BUNDLES"/*); do
         if [[ $(basename "$BUNDLE") =~ ^[0-9]+ ]]; then
             if [ ${BASH_REMATCH[0]} -gt $FILTER_LEVEL ]; then
                 continue
             fi
         fi
-        printf '%s:' "$BUNDLE"
-    done)
-    LOWERS=${LOWERS/%:/}
+        LOWERS+=$(printf '%s%s:' "$BUNDLE" "$ROFLAG")
+    done
 else
-    LOWERS=$(printf '%s:' $(ls -1dr "$BUNDLES"/*))
-    LOWERS=${LOWERS/%:/}
+    for BUNDLE in $(ls -1d"$ORDER" "$BUNDLES"/*); do
+        LOWERS+=$(printf '%s%s:' "$BUNDLE" "$ROFLAG")
+    done
 fi
 
-mkdir $TMP/work
+LOWERS=${LOWERS/%:/}
 
-mount -t overlay -o lowerdir=$LOWERS,upperdir=$CHANGES,workdir=$TMP/work overlay $UNION
+if aufs_is_supported; then
+    mount -t aufs -o br="$CHANGES"=rw:"$LOWERS" none "$UNION"
+else
+    mkdir $TMP/work
+    mount -t overlay -o lowerdir="$LOWERS",upperdir="$CHANGES",workdir="$TMP"/work overlay "$UNION"
+fi
 
-for d in boot dev proc sys tmp media mnt run; do
-    mkdir -p $UNION/$d
+for DIR in boot dev proc sys tmp media mnt run; do
+    mkdir -p "$UNION/$DIR"
 done
 
-chmod ugo+rwx $UNION/tmp
+chmod ugo+rwx "$UNION/tmp"
 
-for d in dev proc sys; do mount --bind /$d $UNION/$d; done
+for DIR in dev dev/pts proc sys; do
+    mount --bind "/$DIR" "$UNION/$DIR"
+done
 
-echo "apt-get update; apt-get upgrade --yes" >$UNION/install
-chmod ugo+x $UNION/install
+echo "apt-get update; apt-get upgrade --yes" >"$UNION/install"
+chmod ugo+x "$UNION/install"
 mount --bind /etc/resolv.conf $UNION/etc/resolv.conf
-if ! chroot $UNION /install; then
+if ! chroot "$UNION" /install; then
     FAILED="true"
 fi
 
-umount $UNION/etc/resolv.conf
-umount $UNION/sys
-umount $UNION/proc
-umount $UNION/dev
-rm $CHANGES/install
-rmdir $CHANGES/* 2>/dev/null
+umount "$UNION/etc/resolv.conf"
+umount "$UNION/sys"
+umount "$UNION/proc"
+umount "$UNION/dev/pts"
+umount "$UNION/dev"
+rm "$CHANGES/install"
+rmdir "$CHANGES/*" 2>/dev/null
 
 if [ "$FAILED" != "true" ]; then
     if [ ! "$FILENAME" ]; then
@@ -139,5 +168,5 @@ if [ "$FAILED" != "true" ]; then
     fi
 
     echo "Saving changes made by upgrading packages into a module "$FILENAME"..."
-    savechanges "$FILENAME" $CHANGES
+    savechanges "$FILENAME" "$CHANGES"
 fi

@@ -333,8 +333,13 @@ main_menu() {
     echo $BUTTON $MAIN_FORM
     DEV_DESC=$(echo "$MAIN_FORM" | cut -d"|" -f1)
     DEV_NAME=$(echo $DEV_DESC | cut -d "(" -f 1)
-    PART_NAME="${DEV_NAME}1"
-    EFI_PART_NAME="${DEV_NAME}2"
+    if [[ $DEV_NAME == "nvme"* ]]; then
+        PART_NAME="${DEV_NAME}p1"
+        EFI_PART_NAME="${DEV_NAME}p2"
+    else
+        PART_NAME="${DEV_NAME}1"
+        EFI_PART_NAME="${DEV_NAME}2"
+    fi
     DEV="/dev/$DEV_NAME"
     PART="/dev/$PART_NAME"
     EFI_PART="/dev/$EFI_PART_NAME"
