@@ -6,9 +6,9 @@ These scripts build a bootable MiniOS ISO image.
 
 Using minios-live, you can build:
 
-*Debian 9, 10, 11 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
+*Debian 9, 10, 11, 12 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
 
-*Debian 9, 10, 11, Testing, Unstable, Kali Linux and Ubuntu 18.04, 20.04 with Xfce4 environment.*
+*Debian 9, 10, 11, 12, Testing, Unstable, Kali Linux and Ubuntu 20.04, 22.04 with Xfce4 environment.*
 
 To build, you need to change the parameters in the **linux-live/buildconfig** file to build the required option, then start the build: `./install -`
 
