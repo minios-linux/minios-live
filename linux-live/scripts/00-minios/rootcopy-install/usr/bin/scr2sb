@@ -105,7 +105,7 @@ if [ ! "$INSTALL_SCRIPT" ]; then
     brief_help
 fi
 
-if [ "$DIRECTORY" ] && [ ! -d "$DIRECTORY" ] || [ ! -r "$DIRECTORY" ]; then
+if [ "$DIRECTORY" ] && { [ ! -d "$DIRECTORY" ] || [ -d "$DIRECTORY" ] && [ ! -r "$DIRECTORY" ]; }; then
     echo "The specified directory must exist and be readable."
     exit 1
 fi
@@ -127,9 +127,6 @@ CHANGES="$TMP/changes"
 UNION="$TMP/union"
 
 trap 'umount "$UNION/etc/resolv.conf" 2>/dev/null; umount "$UNION/sys" 2>/dev/null; umount "$UNION/proc" 2>/dev/null; umount "$UNION/dev/pts" 2>/dev/null; umount "$UNION/dev" 2>/dev/null; rm "$CHANGES/install" 2>/dev/null; rmdir "$CHANGES/*" 2>/dev/null; umount "$UNION"; umount "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
-
-INSTALL=$(echo "$INSTALL_ALL" | awk '{print $1}')
-[ -n "$INSTALL" ] || exit
 
 #mount -t tmpfs tmpfs "$TMP"
 mkdir -p "$CHANGES"
