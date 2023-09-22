@@ -740,6 +740,13 @@ function chroot_mount_fs() {
     mount none -t sysfs $INSTALL_DIR/sys
     mount none -t devpts $INSTALL_DIR/dev/pts
     mount none -t tmpfs $INSTALL_DIR/tmp
+    if [ ! -d $SCRIPT_DIR/aptcache ]; then
+        mkdir -p $SCRIPT_DIR/aptcache
+    fi
+    if [ ! -d $INSTALL_DIR/var/cache/apt/archives ]; then
+        mkdir -p $INSTALL_DIR/var/cache/apt/archives
+    fi
+    mount --bind $SCRIPT_DIR/aptcache $INSTALL_DIR/var/cache/apt/archives
 }
 
 # =================================================================
@@ -752,7 +759,7 @@ function chroot_umount_fs() {
 
     set +e
 
-    for dir in proc sys dev/pts tmp dev run; do
+    for dir in var/cache/apt/archives proc sys dev/pts tmp dev run; do
         umount "$INSTALL_DIR/$dir"
     done
 
@@ -1042,6 +1049,13 @@ function build_bootstrap() {
             fi
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
+            if [ ! -d "$SCRIPT_DIR/aptcache" ]; then
+                mkdir -p "$SCRIPT_DIR/aptcache"
+            fi
+            if [ ! -d "$INSTALL_DIR/var/cache/apt/archives" ]; then
+                mkdir -p "$INSTALL_DIR/var/cache/apt/archives"
+            fi
+            mount --bind "$SCRIPT_DIR/aptcache" "$INSTALL_DIR/var/cache/apt/archives"
             if [ $DISTRIBUTION = "orel" ]; then
                 if [ ! -L /usr/share/debootstrap/scripts/orel ]; then
                     ln -s sid /usr/share/debootstrap/scripts/orel
@@ -1058,6 +1072,7 @@ function build_bootstrap() {
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                     debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
             fi
+            umount "$INSTALL_DIR/var/cache/apt/archives"
             if [ ! -d $SCRIPT_DIR/rootfs ]; then
                 mkdir -p $SCRIPT_DIR/rootfs
             fi
@@ -1240,7 +1255,7 @@ EOF
                     $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ")
             fi
 
-            chroot_run $INSTALL_DIR apt-get clean -y
+            #chroot_run $INSTALL_DIR apt-get clean -y
 
             chroot_umount_fs
 
@@ -2064,7 +2079,7 @@ function chroot_cleanup() {
     rm -f $1/usr/share/images/fluxbox/debian-squared.jpg 2>/dev/null
     rm -f $1/var/backups/* 2>/dev/null
     rm -f $1/var/cache/apt/*.bin 2>/dev/null
-    rm -f $1/var/cache/apt/archives/*.deb 2>/dev/null
+    #rm -f $1/var/cache/apt/archives/*.deb 2>/dev/null
     rm -f $1/var/cache/debconf/* 2>/dev/null
     rm -f $1/var/cache/debconf/*-old 2>/dev/null
     rm -f $1/var/cache/fontconfig/* 2>/dev/null
@@ -2277,7 +2292,7 @@ function chroot_pkg_install() {
     pkg autoremove
 
     # clean up apt cache
-    pkg clean
+    #pkg clean
 }
 
 # =================================================================
@@ -2306,7 +2321,7 @@ function chroot_finish_up() {
     rm -f /var/cache/ldconfig/* 2>/dev/null
     #rm -f /var/cache/debconf/* 2>/dev/null
     rm -f /var/cache/fontconfig/* 2>/dev/null
-    rm -f /var/cache/apt/archives/*.deb 2>/dev/null
+    #rm -f /var/cache/apt/archives/*.deb 2>/dev/null
     rm -f /var/cache/apt/*.bin 2>/dev/null
     rm -f /var/cache/debconf/*-old 2>/dev/null
     rm -f /var/lib/apt/extended_states 2>/dev/null
@@ -2674,6 +2689,13 @@ function module_chroot_mount_fs() {
     mount none -t sysfs $MODULE_MERGED_DIR/sys
     mount none -t devpts $MODULE_MERGED_DIR/dev/pts
     mount none -t tmpfs $MODULE_MERGED_DIR/tmp
+    if [ ! -d $SCRIPT_DIR/aptcache ]; then
+        mkdir -p $SCRIPT_DIR/aptcache
+    fi
+    if [ ! -d $MODULE_MERGED_DIR/var/cache/apt/archives ]; then
+        mkdir -p $MODULE_MERGED_DIR/var/cache/apt/archives
+    fi
+    mount --bind $SCRIPT_DIR/aptcache $MODULE_MERGED_DIR/var/cache/apt/archives
 }
 
 # =================================================================
@@ -2686,7 +2708,7 @@ function module_chroot_umount_fs() {
     local MODULES BUNDLE
 
     set +e
-
+    umount $MODULE_MERGED_DIR/var/cache/apt/archives
     umount $MODULE_MERGED_DIR/proc
     umount $MODULE_MERGED_DIR/sys
     umount $MODULE_MERGED_DIR/dev/pts
@@ -2808,7 +2830,7 @@ function module_chroot_cleanup() {
     rm -f $MODULE_UPPER_DIR/var/cache/ldconfig/*
     #rm -f $MODULE_UPPER_DIR/var/cache/debconf/*
     rm -f $MODULE_UPPER_DIR/var/cache/fontconfig/*
-    rm -f $MODULE_UPPER_DIR/var/cache/apt/archives/*.deb
+    #rm -f $MODULE_UPPER_DIR/var/cache/apt/archives/*.deb
     rm -f $MODULE_UPPER_DIR/var/cache/apt/*.bin
     rm -f $MODULE_UPPER_DIR/var/cache/debconf/*-old
     rm -f $MODULE_UPPER_DIR/var/lib/apt/extended_states
