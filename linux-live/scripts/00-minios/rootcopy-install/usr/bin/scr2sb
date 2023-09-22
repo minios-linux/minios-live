@@ -133,15 +133,12 @@ mkdir -p "$CHANGES"
 mkdir -p "$UNION"
 
 ROFLAG=""
-ORDER=""
 if aufs_is_supported; then
     ROFLAG="=ro"
-else
-    ORDER="r"
 fi
 
 if [ -n "$FILTER_LEVEL" ]; then
-    for BUNDLE in $(ls -1d"$ORDER" "$BUNDLES"/*); do
+    for BUNDLE in $(ls -1dr "$BUNDLES"/*); do
         if [[ $(basename "$BUNDLE") =~ ^[0-9]+ ]]; then
             if [ ${BASH_REMATCH[0]} -gt $FILTER_LEVEL ]; then
                 continue
@@ -150,7 +147,7 @@ if [ -n "$FILTER_LEVEL" ]; then
         LOWERS+=$(printf '%s%s:' "$BUNDLE" "$ROFLAG")
     done
 else
-    for BUNDLE in $(ls -1d"$ORDER" "$BUNDLES"/*); do
+    for BUNDLE in $(ls -1dr "$BUNDLES"/*); do
         LOWERS+=$(printf '%s%s:' "$BUNDLE" "$ROFLAG")
     done
 fi

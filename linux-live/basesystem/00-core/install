@@ -283,6 +283,7 @@ StandardOutput=journal
 WantedBy=multi-user.target
 EOF
     systemctl enable ssh-keygen
+    systemctl disable ssh
 fi
 
 if [ $DISTRIBUTION = "bullseye" ]; then
