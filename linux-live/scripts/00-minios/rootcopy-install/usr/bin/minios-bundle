@@ -186,10 +186,6 @@ function fix_system() {
         minios-update-cache $BUNDLES 2>/dev/null &
         # fix dpkg
         minios-update-dpkg $BUNDLES 2>/dev/null &
-        # reload XFCE menu
-        if pgrep xfce4-panel >/dev/null; then
-            killall -HUP xfce4-panel
-        fi
     fi
 }
 
@@ -234,12 +230,20 @@ fi
 if [ "$1" = "activate" ]; then
     activate "$2"
     fix_system
+    # reload XFCE menu
+    if pgrep xfce4-panel >/dev/null; then
+        killall -HUP xfce4-panel
+    fi
     exit
 fi
 
 if [ "$1" = "deactivate" ]; then
     deactivate "$2"
     fix_system
+    # reload XFCE menu
+    if pgrep xfce4-panel >/dev/null; then
+        killall -HUP xfce4-panel
+    fi
     exit
 fi
 
