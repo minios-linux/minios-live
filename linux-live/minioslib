@@ -740,13 +740,13 @@ function chroot_mount_fs() {
     mount none -t sysfs $INSTALL_DIR/sys
     mount none -t devpts $INSTALL_DIR/dev/pts
     mount none -t tmpfs $INSTALL_DIR/tmp
-    if [ ! -d $SCRIPT_DIR/aptcache ]; then
-        mkdir -p $SCRIPT_DIR/aptcache
+    if [ ! -d $SCRIPT_DIR/aptcache/$DISTRIBUTION ]; then
+        mkdir -p $SCRIPT_DIR/aptcache/$DISTRIBUTION
     fi
     if [ ! -d $INSTALL_DIR/var/cache/apt/archives ]; then
         mkdir -p $INSTALL_DIR/var/cache/apt/archives
     fi
-    mount --bind $SCRIPT_DIR/aptcache $INSTALL_DIR/var/cache/apt/archives
+    mount --bind $SCRIPT_DIR/aptcache/$DISTRIBUTION $INSTALL_DIR/var/cache/apt/archives
 }
 
 # =================================================================
@@ -1049,13 +1049,13 @@ function build_bootstrap() {
             fi
             tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
-            if [ ! -d "$SCRIPT_DIR/aptcache" ]; then
-                mkdir -p "$SCRIPT_DIR/aptcache"
+            if [ ! -d "$SCRIPT_DIR/aptcache/$DISTRIBUTION" ]; then
+                mkdir -p "$SCRIPT_DIR/aptcache/$DISTRIBUTION"
             fi
             if [ ! -d "$INSTALL_DIR/var/cache/apt/archives" ]; then
                 mkdir -p "$INSTALL_DIR/var/cache/apt/archives"
             fi
-            mount --bind "$SCRIPT_DIR/aptcache" "$INSTALL_DIR/var/cache/apt/archives"
+            mount --bind "$SCRIPT_DIR/aptcache/$DISTRIBUTION" "$INSTALL_DIR/var/cache/apt/archives"
             if [ $DISTRIBUTION = "orel" ]; then
                 if [ ! -L /usr/share/debootstrap/scripts/orel ]; then
                     ln -s sid /usr/share/debootstrap/scripts/orel
@@ -2689,13 +2689,13 @@ function module_chroot_mount_fs() {
     mount none -t sysfs $MODULE_MERGED_DIR/sys
     mount none -t devpts $MODULE_MERGED_DIR/dev/pts
     mount none -t tmpfs $MODULE_MERGED_DIR/tmp
-    if [ ! -d $SCRIPT_DIR/aptcache ]; then
-        mkdir -p $SCRIPT_DIR/aptcache
+    if [ ! -d $SCRIPT_DIR/aptcache/$DISTRIBUTION ]; then
+        mkdir -p $SCRIPT_DIR/aptcache/$DISTRIBUTION
     fi
     if [ ! -d $MODULE_MERGED_DIR/var/cache/apt/archives ]; then
         mkdir -p $MODULE_MERGED_DIR/var/cache/apt/archives
     fi
-    mount --bind $SCRIPT_DIR/aptcache $MODULE_MERGED_DIR/var/cache/apt/archives
+    mount --bind $SCRIPT_DIR/aptcache/$DISTRIBUTION $MODULE_MERGED_DIR/var/cache/apt/archives
 }
 
 # =================================================================
