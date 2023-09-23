@@ -8,18 +8,18 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-BUILD_DIR="$SCRIPT_DIR/build"
-ISO_DIR="$BUILD_DIR/iso"
-KERNEL_DIR="$BUILD_DIR/kernel"
+BUILD_DIR="$SCRIPT_DIR/../build"
+ISO_DIR="$BUILD_DIR/../iso"
+KERNEL_DIR="$BUILD_DIR/../kernel"
 
-. $SCRIPT_DIR/linux-live/minioslib || exit 1
-. $SCRIPT_DIR/linux-live/config || exit 1
+. $SCRIPT_DIR/../linux-live/minioslib || exit 1
+. $SCRIPT_DIR/../linux-live/config || exit 1
 set +u
 if [ -z $BATCH ]; then
-    . $SCRIPT_DIR/linux-live/buildconfig || exit 1
+    . $SCRIPT_DIR/../linux-live/buildconfig || exit 1
 fi
 set -u
-. $SCRIPT_DIR/linux-live/kernelconfig || exit 1
+. $SCRIPT_DIR/../linux-live/kernelconfig || exit 1
 
 # change this for unattended installation
 UNATTENDED="true"
