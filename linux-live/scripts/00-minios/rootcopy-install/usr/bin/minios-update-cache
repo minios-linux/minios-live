@@ -14,6 +14,7 @@ fi
 
 exec 19>/var/log/minios/minios-update-cache.trace
 BASH_XTRACEFD=19
+PS4='${LINENO}: '
 set -x
 
 # Function to configure kernel modules from bundles

@@ -172,7 +172,8 @@ for DIR in dev dev/pts proc sys; do
 done
 
 if [ "$DIRECTORY" ]; then
-    cp -r "$DIRECTORY/*" "$UNION/"
+    cd "$DIRECTORY" && cp --parents -afr * "$UNION/"
+    cd -
 fi
 
 cp "$INSTALL_SCRIPT" "$UNION/install"
