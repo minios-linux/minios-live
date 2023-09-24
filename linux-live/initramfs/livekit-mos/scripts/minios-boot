@@ -89,8 +89,8 @@ function set_default_target() {
 }
 
 function manage_services() {
-    local ACTION="$1"
-    local SERVICES_VAR
+    local SERVICES_VAR ACTION
+    ACTION="$1"
     if [ "$ACTION" == "enable" ]; then
         SERVICES_VAR="ENABLE_SERVICES"
     elif [ "$ACTION" == "disable" ]; then
@@ -188,6 +188,13 @@ function set_scripts() {
     fi
 }
 
+function enable_syncconfig() {
+    if [ -f /usr/lib/systemd/system/minios-syncconfig.service ]; then
+        systemctl enable minios-syncconfig.path
+        systemctl enable minios-syncconfig.service
+    fi
+}
+
 console_colors
 allow_root_only
 set_trace_log "boot.trace"
@@ -199,6 +206,7 @@ manage_services enable
 manage_services disable
 set_autologin
 set_scripts
+enable_syncconfig
 
 echo ""
 echo "/etc/minios/$LIVEKITNAME.conf configuration file contents:"

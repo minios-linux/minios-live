@@ -8,22 +8,16 @@
     Usage:   $0 [bundles mount points location]
     Example: $0 /run/initramfs/memory/bundles" && exit 1
 
-function get_installed_packages() {
-    if [ -d "$1" ]; then
-        ls -1 "$1"/var/lib/dpkg/info/*.md5sums | sed -n 's,^.*/var/lib/dpkg/info/\([^:]*\)\(:.\+\)\?\.md5sums$,\1,p'
-    else
-        unsquashfs -l "$1" | sed -n 's,^.*/var/lib/dpkg/info/\([^:]*\)\(:.\+\)\?\.md5sums$,\1,p'
-    fi
-}
-
+# Logs
 if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
 fi
-
 exec 19>/var/log/minios/minios-update-dpkg.trace
 BASH_XTRACEFD=19
+PS4='${LINENO}: '
 set -x
 
+# Variables
 BUNDLES="$1"
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
 CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
@@ -40,32 +34,14 @@ cat "$BUNDLES"/*."$BEXT"/var/lib/dpkg/statoverride | sort -u >/var/lib/dpkg/stat
 TEMP_FILE=$(mktemp /run/dpkg_status_file.XXXXXX)
 trap 'rm -f "$TEMP_FILE"*' EXIT
 
-for CORE_BUNDLE_PATH in "$BUNDLES"/"$CORE_BUNDLE_PREFIX"*."$BEXT"; do
-    cp "$CORE_BUNDLE_PATH$DPKG_STATUS_FILE" "$TEMP_FILE" || exit
-done
-
-for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
-    [ -f "$BUNDLE$DPKG_STATUS_FILE" ] || continue
-
-    cat "$BUNDLE$DPKG_STATUS_FILE" >>"$TEMP_FILE"
-    get_installed_packages "$BUNDLE" >>"$TEMP_FILE-packages.list"
-done
-
-cp "$TEMP_FILE-packages.list" "/var/log/minios/packages-bundles.list"
-
-get_installed_packages "$CORE_BUNDLE_PATH" | sort -u >>"$TEMP_FILE-core_bundle_packages.list"
-sort -u "$TEMP_FILE-packages.list" >"$TEMP_FILE-packages_sorted.list"
-
-cp "$TEMP_FILE-packages_sorted.list" "/var/log/minios/packages_sorted.list"
-
-comm -1 -3 "$TEMP_FILE-core_bundle_packages.list" "$TEMP_FILE-packages_sorted.list" >"$TEMP_FILE-packages_unique.list"
-
-cp "$TEMP_FILE-packages_unique.list" "/var/log/minios/packages_unique.list"
-
 if [ -f "/var/log/minios/statusfile" ]; then
     rm "/var/log/minios/statusfile"
 fi
-for PACKAGE in $(sort -u "$TEMP_FILE-packages_unique.list" | sed 's/+/\\\+/g'); do
+if [ -f "$DPKG_STATUS_FILE" ]; then
+    rm "$DPKG_STATUS_FILE"
+fi
+cat `ls "$BUNDLES"/*/var/lib/dpkg/status` >"$TEMP_FILE"
+for PACKAGE in $(awk -F"Package: " '/^Package: / {print $2}' "$TEMP_FILE" | sort -u | sed 's/+/\\\+/g'); do
     awk '/^Package: '$PACKAGE'$/ {p=1} p==1 {print} /^$/ {if (p==1) exit}' "$TEMP_FILE" >>$DPKG_STATUS_FILE
-    awk '/^Package: '$PACKAGE'$/ {p=1} p==1 {print} /^$/ {if (p==1) exit}' "$TEMP_FILE" >>"/var/log/minios/statusfile"
 done
+cp $DPKG_STATUS_FILE /var/log/minios/statusfile

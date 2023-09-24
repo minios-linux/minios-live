@@ -2,28 +2,28 @@
 
 ##### DISTRIBUTION SETTINGS #####
 # distribution
-# дистрибутив
+#
 # if Debian [stretch, buster, bullseye, bookworm, sid, kali-rolling, orel]
 # if Ubuntu [bionic, focal, jammy]
 DISTRIBUTION="bookworm"
 
 # distribution arch
-# архитектура дистрибутива
+#
 # [amd64, i386, i386-pae]
 DISTRIBUTION_ARCH="amd64"
 
 # окружение рабочего стола
-# desktop environment
+#
 # [core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base]
 DESKTOP_ENVIRONMENT="xfce"
 
 # system variant, indicates the used list of packages in modules
-# вариант системы, указывает на используемый список пакетов в модулях
+#
 # [cloud, minimum, standard, maximum, ultra, puzzle]
 PACKAGE_VARIANT="standard"
 
-# тип сжатия
 # compresssion type
+#
 # stretch: [xz, lzo, gz]
 # buster+: [xz, lzo, gz, lz4, zstd]
 COMP_TYPE="zstd"
@@ -35,39 +35,39 @@ COMP_TYPE="zstd"
 KERNEL_TYPE="default"
 
 # Linux kernel from backports
-# Ядро из бэкпортов
+#
 # [true, false]
 KERNEL_BPO="false"
 
 # Debian kernel with AUFS support
-# Ядро Debian с поддержкой AUFS
+#
 # [true, false]
 KERNEL_AUFS="true"
 
 # if "true", then additional drivers for wireless network adapters are compiled during kernel installation
-# если "true", то при установке ядра компилируются дополнительные драйверы для беспроводных сетевых адаптеров
+#
 KERNEL_BUILD_DKMS="false"
 
 # [livekit-mos, livekit-slax, uird]
 INITRD_TYPE="livekit-mos"
 
 # If true, then the names of initrfs.img and vmlinuz will indicate the version of the kernel for which they are intended.
-# Если true, то имена initrfs.img и vmlinuz будут указывать на версию ядра, для которой они предназначены.
+#
 # [true, false]
 NAMED_BOOT_FILES="false"
 
 # If true, then initrfs.img and vmlinuz will be copied to the minios-install/build/[distribution name]/kernel folder when the kernel is installed.
-# Если true, то initrfs.img и vmlinuz будут скопированы в папку minios-install/build/[distribution name]/kernel при установке ядра.
+#
 # [true, false]
 EXPORT_KERNEL="true"
 
 # If true, then initrfs.img and vmlinuz will be moved to the minios-install/build/[distribution name]/kernel folder when the kernel is installed.
-# Если true, то initrfs.img и vmlinuz будут перемещены в папку minios-install/build/[distribution name]/kernel при установке ядра.
+#
 # [true, false]
 MOVE_KERNEL="false"
 
 # If true, a log folder is created in the minios folder on the media, into which the system startup logs are copied.
-# Если true, то в папке minios на носителе создаётся папка log, в которую копируются логи запуска системы.
+#
 # [true, false]
 EXPORT_LOGS="false"
 ###########################
@@ -77,7 +77,7 @@ EXPORT_LOGS="false"
 LOCALE="en_US"
 
 # It is not necessary to change the time zone, the system automatically determines the time zone and sets it to the current location if you have Internet access.
-# Изменять часовой пояс необязательно, система автоматически определяет часовой пояс и устанавливает его по текущему местоположению при наличии доступа в Интернет.
+#
 # [any timezone]
 TIMEZONE="Etc/UTC"
 ###########################
@@ -88,15 +88,15 @@ USER_PASSWORD="evil"
 ROOT_PASSWORD="toor"
 
 # this parameter only works for initrd livekit-mos
-# этот параметр работает только для initrd livekit-mos
+#
 DEFAULT_TARGET="graphical"
 
 # this parameter only works for initrd livekit-mos
-# этот параметр работает только для initrd livekit-mos
-ENABLE_SERVICES="ssh"
+#
+ENABLE_SERVICES=""
 
 # this parameter only works for initrd livekit-mos
-# этот параметр работает только для initrd livekit-mos
+#
 DISABLE_SERVICES=""
 
 # [true, false]
@@ -106,7 +106,7 @@ SCRIPTS="false"
 AUTOLOGIN="true"
 
 # file name in the minios folder where the system will look for the ssh public key
-# имя файла в папке minios в котором система будет искать публичный ключ ssh
+#
 # [any file name]
 SSH_KEY="authorized_keys"
 
@@ -114,39 +114,37 @@ SSH_KEY="authorized_keys"
 CLOUD="false"
 
 # Hide credentials displayed as a hint in the console
-# Скрыть учётные данные, отображаемые в качестве подсказки в консоли
+#
 # [true, false]
 HIDE_CREDENTIALS="false"
 
 # When "puzzle" is set, operations necessary to handle modules that have been built relative to a certain common level are done at boot time; when "classic" is set, no such operations are done.
 # If you plan to plug/unplug modules while the system is running and you don't plan to put packages into the system using apt, then you should use "puzzle".
 # If you plan to use the system as a classic desktop system using saves, updating and installing packages with apt, you should use "classic".
-# При значении переменной "puzzle", при загрузке выполняются операции, необходимые для работы с модулями, которые были собраны относительно определённого общего уровня, при значении "classic" такие операции не выполняются.
-# Если вы планируете подключать/отключать модули во время работы с системой и не планируете ставить пакеты в систему пакеты с помощью apt, то вам следует использовать "puzzle".
-# Если вы планируете использовать систему в качестве классической настольной системы с использованием сохранений, обновлять и устанавливать пакеты с помощью apt, вам стоит использовать "classic". 
+#
 # [сlassic, puzzle]
 # !!!!!!!!!!!!!!!!!
 # This variable is redefined in minioslib. For all variants of the system, except Puzzle, it is "classic".
-# Данная переменная переопределена в minioslib. Для всех вариантов системы, кроме Puzzle, она равна "classic".
 #SYSTEM_TYPE="puzzle"
 ###########################
 
 # if ="true", creates a second iso with a constant filename
-# если ="true", создаёт второй iso с постоянным именем файла
+#
 # [true, false]
 BUILD_TEST_ISO="true"
 
 # removes old iso files for this build type
-# удаляет старые файлы iso для данного типа сборки
+#
 # [true, false]
 REMOVE_OLD_ISO="true"
 
 # if ="true", creates a copy of minios-live in chroot /opt
-# если ="true", создаёт копию minios-live в chroot /opt
+#
+# [true, false]
 DEV_SYSTEM="false"
 
 # if true, when building the system installs the sources in /opt/minios-live
-# если истина, при сборке системы устанавливает исходные коды в /opt/minios-live
+#
 # [true, false]
 DOWNLOAD_SOURCES="false"
 
@@ -159,21 +157,21 @@ DEBIAN_FRONTEND_TYPE="noninteractive"
 BOOT_TYPE="hybrid"
 
 # union type used to build the system
-# тип union, используемый для сборки системы
+#
 # [aufs, overlayfs]
 UNION_BUILD_TYPE="overlayfs"
 
 # Used when assigned to the ISO name when building minios-live
-# Используется при назначении имени ISO при сборке minios-live
+#
 SYSTEMNAME="MiniOS"
 
 # using a ready-made bootstrap file during installation. If absent, then it is downloaded and packaged. Subsequent builds unpack the existing bootstrap.
-# использование готового файла bootstrap при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл bootstrap.
+#
 # [true, false]
 USE_BOOTSTRAP="true"
 
 # using a ready-made rootfs file during installation. If absent, then it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
-# использование готового файла rootfs при установке. Если отсутствует, то скачивается и упаковывается. При последующих сборках распаковывается существующий файл rootfs.
+#
 # [true, false]
 USE_ROOTFS="true"
 
@@ -183,17 +181,17 @@ USE_MX_REPO="false"
 USE_ANTIX_REPO="false"
 
 # if true, then the installation of packages required for the build is skipped
-# если истина, то пропускается установка пакетов, необходимых для сборки
+#
 # [true, false]
 SKIP_SETUP_HOST="false"
 
 # deleting sources after building
-# удаление исходников после сборки
+#
 # [true, false]
 REMOVE_SOURCES="false"
 
 # if true, then removes the dpkg base from the module (it is necessary so that additional modules do not break the common base if they do not use the cumulative structure of modules and are built relative to a certain level, and not relative to all system modules)
-# если истина, то удаляет базу dpkg из модуля (нужно для того, чтобы дополнительные модули не ломали общую базу, если они не используют накопительную структуру модулей и собираются относительно определённого уровня, а не относительно всех модулей системы)
+#
 # [true, false]
 REMOVE_DPKG_DB="false"
 
@@ -205,13 +203,12 @@ REMOVE_LARGE_ICONS="true"
 
 # if true, then when building modules from within the system, allows you to set the maximum level at which modules will be built
 # for example, level 4 is a build relative to modules 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. If the module is built like this, then it will not conflict with any module built at level 4, if all modules 01-04 are present in the system.
-# если истина, то при сборке модулей изнутри системы позволяет установить максимальный уровень, на котором будут собраны модули
-# например, уровень 4 - это сборка относительно модулей 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. Если модуль собран так, то он не будет конфликтовать с любым модулем, собранным на 4 уровне, если все модули 01-04 присутствуют в системе.
+#
 # [true, false]
 FILTER_MODULES="false"
 
 # modules filter level, see above
-# уровень фильтра модулей, см. выше
+#
 # [0, 1, 2, 3, 4...]
 FILTER_LEVEL="3"
 

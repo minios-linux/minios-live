@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Functions library :: for Linux Live Kit scripts
 # Author: Tomas M. <http://www.linux-live.org>
@@ -1018,7 +1018,7 @@ copy_to_ram() {
       return
    fi
 
-   echo "* Copying $SYSTEMNAME data to RAM..." >&2
+   echo "* Copying $SYSTEMNAME data to RAM..." >&2 >/dev/tty1
    RAM="$(dirname "$2")"/toram
    mkdir -p "$RAM"
    cp -a "$1"/* "$RAM"
@@ -1035,9 +1035,9 @@ copy_to_ram() {
    fi
 }
 
-# filter modules
+# load filter
 #
-filter() {
+filter_load() {
    local FILTER NUM START END
    FILTER=$(cmdline_value load)
    FILTER=${FILTER//,/|}
@@ -1057,11 +1057,33 @@ filter() {
    if [ "$FILTER" = "" ]; then
       cat -
    else
-      if [ "$1" = "load" ]; then
-         cat - | egrep "$FILTER"
-      elif [ "$1" = "noload" ]; then
-         cat - | egrep -v "$FILTER"
+      cat - | egrep "$FILTER"
+   fi
+}
+
+# noload filter
+#
+filter_noload() {
+   local FILTER NUM START END
+   FILTER=$(cmdline_value noload)
+   FILTER=${FILTER//,/|}
+   if [ "$FILTER" != "" ]; then
+      if echo $FILTER | grep -qE '^[0-9]+-[0-9]+$'; then
+         START=$(echo $FILTER | cut -d '-' -f 1)
+         END=$(echo $FILTER | cut -d '-' -f 2)
+         FILTER=""
+         while [ $START -le $END ]; do
+            NUM=$(printf "%02d" $START)
+            FILTER="$FILTER|$NUM"
+            START=$(($START + 1))
+         done
+         FILTER=${FILTER#|}
       fi
+   fi
+   if [ "$FILTER" = "" ]; then
+      cat -
+   else
+      cat - | egrep -v "$FILTER"
    fi
 }
 
@@ -1082,7 +1104,7 @@ mount_bundles() {
       ls -1 "$1" | sort -n
       cd "$1"
       find modules/ 2>/dev/null | sortmod
-   ) | grep '[.]'$BEXT'$' | filter load | filter noload | while read BUNDLE; do
+   ) | grep '[.]'$BEXT'$' | filter_load | filter_noload | while read BUNDLE; do
       echo "* $BUNDLE"
       BUN="$(basename "$BUNDLE")"
       mkdir -p "$2/$BUN"
@@ -1142,109 +1164,126 @@ fstab_create() {
 }
 
 # MiniOS boot functions
-copy_file_if_exists() {
-   local SRC=$1 DST=$2
-
-   if [ -f "$SRC" ] && [ ! -f "$DST" ]; then
-      cp -fp "$SRC" "$DST"
-   fi
-
-   if [ "${DST##*.}" = "authorized_keys" ]; then
-      chmod 600 "$DST"
-   fi
-}
-
 synchronize_files() {
-   local SRC=$1 DST=$2
+   debug_log "synchronize_files" "$*"
+   local SRC DST WRITABLE
 
-   if [ -f "$SRC" ] && [ -f "$DST" ]; then
-      if [ "$SRC" -nt "$DST" ]; then
-         cp -fp "$SRC" "$DST"
-      elif [ "$SRC" -ot "$DST" ]; then
-         cp -fp "$DST" "$SRC"
-      fi
-   elif [ -f "$SRC" ]; then
+   SRC="$1"
+   DST="$2"
+   WRITABLE="$3"
+
+   # Check if the source file exists
+   if [ -f "$SRC" ]; then
       cp -fp "$SRC" "$DST"
-   elif [ -f "$DST" ]; then
+   # If the source file does not exist but the target file does, and folder that should contain SRC is writable, copy the target file to the source
+   elif [ ! -f "$SRC" ] && [ -f "$DST" ] && [ "$WRITABLE" = "true" ]; then
       cp -fp "$DST" "$SRC"
    fi
 
-   if [ "${DST##*.}" = "authorized_keys" ]; then
+   # If the target file is named "authorized_keys" and it exists, change the file permissions
+   if [ "${DST##*.}" = "authorized_keys" ] && [ -f "$DST" ]; then
       chmod 600 "$DST"
    fi
 }
 
+# $1 = $DATA
+# $2 = $UNION
+#
 minios_boot() {
    debug_log "minios_boot" "$*"
    local WRITABLE SSH_KEY
 
+   # If the kernel command line contains "static_profiles", exit the function
    if grep -q static_profiles /proc/cmdline; then
       return
    fi
 
-   SSH_KEY=$(cmdline_value ssh_key)
-
-   cp /bin/minios-boot $1/
-   cat /proc/cmdline >$1/cmdline
+   # Copy the minios-boot binary to the target directory
+   cp /bin/minios-boot $2/
+   # Save the kernel command line parameters to a file in the target directory
+   cat /proc/cmdline >$2/cmdline
 
    # Check if you have write access to the directory.
-   touch "$3/$LIVEKITNAME/.empty" 2>/dev/null && rm -f "$3/$LIVEKITNAME/.empty" 2>/dev/null
-
+   touch "$1/.empty" 2>/dev/null && rm -f "$1/.empty" 2>/dev/null
    if [ $? -ne 0 ]; then
       WRITABLE="false"
-      if [ -z $SSH_KEY ]; then
-         SSH_KEY=$(config_value $2/$LIVEKITNAME.conf SSH_KEY)
-         if [ -z $SSH_KEY ]; then
-            SSH_KEY="authorized_keys"
-         fi
-      fi
-      copy_file_if_exists $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
-      copy_file_if_exists $2/$SSH_KEY $1/root/.ssh/authorized_keys
    else
       WRITABLE="true"
-      if [ -d $2/$LIVEKITNAME ]; then
-         synchronize_files $2/$LIVEKITNAME.conf $1/etc/minios/$LIVEKITNAME.conf
-         if [ -z $SSH_KEY ]; then
-            SSH_KEY=$(config_value $1/etc/minios/$LIVEKITNAME.conf SSH_KEY)
-            if [ -z $SSH_KEY ]; then
-               SSH_KEY="authorized_keys"
-            fi
-         fi
-         mkdir -p $1/root/.ssh && chmod 700 $1/root/.ssh
-         synchronize_files $2/$SSH_KEY $1/root/.ssh/authorized_keys
+   fi
+
+   # Synchronize the configuration file between the source and target directories
+   synchronize_files $1/$LIVEKITNAME.conf $2/etc/minios/$LIVEKITNAME.conf $WRITABLE
+
+   # Get the SSH key from the kernel command line or configuration file
+   SSH_KEY=$(cmdline_value ssh_key)
+   if [ -z $SSH_KEY ]; then
+      SSH_KEY=$(config_value $1/$LIVEKITNAME.conf SSH_KEY)
+      if [ -z $SSH_KEY ]; then
+         SSH_KEY="authorized_keys"
       fi
    fi
 
-   mkdir -p $1/var/log/minios
-
-   if [ "$(ls -A $2/scripts 2>/dev/null)" ]; then
-      chroot $1 /bin/bash -c "/minios-boot $2" >$1/var/log/minios/boot.output 2>&1
-   else
-      chroot $1 /bin/bash -c "/minios-boot" >$1/var/log/minios/boot.output 2>&1
+   # Create the .ssh directory in the target root directory and set its permissions
+   if [ -d "$2/root/.ssh" ]; then
+      mkdir -p $2/root/.ssh && chmod 700 $2/root/.ssh
    fi
 
-   EXPORT_LOGS=$(config_value $2/$LIVEKITNAME.conf EXPORT_LOGS)
+   # Synchronize the SSH authorized keys file between the source and target directories
+   synchronize_files $1/$SSH_KEY $2/root/.ssh/authorized_keys $WRITABLE
+
+   # Create a log directory in the target directory
+   mkdir -p $2/var/log/minios
+
+   #if [ ! -f $2/usr/lib/systemd/system/minios-syncconfig.service ]; then
+      cat <<EOF >$2/usr/lib/systemd/system/minios-syncconfig.service
+[Unit]
+Description=Sync minios.conf changes
+
+[Service]
+Type=oneshot
+ExecStart=-/bin/sh -c "if [ -f /run/initramfs/$1/$LIVEKITNAME.conf ] && [ -w /run/initramfs/$1/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /run/initramfs/$1/$LIVEKITNAME.conf; fi; sync"
+
+[Install]
+RequiredBy=minios-syncconfig.path
+
+EOF
+   #fi
+
+   # Run minios-boot in a chroot environment and save its output to a log file
+   if [ "$(ls -A $1/scripts 2>/dev/null)" ]; then
+      chroot $2 /bin/bash -c "/minios-boot $1" >$2/var/log/minios/boot.output 2>&1
+   else
+      chroot $2 /bin/bash -c "/minios-boot" >$2/var/log/minios/boot.output 2>&1
+   fi
+
+   # Check if logs should be exported to the source directory
+   EXPORT_LOGS=$(config_value $1/$LIVEKITNAME.conf EXPORT_LOGS)
+
    DATE=$(date +%Y%m%d)
    TIME=$(date +%H%M%S)
+
    if [ "$EXPORT_LOGS" = "true" ]; then
       if [ "$WRITABLE" = "true" ]; then
-         mkdir -p $2/log/$DATE
-         if [ -f $1/var/log/minios/boot.output ]; then
-            cp -fp $1/var/log/minios/boot.output $2/log/$DATE/boot-$TIME.output
+         # Create a log directory in the source directory and copy logs from the target directory to it
+         mkdir -p $1/log/$DATE
+         if [ -f $2/var/log/minios/boot.output ]; then
+            cp -fp $2/var/log/minios/boot.output $1/log/$DATE/boot-$TIME.output
          fi
-         if [ -f $1/var/log/minios/boot.trace ]; then
-            cp -fp $1/var/log/minios/boot.trace $2/log/$DATE/boot-$TIME.trace
+         if [ -f $2/var/log/minios/boot.trace ]; then
+            cp -fp $2/var/log/minios/boot.trace $1/log/$DATE/boot-$TIME.trace
          fi
       fi
    fi
 
+   # If write access is available, copy configuration and authorized keys files back to the source directory
    if [ "$WRITABLE" = "true" ]; then
-      copy_file_if_exists $1/etc/minios/$LIVEKITNAME.conf $2/$LIVEKITNAME.conf
-      copy_file_if_exists $1/root/.ssh/authorized_keys $2/$SSH_KEY
+      synchronize_files $2/etc/minios/$LIVEKITNAME.conf $1/$LIVEKITNAME.conf $WRITABLE
+      synchronize_files $2/root/.ssh/authorized_keys $1/$SSH_KEY $WRITABLE
    fi
 
-   rm -f $1/cmdline
-   rm -f $1/minios-boot
+   # Clean up temporary files in the target directory
+   rm -f $2/cmdline
+   rm -f $2/minios-boot
 }
 # End of MiniOS boot functions
 

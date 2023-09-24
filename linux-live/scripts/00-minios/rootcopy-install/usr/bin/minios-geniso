@@ -157,7 +157,8 @@ EOF
 
 GRAFT=$(
     cd "$MINIOS"
-    find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^boot/isohdpfx.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
+    #find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^boot/isohdpfx.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
+    find . -type f | sed -r "s:^[.]/::" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
         echo "$LIVEKITNAME/$LINE=$MINIOS/$LINE"
     done
     cd "$EFI"

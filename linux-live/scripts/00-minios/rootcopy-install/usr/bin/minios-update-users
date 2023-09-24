@@ -13,6 +13,7 @@ fi
 
 exec 19>/var/log/minios/minios-update-users.trace
 BASH_XTRACEFD=19
+PS4='${LINENO}: '
 set -x
 if [ ! -d /var/log/minios/users ]; then
     mkdir -p /var/log/minios/users
