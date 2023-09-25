@@ -871,6 +871,8 @@ EOF
         cp $SCRIPT_DIR/linux-live/minioslib $1/minioslib
     elif [ -f /linux-live/minioslib ]; then
         cp /linux-live/minioslib $1/minioslib
+    elif [ -f /usr/lib/minioslib ]; then
+        cp /usr/lib/minioslib $1/minioslib
     fi
 }
 
