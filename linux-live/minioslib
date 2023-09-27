@@ -373,6 +373,10 @@ function read_cmdline() {
             FROM="${i#*=}"
             shift # past argument=value
             ;;
+        dontwaitdpkg)
+            DONTWAITDPKG="true"
+            shift # past argument with no value
+            ;;
         *)
             UNKNOWN="true"
             # unknown option

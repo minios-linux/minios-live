@@ -298,6 +298,7 @@ if [ "$SYSTEM_TYPE" = "puzzle" ] && [ ! -f /var/.system_configured ]; then
     # fix dpkg
     if [ -x "$(command -v minios-update-dpkg)" ]; then
         minios-update-dpkg "$BUNDLES" >/var/log/minios/minios-update-dpkg.output 2>&1 &
+        MUD_PID=$!
     fi
 fi
 
@@ -578,6 +579,14 @@ if [ "$EXPORT_LOGS" = "true" ]; then
             fi
         done
     fi
+fi
+
+if [ "$DONTWAITDPKG" != "true" ]; then
+    echo -n "Waiting for DPKG base preparation process to complete..."
+    while kill -0 $MUD_PID 2>/dev/null; do
+        echo -n "."
+        sleep 1
+    done
 fi
 
 exit 0
