@@ -30,3 +30,7 @@ if [ -f $SCRIPT_DIR/package.list ]; then
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
 fi
+
+if grep -q nfs-common "$SCRIPT_DIR/package.list"; then
+    systemctl disable rpcbind
+fi

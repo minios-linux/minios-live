@@ -30,3 +30,7 @@ fi
 
 echo "nbd
 " >>/etc/modules
+
+if grep -q nfs-common "$SCRIPT_DIR/package.list"; then
+    systemctl disable rpcbind
+fi

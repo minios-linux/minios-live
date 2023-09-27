@@ -197,6 +197,9 @@ fi
 if grep -q open-iscsi $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     systemctl disable iscsid
 fi
+if grep -q nfs-common $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+    systemctl disable rpcbind
+fi
 
 # configuration
 
