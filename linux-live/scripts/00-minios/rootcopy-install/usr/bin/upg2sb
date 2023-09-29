@@ -91,7 +91,7 @@ TMP=$(mktemp -d "$SYSTEMCHANGES"/build2sb.XXXXX)
 CHANGES="$TMP/changes"
 UNION="$TMP/union"
 
-trap 'umount "$UNION/etc/resolv.conf" 2>/dev/null; umount "$UNION/sys" 2>/dev/null; umount "$UNION/proc" 2>/dev/null; umount "$UNION/dev/pts" 2>/dev/null; umount "$UNION/dev" 2>/dev/null; rm "$CHANGES/install" 2>/dev/null; rmdir "$CHANGES/*" 2>/dev/null; umount "$UNION"; umount "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
+trap 'if [ "$RESOLVCONFLNK" = "true" ]; then rm -f "$CHANGES/etc/resolv.conf" 2>/dev/null; else umount "$UNION/etc/resolv.conf" 2>/dev/null; fi; umount "$UNION/sys" 2>/dev/null; umount "$UNION/proc" 2>/dev/null; umount "$UNION/dev/pts" 2>/dev/null; umount "$UNION/dev" 2>/dev/null; rm "$CHANGES/install" 2>/dev/null; rmdir "$CHANGES/*" 2>/dev/null; umount "$UNION"; umount "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
 
 #mount -t tmpfs tmpfs "$TMP"
 mkdir -p "$CHANGES"
@@ -138,11 +138,22 @@ done
 
 echo "apt-get update; apt-get upgrade --yes" >"$UNION/install"
 chmod ugo+x "$UNION/install"
-mount --bind /etc/resolv.conf $UNION/etc/resolv.conf
+if [ -L "$UNION/etc/resolv.conf" ]; then
+    rm "$UNION/etc/resolv.conf"
+    echo "nameserver 8.8.8.8" >"$UNION/etc/resolv.conf"
+    RESOLVCONFLNK="true"
+else
+    mount --bind "/etc/resolv.conf" "$UNION/etc/resolv.conf"
+fi
 if ! chroot "$UNION" /install; then
     FAILED="true"
 fi
 
+if [ "$RESOLVCONFLNK" = "true" ]; then
+    rm -f "$CHANGES/etc/resolv.conf"
+else
+    umount "$UNION/etc/resolv.conf"
+fi
 umount "$UNION/etc/resolv.conf"
 umount "$UNION/sys"
 umount "$UNION/proc"
