@@ -162,7 +162,7 @@ if [ -L "$UNION/etc/resolv.conf" ]; then
 else
     mount --bind "/etc/resolv.conf" "$UNION/etc/resolv.conf"
 fi
-if ! chroot "$UNION" /install; then
+if ! /usr/sbin/chroot "$UNION" /install; then
     FAILED="true"
 fi
 

@@ -181,7 +181,7 @@ function version() {
 function fix_system() {
     if [ "$SYSTEM_TYPE" = "puzzle" ]; then
         # fix users
-        minios-update-users $BUNDLES 2>/dev/null
+        #minios-update-users $BUNDLES 2>/dev/null
         # fix caches
         minios-update-cache $BUNDLES 2>/dev/null &
         # fix dpkg
