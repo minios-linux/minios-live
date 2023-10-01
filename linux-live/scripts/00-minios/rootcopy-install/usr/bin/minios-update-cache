@@ -17,20 +17,6 @@ BASH_XTRACEFD=19
 PS4='${LINENO}: '
 set -x
 
-# Function to configure kernel modules from bundles
-function configure_kernel_modules() {
-    for MODULE_PATH in $(find $BUNDLES/*/lib/modules/*$(uname -r) -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
-        MODULE_NAME="$(basename $MODULE_PATH | sed 's/.[gx]z$//')"
-        [ "$(cat /etc/modprobe.d/*.conf | awk '/^blacklist / && / '$MODULE_NAME'$/ {print $2}')" ] && continue
-        [ "$(lsmod | egrep '^'$MODULE_NAME' ')" ] && continue # module already loaded -> next MODULE_PATH
-        if [ ! "$DEPMOD" ]; then                              # if DEPMOD is empty, i.e. depmod did not
-            sudo insmod "$MODULE_PATH" && continue
-            sudo depmod && DEPMOD=true
-        fi
-        sudo modprobe "$MODULE_NAME"
-    done
-}
-
 # Function to update various system caches from bundles
 function update_caches() {
     if [ ! "$UPDATE_MIME" ]; then
@@ -64,7 +50,21 @@ function update_caches() {
     fi
 }
 
-BUNDLES=$1
+# Function to configure kernel modules from bundles
+function configure_kernel_modules() {
+    for MODULE_PATH in $(find $BUNDLES -type d -path "*/lib/modules/*$(uname -r)" -exec find {} -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) \; 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
+        MODULE_NAME="$(basename $MODULE_PATH | sed 's/.[gx]z$//')"
+        [ "$(cat /etc/modprobe.d/*.conf | awk '/^blacklist / && / '$MODULE_NAME'$/ {print $2}')" ] && continue
+        [ "$(lsmod | egrep '^'$MODULE_NAME' ')" ] && continue # module already loaded -> next MODULE_PATH
+        if [ ! "$DEPMOD" ]; then                              # if DEPMOD is empty, i.e. depmod did not
+            sudo insmod "$MODULE_PATH" && continue
+            sudo depmod && DEPMOD=true
+        fi
+        sudo modprobe "$MODULE_NAME"
+    done
+}
+
+BUNDLES="$1"
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
 CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
 read_config /etc/minios/config BEXT

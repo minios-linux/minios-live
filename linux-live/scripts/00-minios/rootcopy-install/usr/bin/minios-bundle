@@ -17,6 +17,7 @@ elif [ -d /memory/bundles ]; then
     LIVE=/memory
 fi
 BUNDLES=$LIVE/bundles
+CHANGES=$LIVE/changes
 RAMSTORE=$LIVE/modules
 
 # Print error message and exit
@@ -181,11 +182,11 @@ function version() {
 function fix_system() {
     if [ "$SYSTEM_TYPE" = "puzzle" ]; then
         # fix users
-        #minios-update-users $BUNDLES 2>/dev/null
+        minios-update-users "$BUNDLES" "$CHANGES" 2>/dev/null
         # fix caches
-        minios-update-cache $BUNDLES 2>/dev/null &
+        minios-update-cache "$BUNDLES" 2>/dev/null &
         # fix dpkg
-        minios-update-dpkg $BUNDLES 2>/dev/null &
+        minios-update-dpkg "$BUNDLES" "$CHANGES" 2>/dev/null &
     fi
 }
 

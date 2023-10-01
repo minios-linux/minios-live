@@ -4,8 +4,8 @@
 . /usr/lib/minioslib || exit 1
 
 [ ! "$1" ] && echo "Builds a common users files (passwd, shadow, group, gshadow) from all bundles
-    Usage:   $0 [bundles mount points location]
-    Example: $0 /run/initramfs/memory/bundles" && exit 1
+    Usage:   $0 [bundles mount points location] [optional: changes location]
+    Example: $0 /run/initramfs/memory/bundles /run/initramfs/memory/changes" && exit 1
 
 if [ ! -d /var/log/minios ]; then
     mkdir -p /var/log/minios
@@ -19,7 +19,8 @@ if [ ! -d /var/log/minios/users ]; then
     mkdir -p /var/log/minios/users
 fi
 
-BUNDLES=$1
+BUNDLES="$1"
+CHANGES="$2"
 read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
 CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
 read_config /etc/minios/config BEXT
@@ -33,25 +34,24 @@ trap 'rm -rf $TMP' EXIT
 
 for FILE in {passwd,shadow,group,gshadow}; do
     if [ -f "$CORE_BUNDLE_PATH/etc/$FILE" ]; then
-        cp "$CORE_BUNDLE_PATH/etc/$FILE" "$TMP/$FILE.bundles" || exit
-        cp "$TMP/$FILE.bundles" "/var/log/minios/users/$FILE.core"
+        cp "$CORE_BUNDLE_PATH/etc/$FILE" "$TMP/$FILE.tmp" || exit
+        cp "$TMP/$FILE.tmp" "/var/log/minios/users/$FILE.core"
     fi
-
 done
 
-for BUNDLE in $(ls -1d $BUNDLES/*.$BEXT | egrep -v "^$CORE_BUNDLE_PATH"); do
+for DIR in $(ls -1d $BUNDLES/*.$BEXT $CHANGES | egrep -v "^$CORE_BUNDLE_PATH"); do
     for FILE in {passwd,shadow,group,gshadow}; do
-        if [ -f "$BUNDLE/etc/$FILE" ]; then
-            #echo "$FILE exists in $(basename $BUNDLE)."
-            grep -Fvf "$TMP/$FILE.bundles" "$BUNDLE/etc/$FILE" >>"$TMP/$FILE.bundles"
-            cp "$BUNDLE/etc/$FILE" "/var/log/minios/users/$FILE.$(basename $BUNDLE)"
-            cp "$TMP/$FILE.bundles" "/var/log/minios/users/$FILE.bundles"
+        if [ -f "$DIR/etc/$FILE" ]; then
+            #echo "$FILE exists in $(basename $DIR)."
+            grep -Fvf "$TMP/$FILE.tmp" "$DIR/etc/$FILE" >>"$TMP/$FILE.tmp"
+            cp "$DIR/etc/$FILE" "/var/log/minios/users/$FILE.$(basename $DIR)"
+            cp "$TMP/$FILE.tmp" "/var/log/minios/users/$FILE.tmp"
         fi
     done
 done
 
 for FILE in {passwd,shadow,group,gshadow}; do
-    if [ -f "$TMP/$FILE.bundles" ]; then
-        awk '!x[$0]++' "$TMP/$FILE.bundles" >"/etc/$FILE"
+    if [ -f "$TMP/$FILE.tmp" ]; then
+        awk '!x[$0]++' "$TMP/$FILE.tmp" >"/etc/$FILE"
     fi
 done
