@@ -38,13 +38,15 @@ if [ -z $FROM ] || echo $FROM | grep 'http://' || [ -d "/run/initramfs/memory/is
 elif [ -f /run/initramfs/var/log/from.log ]; then
     FROM=$(cat /run/initramfs/var/log/from.log)
 fi
-if [ -d /run/initramfs/memory/bundles ]; then
-    BUNDLES=/run/initramfs/memory/bundles
+if [ -d "/run/initramfs/memory" ]; then
+    LIVE="/run/initramfs/memory"
     INITRD_TYPE="livekit"
-elif [ -d /memory/bundles ]; then
-    BUNDLES=/memory/bundles
+elif [ -d /memory ]; then
+    LIVE="/memory"
     INITRD_TYPE="uird"
 fi
+BUNDLES="$LIVE/bundles"
+CHANGES="$LIVE/changes"
 if [ "$INITRD_TYPE" = "livekit" ]; then
     # search for bundles in the mounted directory
     if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
@@ -289,7 +291,7 @@ fi
 if [ "$SYSTEM_TYPE" = "puzzle" ] && [ ! -f /var/.system_configured ]; then
     # fix users
     if [ -x "$(command -v minios-update-users)" ]; then
-        minios-update-users "$BUNDLES" >/var/log/minios/minios-update-users.output 2>&1
+        minios-update-users "$BUNDLES" "$CHANGES" >/var/log/minios/minios-update-users.output 2>&1
     fi
     # fix caches
     if [ -x "$(command -v minios-update-cache)" ]; then
@@ -297,7 +299,7 @@ if [ "$SYSTEM_TYPE" = "puzzle" ] && [ ! -f /var/.system_configured ]; then
     fi
     # fix dpkg
     if [ -x "$(command -v minios-update-dpkg)" ]; then
-        minios-update-dpkg "$BUNDLES" >/var/log/minios/minios-update-dpkg.output 2>&1 &
+        minios-update-dpkg "$BUNDLES" "$CHANGES" >/var/log/minios/minios-update-dpkg.output 2>&1 &
     fi
 fi
 

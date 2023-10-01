@@ -5,8 +5,8 @@
 . /usr/lib/minioslib || exit 1
 
 [ ! "$1" ] && echo "Builds a common dpkg database from all bundles
-    Usage:   $0 [bundles mount points location]
-    Example: $0 /run/initramfs/memory/bundles" && exit 1
+    Usage:   $0 [bundles mount points location] [optional: changes location]
+    Example: $0 /run/initramfs/memory/bundles /run/initramfs/memory/changes" && exit 1
 
 # Logs
 if [ ! -d /var/log/minios ]; then
@@ -19,6 +19,7 @@ set -x
 
 # Variables
 BUNDLES="$1"
+CHANGES="$2"
 read_config /etc/minios/config BEXT
 BEXT=${BEXT:-"sb"}
 DPKG_STATUS_FILE=/var/lib/dpkg/status
@@ -27,15 +28,26 @@ DPKG_STATUS_FILE=/var/lib/dpkg/status
 
 allow_root_only
 
-if [ -x "$(command -v apt)" ]; then
-    chmod -x $(command -v apt)
-fi
-if [ -x "$(command -v apt-get)" ]; then
-    chmod -x $(command -v apt-get)
-fi
-if [ -x "$(command -v dpkg)" ]; then
-    chmod -x $(command -v dpkg)
-fi
+APT_BINARY="$(command -v apt)"
+APTGET_BINARY="$(command -v apt-get)"
+DPKG_BINARY="$(command -v dpkg)"
+
+for BINARY in "$APT_BINARY" "$APTGET_BINARY" "$DPKG_BINARY"; do
+    if [ -f "$BINARY" ] && [ -f "$BINARY.bak" ]; then
+        echo "DPKG database update is in progress, please wait. The update may take 1-2 minutes."
+        exit 1
+    fi
+done
+
+for BINARY in "$APT_BINARY" "$APTGET_BINARY" "$DPKG_BINARY"; do
+    if [ -f "$BINARY" ] && [ ! -f "$BINARY.bak" ]; then
+        mv "$BINARY" "$BINARY.bak"
+        echo '#!/bin/bash
+echo "DPKG database update is in progress, please wait. The update may take 1-2 minutes."
+' >"$BINARY"
+        chmod +x "$BINARY"
+    fi
+done
 
 cat "$BUNDLES"/*."$BEXT"/var/lib/dpkg/statoverride | sort -u >/var/lib/dpkg/statoverride
 
@@ -48,18 +60,15 @@ fi
 if [ -f "$DPKG_STATUS_FILE" ]; then
     rm "$DPKG_STATUS_FILE"
 fi
-cat $(ls "$BUNDLES"/*/var/lib/dpkg/status) >"$TEMP_FILE"
+cat $(ls "$BUNDLES"/*/var/lib/dpkg/status "$CHANGES/var/lib/dpkg/status") >"$TEMP_FILE"
 for PACKAGE in $(awk -F"Package: " '/^Package: / {print $2}' "$TEMP_FILE" | sort -u | sed 's/+/\\\+/g'); do
     awk '/^Package: '$PACKAGE'$/ {p=1} p==1 {print} /^$/ {if (p==1) exit}' "$TEMP_FILE" >>$DPKG_STATUS_FILE
 done
 cp $DPKG_STATUS_FILE /var/log/minios/statusfile
 
-if [ ! -x "$(command -v apt)" ]; then
-    chmod +x $(command -v apt)
-fi
-if [ ! -x "$(command -v apt-get)" ]; then
-    chmod +x $(command -v apt-get)
-fi
-if [ ! -x "$(command -v dpkg)" ]; then
-    chmod +x $(command -v dpkg)
-fi
+for BINARY in "$APT_BINARY" "$APTGET_BINARY" "$DPKG_BINARY"; do
+    if [ -f "$BINARY" ] && [ -f "$BINARY.bak" ]; then
+        rm "$BINARY"
+        mv "$BINARY.bak" "$BINARY"
+    fi
+done
