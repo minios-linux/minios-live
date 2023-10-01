@@ -288,7 +288,7 @@ if [[ ! "$AUTOLOGIN" =~ ^(true|false)$ ]]; then
     AUTOLOGIN="${VARIABLES_DEFAULTS[AUTOLOGIN]}"
 fi
 
-if [ "$SYSTEM_TYPE" = "puzzle" ] && [ ! -f /var/.system_configured ]; then
+if [ "$SYSTEM_TYPE" = "puzzle" ]; then
     # fix users
     if [ -x "$(command -v minios-update-users)" ]; then
         minios-update-users "$BUNDLES" "$CHANGES" >/var/log/minios/minios-update-users.output 2>&1
