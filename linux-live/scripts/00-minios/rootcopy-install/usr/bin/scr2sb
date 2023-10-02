@@ -107,7 +107,7 @@ fi
 
 if [ "$DIRECTORY" ] && { [ ! -d "$DIRECTORY" ] || [ -d "$DIRECTORY" ] && [ ! -r "$DIRECTORY" ]; }; then
     echo "The specified directory must exist and be readable."
-    exit 1
+    brief_help
 fi
 
 if [ -d "/run/initramfs/memory/bundles" ]; then
