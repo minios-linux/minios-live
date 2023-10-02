@@ -28,47 +28,12 @@ DPKG_STATUS_FILE=/var/lib/dpkg/status
 
 allow_root_only
 
-APT_BINARY="$(command -v apt)"
-APTGET_BINARY="$(command -v apt-get)"
-DPKG_BINARY="$(command -v dpkg)"
+TEMP_STATOVERRIDE=$(mktemp /run/statoverride.XXXXXX)
+TEMP_STATUS=$(mktemp /run/dpkg_status.XXXXXX)
+trap 'rm -f "$TEMP_STATOVERRIDE"; rm -f "$TEMP_STATUS"' EXIT
 
-for BINARY in "$APT_BINARY" "$APTGET_BINARY" "$DPKG_BINARY"; do
-    if [ -f "$BINARY" ] && [ -f "$BINARY.bak" ]; then
-        echo "DPKG database update is in progress, please wait. The update may take 1-2 minutes."
-        exit 1
-    fi
-done
+cat $(ls "$BUNDLES"/*/var/lib/dpkg/statoverride "$CHANGES/var/lib/dpkg/statoverride" 2>/dev/null) >"$TEMP_STATOVERRIDE"
+cat "$TEMP_STATOVERRIDE" | sort -u >/var/lib/dpkg/statoverride
 
-for BINARY in "$APT_BINARY" "$APTGET_BINARY" "$DPKG_BINARY"; do
-    if [ -f "$BINARY" ] && [ ! -f "$BINARY.bak" ]; then
-        mv "$BINARY" "$BINARY.bak"
-        echo '#!/bin/bash
-echo "DPKG database update is in progress, please wait. The update may take 1-2 minutes."
-' >"$BINARY"
-        chmod +x "$BINARY"
-    fi
-done
-
-cat "$BUNDLES"/*."$BEXT"/var/lib/dpkg/statoverride | sort -u >/var/lib/dpkg/statoverride
-
-TEMP_FILE=$(mktemp /run/dpkg_status_file.XXXXXX)
-trap 'rm -f "$TEMP_FILE"*' EXIT
-
-if [ -f "/var/log/minios/statusfile" ]; then
-    rm "/var/log/minios/statusfile"
-fi
-if [ -f "$DPKG_STATUS_FILE" ]; then
-    rm "$DPKG_STATUS_FILE"
-fi
-cat $(ls "$BUNDLES"/*/var/lib/dpkg/status "$CHANGES/var/lib/dpkg/status") >"$TEMP_FILE"
-for PACKAGE in $(awk -F"Package: " '/^Package: / {print $2}' "$TEMP_FILE" | sort -u | sed 's/+/\\\+/g'); do
-    awk '/^Package: '$PACKAGE'$/ {p=1} p==1 {print} /^$/ {if (p==1) exit}' "$TEMP_FILE" >>$DPKG_STATUS_FILE
-done
-cp $DPKG_STATUS_FILE /var/log/minios/statusfile
-
-for BINARY in "$APT_BINARY" "$APTGET_BINARY" "$DPKG_BINARY"; do
-    if [ -f "$BINARY" ] && [ -f "$BINARY.bak" ]; then
-        rm "$BINARY"
-        mv "$BINARY.bak" "$BINARY"
-    fi
-done
+cat $(ls "$BUNDLES"/*/var/lib/dpkg/status "$CHANGES/var/lib/dpkg/status" 2>/dev/null) >"$TEMP_STATUS"
+perl -00 -ne '$H{$_}++ or print' "$TEMP_STATUS" >$DPKG_STATUS_FILE

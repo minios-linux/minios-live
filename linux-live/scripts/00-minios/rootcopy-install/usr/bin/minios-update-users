@@ -42,7 +42,6 @@ done
 for DIR in $(ls -1d $BUNDLES/*.$BEXT $CHANGES | egrep -v "^$CORE_BUNDLE_PATH"); do
     for FILE in {passwd,shadow,group,gshadow}; do
         if [ -f "$DIR/etc/$FILE" ]; then
-            #echo "$FILE exists in $(basename $DIR)."
             grep -Fvf "$TMP/$FILE.tmp" "$DIR/etc/$FILE" >>"$TMP/$FILE.tmp"
             cp "$DIR/etc/$FILE" "/var/log/minios/users/$FILE.$(basename $DIR)"
             cp "$TMP/$FILE.tmp" "/var/log/minios/users/$FILE.tmp"
