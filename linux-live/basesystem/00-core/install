@@ -17,6 +17,8 @@ elif [ $LOCALE = "ru_RU" ]; then
     LAYOUT="Russian"
 elif [ $LOCALE = "es_ES" ]; then
     LAYOUT="Spanish"
+elif [ $LOCALE = "pt_BR" ]; then
+    LAYOUT="Portuguese (Brasil)"
 fi
 
 if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
@@ -69,7 +71,7 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "$SETTING" | debconf-set-selections -v
 done
 
-if ! dpkg -s gpg &> /dev/null; then
+if ! dpkg -s gpg &>/dev/null; then
     pkg install gpg
 fi
 
