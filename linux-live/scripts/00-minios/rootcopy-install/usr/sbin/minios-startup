@@ -67,7 +67,7 @@ elif [ "$INITRD_TYPE" = "uird" ]; then
     fi
     MEDIA="$FROM"
 fi
-echo "3. FROM=$FROM"
+
 if id -nu 1000 2>/dev/null; then
     CURRENT_USER_NAME=$(id -nu 1000)
     CURRENT_USER_GROUP=$(id -ng 1000)
