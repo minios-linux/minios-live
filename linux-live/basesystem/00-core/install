@@ -208,7 +208,7 @@ fi
 (cd /linux-live/basesystem/00-core/rootcopy-install && cp --parents -afr * /)
 
 # minios-install setup
-if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
+#if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
     if [ ! -d /usr/lib/usev/rules.d ]; then
         mkdir -p /usr/lib/udev/rules.d
     fi
@@ -217,7 +217,7 @@ if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
 KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/minios-automount %r/%k"
 
 EOF
-fi
+#fi
 
 if [ ! -d /etc/NetworkManager ]; then
     if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then

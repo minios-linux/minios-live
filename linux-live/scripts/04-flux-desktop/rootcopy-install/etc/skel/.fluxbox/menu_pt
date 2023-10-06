@@ -1,0 +1,19 @@
+[begin] (Menu de desktop)
+   [exec] (Terminal) { fbstartupnotify && xterm -ls }
+   [exec] (Gerenciador de arquivos) { fbstartupnotify && pcmanfm }
+   [exec] (Navegador da web) { fbstartupnotify && fbliveapp firefox-esr }
+   [exec] (Editor de texto) { fbstartupnotify && mousepad }
+   [exec] (Calculadora) { fbstartupnotify && galculator }
+   [exec] (Gerenciador de rede) { fbstartupnotify && connman-gtk }
+   [exec] (Executar) { fbappselect }
+   [separator]
+   [workspaces] (Espaços de trabalho     ...)
+   [submenu] (Resolução de tela  ...) {}
+      [include] (~/.fluxbox/menu_resolution)
+   [end]
+   [submenu] (Layout do teclado ...) {}
+      [exec] (English) { fbsetkb us } </usr/share/icons/locolor/16x16/flags/flag_usa.png>
+      [exec] (Português \(Brasil\)) { fbsetkb pt } </usr/share/icons/locolor/16x16/flags/flag_brazil.png>
+   [end]
+   [exec] (Sair) { fblogout }
+[end]

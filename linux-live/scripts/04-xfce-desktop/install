@@ -12,7 +12,11 @@ language_to_array
 
 pkg update
 
-if [ $LOCALE != "en_US" ]; then
+if [ "$LOCALE" = "pt_BR" ]; then
+    LNG="br"
+fi
+
+if [ "$LOCALE" != "en_US" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
@@ -28,7 +32,7 @@ if [ $LOCALE != "en_US" ]; then
 </channel>
 
 EOF
-    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    if [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
         pkg install language-pack-gnome-$LNG-base
     fi
 fi
@@ -36,7 +40,7 @@ fi
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-if [ $PACKAGE_VARIANT != "puzzle" ]; then
+if [ "$PACKAGE_VARIANT" != "puzzle" ]; then
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
             pkg install yad adwaita-icon-theme-fake
@@ -54,9 +58,9 @@ fi
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    case $DISTRIBUTION in
+    case "$DISTRIBUTION" in
     stretch)
-        if [ $PACKAGE_VARIANT = "minimum" ]; then
+        if [ "$PACKAGE_VARIANT" = "minimum" ]; then
             install_packages --delete-packages="wicd" --add-packages="librsvg2-common connman-gtk"
         fi
         ;;
@@ -77,7 +81,7 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         ;;
     esac
     if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ]; then
-        case $DISTRIBUTION in
+        case "$DISTRIBUTION" in
         bullseye | bookworm)
             pkg install pulseaudio-module-xrdp
             ;;
@@ -179,7 +183,7 @@ sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<propert
 sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 #fi
 
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
+if [ "$DISTRIBUTION" = "stretch" ] || [ "$DISTRIBUTION" = "orel" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
 <?xml version="1.0" encoding="UTF-8"?>
 

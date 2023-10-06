@@ -19,7 +19,6 @@ UNIT="media-$BAS.mount"
 MNT="/media/$BAS"
 TARGET="/etc/systemd/system/$UNIT"
 
-
 # exit if noautomount boot parameter is present
 if cat /proc/cmdline | grep -q noautomount; then
    exit
@@ -30,7 +29,6 @@ if ! cat /proc/cmdline | grep -q automount; then
    exit
 fi
 
-
 if [ "$ACTION" = "add" -o "$ACTION" = "change" ]; then
    if [ ! -r "$TARGET" ]; then # skip if exists
 
@@ -38,24 +36,28 @@ if [ "$ACTION" = "add" -o "$ACTION" = "change" ]; then
 
          mkdir -p "$MNT"
 
-         echo "# Skip savechanges" >$TARGET
-         echo "[Unit]" >>$TARGET
-         echo "Description=Disk $BAS" >>$TARGET
-         echo "" >>$TARGET
-         echo "[Mount]" >>$TARGET
-         echo "What=$DEVNAME" >>$TARGET
-         echo "Where=$MNT" >>$TARGET
-         echo "Type=$ID_FS_TYPE" >>$TARGET
-         echo "Options=defaults" >>$TARGET
-         echo "" >>$TARGET
-         echo "[Install]" >>$TARGET
-         echo "WantedBy=multi-user.target" >>$TARGET
+         cat <<EOF >$TARGET
+# Skip savechanges
+[Unit]
+Description=Disk $BAS
+
+[Mount]
+What=$DEVNAME
+Where=$MNT
+Type=$ID_FS_TYPE
+Options=defaults
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
          systemctl enable $UNIT
          systemctl start $UNIT
 
          gtk-bookmarks-update
-         DISPLAY=:0.0 pcmanfm -n file://$MNT >/dev/null 2>&1
+         if [ -x "$(command -v pcmanfm)" ]; then
+            DISPLAY=:0.0 pcmanfm -n file://$MNT >/dev/null 2>&1
+         fi
       fi
    fi
 fi
