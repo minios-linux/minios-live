@@ -73,9 +73,21 @@ elif [ $LOCALE = "es_ES" ]; then
     sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
     sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
     # Apps
-    #sed -i "s/Name=Terminal/Name=Терминал/g" /usr/share/applications/1terminal.desktop
     sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5chromium.desktop
     sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5firefox.desktop
     sed -i "s/Name=Video Player/Name=Reproductor de vídeo/g" /usr/share/applications/videoplayer.desktop
+    sed -i "s/Name=Install/Name=Instalar/g" /usr/share/applications/minios-installer.desktop
+elif [ $LOCALE = "pt_BR" ]; then
+    pkg install fbxkb
+    # Locale
+    echo 'LC_ALL="pt_BR.UTF-8"
+    ' >/etc/profile.d/locale_es.sh
+    sed -i '37G' /etc/skel/.fluxbox/startup
+    sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
+    sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
+    # Apps
+    sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5chromium.desktop
+    sed -i "s/Name=Web Browser/Name=Navegador/g" /usr/share/applications/5firefox.desktop
+    sed -i "s/Name=Video Player/Name=Reprodutor de vídeo/g" /usr/share/applications/videoplayer.desktop
     sed -i "s/Name=Install/Name=Instalar/g" /usr/share/applications/minios-installer.desktop
 fi

@@ -84,6 +84,10 @@ function set_default_target() {
         DEFAULT_TARGET="${VARIABLES_DEFAULTS[DEFAULT_TARGET]}"
     fi
     if [ -n "$DEFAULT_TARGET" ]; then
+        if [ "$TEXT_MODE" = "true" ]; then
+            systemctl set-default multi-user
+            return
+        fi
         systemctl set-default "$DEFAULT_TARGET"
     fi
 }
