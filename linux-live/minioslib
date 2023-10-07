@@ -156,7 +156,6 @@ function current_function() {
 
 # =================================================================
 # beautiful console
-# красивая консоль
 # =================================================================
 
 function console_colors() {
@@ -185,7 +184,6 @@ function console_colors() {
 
 # =================================================================
 # help functions
-# функции помощи
 # =================================================================
 
 function help() {
@@ -398,7 +396,6 @@ function read_cmdline() {
 
 # =================================================================
 # reading configuration file
-# чтение конфигурационного файла
 # =================================================================
 
 function read_config() { # read_config file.cfg var_name1 var_name2
@@ -446,7 +443,6 @@ function read_config_value() {
 
 # =================================================================
 # parsing input commands
-# разбор входных команд
 # =================================================================
 
 function find_index() {
@@ -464,8 +460,6 @@ function find_index() {
 # =================================================================
 # creating a symbolic link to the executable file for using
 # autocompletion on the command line
-# создание символической ссылки на исполняемый файл для
-# использования автодополнения в командной строке
 # =================================================================
 
 function create_livekitname_install_symlink() {
@@ -473,37 +467,21 @@ function create_livekitname_install_symlink() {
         if [ "$(readlink /usr/bin/$LIVEKITNAME-install)" != "$SCRIPT_DIR/install" ]; then
             rm -f /usr/bin/$LIVEKITNAME-install
             ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-            if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} была обновлена."
-                echo -e "Теперь она указывает на ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
-            else
-                echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been updated."
-                echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
-            fi
+            echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been updated."
+            echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
         fi
         if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-            if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                echo -e "Вы можете использовать команду ${CYAN}$LIVEKITNAME-install${ENDCOLOR} для запуска этой программы."
-            else
-                echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOR} command to run this program."
-            fi
+            echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOR} command to run this program."
         fi
     else
         ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-        if grep 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-            echo -e "Символическая ссылка ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} была добавлена"
-            echo -e "для ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
-
-        else
-            echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been added"
-            echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
-        fi
+        echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been added"
+        echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
     fi
 }
 
 # =================================================================
 # creating autocompletion on the command line
-# создание автодополнения в командной строке
 # =================================================================
 
 function create_completion() {
@@ -521,7 +499,6 @@ EOF
 
 # =================================================================
 # only allow 'root' to run the script
-# разрешаем запуск скрипта только пользователю 'root'
 # =================================================================
 
 function allow_root_only() {
@@ -536,7 +513,6 @@ function allow_root_only() {
 
 # =================================================================
 # check that we are inside chroot
-# проверяем, что мы внутри chroot
 # =================================================================
 
 function check_is_in_chroot() {
@@ -547,8 +523,7 @@ function check_is_in_chroot() {
 }
 
 # =================================================================
-#
-#
+# check aufs support
 # =================================================================
 
 function aufs_support() {
@@ -561,7 +536,6 @@ function aufs_support() {
 
 # =================================================================
 # check if filesystems are unmounted inside chroot
-# проверяем, размонтированы ли файловые системы внутри chroot
 # =================================================================
 
 function check_mounted() {
@@ -584,7 +558,6 @@ function check_mounted() {
 
 # =================================================================
 # check if the folder where the installation will be performed is empty
-# проверяем, пуста ли папка, в которую будет производиться установка
 # =================================================================
 
 function check_install_dir() {
@@ -599,7 +572,6 @@ function check_install_dir() {
             check_mounted
         fi
     else
-        # ▼ должно быть только перенаправление ошибки!
         if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
             echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} is not empty."
             cleanup
@@ -628,7 +600,6 @@ function check_install_dir() {
 
 # =================================================================
 # configure build folder
-# настраиваем папку для сборки
 # =================================================================
 
 function setup_install_dir() {
@@ -671,7 +642,6 @@ function setup_install_dir() {
 
 # =================================================================
 # cleaning the build folder
-# очистка папки для сборки
 # =================================================================
 
 function cleanup() {
@@ -726,7 +696,6 @@ function cleanup() {
 
 # =================================================================
 # mount filesystems inside chroot
-# монтируем файловые системы внутри chroot
 # =================================================================
 
 function chroot_mount_fs() {
@@ -766,7 +735,6 @@ function chroot_mount_fs() {
 
 # =================================================================
 # unmount filesystems inside chroot
-# размонтируем файловые системы внутри chroot
 # =================================================================
 
 function chroot_umount_fs() {
@@ -816,8 +784,6 @@ function remove_unofficial_repository() {
 # =================================================================
 # Displaying information about the start of the build for a more
 # convenient search in the logs
-# Отображение информации о старте сборки для более удобного поиска
-# в логах
 # =================================================================
 
 function new_run() {
@@ -972,7 +938,6 @@ function pkg() {
 
 # =================================================================
 # Creating a $PACKAGE_VARIANT list from a template
-# Создание списка пакетов из шаблона
 # =================================================================
 
 function create_apt_list() {
@@ -1045,7 +1010,6 @@ remove_broken_links() {
 
 # =================================================================
 # Installing the base system
-# Установка базовой системы
 # =================================================================
 
 function build_bootstrap() {
@@ -1259,7 +1223,6 @@ EOF
 
             mx_repo
             antix_repo
-            #mint_repo
 
             chroot_run $INSTALL_DIR pkg update
             chroot_run $INSTALL_DIR pkg upgrade
@@ -1268,8 +1231,6 @@ EOF
                 chroot_run $INSTALL_DIR pkg install \
                     $(grep -vE "^\s*#" $SCRIPT_DIR/linux-live/package_lists/prerequisites.list | tr "\n" " ")
             fi
-
-            #chroot_run $INSTALL_DIR apt-get clean -y
 
             chroot_umount_fs
 
@@ -1346,7 +1307,6 @@ function copy_build_scripts() {
 
 # =================================================================
 #
-#
 # =================================================================
 function build_chroot() {
     current_process
@@ -1402,7 +1362,6 @@ function mkmod_corefs() {
 
 # =================================================================
 #
-#
 # =================================================================
 function build_live() {
     current_process
@@ -1457,7 +1416,6 @@ EOF
 }
 
 # =================================================================
-#
 #
 # =================================================================
 function build_boot() {
@@ -1801,39 +1759,21 @@ EOF
         fi
     fi
 
-    if [ $LOCALE = "ru_RU" ]; then
-        cat <<EOF >$WORK_DIR/image/README
-################################### README ####################################
-* Для установки MiniOS скопируйте содержимое ISO в корень носителя,
-  затем запустите $LIVEKITNAME\boot\bootinst.bat в Windows или 
-  $LIVEKITNAME/boot/bootinst.sh в Linux.
-* При установке на носители с файловыми системами fat32 и ntfs изменения в
-  режиме постоянных изменений будут сохранены в файле
-  $LIVEKITNAME\changes\changes.dat, файл расширяется динамически, максимальный размер
-  файла 4 ГБ (можно изменить  параметром changes_size в параметрах загрузки,
-  например, changes_size=2000 установит максимальный размер файла в 2 ГБ).
-* При установке на носители с файловыми системами ext2-ext4, xfs, btrfs
-  изменения в режиме постоянных изменений будут сохранены в папке
-  $LIVEKITNAME\changes без ограничений по размеру.
-###############################################################################
-EOF
-    else
-        cat <<EOF >$WORK_DIR/image/README
+    cat <<EOF >$WORK_DIR/image/README
 ################################### README ####################################
 * To install MiniOS, copy the contents of the ISO to the root of the media,
   then run $LIVEKITNAME\boot\bootinst.bat on Windows, or $LIVEKITNAME/boot/bootinst.sh
   on Linux.
 * When installed on media with fat32 and ntfs file systems, changes in
-  persistent changes mode will be saved in the $LIVEKITNAME\changes\changes.dat file,
-  the file expands dynamically, the maximum file size is 4 GB (can be changed
-  with the changes_size parameter in the boot options, for example
-  changes_size=2000 will set the maximum file size to 2 GB).
+  persistent changes mode will be saved in the $LIVEKITNAME\changes folder,
+  dat files expands dynamically, file size can be changed
+  with the perchsize parameter in the boot options, for example
+  perchsize=4000 will set the maximum file size to 4 GB.
 * When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
   the persistent changes mode will be saved in the $LIVEKITNAME\changes folder with
   no size limit.
 ###############################################################################
 EOF
-    fi
 
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
         # miniosbuild.conf generation is in linux-live/scripts/01-kernel/build
@@ -1916,7 +1856,6 @@ function build_iso() {
         C="-no-emul-boot -boot-load-size 4 -boot-info-table"
     fi
 
-    #                        ▼ should only be a redirect error!
     if [ -x "$(which xorriso)" ] && [ $BOOT_TYPE = "hybrid" ]; then
         M="xorriso -as mkisofs -isohybrid-mbr $DIR/$LIVEKITNAME/boot/isohdpfx.bin"
         D=" -isohybrid-gpt-basdat -e"
