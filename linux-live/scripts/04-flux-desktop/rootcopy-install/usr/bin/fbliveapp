@@ -1,12 +1,17 @@
 #!/bin/bash
 
 . /etc/minios/minios.conf
-function language_to_array() {
-   local IFS
-   IFS="_"
-   L=($LANG)
-}
-language_to_array
+
+LOCALE="$(echo $LANG | cut -d. -f1)"
+LNG="$(echo $LANG | cut -d_ -f1)"
+
+if [ "$LOCALE" != "en_US" ]; then
+   case "$LOCALE" in
+   "es_ES" | "pt_BR")
+      LNG="$(echo $LOCALE | tr '[:upper:]' '[:lower:]')"
+      ;;
+   esac
+fi
 
 if [ "$1" = "vlc" ]; then
    NAME="VLC Video Player"
@@ -37,10 +42,8 @@ if [ "$1" = "firefox-esr" ]; then
    ABOUT="Firefox is a free and open source browser."
    EXECUTABLE="/usr/bin/firefox-esr"
    PREINSTALL="apt update"
-   if [ "${L[0]}" = "ru" ]; then
-      INSTALL="apt install --yes firefox-esr firefox-esr-l10n-${L[0]} && minios-firefox-patch"
-   elif [ "${L[0]}" = "es" ]; then
-      INSTALL="apt install --yes firefox-esr firefox-esr-l10n-${L[0]}-${L[0]} && minios-firefox-patch"
+   if [ "$LOCALE" != "en_US" ]; then
+      INSTALL="apt install --yes firefox-esr firefox-esr-l10n-$LNG && minios-firefox-patch"
    else
       INSTALL="apt install --yes firefox-esr && minios-firefox-patch"
    fi
