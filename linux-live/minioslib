@@ -119,10 +119,10 @@ function common_variables() {
         INITRD_TYPE_SUFFIX="uird"
     fi
 
-    while IFS=, read -r locale layout layoutcode; do
+    while IFS=, read -r locale layoutcode layout; do
         if [ "$locale" == "$LOCALE" ]; then
-            LAYOUT="$layout"
             LAYOUTCODE="$layoutcode"
+            LAYOUT="$layout"
             break
         fi
     done <"$1"
@@ -1831,9 +1831,9 @@ function build_iso() {
     DIR=$WORK_DIR/image
 
     if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE_SUFFIX
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE_SUFFIX
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -3493,8 +3493,8 @@ function generate_config_files() {
 }
 
 function container_run() {
-    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
-        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
@@ -3680,7 +3680,7 @@ function container_build_run() {
     if [ $KERNEL_AUFS = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
