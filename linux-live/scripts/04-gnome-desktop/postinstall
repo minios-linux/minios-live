@@ -1,9 +1,0 @@
-#!/bin/bash
-
-if grep slim $SCRIPT_DIR/$PACKAGE_VARIANT.list ; then
-    sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
-    sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
-    sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
-    sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
-    sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
-fi

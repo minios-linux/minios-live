@@ -11,8 +11,10 @@
 # =================================================================
 
 function common_variables() {
+    local locale layout layoutcode
+
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
+    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
 
     #
     CONTAINER_TYPE="0"
@@ -117,12 +119,25 @@ function common_variables() {
         INITRD_TYPE_SUFFIX="uird"
     fi
 
+    while IFS=, read -r locale layout layoutcode; do
+        if [ "$locale" == "$LOCALE" ]; then
+            LAYOUT="$layout"
+            LAYOUTCODE="$layoutcode"
+            break
+        fi
+    done <"$1"
+
+    if [ -z "$LAYOUT" ]; then
+        echo "Locale not recognized, defaulting to English (US) layout"
+        LAYOUT="English (US)"
+        LAYOUTCODE="us"
+    fi
+
     # List of directories for root filesystem
     # No subdirectories are allowed, no slashes,
     # so You can't use /var/tmp here for example
     # Exclude directories like proc sys tmp
     MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
-
 }
 
 # =================================================================
@@ -861,6 +876,8 @@ LIVEKITNAME=$LIVEKITNAME
 SYSTEMNAME=$SYSTEMNAME
 DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
 LOCALE=$LOCALE
+LAYOUT=$LAYOUT
+LAYOUTCODE=$LAYOUTCODE
 TIMEZONE=$TIMEZONE
 MODULE=$MODULE
 USER_NAME=$USER_NAME
@@ -898,12 +915,6 @@ function timezone_to_array() {
     local IFS
     IFS="/"
     TIMEZONE=($TIMEZONE)
-}
-
-function language_to_array() {
-    local IFS
-    IFS="_"
-    LNG=($LOCALE)
 }
 
 function pkg() {
@@ -1879,12 +1890,10 @@ function build_iso() {
 
     DIR=$WORK_DIR/image
 
-    language_to_array
-
     if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-${LNG[0]}-$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE_SUFFIX
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE_SUFFIX
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -2111,20 +2120,20 @@ function chroot_cleanup() {
         find $1/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
     fi
     if [ $LOCALE != "en_US" ]; then
-        language_to_array
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? 2>/dev/null | sed "/en/d;/${LNG[0]}/d"); do
+        LNG="$(echo $LOCALE | cut -d_ -f1)"
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? 2>/dev/null | sed "/en/d;/$LNG/d"); do
             rm -Rf $UNUSED_LOCALE 2>/dev/null
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??_* 2>/dev/null | sed "/en/d;/${LNG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??_* 2>/dev/null | sed "/en/d;/$LNG/d"); do
             rm -Rf $UNUSED_LOCALE 2>/dev/null
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??@* 2>/dev/null | sed "/en/d;/${LNG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??@* 2>/dev/null | sed "/en/d;/$LNG/d"); do
             rm -Rf $UNUSED_LOCALE 2>/dev/null
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??? 2>/dev/null | sed "/en/d;/${LNG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??? 2>/dev/null | sed "/en/d;/$LNG/d"); do
             rm -Rf $UNUSED_LOCALE 2>/dev/null
         done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* 2>/dev/null | sed "/en/d;/${LNG[0]}/d"); do
+        for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* 2>/dev/null | sed "/en/d;/$LNG/d"); do
             UNUSED_LOCALE=$(basename $UNUSED_LOCALE)
             if [ $UNUSED_LOCALE == "i18n"* ] || [ $UNUSED_LOCALE == "iso14651"* ]; then
                 rm -Rf $1/usr/share/i18n/locales/$UNUSED_LOCALE 2>/dev/null
@@ -3196,6 +3205,7 @@ function build_modules() {
                 # copy files
                 if [[ $MODULE == *"$LIVEKITNAME"* ]]; then
                     cp $SCRIPT_DIR/linux-live/minioslib $MODULE_MERGED_DIR/usr/lib/minioslib
+                    cp $SCRIPT_DIR/linux-live/layoutcodes.csv $MODULE_MERGED_DIR/usr/share/minios/layoutcodes.csv
                     if [ ! -d $MODULE_MERGED_DIR/etc/minios ]; then
                         mkdir -p $MODULE_MERGED_DIR/etc/minios
                     fi
@@ -3544,8 +3554,8 @@ function generate_config_files() {
 }
 
 function container_run() {
-    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
-        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
@@ -3719,8 +3729,6 @@ function container_build_run() {
     LOCALE="${11}"
     TIMEZONE="${12}"
 
-    language_to_array
-
     case $1 in
     trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
@@ -3733,7 +3741,7 @@ function container_build_run() {
     if [ $KERNEL_AUFS = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-${LNG[0]}-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then

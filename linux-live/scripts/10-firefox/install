@@ -14,7 +14,7 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
     FIREFOX_BRANDING="/etc/firefox/syspref.js"
 fi
 
-language_to_array
+LNG="$(echo $LOCALE | cut -d_ -f1)"
 
 pkg update
 
@@ -31,23 +31,25 @@ EOF
     fi
     pkg install \
         firefox
+    # need to ckeck
     if [ $LOCALE != "en_US" ]; then
         pkg install \
-            firefox-locale-${LNG[0]}
+            firefox-locale-$LNG
     fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     pkg install \
         firefox-esr
-    if [ $LOCALE = "es_ES" ]; then
-        pkg install \
-            firefox-esr-l10n-es-es
-    elif [ $LOCALE = "pt_BR" ]; then
-        pkg install \
-            firefox-esr-l10n-pt-br
-    elif [ $LOCALE != "en_US" ]; then
-        pkg install \
-            firefox-esr-l10n-${LNG[0]}
+    if [ "$LOCALE" != "en_US" ]; then
+        case "$LOCALE" in
+        "es_ES" | "pt_BR")
+            pkg install firefox-esr-l10n-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')
+            ;;
+        *)
+            pkg install firefox-esr-l10n-$LNG
+            ;;
+        esac
     fi
+
 fi
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
@@ -78,16 +80,16 @@ fi
 echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ ${LNG[0]} = "en" ] || [ ${LNG[0]} = "ru" ] || [ ${LNG[0]} = "es" ]; then
-        sed -i "s,about:welcome,file:///usr/share/minios/html/${LNG[0]}.html,g" $FIREFOX_BRANDING
+    if [ $LNG = "en" ] || [ $LNG = "ru" ] || [ $LNG = "es" ]; then
+        sed -i "s,about:welcome,file:///usr/share/minios/html/$LNG.html,g" $FIREFOX_BRANDING
     else
         sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
     fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ ${LNG[0]} = "en" ] || [ ${LNG[0]} = "ru" ] || [ ${LNG[0]} = "es" ]; then
+    if [ $LNG = "en" ] || [ $LNG = "ru" ] || [ $LNG = "es" ]; then
         cat <<EOF >>$FIREFOX_BRANDING
 
-pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/${LNG[0]}.html");
+pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/$LNG.html");
 EOF
     else
         cat <<EOF >>$FIREFOX_BRANDING

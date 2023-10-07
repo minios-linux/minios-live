@@ -8,7 +8,7 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-language_to_array
+LNG="$(echo "$LOCALE" | cut -d_ -f1)"
 
 pkg update
 
@@ -16,11 +16,11 @@ pkg update
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     install_packages
 fi
-if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    if [ $DISTRIBUTION = "stretch" ]; then
+if [ $PACKAGE_VARIANT = "standard" ] || [ "$PACKAGE_VARIANT" = "maximum" ] || [ "$PACKAGE_VARIANT" = "ultra" ]; then
+    if [ "$DISTRIBUTION" = "stretch" ]; then
         pkg install \
             remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports libssh-4/$DISTRIBUTION-backports
-    elif [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
+    elif [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "bullseye" ]; then
         pkg install \
             remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports
     else
@@ -38,7 +38,7 @@ if grep -q "imagemagick" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
 fi
 
 if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    if [ $LOCALE != "en_US" ]; then
+    if [ "$LOCALE" != "en_US" ]; then
         pkg install vlc-l10n
     fi
 fi
@@ -46,8 +46,12 @@ if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; th
     sed -i "15i Name[ru]=Настройки менеджера буфера обмена" /usr/share/applications/xfce4-clipman-settings.desktop &&
         sed -i "29i Comment[ru]=Настройте свой буфер обмена" /usr/share/applications/xfce4-clipman-settings.desktop
 fi
-if [ $LOCALE != "en_US" ]; then
-    sed -i "s/doublecmd.en.po/doublecmd.${LNG[0]}.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
+if [ "$LOCALE" != "en_US" ]; then
+    if [ "$LOCALE" = "pt_BR" ] || [ "$LOCALE" = "zh_CN" ] || [ "$LOCALE" = "zh_TW" ]; then
+        sed -i "s/doublecmd.en.po/doublecmd.$LOCALE.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
+    else
+        sed -i "s/doublecmd.en.po/doublecmd.$LNG.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
+    fi
 fi
 if grep -q "gnumeric" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
@@ -71,6 +75,6 @@ fi
 
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
 
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; then
+if [ "$DISTRIBUTION" = "stretch" ] || [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "orel" ]; then
     sed -i -e "/FontUseSystem=/s/=.*/=FALSE/" /etc/skel/.config/xfce4/terminal/terminalrc
 fi

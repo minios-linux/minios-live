@@ -2,8 +2,6 @@
 
 . /minioslib || exit 1
 
-language_to_array
-
 pkg update
 
 if [ $DISTRIBUTION = "bookworm" ]; then
@@ -45,11 +43,11 @@ rm -f /usr/share/applications/5chromium.desktop
 
 # Fluxbox menu
 for file in /etc/skel/.fluxbox/menu*; do
-    if [ $file != "/etc/skel/.fluxbox/menu_${LNG[0]}" ]; then
+    if [ $file != "/etc/skel/.fluxbox/menu_$LAYOUTCODE" ]; then
         rm $file
     fi
 done
-mv /etc/skel/.fluxbox/menu_${LNG[0]} /etc/skel/.fluxbox/menu
+mv /etc/skel/.fluxbox/menu_$LAYOUTCODE /etc/skel/.fluxbox/menu
 if [ $LOCALE = "ru_RU" ]; then
     pkg install fbxkb
     # Locale
