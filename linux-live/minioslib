@@ -14,7 +14,7 @@ function common_variables() {
     local locale layout layoutcode
 
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
+    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE MULTILINGUAL LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
 
     #
     CONTAINER_TYPE="0"
@@ -133,6 +133,8 @@ function common_variables() {
         LAYOUTCODE="us"
     fi
 
+    LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
+
     # List of directories for root filesystem
     # No subdirectories are allowed, no slashes,
     # so You can't use /var/tmp here for example
@@ -189,118 +191,58 @@ function console_colors() {
 function help() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         # if $1 is set, use $1 as headline message in help()
-        if [ -f /etc/default/locale ]; then
-            if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}Этот скрипт собирает загружаемый ISO образ $SYSTEMNAME.${ENDCOLOR}"
-                    echo -e
-                else
-                    echo -e $1
-                    echo
-                fi
-                echo -e "Поддерживаемые команды: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
-                echo -e
-                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                echo -e "\tзапуск от start_cmd до end_cmd"
-                echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
-                echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
-                echo -e "\tвведите одну команду, чтобы запустить определенную команду"
-                echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
-                echo -e "\t"
-                echo -e "Примеры:"
-                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
-                exit 0
-            else
-                if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOR}"
-                    echo -e
-                else
-                    echo -e $1
-                    echo
-                fi
-                echo -e "Supported commands: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
-                echo -e
-                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                echo -e "\trun from start_cmd to end_cmd"
-                echo -e "\tif start_cmd is omitted, start from first command"
-                echo -e "\tif end_cmd is omitted, end with last command"
-                echo -e "\tenter single cmd to run the specific command"
-                echo -e "\tenter '-' as only argument to run all commands"
-                echo -e "\t"
-                echo -e "Examples:"
-                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
-                echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
-
-                exit 0
-            fi
+        if [ -z ${1+x} ]; then
+            echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOR}"
+            echo -e
+        else
+            echo -e $1
+            echo
         fi
+        echo -e "Supported commands: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
+        echo -e
+        echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
+        echo -e "\trun from start_cmd to end_cmd"
+        echo -e "\tif start_cmd is omitted, start from first command"
+        echo -e "\tif end_cmd is omitted, end with last command"
+        echo -e "\tenter single cmd to run the specific command"
+        echo -e "\tenter '-' as only argument to run all commands"
+        echo -e "\t"
+        echo -e "Examples:"
+        echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
+        echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+        echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
+        echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
+        echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
+        exit 0
     else
         # if $1 is set, use $1 as headline message in help()
-        if [ -f /etc/default/locale ]; then
-            if grep -q 'LANG="ru_RU.UTF-8"' /etc/default/locale >/dev/null 2>&1; then
-                if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}Этот скрипт собирает модули для $SYSTEMNAME.${ENDCOLOR}"
-                    echo -e
-                else
-                    echo -e $1
-                    echo
-                fi
-                echo -e "Поддерживаемые команды: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
-                echo -e
-                echo -e "Синтаксис: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                echo -e "\tзапуск от start_cmd до end_cmd"
-                echo -e "\tесли start_cmd опущен, выполняются все команды, начиная с первой"
-                echo -e "\tесли end_cmd опущен, выполняются все команды до последней"
-                echo -e "\tвведите одну команду, чтобы запустить определенную команду"
-                echo -e "\tвведите '-' как единственный аргумент для запуска всех команд"
-                echo -e "\t"
-                echo -e "\tСкрипты установки должны находиться в папке с именем будущего модуля."
-                echo -e "\tНапример, чтобы собрать модуль с именем 05-vscode, скрипты сборки"
-                echo -e "\tдолжны находиться по следующему пути: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
-                echo -e "Примеры:"
-                echo -e "\t${LIGHTYELLOW}$0 build_modules${ENDCOLOR} сборка модулей"
-                echo -e "\t${LIGHTYELLOW}$0 repack_modules${ENDCOLOR} перепаковка системы с типом сжатия, указанным"
-                echo -e "\tв /etc/$LIVEKITNAME/config в переменной COMP_TYPE"
-                echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR} эта команда запустит обе функции поочерёдно"
-                exit 0
-            else
-                if [ -z ${1+x} ]; then
-                    echo -e "${LIGHTYELLOW}This script builds modules for $SYSTEMNAME.${ENDCOLOR}"
-                    echo -e
-                else
-                    echo -e $1
-                    echo
-                fi
-                echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
-                echo -e
-                echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-                echo -e "\trun from start_cmd to end_cmd"
-                echo -e "\tif start_cmd is omitted, start from first command"
-                echo -e "\tif end_cmd is omitted, end with last command"
-                echo -e "\tenter single cmd to run the specific command"
-                echo -e "\tenter '-' as only argument to run all commands"
-                echo -e "\t"
-                echo -e "\tThe installation scripts must be in the folder with the"
-                echo -e "\tname of the future module. For example, to build a module"
-                echo -e "\tnamed 05-vscode, build scripts should be in the following"
-                echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
-                echo -e "Examples:"
-                echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOR} build modules"
-                echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOR} repack the system with the"
-                echo -e "\tcompression type specified by /etc/$LIVEKITNAME/config in COMP_TYPE variable"
-                echo -e "\t${LIGHTYELLOW}$0 - ${ENDCOLOR} this command will run both functions alternately"
-                exit 0
-            fi
+        if [ -z ${1+x} ]; then
+            echo -e "${LIGHTYELLOW}This script builds modules for $SYSTEMNAME.${ENDCOLOR}"
+            echo -e
+        else
+            echo -e $1
+            echo
         fi
+        echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
+        echo -e
+        echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
+        echo -e "\trun from start_cmd to end_cmd"
+        echo -e "\tif start_cmd is omitted, start from first command"
+        echo -e "\tif end_cmd is omitted, end with last command"
+        echo -e "\tenter single cmd to run the specific command"
+        echo -e "\tenter '-' as only argument to run all commands"
+        echo -e "\t"
+        echo -e "\tThe installation scripts must be in the folder with the"
+        echo -e "\tname of the future module. For example, to build a module"
+        echo -e "\tnamed 05-vscode, build scripts should be in the following"
+        echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
+        echo -e "Examples:"
+        echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOR} build modules"
+        echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOR} repack the system with the"
+        echo -e "\tcompression type specified by /etc/$LIVEKITNAME/config in COMP_TYPE variable"
+        echo -e "\t${LIGHTYELLOW}$0 - ${ENDCOLOR} this command will run both functions alternately"
+        exit 0
     fi
-
 }
 
 function read_cmdline() {
@@ -823,31 +765,32 @@ function new_run() {
 # =================================================================
 function add_chroot_configuration_files() {
     cat <<EOF >$1/$LIVEKITNAME.conf
-BUILD_TEST_ISO=$BUILD_TEST_ISO
-DEBIAN_FRONTEND_TYPE=$DEBIAN_FRONTEND_TYPE
-DESKTOP_ENVIRONMENT=$DESKTOP_ENVIRONMENT
-DISTRIBUTION=$DISTRIBUTION
-DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE
-PACKAGE_VARIANT=$PACKAGE_VARIANT
-COMP_TYPE=$COMP_TYPE
-INITRD_TYPE=$INITRD_TYPE
+BUILD_TEST_ISO="$BUILD_TEST_ISO"
+DEBIAN_FRONTEND_TYPE="$DEBIAN_FRONTEND_TYPE"
+DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT"
+DISTRIBUTION="$DISTRIBUTION"
+DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE"
+PACKAGE_VARIANT="$PACKAGE_VARIANT"
+COMP_TYPE="$COMP_TYPE"
+INITRD_TYPE="$INITRD_TYPE"
 #KERNEL=\$KERNEL
-KERNEL_VERSION=$KERNEL_VERSION
-KERNEL_ARCH=$KERNEL_ARCH
-KERNEL_TYPE=$KERNEL_TYPE
-KERNEL_BPO=$KERNEL_BPO
-KERNEL_AUFS=$KERNEL_AUFS
-KERNEL_BUILD_DKMS=$KERNEL_BUILD_DKMS
-LIVEKITNAME=$LIVEKITNAME
-SYSTEMNAME=$SYSTEMNAME
-DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH
-LOCALE=$LOCALE
-LAYOUT=$LAYOUT
-LAYOUTCODE=$LAYOUTCODE
-TIMEZONE=$TIMEZONE
-MODULE=$MODULE
-USER_NAME=$USER_NAME
-BEXT=$BEXT
+KERNEL_VERSION="$KERNEL_VERSION"
+KERNEL_ARCH="$KERNEL_ARCH"
+KERNEL_TYPE="$KERNEL_TYPE"
+KERNEL_BPO="$KERNEL_BPO"
+KERNEL_AUFS="$KERNEL_AUFS"
+KERNEL_BUILD_DKMS="$KERNEL_BUILD_DKMS"
+LIVEKITNAME="$LIVEKITNAME"
+SYSTEMNAME="$SYSTEMNAME"
+DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
+LOCALE="$LOCALE"
+MULTILINGUAL="$MULTILINGUAL"
+LAYOUT="$LAYOUT"
+LAYOUTCODE="$LAYOUTCODE"
+TIMEZONE="$TIMEZONE"
+MODULE="$MODULE"
+USER_NAME="$USER_NAME"
+BEXT="$BEXT"
 EOF
 
     if [ -f $SCRIPT_DIR/linux-live/minioslib ]; then
@@ -1830,10 +1773,16 @@ function build_iso() {
 
     DIR=$WORK_DIR/image
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE_SUFFIX
+    if [ $MULTILINGUAL = "true" ]; then
+        LANGUAGE_CODE=""
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE_SUFFIX
+        LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)-"
+    fi
+
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
+    else
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -2048,7 +1997,6 @@ function chroot_cleanup() {
     rm -Rf $1/root/.cache 2>/dev/null
     rm -Rf $1/root/.local/share/mc 2>/dev/null
     rm -Rf $1/usr/share/doc/* 2>/dev/null
-    rm -Rf $1/usr/share/fluxbox/nls/??* 2>/dev/null
     rm -Rf $1/usr/share/gnome/help 2>/dev/null
     rm -Rf $1/usr/share/icons/elementaryXubuntu-dark 2>/dev/null
     rm -Rf $1/usr/share/icons/gnome/256x256 2>/dev/null
@@ -2058,32 +2006,64 @@ function chroot_cleanup() {
     if [ $REMOVE_LARGE_ICONS = "true" ]; then
         find $1/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
     fi
-    if [ $LOCALE != "en_US" ]; then
-        LNG="$(echo $LOCALE | cut -d_ -f1)"
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/?? 2>/dev/null | sed "/en/d;/$LNG/d"); do
-            rm -Rf $UNUSED_LOCALE 2>/dev/null
-        done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??_* 2>/dev/null | sed "/en/d;/$LNG/d"); do
-            rm -Rf $UNUSED_LOCALE 2>/dev/null
-        done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??@* 2>/dev/null | sed "/en/d;/$LNG/d"); do
-            rm -Rf $UNUSED_LOCALE 2>/dev/null
-        done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/locale/??? 2>/dev/null | sed "/en/d;/$LNG/d"); do
-            rm -Rf $UNUSED_LOCALE 2>/dev/null
-        done
-        for UNUSED_LOCALE in $(ls -d $1/usr/share/i18n/locales/*_* 2>/dev/null | sed "/en/d;/$LNG/d"); do
-            UNUSED_LOCALE=$(basename $UNUSED_LOCALE)
-            if [ $UNUSED_LOCALE == "i18n"* ] || [ $UNUSED_LOCALE == "iso14651"* ]; then
-                rm -Rf $1/usr/share/i18n/locales/$UNUSED_LOCALE 2>/dev/null
-            fi
-        done
+    if [ $MULTILINGUAL = "true" ]; then
+        # List of locales to keep
+        LOCALES_TO_KEEP=("${LOCALES[@]}")
     else
-        rm -Rf $1/usr/share/locale/?? 2>/dev/null
-        rm -Rf $1/usr/share/locale/??_* 2>/dev/null
-        rm -Rf $1/usr/share/locale/??@* 2>/dev/null
-        rm -Rf $1/usr/share/locale/??? 2>/dev/null
-        rm -Rf $1/usr/share/i18n/locales/*_* 2>/dev/null
+        LOCALES_TO_KEEP=("$LOCALE")
+    fi
+    if [ $LOCALE = "en_US" ] && [ $MULTILINGUAL != "true" ]; then
+        rm -rf $1/usr/share/fluxbox/nls/??* 2>/dev/null
+        rm -rf $1/usr/share/locale/?? 2>/dev/null
+        rm -rf $1/usr/share/locale/??_* 2>/dev/null
+        rm -rf $1/usr/share/locale/??@* 2>/dev/null
+        rm -rf $1/usr/share/locale/??? 2>/dev/null
+        rm -rf $1/usr/share/i18n/locales/*_* 2>/dev/null
+    else
+        # Add short names
+        for LOCALE_CODE in "${LOCALES_TO_KEEP[@]}"; do
+            LOCALES_TO_KEEP+=("$(echo $LOCALE_CODE | cut -d_ -f1)")
+        done
+
+        # Paths and patterns where excess locales will be deleted
+        PATHS_AND_PATTERNS_TO_CLEAN=(
+            "$1/usr/share/fluxbox/nls/??*"
+            "$1/usr/share/locale/??"
+            "$1/usr/share/locale/??_*"
+            "$1/usr/share/locale/??@*"
+            "$1/usr/share/locale/???"
+            "$1/usr/share/i18n/locales/*_*"
+        )
+
+        # Iterate over all paths and patterns
+        for PATH_AND_PATTERN in "${PATHS_AND_PATTERNS_TO_CLEAN[@]}"; do
+            echo "Checking files in $PATH_AND_PATTERN..."
+
+            # Iterate over all files and directories matching the current pattern
+            for FILE in $PATH_AND_PATTERN; do
+                # Get the name of the file or directory without the full path
+                FILENAME=$(basename "$FILE")
+
+                # Check if this file or directory should be kept
+                KEEP=false
+                for LOCALE_CODE in "${LOCALES_TO_KEEP[@]}"; do
+                    if [ "$FILENAME" == "$LOCALE_CODE" ]; then
+                        KEEP=true
+                        break
+                    fi
+                done
+
+                # If the file or directory should not be kept, delete it
+                if ! $KEEP; then
+                    echo "Deleting $FILE..."
+                    rm -rf "$FILE"
+                else
+                    echo "Keeping $FILE..."
+                fi
+            done
+        done
+
+        echo "Locale cleanup completed."
     fi
 
     if [ -z $1 ]; then
@@ -2180,8 +2160,7 @@ function install_core_packages() {
 }
 
 # =================================================================
-#
-#
+# unused
 # =================================================================
 function build_dkms() {
     if [ $KERNEL_TYPE != "none" ]; then
@@ -2511,15 +2490,15 @@ function filter_modules() {
         elif [ $SCRIPT_DIR = "/usr/bin" ]; then
             read_config /etc/minios/buildconfig FILTER_MODULES FILTER_LEVEL
         else
-            #read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
-            #if [ $FILTER_MODULES = "true" ]; then
-            FILTER_MODULES="true"
-            if [[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]; then
-                FILTER_LEVEL="0"
-            else
-                FILTER_LEVEL=$((${MODULE:1:1} - 1))
-            fi
-            #fi
+            read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
+            : 'if [ $FILTER_MODULES = "true" ]; then
+                FILTER_MODULES="true"
+                if [[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]; then
+                    FILTER_LEVEL="0"
+                else
+                    FILTER_LEVEL=$((${MODULE:1:1} - 1))
+                fi
+            fi'
         fi
     fi
     echo -e "=====  ${YELLOW}MODULE=$MODULE${ENDCOLOR}"
@@ -3009,14 +2988,14 @@ function build_modules() {
                 fi
 
                 # copy files
-                if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
-                        (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
-                    fi
-                else
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
                         mkdir $MODULE_MERGED_DIR/rootcopy-install
                         (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                    fi
+                else
+                    if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
+                        (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
                     fi
                 fi
 
@@ -3478,23 +3457,17 @@ function download_sources() {
 function generate_config_files() {
     cp -f "$SCRIPT_DIR/linux-live/buildconfig" "$SCRIPT_DIR/linux-live/container_buildconfig"
     cp -f "$SCRIPT_DIR/linux-live/config" "$SCRIPT_DIR/linux-live/container_config"
-    sed -i -e "/DISTRIBUTION_TYPE=/s/=.*/=\"$DISTRIBUTION_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/DISTRIBUTION=/s/=.*/=\"$DISTRIBUTION\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/DISTRIBUTION_ARCH=/s/=.*/=\"$DISTRIBUTION_ARCH\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/DESKTOP_ENVIRONMENT=/s/=.*/=\"$DESKTOP_ENVIRONMENT\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/PACKAGE_VARIANT=/s/=.*/=\"$PACKAGE_VARIANT\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/INITRD_TYPE=/s/=.*/=\"$INITRD_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/KERNEL_TYPE=/s/=.*/=\"$KERNEL_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/KERNEL_BPO=/s/=.*/=\"$KERNEL_BPO\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/KERNEL_AUFS=/s/=.*/=\"$KERNEL_AUFS\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/COMP_TYPE=/s/=.*/=\"$COMP_TYPE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
-    sed -i -e "/LOCALE=/s/=.*/=\"$LOCALE\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+
+    VARS=("DISTRIBUTION_TYPE" "DISTRIBUTION" "DISTRIBUTION_ARCH" "DESKTOP_ENVIRONMENT" "PACKAGE_VARIANT" "INITRD_TYPE" "KERNEL_TYPE" "KERNEL_BPO" "KERNEL_AUFS" "COMP_TYPE" "LOCALE" "MULTILINGUAL")
+    for VAR in "${VARS[@]}"; do
+        sed -i -e "/$VAR=/s/=.*/=\"${!VAR}\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    done
     sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
 }
 
 function container_run() {
-    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
-        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
@@ -3508,6 +3481,7 @@ function container_run() {
             -e DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
             -e COMP_TYPE="$COMP_TYPE" \
             -e LOCALE="$LOCALE" \
+            -e MULTILINGUAL="$MULTILINGUAL" \
             -e TIMEZONE="$TIMEZONE" \
             -e USER_NAME="live" \
             -e USER_PASSWORD="evil" \
@@ -3571,6 +3545,7 @@ function live_run() {
         DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
         COMP_TYPE="$COMP_TYPE" \
         LOCALE="$LOCALE" \
+        MULTILINGUAL="$MULTILINGUAL" \
         TIMEZONE="$TIMEZONE" \
         USER_NAME="live" \
         USER_PASSWORD="evil" \
@@ -3653,22 +3628,60 @@ function container_build_finish() {
 }
 
 function container_build_run() {
+    if [ "$#" -eq 0 ]; then
+        echo "Usage: container_build_run -d <distribution> -e <desktop_environment> -v <package_variant> -a <distribution_arch> -i <initrd_type> -k <kernel_type> -b <kernel_bpo> -u <kernel_aufs> -m <kernel_build_dkms> -c <comp_type> -l <locale> -n <multilingual> -t <timezone>"
+        echo "  -d  Distribution (Debian: stretch, buster, bullseye, bookworm, sid, kali-rolling, orel; Ubuntu: bionic, focal, jammy)"
+        echo "  -e  Desktop environment (core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt)"
+        echo "  -v  Package variant (cloud, minimum, standard, maximum, ultra, puzzle)"
+        echo "  -a  Distribution architecture (amd64, i386, i386-pae)"
+        echo "  -i  Initrd type (livekit-mos, livekit-slax, uird)"
+        echo "  -k  Kernel type (none, default, rt, cloud, pve, ubuntu, ubuntu-hwe)"
+        echo "  -b  BPO kernel (true/false)"
+        echo "  -u  AUFS kernel (true/false)"
+        echo "  -m  Kernel build DKMS (true/false)"
+        echo "  -c  Compression type (stretch: xz, lzo, gz; buster+: xz, lzo, gz, lz4, zstd)"
+        echo "  -l  Locale (en_US, ru_RU, es_ES, pt_BR)"
+        echo "  -n  Multilingual support (true/false)"
+        echo "  -t  Timezone"
+        return
+    fi
+
     local AUFS_SUFFIX BPO_SUFFIX
     DISTRIBUTION_TYPE="debian"
-    DISTRIBUTION="$1"
-    DESKTOP_ENVIRONMENT="$2"
-    PACKAGE_VARIANT="$3"
-    DISTRIBUTION_ARCH="$4"
-    INITRD_TYPE="$5"
-    KERNEL_TYPE="$6"
-    KERNEL_BPO="$7"
-    KERNEL_AUFS="$8"
-    KERNEL_BUILD_DKMS="$9"
-    COMP_TYPE="${10}"
-    LOCALE="${11}"
-    TIMEZONE="${12}"
+    DISTRIBUTION="bookworm"
+    DESKTOP_ENVIRONMENT="xfce"
+    PACKAGE_VARIANT="standard"
+    DISTRIBUTION_ARCH="amd64"
+    INITRD_TYPE="livekit-mos"
+    KERNEL_TYPE="default"
+    KERNEL_BPO="false"
+    KERNEL_AUFS="true"
+    KERNEL_BUILD_DKMS="false"
+    COMP_TYPE="zstd"
+    LOCALE="en_US"
+    MULTILINGUAL="false"
+    TIMEZONE="Etc/UTC"
 
-    case $1 in
+    while getopts d:e:v:a:i:k:b:u:m:c:l:n:t: flag
+    do
+        case "${flag}" in
+            d) DISTRIBUTION=${OPTARG};;
+            e) DESKTOP_ENVIRONMENT=${OPTARG};;
+            v) PACKAGE_VARIANT=${OPTARG};;
+            a) DISTRIBUTION_ARCH=${OPTARG};;
+            i) INITRD_TYPE=${OPTARG};;
+            k) KERNEL_TYPE=${OPTARG};;
+            b) KERNEL_BPO=${OPTARG};;
+            u) KERNEL_AUFS=${OPTARG};;
+            m) KERNEL_BUILD_DKMS=${OPTARG};;
+            c) COMP_TYPE=${OPTARG};;
+            l) LOCALE=${OPTARG};;
+            n) MULTILINGUAL=${OPTARG};;
+            t) TIMEZONE=${OPTARG};;
+        esac
+    done
+
+    case $DISTRIBUTION in
     trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
         ;;
@@ -3680,7 +3693,7 @@ function container_build_run() {
     if [ $KERNEL_AUFS = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
@@ -3723,9 +3736,11 @@ function live_build_run() {
     KERNEL_TYPE="$6"
     KERNEL_BPO="$7"
     KERNEL_AUFS="$8"
-    COMP_TYPE="$9"
-    LOCALE="${10}"
-    TIMEZONE="${11}"
+    KERNEL_BUILD_DKMS="$9"
+    COMP_TYPE="${10}"
+    LOCALE="${11}"
+    MULTILINGUAL="${12}"
+    TIMEZONE="${13}"
     case $1 in
     trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"

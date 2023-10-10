@@ -308,8 +308,8 @@ if [ ! -f /var/.system_configured ]; then
     cp -rT /etc/skel /root
     # create root directories
     if [ -d /root ]; then
-        for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-            mkdir -p "/root/$dir"
+        for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+            mkdir -p "/root/$DIR"
         done
         #cp /usr/share/applications/minios-installer.desktop /root/Desktop/
         #chmod +x /root/Desktop/minios-installer.desktop
@@ -343,8 +343,8 @@ if [ "$CLOUD" != "true" ]; then
             cp -rT /etc/skel "/home/$USER_NAME"
             # create user directories
             if [ -d "/home/$USER_NAME" ]; then
-                for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-                    mkdir -p "/home/$USER_NAME/$dir"
+                for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                    mkdir -p "/home/$USER_NAME/$DIR"
                 done
                 if [ ! -d "/home/$USER_NAME/.ssh" ]; then
                     mkdir "/home/$USER_NAME/.ssh"
@@ -378,6 +378,23 @@ if [ "$CLOUD" != "true" ]; then
             cp -rT /etc/skel "/home/guest"
             chown guest:guest "/home/guest"
             chown -R guest:guest "/home/guest"
+        fi
+        # create user directories
+        if [ -d "/home/guest" ]; then
+            for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                mkdir -p "/home/guest/$DIR"
+            done
+            if [ ! -d "/home/guest/.ssh" ]; then
+                mkdir "/home/guest/.ssh"
+                chmod 700 "/home/guest/.ssh"
+            fi
+            if [ -f /root/.ssh/authorized_keys ]; then
+                cp /root/.ssh/authorized_keys "/home/guest/.ssh/authorized_keys"
+            fi
+            USER_ID=$(id -u "guest")
+            GROUP_ID=$(id -g "guest")
+            chown $USER_ID:$GROUP_ID "/home/guest"
+            chown -R $USER_ID:$GROUP_ID "/home/guest"
         fi
     fi
 else
