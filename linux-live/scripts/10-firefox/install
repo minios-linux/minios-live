@@ -42,7 +42,7 @@ elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     if [ "$LOCALE" != "en_US" ]; then
         case "$LOCALE" in
         "es_ES" | "pt_BR")
-            pkg install firefox-esr-l10n-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')
+            pkg install firefox-esr-l10n-$(echo $LOCALE | tr '_' '-' | tr '[:upper:]' '[:lower:]')
             ;;
         *)
             pkg install firefox-esr-l10n-$LNG
