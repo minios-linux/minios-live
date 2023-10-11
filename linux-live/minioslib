@@ -3662,22 +3662,21 @@ function container_build_run() {
     MULTILINGUAL="false"
     TIMEZONE="Etc/UTC"
 
-    while getopts d:e:v:a:i:k:b:u:m:c:l:n:t: flag
-    do
+    while getopts d:e:v:a:i:k:b:u:m:c:l:n:t: flag; do
         case "${flag}" in
-            d) DISTRIBUTION=${OPTARG};;
-            e) DESKTOP_ENVIRONMENT=${OPTARG};;
-            v) PACKAGE_VARIANT=${OPTARG};;
-            a) DISTRIBUTION_ARCH=${OPTARG};;
-            i) INITRD_TYPE=${OPTARG};;
-            k) KERNEL_TYPE=${OPTARG};;
-            b) KERNEL_BPO=${OPTARG};;
-            u) KERNEL_AUFS=${OPTARG};;
-            m) KERNEL_BUILD_DKMS=${OPTARG};;
-            c) COMP_TYPE=${OPTARG};;
-            l) LOCALE=${OPTARG};;
-            n) MULTILINGUAL=${OPTARG};;
-            t) TIMEZONE=${OPTARG};;
+        d) DISTRIBUTION=${OPTARG} ;;
+        e) DESKTOP_ENVIRONMENT=${OPTARG} ;;
+        v) PACKAGE_VARIANT=${OPTARG} ;;
+        a) DISTRIBUTION_ARCH=${OPTARG} ;;
+        i) INITRD_TYPE=${OPTARG} ;;
+        k) KERNEL_TYPE=${OPTARG} ;;
+        b) KERNEL_BPO=${OPTARG} ;;
+        u) KERNEL_AUFS=${OPTARG} ;;
+        m) KERNEL_BUILD_DKMS=${OPTARG} ;;
+        c) COMP_TYPE=${OPTARG} ;;
+        l) LOCALE=${OPTARG} ;;
+        n) MULTILINGUAL=${OPTARG} ;;
+        t) TIMEZONE=${OPTARG} ;;
         esac
     done
 

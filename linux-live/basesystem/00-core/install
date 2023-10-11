@@ -56,6 +56,18 @@ if [ $DISTRIBUTION != "buster" ]; then
     )
 fi
 
+if [ $MULTILINGUAL = "true" ]; then
+    LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
+    LOCALES_STRING=""
+    for ITEM in "${LOCALES[@]}"; do
+        LOCALES_STRING+="$ITEM.UTF-8 UTF-8, "
+    done
+    LOCALES_STRING=${LOCALES_STRING%??}
+    DEBCONF_SETTINGS+=(
+        "locales locales/locales_to_be_generated multiselect $LOCALES_STRING"
+    )
+fi
+
 for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "$SETTING" | debconf-set-selections -v
 done
@@ -198,10 +210,10 @@ fi
 
 # minios-install setup
 #if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
-    if [ ! -d /usr/lib/usev/rules.d ]; then
-        mkdir -p /usr/lib/udev/rules.d
-    fi
-    cat <<EOF >/usr/lib/udev/rules.d/90-minios-automount.rules
+if [ ! -d /usr/lib/usev/rules.d ]; then
+    mkdir -p /usr/lib/udev/rules.d
+fi
+cat <<EOF >/usr/lib/udev/rules.d/90-minios-automount.rules
 # we don't care about loop* and ram* devices
 KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/minios-automount %r/%k"
 
