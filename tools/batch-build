@@ -1,7 +1,6 @@
 #!/bin/bash
-#!/bin/bash
-# Usage:    container_build_run -d <distribution> -e <desktop_environment> -v <package_variant> -a <distribution_arch> -i <initrd_type> -k <kernel_type> -b <kernel_bpo> -u <kernel_aufs> -m <kernel_build_dkms> -c <comp_type> -l <locale> -n <multilingual> -t <timezone>
-# Example:  container_build_run -d bullseye -e xfce -v standard -a amd64 -i livekit-mos -k default -b false -u true -m false -c zstd -l en_US -n false -t Etc/UTC
+# Usage:    container_build_run [DISTRIBUTION] [DESKTOP_ENVIRONMENT] [PACKAGE_VARIANT] [DISTRIBUTION_ARCH] [INITRD_TYPE] [KERNEL_TYPE] [KERNEL_BPO] [KERNEL_AUFS] [KERNEL_BUILD_DKMS] [COMP_TYPE] [LOCALE] [TIMEZONE]
+# Example:  container_build_run bullseye       xfce                  standard          amd64               livekit       default       true         true          true                zstd        en_US    Etc/UTC
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 PARENT_DIR="$(dirname $SCRIPT_DIR)"
@@ -11,6 +10,5 @@ SCRIPT_DIR=$PARENT_DIR
 
 container_engine="docker"
 
-container_build_run -d buster -e xfce -v minimum -a amd64 -i livekit-mos -k default -b false -u true -m false -c zstd -l en_US -n false -t Etc/UTC
-container_build_run -d buster -e xfce -v minimum -a amd64 -i livekit-mos -k default -b false -u true -m false -c zstd -l en_US -n true  -t Etc/UTC
-container_build_run -d bullseye -e xfce -v standard -a amd64 -i uird -k default -b false -u true -m true -c zstd -l ru_RU -n false -t Europe/Moscow
+container_build_run buster xfce minimum amd64 livekit-mos default false true false zstd en_US Etc/UTC
+container_build_run bullseye xfce standard amd64 uird default false true true zstd ru_RU Europe/Moscow

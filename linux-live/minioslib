@@ -3628,59 +3628,23 @@ function container_build_finish() {
 }
 
 function container_build_run() {
-    if [ "$#" -eq 0 ]; then
-        echo "Usage: container_build_run -d <distribution> -e <desktop_environment> -v <package_variant> -a <distribution_arch> -i <initrd_type> -k <kernel_type> -b <kernel_bpo> -u <kernel_aufs> -m <kernel_build_dkms> -c <comp_type> -l <locale> -n <multilingual> -t <timezone>"
-        echo "  -d  Distribution (Debian: stretch, buster, bullseye, bookworm, sid, kali-rolling, orel; Ubuntu: bionic, focal, jammy)"
-        echo "  -e  Desktop environment (core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt)"
-        echo "  -v  Package variant (cloud, minimum, standard, maximum, ultra, puzzle)"
-        echo "  -a  Distribution architecture (amd64, i386, i386-pae)"
-        echo "  -i  Initrd type (livekit-mos, livekit-slax, uird)"
-        echo "  -k  Kernel type (none, default, rt, cloud, pve, ubuntu, ubuntu-hwe)"
-        echo "  -b  BPO kernel (true/false)"
-        echo "  -u  AUFS kernel (true/false)"
-        echo "  -m  Kernel build DKMS (true/false)"
-        echo "  -c  Compression type (stretch: xz, lzo, gz; buster+: xz, lzo, gz, lz4, zstd)"
-        echo "  -l  Locale (en_US, ru_RU, es_ES, pt_BR)"
-        echo "  -n  Multilingual support (true/false)"
-        echo "  -t  Timezone"
-        return
-    fi
-
     local AUFS_SUFFIX BPO_SUFFIX
     DISTRIBUTION_TYPE="debian"
-    DISTRIBUTION="bookworm"
-    DESKTOP_ENVIRONMENT="xfce"
-    PACKAGE_VARIANT="standard"
-    DISTRIBUTION_ARCH="amd64"
-    INITRD_TYPE="livekit-mos"
-    KERNEL_TYPE="default"
-    KERNEL_BPO="false"
-    KERNEL_AUFS="true"
-    KERNEL_BUILD_DKMS="false"
-    COMP_TYPE="zstd"
-    LOCALE="en_US"
+    DISTRIBUTION="$1"
+    DESKTOP_ENVIRONMENT="$2"
+    PACKAGE_VARIANT="$3"
+    DISTRIBUTION_ARCH="$4"
+    INITRD_TYPE="$5"
+    KERNEL_TYPE="$6"
+    KERNEL_BPO="$7"
+    KERNEL_AUFS="$8"
+    KERNEL_BUILD_DKMS="$9"
+    COMP_TYPE="${10}"
+    LOCALE="${11}"
     MULTILINGUAL="false"
-    TIMEZONE="Etc/UTC"
+    TIMEZONE="${12}"
 
-    while getopts d:e:v:a:i:k:b:u:m:c:l:n:t: flag; do
-        case "${flag}" in
-        d) DISTRIBUTION=${OPTARG} ;;
-        e) DESKTOP_ENVIRONMENT=${OPTARG} ;;
-        v) PACKAGE_VARIANT=${OPTARG} ;;
-        a) DISTRIBUTION_ARCH=${OPTARG} ;;
-        i) INITRD_TYPE=${OPTARG} ;;
-        k) KERNEL_TYPE=${OPTARG} ;;
-        b) KERNEL_BPO=${OPTARG} ;;
-        u) KERNEL_AUFS=${OPTARG} ;;
-        m) KERNEL_BUILD_DKMS=${OPTARG} ;;
-        c) COMP_TYPE=${OPTARG} ;;
-        l) LOCALE=${OPTARG} ;;
-        n) MULTILINGUAL=${OPTARG} ;;
-        t) TIMEZONE=${OPTARG} ;;
-        esac
-    done
-
-    case $DISTRIBUTION in
+    case $1 in
     trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
         ;;
