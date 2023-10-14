@@ -5,6 +5,9 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib || exit 1
+# If we need to use an array of LOCALES in the code, the variables must be read
+# from the file. This crutch may be removed in the future.
+. /minios.conf || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -57,7 +60,6 @@ if [ $DISTRIBUTION != "buster" ]; then
 fi
 
 if [ $MULTILINGUAL = "true" ]; then
-    LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
     LOCALES_STRING=""
     for ITEM in "${LOCALES[@]}"; do
         LOCALES_STRING+="$ITEM.UTF-8 UTF-8, "

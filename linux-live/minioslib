@@ -14,7 +14,7 @@ function common_variables() {
     local locale layout layoutcode
 
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE MULTILINGUAL LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
+    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
 
     #
     CONTAINER_TYPE="0"
@@ -133,6 +133,7 @@ function common_variables() {
         LAYOUTCODE="us"
     fi
 
+    # An array of locales. Used if MULTILINGUAL=true.
     LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
 
     # List of directories for root filesystem
@@ -340,43 +341,52 @@ function read_cmdline() {
 # reading configuration file
 # =================================================================
 
-function read_config() { # read_config file.cfg var_name1 var_name2
-    # ref: https://stackoverflow.com/a/20815951
+function read_config() {
+    # Enable extended globbing. This is required for the pattern matching of variable names.
+    shopt -s extglob
 
-    shopt -s extglob # needed the "one of these"-match below
-    local configfile="${1?No configuration file given}"
-    local keylist="${@:2}" # positional parameters 2 and following
+    # The first argument is the configuration file.
+    local CONFIGFILE="${1?No configuration file given}"
 
-    if [[ ! -f "$configfile" ]]; then
-        echo >&2 "\"$configfile\" is not a file!"
+    # All other arguments are the variable names to look for.
+    local KEYLIST="${@:2}"
+
+    # Check if the configuration file exists and is readable.
+    if [[ ! -f "$CONFIGFILE" ]]; then
+        echo >&2 "\"$CONFIGFILE\" is not a file!"
         exit 1
     fi
-    if [[ ! -r "$configfile" ]]; then
-        echo >&2 "\"$configfile\" is not readable!"
+    if [[ ! -r "$CONFIGFILE" ]]; then
+        echo >&2 "\"$CONFIGFILE\" is not readable!"
         exit 1
     fi
 
-    keylist="${keylist// /|}" # this will generate a regex 'one of these'
+    # Convert the list of variable names to a regex pattern.
+    KEYLIST="${KEYLIST// /|}"
 
-    # lhs : "left hand side" : Everything left of the '='
-    # rhs : "right hand side": Everything right of the '='
-    #
-    # "lhs" will hold the name of the key you want to read.
-    # The value of "rhs" will be assigned to that key.
-    while IFS='= ' read -r lhs rhs; do
-        # IF lhs in keylist
-        # AND rhs not empty
-        if [[ "$lhs" =~ ^($keylist)$ ]] && [[ -n $rhs ]]; then
-            rhs="${rhs%\"*}"   # Del opening string quotes
-            rhs="${rhs#\"*}"   # Del closing string quotes
-            rhs="${rhs%\'*}"   # Del opening string quotes
-            rhs="${rhs#\'*}"   # Del closing string quotes
-            eval $lhs=\"$rhs\" # The magic happens here
+    # Read each line of the file.
+    while IFS='= ' read -r LHS RHS; do
+        # If the variable name is in our list and the value is not empty...
+        if [[ "$LHS" =~ ^($KEYLIST)$ ]] && [[ -n $RHS ]]; then
+            # Remove any quotes around the value.
+            RHS="${RHS%\"*}"
+            RHS="${RHS#\"*}"
+            RHS="${RHS%\'*}"
+            RHS="${RHS#\'*}"
+
+            # If the value is an array (surrounded by parentheses)...
+            if [[ "$RHS" =~ ^\((.*)\)$ ]]; then
+                # Assign the array to the variable.
+                eval $LHS=\("${BASH_REMATCH[1]}"\)
+            else
+                # Otherwise, assign the value to the variable.
+                eval $LHS=\"$RHS\"
+            fi
         fi
-        # tr used as a safeguard against dos line endings
-    done <<<$(tr -d '\r' <$configfile)
+    done <<<$(tr -d '\r' <$CONFIGFILE)
 
-    shopt -u extglob # Switching it back off after use
+    # Disable extended globbing after we're done using it.
+    shopt -u extglob
 }
 
 function read_config_value() {
@@ -784,6 +794,7 @@ LIVEKITNAME="$LIVEKITNAME"
 SYSTEMNAME="$SYSTEMNAME"
 DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH"
 LOCALE="$LOCALE"
+LOCALES=(${LOCALES[@]})
 MULTILINGUAL="$MULTILINGUAL"
 LAYOUT="$LAYOUT"
 LAYOUTCODE="$LAYOUTCODE"
@@ -2935,6 +2946,25 @@ function create_initrfs() {
 #
 #
 # =================================================================
+function export_locales() {
+    local FILE BASE_NAME NEW_NAME
+    if [[ "$MODULE" == *"langpack"* ]]; then
+        if [ "$MULTILINGUAL" = "true" ]; then
+            current_function
+            if [ ! -d $LOCALES_DIR ]; then
+                mkdir -p $LOCALES_DIR
+            fi
+            for FILE in "$MODULE_UPPER_DIR"/*langpack*; do
+                cp "$FILE" "$LOCALES_DIR/$(basename "$FILE")"
+            done
+        fi
+    fi
+}
+
+# =================================================================
+#
+#
+# =================================================================
 function build_modules() {
     current_process
     if [ "${CMD[ii]}" != "build_dkms" ]; then
@@ -3295,6 +3325,7 @@ function build_modules() {
                 fi
             fi
             export_kernel
+            export_locales
             PACKAGE=""
             VERSION=""
         done

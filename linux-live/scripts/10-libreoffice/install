@@ -5,10 +5,34 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib || exit 1
+# If we need to use an array of LOCALES in the code, the variables must be read
+# from the file. This crutch may be removed in the future.
+. /minios.conf || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-LNG="$(echo $LOCALE | cut -d_ -f1)"
+get_libreoffice_locale() {
+    case "$1" in
+    "pt_BR" | "en_GB" | "en_ZA" | "pa_IN" | "zh_CN" | "zh_TW")
+        LIBREOFFICE_LOCALE=$(echo $1 | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+        ;;
+    *)
+        LIBREOFFICE_LOCALE="$(echo $1 | cut -d_ -f1)"
+        ;;
+    esac
+}
+
+if [ "$MULTILINGUAL" = "true" ]; then
+    LIBREOFFICE_LOCALES=()
+    for ITEM in "${LOCALES[@]}"; do
+        if [ "$ITEM" != "en_US" ]; then
+            get_libreoffice_locale "$ITEM"
+            LIBREOFFICE_LOCALES+=("$LIBREOFFICE_LOCALE")
+        fi
+    done
+else
+    get_libreoffice_locale "$LOCALE"
+fi
 
 pkg update
 
@@ -19,14 +43,16 @@ if [ -f $SCRIPT_DIR/package.list ]; then
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
-    if [ "$LOCALE" != "en_US" ]; then
-        case "$LOCALE" in
-        "pt_BR")
-            pkg install firefox-esr-l10n-$(echo $LOCALE | tr '[:upper:]' '[:lower:]')
-            ;;
-        *)
-            pkg install pkg install libreoffice-l10n-$LNG
-            ;;
-        esac
+    if [ $MULTILINGUAL = "true" ]; then
+        LIBREOFFICE_LOCALES_STRING=""
+        for ITEM in "${LIBREOFFICE_LOCALES[@]}"; do
+            LIBREOFFICE_LOCALES_STRING+="libreoffice-l10n-$ITEM "
+        done
+        LIBREOFFICE_LOCALES_STRING=${LIBREOFFICE_LOCALES_STRING%?}
+        pkg install $LIBREOFFICE_LOCALES_STRING
+    else
+        if [ "$LOCALE" != "en_US" ]; then
+            pkg install libreoffice-l10n-$LIBREOFFICE_LOCALE
+        fi
     fi
 fi
