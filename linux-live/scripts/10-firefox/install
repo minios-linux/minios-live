@@ -5,6 +5,23 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib || exit 1
+# If we need to use an array of LOCALES in the code, the variables must be read
+# from the file. This crutch may be removed in the future.
+. /minios.conf || exit 1
+
+get_firefox_locale() {
+    case "$1" in
+    "ca_ES" | "en_CA" | "en_GB" | "es_AR" | "es_CL" | "es_ES" | "es_MX" | "fy_NL" | "ga_IE" | "gu_IN" | "hi_IN" | "hy_AM" | "nb_NO" | "ne_NP" | "nn_NO" | "pa_IN" | "pt_BR" | "pt_PT" | "sv_SE" | "zh_CN" | "zh_TW")
+        FIREFOX_LOCALE=$(echo $1 | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+        ;;
+    "ca_ES")
+        FIREFOX_LOCALE="ca-valencia"
+        ;;
+    *)
+        FIREFOX_LOCALE="$(echo $1 | cut -d_ -f1)"
+        ;;
+    esac
+}
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -15,6 +32,17 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 LNG="$(echo $LOCALE | cut -d_ -f1)"
+if [ "$MULTILINGUAL" = "true" ]; then
+    FIREFOX_LOCALES=()
+    for ITEM in "${LOCALES[@]}"; do
+        if [ "$ITEM" != "en_US" ]; then
+            get_firefox_locale "$ITEM"
+            FIREFOX_LOCALES+=("$FIREFOX_LOCALE")
+        fi
+    done
+else
+    get_firefox_locale "$LOCALE"
+fi
 
 pkg update
 
@@ -34,22 +62,23 @@ EOF
     # need to ckeck
     if [ $LOCALE != "en_US" ]; then
         pkg install \
-            firefox-locale-$LNG
+            firefox-locale-$FIREFOX_LOCALE
     fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     pkg install \
         firefox-esr
-    if [ "$LOCALE" != "en_US" ]; then
-        case "$LOCALE" in
-        "es_ES" | "pt_BR")
-            pkg install firefox-esr-l10n-$(echo $LOCALE | tr '_' '-' | tr '[:upper:]' '[:lower:]')
-            ;;
-        *)
-            pkg install firefox-esr-l10n-$LNG
-            ;;
-        esac
+    if [ $MULTILINGUAL = "true" ]; then
+        FIREFOX_LOCALES_STRING=""
+        for ITEM in "${FIREFOX_LOCALES[@]}"; do
+            FIREFOX_LOCALES_STRING+="firefox-esr-l10n-$ITEM "
+        done
+        FIREFOX_LOCALES_STRING=${FIREFOX_LOCALES_STRING%?}
+        pkg install $FIREFOX_LOCALES_STRING
+    else
+        if [ "$LOCALE" != "en_US" ]; then
+            pkg install firefox-esr-l10n-$FIREFOX_LOCALE
+        fi
     fi
-
 fi
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then

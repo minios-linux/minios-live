@@ -12,25 +12,19 @@ LNG="$(echo $LOCALE | cut -d_ -f1)"
 
 pkg update
 
-echo "nodm nodm/enabled boolean true" | debconf-set-selections
-echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
-
-# install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+    case "$DISTRIBUTION" in
+    bookworm | trixie | sid)
+        install_packages
+        ;;
+    *)
+        install_packages
+        ;;
+    esac
 fi
 
-if [ $LOCALE != "en_US" ]; then
-    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"
-fi
-
-if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-    rm -f /usr/share/applications/yad-icon-browser.desktop
-fi
-
-rm -f /usr/share/applications/minios-installer.desktop
-
-if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#slim" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+    sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
     sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
     sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
@@ -38,7 +32,7 @@ if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#slim" $SCRIPT_D
     sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
 fi
 
-if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#nodm" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     cat <<EOF >/etc/default/nodm
 # nodm configuration
 
@@ -74,30 +68,4 @@ NODM_MIN_SESSION_TIME=60
 NODM_X_TIMEOUT=300
 
 EOF
-fi
-
-if ! grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list || grep -q "#slim" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-    cat <<EOF >/usr/bin/audio-allowuser.sh
-#!/bin/bash
-if ! grep audio /etc/group | grep \$(id -nu 1000) >/dev/null; then
-    usermod -a -G audio \$(id -nu 1000)
-fi
-EOF
-    chmod +x /usr/bin/audio-allowuser.sh
-    cat <<EOF >/usr/lib/systemd/system/audio-allowuser.service
-[Unit]
-Description=Allow user to use ALSA
-#After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/audio-allowuser.sh
-RemainAfterExit=true
-ExecStop=
-StandardOutput=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    systemctl enable audio-allowuser.service
 fi
