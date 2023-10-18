@@ -52,7 +52,7 @@ if [ $LOCALE = "ru_RU" ]; then
     pkg install fbxkb
     # Locale
     echo 'LC_ALL="ru_RU.UTF-8"
-    ' >/etc/profile.d/locale_ru.sh
+    ' >/etc/profile.d/locale.sh
     sed -i '37G' /etc/skel/.fluxbox/startup
     sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
     sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
@@ -66,7 +66,7 @@ elif [ $LOCALE = "es_ES" ]; then
     pkg install fbxkb
     # Locale
     echo 'LC_ALL="es_ES.UTF-8"
-    ' >/etc/profile.d/locale_es.sh
+    ' >/etc/profile.d/locale.sh
     sed -i '37G' /etc/skel/.fluxbox/startup
     sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
     sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup
@@ -79,7 +79,7 @@ elif [ $LOCALE = "pt_BR" ]; then
     pkg install fbxkb
     # Locale
     echo 'LC_ALL="pt_BR.UTF-8"
-    ' >/etc/profile.d/locale_es.sh
+    ' >/etc/profile.d/locale.sh
     sed -i '37G' /etc/skel/.fluxbox/startup
     sed -i '38i# layout selector' /etc/skel/.fluxbox/startup
     sed -i '39ifbxkb &' /etc/skel/.fluxbox/startup

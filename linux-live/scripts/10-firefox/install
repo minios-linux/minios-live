@@ -109,23 +109,12 @@ fi
 echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $LNG = "en" ] || [ $LNG = "ru" ] || [ $LNG = "es" ]; then
-        sed -i "s,about:welcome,file:///usr/share/minios/html/$LNG.html,g" $FIREFOX_BRANDING
-    else
-        sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
-    fi
+    sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $LNG = "en" ] || [ $LNG = "ru" ] || [ $LNG = "es" ]; then
-        cat <<EOF >>$FIREFOX_BRANDING
 
-pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/$LNG.html");
-EOF
-    else
-        cat <<EOF >>$FIREFOX_BRANDING
-
+    cat <<EOF >>$FIREFOX_BRANDING
 pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/index.html");
 EOF
-    fi
 fi
 cat <<'EOF' >>$FIREFOX_BRANDING
 

@@ -136,6 +136,12 @@ function common_variables() {
     # An array of locales. Used if MULTILINGUAL=true.
     LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
 
+    if [ $MULTILINGUAL = "true" ]; then
+        LANGUAGE_CODE=""
+    else
+        LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)-"
+    fi
+
     # List of directories for root filesystem
     # No subdirectories are allowed, no slashes,
     # so You can't use /var/tmp here for example
@@ -1784,12 +1790,6 @@ function build_iso() {
 
     DIR=$WORK_DIR/image
 
-    if [ $MULTILINGUAL = "true" ]; then
-        LANGUAGE_CODE=""
-    else
-        LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)-"
-    fi
-
     if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
     else
@@ -2017,6 +2017,7 @@ function chroot_cleanup() {
     if [ $REMOVE_LARGE_ICONS = "true" ]; then
         find $1/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
     fi
+
     if [ $MULTILINGUAL = "true" ]; then
         # List of locales to keep
         LOCALES_TO_KEEP=("${LOCALES[@]}")
@@ -2031,11 +2032,6 @@ function chroot_cleanup() {
         rm -rf $1/usr/share/locale/??? 2>/dev/null
         rm -rf $1/usr/share/i18n/locales/*_* 2>/dev/null
     else
-        # Add short names
-        for LOCALE_CODE in "${LOCALES_TO_KEEP[@]}"; do
-            LOCALES_TO_KEEP+=("$(echo $LOCALE_CODE | cut -d_ -f1)")
-        done
-
         # Paths and patterns where excess locales will be deleted
         PATHS_AND_PATTERNS_TO_CLEAN=(
             "$1/usr/share/fluxbox/nls/??*"
@@ -2057,8 +2053,9 @@ function chroot_cleanup() {
 
                 # Check if this file or directory should be kept
                 KEEP=false
-                for LOCALE_CODE in "${LOCALES_TO_KEEP[@]}"; do
-                    if [ "$FILENAME" == "$LOCALE_CODE" ]; then
+                for ITEM in "${LOCALES_TO_KEEP[@]}"; do
+                    ITEM_CODE=$(echo $ITEM | cut -d_ -f1)
+                    if [[ "$FILENAME" == "$ITEM"* ]] || [[ "$FILENAME" == "$ITEM_CODE" ]]; then
                         KEEP=true
                         break
                     fi
