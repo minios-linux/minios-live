@@ -56,7 +56,7 @@ if [ -f /usr/lib/systemd/system/minios-syncconfig.service ]; then
 fi
 #systemctl enable minios-script-launcher.service
 
-if [ $PACKAGE_VARIANT = "cloud" ] || [[ $DESKTOP_ENVIRONMENT == *"flux"* ]] || [[ $DESKTOP_ENVIRONMENT == *"rdp-kiosk"* ]]; then
+if [ $PACKAGE_VARIANT = "cloud" ] || [[ $DESKTOP_ENVIRONMENT == *"rdp-kiosk"* ]]; then
     if [ -d /usr/share/minios/html ]; then
         rm -rf /usr/share/minios/html
     fi
