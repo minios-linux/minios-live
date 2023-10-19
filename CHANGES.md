@@ -178,3 +178,4 @@
 - Added Galculator to Standard.
 - Cleaned up minios-live code.
 - Support for multi-language by installing modules.
+- Kernel updated to version 6.1.52, ntfs3 support added.
