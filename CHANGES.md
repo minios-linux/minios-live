@@ -1,4 +1,14 @@
-v2.2.1
+# Changelog
+- [Changelog](#changelog)
+  - [v2.2.1](#v221)
+  - [v2.2.2](#v222)
+  - [v2.3](#v23)
+  - [v3.0](#v30)
+  - [v3.1](#v31)
+  - [v3.2](#v32)
+  - [v3.3](#v33)
+
+## v2.2.1
 - Code optimization, bug fixes.
 - The adwaita-icon-theme package has been replaced with the adwaita-icon-theme-antix package, which allowed for a slight reduction in size.
 - Returned the Standard greeting in the terminal.
@@ -13,7 +23,8 @@ v2.2.1
 - The ability to remove the dpkg database when building modules has been added to minios-live scripts.
 - The ability to use third-party repositories (MX and antiX) when building the system has been added to minios-live scripts.
 - An experimental ability to build based on Ubuntu 22.04 has been added to the minios-live scripts.
-v2.2.2
+
+## v2.2.2
 - Added TLP for saving laptop battery power.
 - Added new wallpapers.
 - Changed the appearance of the Firefox window. The tabs are now in line with the window control buttons.
@@ -25,7 +36,8 @@ v2.2.2
 - Updated elementary-icons to version 0.16 for all system variants.
 - Replaced default wallpaper.
 - In minios-live, the ability to build a system without an interface with installed docker and the portainer container management web interface has been added.
-v2.3
+
+## v2.3
 - Different versions now use different wallpapers.
 - Added the ability to build a system with a kernel that supports aufs.
 - Removed dvd+rw-tools from the Minimum version.
@@ -50,7 +62,8 @@ v2.3
 - Fixed a bug due to which non-Latin characters could not be entered in the terminal.
 - Optional support for cloud, rt kernels and kernels from backports for Debian.
 - Separator "|" conflicts with grub2. We can use the "," delimiter in grub2 instead.
-v3.0
+
+## v3.0
 - Fixed font display in xfce4-terminal.
 - Added drivers for external network adapters to initrd.
 - The kernel modules is now outside the base system, making it easier to replace kernel.
@@ -80,7 +93,8 @@ v3.0
 - At the end of the session in xfce, the hibernation and hybrid sleep buttons are no longer available (a system launched from a flash drive or from RAM cannot hibernate).
 - The slax utility used to enable/disable modules has been renamed to minios-bundle to standardize MiniOS-specific console utilities.
 - !!! Very big changes (2k+) in the minios-live build system. Unfortunately, it is impossible to describe them here.
-v3.1
+
+## v3.1
 - The LANG variable in all scripts has been replaced by LNG to avoid conflict with the system variable.
 - RT, Cloud kernels are no longer present in the distribution.
 - Kernels 5.10 and 6.1 of the amd64, 686, 686-pae architectures are updated to current versions.
@@ -89,7 +103,8 @@ v3.1
 - Added console script minios-resolution, which allows to add a non-standard resolution to the screen settings (it does not work perfectly and not always, additional testing is needed).
 - Optimized the code of some scripts.
 - A new version of dynfilefs has been added, it is no longer necessary to specify the size of the change file, this option has been removed.
-v3.2
+
+## v3.2
 - Fixed some bugs that caused problems when starting the system with saving changes.
 - A long process of code refactoring has been started. Useless functions will be removed from minios-live scripts, and those that remain will become more convenient, simple and clear.
 - The apt2sb utility has been completely redesigned and now makes it easier to create modules from the list of packages provided to it.
@@ -123,7 +138,8 @@ v3.2
 - Added value checker in minios.conf, which resets parameters that only accept certain values (true/false, for example) to default values on startup.
 - In Flux, fixed bugs with installing a browser with Spanish language, fixed a bug where an unreveligated user was not created, which resulted in the inability to start VLC.
 - Ultra adds the lazydocker utility, which allows you to conveniently monitor containers from the terminal.
-v3.3
+
+## v3.3
 - MiniOS boot scripts are now developed separately from Linux Live Kit (https://github.com/Tomas-M/linux-live), so they contain significantly more features.
 - Most of the new features from Linux Live Kit are added.
 - Fixed boot from parameter that made it impossible to change the name of the folder where the system is located.
