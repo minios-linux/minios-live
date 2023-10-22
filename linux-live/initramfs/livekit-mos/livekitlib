@@ -554,7 +554,7 @@ ask_disk() {
          if [ "$MODE" = "from" ]; then
             DIR="$LIVEKITNAME"
          elif [ "$MODE" = "perchdir" ]; then
-            DIR="changes"
+            DIR=""
          fi
       fi
       DEVICE="$(ncurses-menu -t "Look for /$DIR directory on:" -f /tmp/ask.txt -s 2>&1 >/dev/tty1 </dev/tty1)"
