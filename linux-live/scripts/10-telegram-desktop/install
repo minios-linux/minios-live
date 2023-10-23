@@ -26,6 +26,10 @@ if [ -f $SCRIPT_DIR/package.list ]; then
         install_packages --package-list="$SCRIPT_DIR/package.list" --sed-script="s,$,/$DISTRIBUTION-backports,"
         PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
         ;;
+    bookworm)
+        install_packages --package-list="$SCRIPT_DIR/package.list" --replace-packages="telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
+        PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
+        ;;
     *)
         if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
             pkg install telegram
