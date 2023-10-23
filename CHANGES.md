@@ -7,6 +7,7 @@
   - [v3.1](#v31)
   - [v3.2](#v32)
   - [v3.3](#v33)
+  - [v3.3.1](#v331)
 
 ## v2.2.1
 - Code optimization, bug fixes.
@@ -179,3 +180,9 @@
 - Cleaned up minios-live code.
 - Support for multi-language by installing modules.
 - Kernel updated to version 6.1.52, ntfs3 support added.
+
+## v3.3.1
+- Added pt_BR translation for MiniOS Installer
+- Changed logic of perchdir=askdisk behavior for compatibility with perchdir=/dev/sda1 or perchdir=/dev/disk/by-label/DiskLabel variants
+- Added fonts-open-sans font set for editions with Telegram Desktop installed
+- Telegram Desktop in Puzzle edition updated to version 4.8.1
