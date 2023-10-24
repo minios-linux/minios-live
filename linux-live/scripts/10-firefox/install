@@ -62,7 +62,7 @@ EOF
     # need to ckeck
     if [ $LOCALE != "en_US" ]; then
         pkg install \
-            firefox-locale-$FIREFOX_LOCALE
+            firefox-locale-"$(echo $LOCALE | cut -d_ -f1)"
     fi
 elif [ $DISTRIBUTION_TYPE = "debian" ]; then
     pkg install \
