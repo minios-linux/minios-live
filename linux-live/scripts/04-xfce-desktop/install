@@ -16,6 +16,8 @@ if [ "$LOCALE" = "pt_BR" ]; then
     LNG="br"
 fi
 
+echo "export QT_QPA_PLATFORMTHEME=gtk2" >> /etc/environment
+
 if [ "$LOCALE" != "en_US" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 <?xml version="1.0" encoding="UTF-8"?>
