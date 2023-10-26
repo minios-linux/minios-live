@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Clonezilla
-Exec=xfce4-terminal --title="Clonezilla" --geometry=135x35 -e /usr/sbin/clonezilla.sh
+Exec=xfce4-terminal --title="Clonezilla" --geometry=135x35 -e "sudo --preserve-env=DBUS_SESSION_BUS_ADDRESS,XDG_RUNTIME_DIR /usr/sbin/clonezilla.sh"
 Icon=ocslogo
 Type=Application
 Categories=System
