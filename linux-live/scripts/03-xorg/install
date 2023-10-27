@@ -58,7 +58,7 @@ deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
 deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
 EOF
         pkg update
-        pkg install virtualbox-guest-x11 open-vm-tools-desktop
+        pkg install virtualbox-guest-x11
         rm /etc/apt/sources.list.d/mx.list
     fi
 fi
