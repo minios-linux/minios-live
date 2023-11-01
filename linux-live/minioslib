@@ -3672,6 +3672,12 @@ function container_build_run() {
     MULTILINGUAL="false"
     TIMEZONE="${12}"
 
+    if [ $MULTILINGUAL = "true" ]; then
+        LANGUAGE_CODE=""
+    else
+        LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)-"
+    fi
+
     case $1 in
     trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
         DISTRIBUTION_TYPE="ubuntu"
