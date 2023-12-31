@@ -1942,8 +1942,6 @@ function chroot_setup_host() {
     # don't understand why, but multiple sources indicate this
     dpkg-divert --local --rename --add /sbin/initctl
     ln -s /bin/true /sbin/initctl
-
-    current_process
 }
 
 # =================================================================
