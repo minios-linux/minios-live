@@ -9,6 +9,7 @@
   - [v3.3](#v33)
   - [v3.3.1](#v331)
   - [v3.3.2](#v332)
+  - [v3.3.3](#v333)
 
 ## v2.2.1
 - Code optimization, bug fixes.
@@ -198,3 +199,9 @@
 - QT application appearance now uses the GTK theme in Standard, Maximum, Ultra, Puzzle.
 - In Maximum and Ultra, xfce4-notifyd has been added.
 - Pitivi has been replaced by Blender in Ultra and Puzzle (Blender has a video editor feature in addition to 3D modeling).
+
+## v3.3.3
+- In Standard, Maximum and Ultra pulseaudio-module-bluetooth has been added.
+- The kernel has been updated to 6.1.67.
+- Updated all packages as of the current date.
+- Mini Commander was added to initrd, you can start it in debug mode with mc command.
