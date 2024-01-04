@@ -14,9 +14,6 @@ ISO_DIR=$CURRENT_DIR/iso
 . /etc/minios/buildconfig || exit 1
 . /etc/minios/kernelconfig || exit 1
 
-# change this for unattended installation
-UNATTENDED="true"
-
 CMD=(build_modules repack_modules download_sources)
 
 # =============   main  ================
