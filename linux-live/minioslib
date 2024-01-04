@@ -1245,13 +1245,9 @@ function build_live() {
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
 
-    if [ $COMP_TYPE = "zstd" ]; then
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-    elif [ $COMP_TYPE = "xz" ]; then
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-    else
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-    fi
+    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+        $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+
 }
 
 function build_config() {
@@ -1745,6 +1741,8 @@ function chroot_setup_host() {
 # =================================================================
 function chroot_cleanup() {
     current_function
+
+    local FILE FILENAME
 
     set +eu
 
@@ -2667,11 +2665,47 @@ function export_locales() {
 #
 #
 # =================================================================
+function copy_file_if_exists() {
+    local SRC=$1
+    local DEST=$2
+    if [ -f $SRC ]; then
+        cp $SRC $DEST
+        chmod +x $DEST
+    fi
+}
+
+function copy_dir_content_if_not_empty() {
+    local SRC=$1
+    local DEST=$2
+    if [ "$(ls -A $SRC 2>/dev/null)" != "" ]; then
+        (cd $SRC && cp --parents -afr * $DEST/)
+    fi
+}
+
+function remove_symlink_if_exists() {
+    local LINK=$1
+    if [ -L $LINK ]; then
+        rm -f $LINK
+    fi
+}
+
+function copy_kernel_module_files() {
+    local SRC=$1
+    local DEST=$2
+
+    if [ -d $SRC ]; then
+        if [ ! -d $DEST ]; then
+            mkdir -p $DEST
+        fi
+        copy_dir_content_if_not_empty $SRC $DEST
+    fi
+}
+
 function build_modules() {
     current_process
     if [ "${CMD[ii]}" != "build_dkms" ]; then
 
-        local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE
+        local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME
 
         if [ $CONTAINER_TYPE = "1" ]; then
             if [ ! -f /.minios-live ]; then
@@ -2713,9 +2747,8 @@ function build_modules() {
                 module_add_unofficial_repository
 
                 # run pre-install script
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/preinstall ]; then
-                    cp $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
-                    chmod +x $MODULE_MERGED_DIR/preinstall
+                copy_file_if_exists $SOURCE_MODULES_DIR/$MODULE/preinstall $MODULE_MERGED_DIR/preinstall
+                if [ -f $MODULE_MERGED_DIR/preinstall ]; then
                     chroot_run $MODULE_MERGED_DIR /preinstall
                 fi
 
@@ -2723,31 +2756,19 @@ function build_modules() {
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
                         mkdir $MODULE_MERGED_DIR/rootcopy-install
-                        (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/rootcopy-install/)
+                        copy_dir_content_if_not_empty $SOURCE_MODULES_DIR/$MODULE/rootcopy-install $MODULE_MERGED_DIR/rootcopy-install
                     fi
                 else
-                    if [ "$(ls -A $SOURCE_MODULES_DIR/$MODULE/rootcopy-install 2>/dev/null)" != "" ]; then
-                        (cd $SOURCE_MODULES_DIR/$MODULE/rootcopy-install && cp --parents -afr * $MODULE_MERGED_DIR/)
-                    fi
+                    copy_dir_content_if_not_empty $SOURCE_MODULES_DIR/$MODULE/rootcopy-install $MODULE_MERGED_DIR
                 fi
 
                 # run install script
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/install ]; then
-                    cp $SOURCE_MODULES_DIR/$MODULE/install $MODULE_MERGED_DIR/install
-                    chmod +x $MODULE_MERGED_DIR/install
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/cleanup ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
-                    fi
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
-                    fi
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT-l10n.list ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT-l10n.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT-l10n.list
-                    fi
-                    if [ -f $SOURCE_MODULES_DIR/$MODULE/package.list ]; then
-                        cp $SOURCE_MODULES_DIR/$MODULE/package.list $MODULE_MERGED_DIR/package.list
-                    fi
-
+                copy_file_if_exists $SOURCE_MODULES_DIR/$MODULE/install $MODULE_MERGED_DIR/install
+                if [ -f $MODULE_MERGED_DIR/install ]; then
+                    copy_file_if_exists $SOURCE_MODULES_DIR/$MODULE/cleanup $MODULE_MERGED_DIR/cleanup
+                    copy_file_if_exists $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT.list
+                    copy_file_if_exists $SOURCE_MODULES_DIR/$MODULE/$PACKAGE_VARIANT-l10n.list $MODULE_MERGED_DIR/$PACKAGE_VARIANT-l10n.list
+                    copy_file_if_exists $SOURCE_MODULES_DIR/$MODULE/package.list $MODULE_MERGED_DIR/package.list
                     chroot_run $MODULE_MERGED_DIR /install
                 fi
 
@@ -2791,31 +2812,15 @@ function build_modules() {
 
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
                     read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
-                    if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
-                        rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
-                    fi
-                    if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
-                        rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
-                    fi
-                    if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/build ]; then
-                        rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/build
-                    fi
-                    if [ -L $MODULE_UPPER_DIR/lib/modules/$KERNEL/source ]; then
-                        rm -f $MODULE_UPPER_DIR/lib/modules/$KERNEL/source
-                    fi
+
+                    remove_symlink_if_exists $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
+                    remove_symlink_if_exists $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
+                    remove_symlink_if_exists $MODULE_UPPER_DIR/lib/modules/$KERNEL/build
+                    remove_symlink_if_exists $MODULE_UPPER_DIR/lib/modules/$KERNEL/source
+
                     set +e
-                    if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
-                        if [ ! -d $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL ]; then
-                            mkdir -p $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL
-                        fi
-                        (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL/)
-                    fi
-                    if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
-                        if [ ! -d $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL ]; then
-                            mkdir -p $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL
-                        fi
-                        (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL/)
-                    fi
+                    copy_kernel_module_files $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL
+                    copy_kernel_module_files $MODULE_UPPER_DIR/lib/modules/$KERNEL $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL
                     set -e
                     if [ $MODULE = "01-kernel" ]; then
                         cd $MODULE_UPPER_DIR/squashfs-root
@@ -2841,13 +2846,8 @@ function build_modules() {
                         fi
                     fi
 
-                    if [ $COMP_TYPE = "zstd" ]; then
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                    elif [ $COMP_TYPE = "xz" ]; then
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                    else
-                        chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                    fi
+                    chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+                        $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
 
                     rm -f $MODULE_UPPER_DIR/miniosbuild.conf
                 fi
@@ -2932,7 +2932,6 @@ function build_modules() {
                         chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                     fi
                 fi
-                #fi
 
                 module_chroot_finish_up
 
@@ -2953,34 +2952,18 @@ function build_modules() {
                         if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                 if [ $KERNEL_BUILD_DKMS = "true" ]; then
-                                    if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                                    elif [ $COMP_TYPE = "xz" ]; then
-                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                                    else
-                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                    fi
-                                    chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
+                                    FILENAME=$CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
                                 else
-                                    if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                                    elif [ $COMP_TYPE = "xz" ]; then
-                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                                    else
-                                        time mksquashfs $COREFS $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                    fi
-                                    chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
+                                    FILENAME=$CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                                 fi
                             else
-                                if [ $COMP_TYPE = "zstd" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                                elif [ $COMP_TYPE = "xz" ]; then
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                                else
-                                    time mksquashfs $COREFS $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                fi
-                                chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
+                                FILENAME=$CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
+
+                            time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+                                $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+
+                            chmod 666 $FILENAME
                         else
                             echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} ${RED}is empty${ENDCOLOR}. Nothing to do."
                         fi
@@ -2990,31 +2973,16 @@ function build_modules() {
                             if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                                 if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                     if [ $KERNEL_BUILD_DKMS = "true" ]; then
-                                        if [ $COMP_TYPE = "zstd" ]; then
-                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                                        elif [ $COMP_TYPE = "xz" ]; then
-                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                                        else
-                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                        fi
+                                        FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
                                     else
-                                        if [ $COMP_TYPE = "zstd" ]; then
-                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                                        elif [ $COMP_TYPE = "xz" ]; then
-                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                                        else
-                                            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                        fi
+                                        FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                                     fi
                                 else
-                                    if [ $COMP_TYPE = "zstd" ]; then
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                                    elif [ $COMP_TYPE = "xz" ]; then
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                                    else
-                                        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                                    fi
+                                    FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                                 fi
+
+                                time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+                                    $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
                             else
                                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                             fi
@@ -3028,8 +2996,6 @@ function build_modules() {
             fi
             export_kernel
             export_locales
-            PACKAGE=""
-            VERSION=""
         done
     fi
 }
@@ -3061,15 +3027,10 @@ function build_modules_live() {
             MODULE_MERGED_DIR="$MODULES_DIR/$MODULE-merged"
             mkmod_corefs $MODULE_UPPER_DIR
             if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
-                if [ $COMP_TYPE = "zstd" ]; then
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-                elif [ $COMP_TYPE = "xz" ]; then
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-                else
-                    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-                fi
+                time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+                    $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
             else
-                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
+                echo -e "${MAGENTA}$MODULE_UPPER_DIR is empty. Nothing to do.${ENDCOLOR}"
             fi
         fi
     done
@@ -3087,13 +3048,8 @@ function repack_module() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
         mkmod_corefs $WORK_DIR/image/$LIVEKITNAME/squashfs-root
-        if [ $COMP_TYPE = "zstd" ]; then
-            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-        elif [ $COMP_TYPE = "xz" ]; then
-            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-        else
-            time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-        fi
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+            $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
 
         rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
         rm -f $WORK_DIR/image/$LIVEKITNAME/$OLD_MODULE
@@ -3103,13 +3059,8 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-            if [ $COMP_TYPE = "zstd" ]; then
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xcompression-level 19 -b 1024K -always-use-fragments -noappend || exit
-            elif [ $COMP_TYPE = "xz" ]; then
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -Xbcj x86 -b 1024K -always-use-fragments -noappend || exit
-            else
-                time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend || exit
-            fi
+            time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
+                $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
         fi
     fi
 }
@@ -3119,66 +3070,21 @@ function repack_modules() {
 
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         cd $WORK_DIR/image/$LIVEKITNAME/
-        for MODULE in *.$BEXT; do
-            if [ -d $WORK_DIR/image/$LIVEKITNAME/squashfs-root ]; then
-                rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
-            fi
-            echo "Repacking module $MODULE"
-            cd $WORK_DIR/image/$LIVEKITNAME
-            OLD_COMP_TYPE=$(unsquashfs -s $MODULE | grep Compression | awk -F" " '{ print $2 }')
-            repack_module
-        done
     else
         cd $BUNDLES/
-        for MODULE in *; do
-            if (ls $BUNDLES/*-xz.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="xz"
-                repack_module
-            elif (ls $BUNDLES/*-lz4.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="lz4"
-                repack_module
-            elif (ls $BUNDLES/*-zstd.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="zstd"
-                repack_module
-            elif (ls $BUNDLES/*-lzo.$BEXT 2>/dev/null | grep -q $MODULE >>/dev/null 2>&1); then
-                OLD_COMP_TYPE="lzo"
-                repack_module
-            fi
-        done
     fi
-}
 
-function download_sources() {
-    current_process
-
-    if [ ! -d /opt/minios-live ]; then
-        pkg update &&
-            pkg install git
-        mkdir -p /opt
-        cd /opt
-        git clone --depth=1 https://github.com/minios-linux/minios-live.git
-        if [ -d /opt/minios-live/.git ]; then
-            rm -rf /opt/minios-live/.git
+    for MODULE in *; do
+        if [ $SCRIPT_DIR != "/usr/bin" ] && [ -d $WORK_DIR/image/$LIVEKITNAME/squashfs-root ]; then
+            rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
         fi
-        if [ -f /opt/minios-live/.gitignore ]; then
-            rm -f /opt/minios-live/.gitignore
+        echo "Repacking module $MODULE"
+        if [ $SCRIPT_DIR != "/usr/bin" ]; then
+            cd $WORK_DIR/image/$LIVEKITNAME
         fi
-        # allow user to edit configs
-        chmod 666 /opt/minios-live/linux-live/buildconfig
-        chmod 666 /opt/minios-live/linux-live/config
-        if id -nu 1000 >/dev/null && [ -d /home/$(id -nu 1000)/Desktop ]; then
-            if [ ! -L /home/$(id -nu 1000)/Desktop/buildconfig ]; then
-                ln -s /opt/minios-live/linux-live/buildconfig /home/$(id -nu 1000)/Desktop/buildconfig
-            fi
-            if [ ! -L /home/$(id -nu 1000)/Desktop/config ]; then
-                ln -s /opt/minios-live/linux-live/config /home/$(id -nu 1000)/Desktop/config
-            fi
-        fi
-        if [ $(stat -c %s /opt/minios-live/linux-live/minioslib) -ne $(stat -c %s /run/initramfs/lib/minioslib) ]; then
-            cp /opt/minios-live/linux-live/minioslib /run/initramfs/lib/
-        fi
-        /opt/minios-live/install
-    fi
+        OLD_COMP_TYPE=$(unsquashfs -s $MODULE | grep Compression | awk -F" " '{ print $2 }')
+        repack_module
+    done
 }
 
 # =================================================================
