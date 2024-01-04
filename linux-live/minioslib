@@ -141,6 +141,14 @@ function common_variables() {
         LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)-"
     fi
 
+    if [ "$COMP_TYPE" = "zstd" ]; then
+        ADDITIONAL_COMP_OPTS="-Xcompression-level 19"
+    elif [ "$COMP_TYPE" = "xz" ]; then
+        ADDITIONAL_COMP_OPTS="-Xbcj x86"
+    else
+        ADDITIONAL_COMP_OPTS=""
+    fi
+
     # List of directories for root filesystem
     # No subdirectories are allowed, no slashes,
     # so You can't use /var/tmp here for example
@@ -1244,9 +1252,9 @@ function build_live() {
 
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
-
-    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-        $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+    set -x
+    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
+    set +x
 
 }
 
@@ -2846,8 +2854,7 @@ function build_modules() {
                         fi
                     fi
 
-                    chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-                        $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+                    chroot_run $MODULE_MERGED_DIR time mksquashfs /squashfs-root /$MODULE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
 
                     rm -f $MODULE_UPPER_DIR/miniosbuild.conf
                 fi
@@ -2960,8 +2967,7 @@ function build_modules() {
                                 FILENAME=$CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
 
-                            time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-                                $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+                            time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
 
                             chmod 666 $FILENAME
                         else
@@ -2981,8 +2987,7 @@ function build_modules() {
                                     FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                                 fi
 
-                                time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-                                    $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+                                time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
                             else
                                 echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                             fi
@@ -3027,8 +3032,7 @@ function build_modules_live() {
             MODULE_MERGED_DIR="$MODULES_DIR/$MODULE-merged"
             mkmod_corefs $MODULE_UPPER_DIR
             if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
-                time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-                    $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+                time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
             else
                 echo -e "${MAGENTA}$MODULE_UPPER_DIR is empty. Nothing to do.${ENDCOLOR}"
             fi
@@ -3048,8 +3052,7 @@ function repack_module() {
     if [ $SCRIPT_DIR != "/usr/bin" ]; then
         unsquashfs $OLD_MODULE
         mkmod_corefs $WORK_DIR/image/$LIVEKITNAME/squashfs-root
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-            $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
 
         rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
         rm -f $WORK_DIR/image/$LIVEKITNAME/$OLD_MODULE
@@ -3059,8 +3062,7 @@ function repack_module() {
             echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
             echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
         else
-            time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE -b 1024K -always-use-fragments -noappend \
-                $([ $COMP_TYPE = "zstd" ] && echo "-Xcompression-level 19" || [ $COMP_TYPE = "xz" ] && echo "-Xbcj x86") || exit
+            time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
         fi
     fi
 }
