@@ -66,7 +66,6 @@ function common_variables() {
         SYSTEM_TYPE="puzzle"
     else
         SYSTEM_TYPE="classic"
-        #SYSTEM_TYPE="puzzle"
     fi
 
     case $DISTRIBUTION in
@@ -443,12 +442,13 @@ function create_livekitname_install_symlink() {
 # =================================================================
 
 function create_completion() {
+    local EXECUTABLE
     if [ -d /etc/bash_completion.d ]; then
-        for cmd in $LIVEKITNAME-install minios-modules; do
-            if [ ! -f /etc/bash_completion.d/$cmd ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$cmd >/dev/null 2>&1; then
-                cat <<EOF >/etc/bash_completion.d/$cmd
+        for EXECUTABLE in $LIVEKITNAME-install minios-modules; do
+            if [ ! -f /etc/bash_completion.d/$EXECUTABLE ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$EXECUTABLE >/dev/null 2>&1; then
+                cat <<EOF >/etc/bash_completion.d/$EXECUTABLE
 #!/usr/bin/env bash
-complete -W "${CMD[*]}" $cmd
+complete -W "${CMD[*]}" $EXECUTABLE
 EOF
             fi
         done
@@ -500,17 +500,7 @@ function check_mounted() {
     current_function
     if grep -qs "$INSTALL_DIR/dev" /proc/mounts || grep -qs "$INSTALL_DIR/run" /proc/mounts || grep -qs "$INSTALL_DIR/proc" /proc/mounts || grep -qs "$INSTALL_DIR/sys" /proc/mounts || grep -qs "$INSTALL_DIR/dev/pts" /proc/mounts || grep -qs "$INSTALL_DIR/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
-        if [ "$UNATTENDED" = "true" ]; then
-            chroot_umount_fs
-        else
-            read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOR}? [${BOLD}${GREEN}Y${ENDCOLOR}/n])" response
-            response=${response,,}
-            if [[ "$response" =~ ^(no|n)$ ]]; then
-                exit 1
-            else
-                chroot_umount_fs
-            fi
-        fi
+        chroot_umount_fs
     fi
 }
 
@@ -520,39 +510,11 @@ function check_mounted() {
 
 function check_install_dir() {
     current_function
-    if [ "$UNATTENDED" = "true" ]; then
-        #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
-        #INSTALL_DIR="$BUILD_DIR/$DISTRIBUTION-$DISTRIBUTION_ARCH"
-        INSTALL_DIR="$WORK_DIR/basesystem"
-        echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
-        if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
-            cleanup
-            check_mounted
-        fi
-    else
-        if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
-            echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} is not empty."
-            cleanup
-            check_mounted
-            if [ ! -d "$INSTALL_DIR" ]; then
-                mkdir -p $INSTALL_DIR
-            fi
-            INSTALL_DIR="$(
-                cd $INSTALL_DIR
-                pwd
-            )"
-            echo $INSTALL_DIR >$SCRIPT_DIR/.install_dir && chmod 644 $SCRIPT_DIR/.install_dir
-            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
-        else
-            mkdir -p $INSTALL_DIR
-            check_mounted
-            INSTALL_DIR="$(
-                cd $INSTALL_DIR
-                pwd
-            )"
-            echo $INSTALL_DIR >$SCRIPT_DIR/.install_dir && chmod 644 $SCRIPT_DIR/.install_dir
-            echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
-        fi
+    INSTALL_DIR="$WORK_DIR/basesystem"
+    echo -e "The working directory is ${MAGENTA}$INSTALL_DIR${ENDCOLOR}."
+    if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" != "" ]; then
+        cleanup
+        check_mounted
     fi
 }
 
@@ -563,38 +525,9 @@ function check_install_dir() {
 function setup_install_dir() {
     current_function
     WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
-    if [ "$UNATTENDED" = "true" ] && [ "$INSTALL_DIR" = "" ]; then
+    if [ "$INSTALL_DIR" = "" ]; then
         INSTALL_DIR="$WORK_DIR/basesystem"
         check_install_dir
-    else
-        if [ "$INSTALL_DIR" = "" ]; then
-            if [ ! -f "$SCRIPT_DIR/.install_dir" ]; then
-                echo "Enter the address of the working directory where we will build the system"
-                read -r -p "$(echo -e "(Default is ${MAGENTA}$WORK_DIR/basesystem${ENDCOLOR}): ")" response
-                INSTALL_DIR=${response,,}
-                if [ "$INSTALL_DIR" = "" ]; then
-                    INSTALL_DIR="$WORK_DIR/basesystem"
-                fi
-                check_install_dir
-            else
-                LAST_INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir")
-                echo -e "Last time you used the build directory ${MAGENTA}$LAST_INSTALL_DIR${ENDCOLOR}."
-                read -r -p "$(echo -e ""Do you want to use it again? [${BOLD}${GREEN}Y${ENDCOLOR}/n])" response
-                response=${response,,}
-                if [[ "$response" =~ ^(no|n)$ ]]; then
-                    echo "Enter the address of the working directory where we will build the system"
-                    read -r -p "$(echo -e "(Default is ${MAGENTA}$WORK_DIR/basesystem${ENDCOLOR}): ")" response
-                    INSTALL_DIR=${response,,}
-                    if [ "$INSTALL_DIR" = "" ]; then
-                        INSTALL_DIR="$WORK_DIR/basesystem"
-                    fi
-                    check_install_dir
-                else
-                    INSTALL_DIR="$LAST_INSTALL_DIR"
-                    check_install_dir
-                fi
-            fi
-        fi
     fi
 }
 
@@ -605,47 +538,17 @@ function setup_install_dir() {
 function cleanup() {
     current_function
     if [ "${CMD[ii]}" = "setup_host" ] || [ "${CMD[ii]}" = "build_bootstrap" ] || [ "${CMD[ii]}" = "build_chroot" ]; then
-        if [ "$UNATTENDED" = "true" ]; then
-            check_mounted
-            rm -rf $INSTALL_DIR
-            if [ -d "$INSTALL_DIR" ]; then
-                cleanup
-            fi
-        else
-            read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOR} of ${MAGENTA}$INSTALL_DIR${ENDCOLOR}? [y/${BOLD}${GREEN}N${ENDCOLOR}])" response
-            response=${response,,}
-            if [[ "$response" =~ ^(yes|y)$ ]]; then
-                check_mounted
-                rm -rf $INSTALL_DIR
-                if [ -d "$INSTALL_DIR" ]; then
-                    cleanup
-                fi
-            else
-                echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} should be empty to continue."
-                exit 1
-            fi
+        check_mounted
+        rm -rf $INSTALL_DIR
+        if [ -d "$INSTALL_DIR" ]; then
+            cleanup
         fi
     elif [ "${CMD[ii]}" = "remove_sources" ]; then
         if [ $REMOVE_SOURCES = "true" ]; then
-            if [ "$UNATTENDED" = "true" ]; then
-                check_mounted
-                rm -rf $WORK_DIR
-                if [ -d "$WORK_DIR" ]; then
-                    cleanup
-                fi
-            else
-                read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOR} of ${MAGENTA}$WORK_DIR{ENDCOLOR}? [y/${BOLD}${GREEN}N${ENDCOLOR}])" response
-                response=${response,,}
-                if [[ "$response" =~ ^(yes|y)$ ]]; then
-                    check_mounted
-                    rm -rf $WORK_DIR
-                    if [ -d "$WORK_DIR" ]; then
-                        cleanup
-                    fi
-                else
-                    echo -e "${MAGENTA}$INSTALL_DIR${ENDCOLOR} should be empty to continue."
-                    exit 1
-                fi
+            check_mounted
+            rm -rf $WORK_DIR
+            if [ -d "$WORK_DIR" ]; then
+                cleanup
             fi
         fi
     fi
@@ -1339,8 +1242,6 @@ function build_live() {
     rm -rf $WORK_DIR/image
     mkdir -p $WORK_DIR/image/$LIVEKITNAME/{boot,changes,modules}
 
-    #build_boot
-
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
 
@@ -1378,100 +1279,17 @@ EOF
 # =================================================================
 #
 # =================================================================
-function build_boot() {
-    current_process
-
-    local OLD_KERNEL
-
-    if [ $CONTAINER_TYPE = "1" ]; then
-        if [ ! -f /.minios-live ]; then
-            setup_host
-        fi
-    fi
-
-    copy_build_scripts
-
-    check_install_dir
-
-    cp -r $SCRIPT_DIR/linux-live/bootfiles/* $WORK_DIR/image/$LIVEKITNAME
-
-    if [ $BOOT_TYPE = "hybrid" ]; then
-        if [ $DISTRIBUTION_ARCH = "amd64" ]; then
-            rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi
-            rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi32.img
-            rm $WORK_DIR/image/$LIVEKITNAME/boot/EFI/boot/*32.efi
-            mv $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi.img
-            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/EFI/debian/grub.cfg
-search --file --set=root /.disk/info
-set prefix=(\$root)/minios/boot/grub
-source \$prefix/x86_64-efi/grub.cfg
-EOF
-            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/x86_64-efi/grub.cfg
-insmod part_acorn
-insmod part_amiga
-insmod part_apple
-insmod part_bsd
-insmod part_dfly
-insmod part_dvh
-insmod part_gpt
-insmod part_msdos
-insmod part_plan
-insmod part_sun
-insmod part_sunpc
-source /$LIVEKITNAME/boot/grub/grub.cfg
-
-EOF
-        elif [[ $DISTRIBUTION_ARCH == *"i386"* ]]; then
-            rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/x86_64-efi
-            rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img
-            rm $WORK_DIR/image/$LIVEKITNAME/boot/EFI/boot/*64.efi
-            mv $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi32.img $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi.img
-            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/EFI/debian/grub.cfg
-search --file --set=root /.disk/info
-set prefix=(\$root)/minios/boot/grub
-source \$prefix/i386-efi/grub.cfg
-EOF
-            cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi/grub.cfg
-insmod part_acorn
-insmod part_amiga
-insmod part_apple
-insmod part_bsd
-insmod part_dfly
-insmod part_dvh
-insmod part_gpt
-insmod part_msdos
-insmod part_plan
-insmod part_sun
-insmod part_sunpc
-source /$LIVEKITNAME/boot/grub/grub.cfg
-
-EOF
-        fi
-
-        if [ ! -d $WORK_DIR/image/EFI ]; then
-            mkdir -p $WORK_DIR/image/EFI
-        fi
-        cp -r $WORK_DIR/image/$LIVEKITNAME/boot/EFI/* $WORK_DIR/image/EFI
-        if [ ! -d $WORK_DIR/image/.disk ]; then
-            mkdir -p $WORK_DIR/image/.disk
-        fi
-        echo $SYSTEMNAME >$WORK_DIR/image/.disk/info
-    else
-        rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub
-        rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/EFI
-    fi
-
+function create_config_files() {
     if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 apparmor=0 net.ifnames=0 biosdevname=0"
-    else
-        DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
-    fi
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ]; then
         DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 apparmor=0 debug net.ifnames=0 biosdevname=0"
     else
+        DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
         DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
     fi
+
     BOOT_SETTINGS="quiet"
+
     if [ $INITRD_TYPE = "livekit-mos" ]; then
         PERCH_SETTINGS="minios.flags=perch"
         LIVE_SETTINGS="minios.flags="
@@ -1495,9 +1313,7 @@ EOF
     FLUX_SETTINGS=""
     ULTRA_SETTINGS=""
 
-    if [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
-        BOOT_SETTINGS="hide_credentials"
-    elif [ $DESKTOP_ENVIRONMENT = "flux" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
         if [ $INITRD_TYPE = "livekit-mos" ]; then
             PERCH_SETTINGS="minios.flags=perch,automount"
             LIVE_SETTINGS="minios.flags=automount"
@@ -1542,8 +1358,8 @@ MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
 MENU TABMSG [F1] help                                                        [Tab] cmdline >
 
 EOF
-    if [ $BOOT_TYPE = "hybrid" ]; then
-        cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+
+    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 if loadfont \$prefix/font.pf2 ; then
   set default="0"
   set timeout="3"
@@ -1573,8 +1389,8 @@ set default=0
 set message="Loading kernel and ramdisk..."
 
 EOF
-    fi
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ]; then
+
+    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Copy to RAM)
@@ -1582,8 +1398,8 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS toram
 
 EOF
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+
+        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Copy to RAM)"{
     echo \$message
     search --set -f \$linux_image
@@ -1592,27 +1408,8 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
-            sed -i "s/background_image/#background_image/g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-        fi
-    elif [ $DESKTOP_ENVIRONMENT = "mediaplayer" ]; then
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-LABEL default
-MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
+        sed -i "s/background_image/#background_image/g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 
-EOF
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-menuentry "Run MiniOS (Copy to RAM)"{
-    echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings \$ram_settings $BOOT_SETTINGS
-    initrd \$initrd_img
-}
-
-EOF
-        fi
     elif [ $INITRD_TYPE = "uird" ]; then
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
@@ -1631,8 +1428,7 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
 
 EOF
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Persistent changes)"{
     echo \$message
     search --set -f \$linux_image
@@ -1653,7 +1449,7 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
-        fi
+
     else
         cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
@@ -1682,8 +1478,7 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$ULTRA_SETTINGS toram
 
 EOF
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
 menuentry "Run MiniOS (Resume previous session)"{
     echo \$message
     search --set -f \$linux_image
@@ -1716,9 +1511,10 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
-        fi
     fi
+}
 
+function create_readme() {
     cat <<EOF >$WORK_DIR/image/README
 ################################### README ####################################
 * To install MiniOS, copy the contents of the ISO to the root of the media,
@@ -1734,26 +1530,88 @@ EOF
   no size limit.
 ###############################################################################
 EOF
+}
+
+function build_boot() {
+    current_process
+
+    local OLD_KERNEL
+
+    if [ $CONTAINER_TYPE = "1" ]; then
+        if [ ! -f /.minios-live ]; then
+            setup_host
+        fi
+    fi
+
+    copy_build_scripts
+
+    check_install_dir
+
+    cp -r $SCRIPT_DIR/linux-live/bootfiles/* $WORK_DIR/image/$LIVEKITNAME
+
+    if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+        ARCH="x86_64"
+        rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/i386-efi
+        rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi32.img
+        rm $WORK_DIR/image/$LIVEKITNAME/boot/EFI/boot/*32.efi
+        mv $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi.img
+    elif [[ $DISTRIBUTION_ARCH == *"i386"* ]]; then
+        ARCH="i386"
+        rm -rf $WORK_DIR/image/$LIVEKITNAME/boot/grub/x86_64-efi
+        rm $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi64.img
+        rm $WORK_DIR/image/$LIVEKITNAME/boot/EFI/boot/*64.efi
+        mv $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi32.img $WORK_DIR/image/$LIVEKITNAME/boot/grub/efi.img
+    fi
+
+    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/EFI/debian/grub.cfg
+search --file --set=root /.disk/info
+set prefix=(\$root)/minios/boot/grub
+source \$prefix/${ARCH}-efi/grub.cfg
+EOF
+
+    cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/${ARCH}-efi/grub.cfg
+insmod part_acorn
+insmod part_amiga
+insmod part_apple
+insmod part_bsd
+insmod part_dfly
+insmod part_dvh
+insmod part_gpt
+insmod part_msdos
+insmod part_plan
+insmod part_sun
+insmod part_sunpc
+source /$LIVEKITNAME/boot/grub/grub.cfg
+EOF
+
+    mkdir -p $WORK_DIR/image/EFI
+    cp -r $WORK_DIR/image/$LIVEKITNAME/boot/EFI/* $WORK_DIR/image/EFI
+
+    mkdir -p $WORK_DIR/image/.disk
+    echo $SYSTEMNAME >$WORK_DIR/image/.disk/info
+
+    create_config_files
+
+    create_readme
 
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
         # miniosbuild.conf generation is in linux-live/scripts/01-kernel/build
-        if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
-            read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
-        fi
+        [ -f $MODULE_UPPER_DIR/miniosbuild.conf ] && read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
+
         copy_build_scripts $MODULE_MERGED_DIR
         chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
         chroot $MODULE_MERGED_DIR /linux-live/initrfs
+
         # copy boot files
         kernel_variables
         cp $MODULE_MERGED_DIR/boot/vmlinuz-* $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME
         cp $MODULE_MERGED_DIR/boot/initrfs.img $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME
-        sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-        fi
-        if [ -d $MODULE_MERGED_DIR/linux-live ]; then
-            rm -rf $MODULE_MERGED_DIR/linux-live
-        fi
+
+        for CFG_FILE in syslinux.cfg grub/grub.cfg; do
+            sed -i "s,/boot/vmlinuz,/boot/$VMLINUZNAME,g;s,/boot/initrfs.img,/boot/$INITRFSNAME,g" $WORK_DIR/image/$LIVEKITNAME/boot/$CFG_FILE
+        done
+
+        [ -d $MODULE_MERGED_DIR/linux-live ] && rm -rf $MODULE_MERGED_DIR/linux-live
     fi
 }
 # =================================================================
@@ -1763,77 +1621,30 @@ EOF
 function build_iso() {
     current_process
 
-    if [ $CONTAINER_TYPE = "1" ]; then
-        if [ ! -f /.minios-live ]; then
-            setup_host
-        fi
+    if [ $CONTAINER_TYPE = "1" ] && [ ! -f /.minios-live ]; then
+        setup_host
     fi
 
     check_install_dir
 
-    if [ "$UNATTENDED" = "true" ]; then
-        INSTALL_DIR="$WORK_DIR/basesystem"
-    fi
-    if [ "$INSTALL_DIR" = "" ]; then
-        LAST_INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir")
-        INSTALL_DIR=$LAST_INSTALL_DIR
-    fi
+    INSTALL_DIR="$WORK_DIR/basesystem"
+    [ "$INSTALL_DIR" = "" ] && INSTALL_DIR=$(cat "$SCRIPT_DIR/.install_dir")
 
     cd $WORK_DIR/image
-    if [ ! -d $ISO_DIR ]; then
-        mkdir -p $ISO_DIR
-    fi
-
     mkdir -p $ISO_DIR
 
-    DATE=$(date +%Y%m%d_%H%M)
+    DIR="$WORK_DIR/image"
 
-    DIR=$WORK_DIR/image
-
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ] || [ $DESKTOP_ENVIRONMENT = "netdiag" ] || [ $DESKTOP_ENVIRONMENT = "pve" ] || [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
+    if [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
     else
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
     fi
-    if [ $KERNEL_AUFS = "true" ]; then
-        IMAGE=$IMAGE-aufs
-    fi
-    if [ $KERNEL_TYPE = "default" ]; then
-        IMAGE=$IMAGE-$ISO_ARCH
-    else
-        IMAGE=$IMAGE-$KERNEL_TYPE-$ISO_ARCH
-    fi
-    if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
-        IMAGE=$IMAGE-$SNAPSHOT_DATE
-    fi
-    ISO=$ISO_DIR/$IMAGE-$COMP_TYPE-$DATE.iso
+    [ $KERNEL_AUFS = "true" ] && IMAGE=$IMAGE-aufs
+    [ $KERNEL_TYPE != "default" ] && IMAGE=$IMAGE-$KERNEL_TYPE-$ISO_ARCH
+    [ $BUILD_FROM_SNAPSHOT = "true" ] && IMAGE=$IMAGE-$SNAPSHOT_DATE
 
-    B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
-
-    if [ $BOOT_TYPE = "hybrid" ]; then
-        C="-no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot"
-    else
-        C="-no-emul-boot -boot-load-size 4 -boot-info-table"
-    fi
-
-    if [ -x "$(which xorriso)" ] && [ $BOOT_TYPE = "hybrid" ]; then
-        M="xorriso -as mkisofs -isohybrid-mbr $DIR/$LIVEKITNAME/boot/isohdpfx.bin"
-        D=" -isohybrid-gpt-basdat -e"
-    elif [ -x "$(which genisoimage)" ]; then
-        M=genisoimage
-        if [ $BOOT_TYPE = "hybrid" ]; then
-            D="-efi-boot"
-        else
-            D=""
-        fi
-    fi
-    if [ $BOOT_TYPE = "hybrid" ]; then
-        E="$LIVEKITNAME/boot/grub/efi.img -no-emul-boot"
-    else
-        E=""
-    fi
-
-    VER="$SYSTEMNAME"
+    ISO=$ISO_DIR/$IMAGE-$COMP_TYPE-$(date +%Y%m%d_%H%M).iso
 
     if [ $REMOVE_OLD_ISO = "true" ]; then
         set +e
@@ -1845,55 +1656,39 @@ function build_iso() {
         set -e
     fi
 
-    if [ $BOOT_TYPE = "hybrid" ]; then
-        if
-            ! $M -hide-rr-moved -f -r -J -l -V "$VER" -A "$VER" \
-                $B $C $D $E -o $ISO $DIR
-        then
-            exit 1
-        fi
-        # testing iso boot transition to grub.
-        : 'xorriso -as mkisofs -r \
-            -V "$VER" \
-            -o "$ISO-2" \
-            --grub2-mbr "$LIVEKITNAME/boot/grub/boot_hybrid.img" \
-            -partition_offset 16 \
-            --mbr-force-bootable \
-            -append_partition 2 28732ac11ff8d211ba4b00a0c93ec93b "$LIVEKITNAME/boot/grub/efi.img" \
-            -appended_part_as_gpt \
-            -iso_mbr_part_type a2a0d0ebe5b9334487c068b6b72699c7 \
-            -c "$LIVEKITNAME/boot/grub/boot.catalog" \
-            -b "$LIVEKITNAME/boot/grub/i386-pc/eltorito.img" \
-            -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
-            -eltorito-alt-boot \
-            -e "--interval:appended_partition_2:::" \
-            -no-emul-boot \
-            $DIR'
-    else
-        if
-            ! $M -f -r -J -l -V "$VER" -A "$VER" \
-                $B $C $D $E -o $ISO $DIR
-        then
-            exit 1
-        fi
-    fi
+    xorriso \
+        --as mkisofs \
+        --isohybrid-mbr $DIR/$LIVEKITNAME/boot/isohdpfx.bin \
+        --hide-rr-moved \
+        -f \
+        -r \
+        --joliet \
+        -l \
+        -V "$SYSTEMNAME" \
+        -A "$SYSTEMNAME" \
+        -b $LIVEKITNAME/boot/isolinux.bin \
+        -c $LIVEKITNAME/boot/isolinux.boot \
+        --no-emul-boot \
+        --boot-load-size 4 \
+        --boot-info-table \
+        --eltorito-alt-boot \
+        --isohybrid-gpt-basdat \
+        --efi-boot $LIVEKITNAME/boot/grub/efi.img \
+        --no-emul-boot \
+        --output $ISO $DIR
 
-    echo ">>> $ISO created"
+    if [ $? = "0" ]; then
+        echo ">>> $ISO created"
+    else
+        exit 1
+    fi
 
     if [ $BUILD_TEST_ISO = "true" ]; then
-        if [ -L $ISO_DIR/$LIVEKITNAME.iso ]; then
-            rm $ISO_DIR/$LIVEKITNAME.iso
+        if [ -f $ISO_DIR/$LIVEKITNAME.iso ]; then
+            rm -f $ISO_DIR/$LIVEKITNAME.iso
         fi
-        while [ -f $ISO_DIR/$LIVEKITNAME.iso ]; do
-            rm $ISO_DIR/$LIVEKITNAME.iso
-            sleep 1
-        done
-        if ln $ISO $ISO_DIR/$LIVEKITNAME.iso; then
-            echo ">>> $ISO_DIR/$LIVEKITNAME.iso created"
-        fi
+        ln $ISO $ISO_DIR/$LIVEKITNAME.iso && echo ">>> $ISO_DIR/$LIVEKITNAME.iso created"
     fi
-
-    #exit 0
 }
 
 function remove_sources() {
@@ -2166,56 +1961,6 @@ function install_core_packages() {
 }
 
 # =================================================================
-# unused
-# =================================================================
-function build_dkms() {
-    if [ $KERNEL_TYPE != "none" ]; then
-        echo -e "${YELLOW}=====> building dkms packages for chroot system ...${ENDCOLOR}"
-
-        local LOWER_DIR MODULE_UPPER_DIR MODULE_WORK_DIR MODULE_MERGED_DIR KERNEL BUILD_DKMS
-
-        LOWER_DIR="$WORK_DIR/basesystem"
-        MODULE_UPPER_DIR="$WORK_DIR/modules/01-dkms-upper"
-        MODULE_WORK_DIR="$WORK_DIR/modules/01-dkms-work"
-        MODULE_MERGED_DIR="$WORK_DIR/modules/01-dkms-merged"
-        BUILD_DKMS="true"
-
-        module_check_install_dir
-
-        module_chroot_mount_fs
-        # run install script
-        if [ -f $SCRIPT_DIR/linux-live/basesystem/01-dkms/install ]; then
-            cp $SCRIPT_DIR/linux-live/basesystem/01-dkms/install $MODULE_MERGED_DIR/install
-            chmod +x $MODULE_MERGED_DIR/install
-            chroot_run $MODULE_MERGED_DIR /install
-        fi
-
-        module_chroot_umount_fs
-
-        module_check_mounted
-
-        if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
-            read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
-
-            if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build ]; then
-                rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
-            fi
-            if [ -L $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source ]; then
-                rm -f $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
-            fi
-            set +e
-            if [ -d $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL ]; then
-                (cd $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/usr/lib/modules/$KERNEL/)
-            fi
-            if [ -d $MODULE_UPPER_DIR/lib/modules/$KERNEL ]; then
-                (cd $MODULE_UPPER_DIR/lib/modules/$KERNEL && cp --parents -afr * /$LOWER_DIR/lib/modules/$KERNEL/)
-            fi
-            set -e
-        fi
-    fi
-}
-
-# =================================================================
 #
 #
 # =================================================================
@@ -2439,17 +2184,7 @@ function module_check_mounted() {
     current_function
     if grep -qs "$MODULE_MERGED_DIR" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/run" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/proc" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/sys" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev/pts" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
-        if [ "$UNATTENDED" = "true" ]; then
-            module_chroot_umount_fs
-        else
-            read -r -p "$(echo -e ""Do you want to ${GREEN}unmount them${ENDCOLOR}? [${BOLD}${GREEN}Y${ENDCOLOR}/n])" response
-            response=${response,,}
-            if [[ "$response" =~ ^(no|n)$ ]]; then
-                exit 1
-            else
-                module_chroot_umount_fs
-            fi
-        fi
+        module_chroot_umount_fs
     fi
 }
 
@@ -2459,23 +2194,10 @@ function module_check_mounted() {
 # =================================================================
 function module_check_install_dir() {
     current_function
-    if [ "$UNATTENDED" = "true" ]; then
-        #echo -e "${RED}!!!Unattended installation!!!${ENDCOLOR}"
-        echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}."
-        if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
-            module_cleanup
-            module_check_mounted
-        fi
-    else
-        if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
-            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is not empty."
-            module_cleanup
-            module_check_mounted
-            echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOR}."
-        else
-            module_check_mounted
-            echo -e "The working directory is ${MAGENTA}$MODULE_MERGED_DIR${ENDCOLOR}."
-        fi
+    echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}."
+    if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
+        module_cleanup
+        module_check_mounted
     fi
 }
 
@@ -2701,25 +2423,10 @@ function module_chroot_umount_fs() {
 # =================================================================
 function module_cleanup() {
     current_function
-    if [ "$UNATTENDED" = "true" ]; then
-        module_check_mounted
-        rm -rf $MODULE_UPPER_DIR
-        if [ -d "$MODULE_UPPER_DIR" ]; then
-            module_cleanup
-        fi
-    else
-        read -r -p "$(echo -e ""Do you want to ${BOLD}${RED}completely remove content${ENDCOLOR} of ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}? [y/${BOLD}${GREEN}N${ENDCOLOR}])" response
-        response=${response,,}
-        if [[ "$response" =~ ^(yes|y)$ ]]; then
-            module_check_mounted
-            rm -rf $MODULE_UPPER_DIR
-            if [ -d "$MODULE_UPPER_DIR" ]; then
-                module_cleanup
-            fi
-        else
-            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} should be empty to continue."
-            exit 1
-        fi
+    module_check_mounted
+    rm -rf $MODULE_UPPER_DIR
+    if [ -d "$MODULE_UPPER_DIR" ]; then
+        module_cleanup
     fi
 }
 
