@@ -1252,9 +1252,8 @@ function build_live() {
 
     # create compressed 00-core.sb
     mkmod_corefs $INSTALL_DIR
-    set -x
+
     time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/00-core-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
-    set +x
 
 }
 
