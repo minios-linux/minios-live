@@ -63,23 +63,23 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case "$DISTRIBUTION" in
     stretch)
         if [ "$PACKAGE_VARIANT" = "minimum" ]; then
-            install_packages --delete-packages="wicd" --add-packages="librsvg2-common connman-gtk"
+            install_packages --delete-packages "wicd" --add-packages "librsvg2-common connman-gtk"
         fi
         ;;
     bullseye | focal)
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
+        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome"
         ;;
     bookworm | trixie | sid)
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome policykit-1"
+        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome policykit-1"
         ;;
     jammy | lunar)
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome policykit-1-gnome"
+        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome policykit-1-gnome"
         ;;
     bionic)
-        install_packages --delete-packages="wicd blueman" --add-packages="librsvg2-common network-manager-gnome"
+        install_packages --delete-packages "wicd blueman" --add-packages "librsvg2-common network-manager-gnome"
         ;;
     *)
-        install_packages --delete-packages="wicd" --add-packages="librsvg2-common network-manager-gnome"
+        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome"
         ;;
     esac
     if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ]; then

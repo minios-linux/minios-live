@@ -12,11 +12,11 @@ pkg update
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+    install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT.list"
 fi
 
 if [ $LOCALE != "en_US" ]; then
-    install_packages --package-list="$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"
+    install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"
 fi
 
 rm -f /usr/share/applications/xterm.desktop

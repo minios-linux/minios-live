@@ -18,14 +18,14 @@ function common_variables() {
 
     #
     CONTAINER_TYPE="0"
-    set +u
+    toggle_shell_options u
     if [ -z $container ]; then
         container=""
     fi
     if [ -z $MODULE ]; then
         MODULE=""
     fi
-    set -u
+    toggle_shell_options u
     if [[ (-f /.dockerenv || "$container" = "podman") && ! -f /.minios-live-container ]]; then
         CONTAINER_TYPE="1"
     fi
@@ -423,47 +423,6 @@ function find_index() {
 }
 
 # =================================================================
-# creating a symbolic link to the executable file for using
-# autocompletion on the command line
-# =================================================================
-
-function create_livekitname_install_symlink() {
-    if [ -L /usr/bin/$LIVEKITNAME-install ]; then
-        if [ "$(readlink /usr/bin/$LIVEKITNAME-install)" != "$SCRIPT_DIR/install" ]; then
-            rm -f /usr/bin/$LIVEKITNAME-install
-            ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-            echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been updated."
-            echo -e "It now points to ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
-        fi
-        if [ "$0" != "/usr/bin/$LIVEKITNAME-install" ]; then
-            echo -e "You can use the ${CYAN}$LIVEKITNAME-install${ENDCOLOR} command to run this program."
-        fi
-    else
-        ln -s $SCRIPT_DIR/install /usr/bin/$LIVEKITNAME-install
-        echo -e "The ${MAGENTA}/usr/bin/$LIVEKITNAME-install${ENDCOLOR} symbolic link has been added"
-        echo -e "for ${MAGENTA}$SCRIPT_DIR/install${ENDCOLOR}."
-    fi
-}
-
-# =================================================================
-# creating autocompletion on the command line
-# =================================================================
-
-function create_completion() {
-    local EXECUTABLE
-    if [ -d /etc/bash_completion.d ]; then
-        for EXECUTABLE in $LIVEKITNAME-install minios-modules; do
-            if [ ! -f /etc/bash_completion.d/$EXECUTABLE ] || ! grep "${CMD[*]}" /etc/bash_completion.d/$EXECUTABLE >/dev/null 2>&1; then
-                cat <<EOF >/etc/bash_completion.d/$EXECUTABLE
-#!/usr/bin/env bash
-complete -W "${CMD[*]}" $EXECUTABLE
-EOF
-            fi
-        done
-    fi
-}
-
-# =================================================================
 # only allow 'root' to run the script
 # =================================================================
 
@@ -609,7 +568,7 @@ function chroot_mount_fs() {
 function chroot_umount_fs() {
     current_function
 
-    set +e
+    toggle_shell_options e
 
     for dir in var/cache/apt/archives proc sys dev/pts tmp dev run; do
         umount "$INSTALL_DIR/$dir"
@@ -625,7 +584,7 @@ function chroot_umount_fs() {
             rm -f $INSTALL_DIR/etc/resolv.conf
         fi
     fi
-    set -e
+    toggle_shell_options e
 
     check_mounted
 }
@@ -801,6 +760,53 @@ function pkg() {
     esac
 }
 
+# Check the original value of the set options.
+determine_option_status() {
+    local OPTION=$1
+    local SET_OPTION="SET_${OPTION^^}"
+
+    if [[ $- == *${OPTION}* ]]; then
+        eval $SET_OPTION="true"
+    else
+        eval $SET_OPTION="false"
+    fi
+}
+
+# Print the current status of the set options.
+print_option_status() {
+    local OPTION=$1
+    local SET_OPTION="SET_${OPTION^^}"
+
+    if [[ $- == *${OPTION}* ]]; then
+        echo "Option -${OPTION} is currently set."
+    else
+        echo "Option -${OPTION} is currently unset."
+    fi
+}
+
+toggle_shell_options() {
+    local OPTIONS="${1}"
+    for ((i = 0; i < ${#OPTIONS}; i++)); do
+        local OPTION="${OPTIONS:$i:1}"
+        local SET_OPTION="SET_${OPTION^^}"
+
+        if [ -z "${!SET_OPTION}" ]; then
+            determine_option_status "${OPTION}"
+            if [ "${!SET_OPTION}" = "true" ]; then
+                set "+${OPTION}"
+                print_option_status "${OPTION}"
+                continue
+            fi
+        fi
+
+        if [ "${!SET_OPTION}" = "true" ]; then
+            set "-${OPTION}"
+            eval "${SET_OPTION}=''"
+            print_option_status "${OPTION}"
+        fi
+    done
+}
+
 # =================================================================
 # =================================================================
 # ====================== HOST FUNCTIONS ===========================
@@ -836,12 +842,12 @@ function create_apt_list() {
 
 function get_vars() {
     current_function
-    set +u
+    toggle_shell_options u
     add_chroot_configuration_files $1
     . /minioslib
     read_config /$LIVEKITNAME.conf $VARIABLES
     export $VARIABLES
-    set -u
+    toggle_shell_options u
 }
 
 function chroot_run() {
@@ -883,98 +889,66 @@ remove_broken_links() {
 # Installing the base system
 # =================================================================
 
+function extract_tarball() {
+    local TARBALL=$1
+    local DESTINATION=$2
+    mkdir -p $DESTINATION
+    tar -xzf $TARBALL -C $DESTINATION
+}
+
 function build_bootstrap() {
     current_process
+
+    ROOTFS_TARBALL=$SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz
+    DEBOOTSTRAP_TARBALL=$SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz
 
     if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
     fi
-    if [ $USE_ROOTFS = "true" ] && [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
-        if [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
-            if [ ! -d $INSTALL_DIR ]; then
-                mkdir -p $INSTALL_DIR
-            fi
-            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
-        else
-            if [ ! -d "$SCRIPT_DIR/aptcache/$DISTRIBUTION" ]; then
+    if [ $USE_ROOTFS = "true" ]; then
+
+        if [ ! -f $ROOTFS_TARBALL ]; then
+            if [ -f $DEBOOTSTRAP_TARBALL ]; then
+                extract_tarball $DEBOOTSTRAP_TARBALL $INSTALL_DIR
+            else
                 mkdir -p "$SCRIPT_DIR/aptcache/$DISTRIBUTION"
-            fi
-            if [ ! -d "$INSTALL_DIR/var/cache/apt/archives" ]; then
                 mkdir -p "$INSTALL_DIR/var/cache/apt/archives"
-            fi
-            mount --bind "$SCRIPT_DIR/aptcache/$DISTRIBUTION" "$INSTALL_DIR/var/cache/apt/archives"
-            if [ $DISTRIBUTION = "orel" ]; then
-                if [ ! -L /usr/share/debootstrap/scripts/orel ]; then
-                    ln -s sid /usr/share/debootstrap/scripts/orel
+                mount --bind "$SCRIPT_DIR/aptcache/$DISTRIBUTION" "$INSTALL_DIR/var/cache/apt/archives"
+                local DEBOOTSTRAP_INCLUDE=""
+                if [ $DISTRIBUTION_TYPE != "ubuntu" ]; then
+                    DEBOOTSTRAP_INCLUDE="--include=apt-transport-https"
                 fi
                 sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH --include=apt-transport-https --exclude=usr-is-merged $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            elif [ $PACKAGE_VARIANT = "minimum1" ] || [ $PACKAGE_VARIANT = "cloud1" ]; then
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            else
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            fi
-            umount "$INSTALL_DIR/var/cache/apt/archives"
-            if [ ! -d $SCRIPT_DIR/rootfs ]; then
+                    debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
+                umount "$INSTALL_DIR/var/cache/apt/archives"
                 mkdir -p $SCRIPT_DIR/rootfs
+                tar -czf $ROOTFS_TARBALL -C $INSTALL_DIR .
             fi
-            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR .
-        fi
-    elif [ $USE_ROOTFS = "true" ] && [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
-        if [ ! -d $INSTALL_DIR ]; then
-            mkdir -p $INSTALL_DIR
-        fi
-        tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $INSTALL_DIR
-    elif [ $USE_ROOTFS != "true" ] && [ $USE_BOOTSTRAP = "true" ]; then
-        if [ -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz ]; then
-            if [ ! -d $INSTALL_DIR ]; then
-                mkdir -p $INSTALL_DIR
-            fi
-            tar -xzf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR
         else
-            if [ $DISTRIBUTION = "orel" ]; then
-                cd /usr/share/debootstrap/scripts
-                ln -s sid orel
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            elif [ $PACKAGE_VARIANT = "minimum1" ] || [ $PACKAGE_VARIANT = "cloud1" ]; then
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-            else
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
+            extract_tarball $ROOTFS_TARBALL $INSTALL_DIR
+        fi
+    elif [ $USE_BOOTSTRAP = "true" ]; then
+        if [ -f $DEBOOTSTRAP_TARBALL ]; then
+            extract_tarball $DEBOOTSTRAP_TARBALL $INSTALL_DIR
+        else
+            local DEBOOTSTRAP_INCLUDE=""
+            if [ $DISTRIBUTION_TYPE != "ubuntu" ]; then
+                DEBOOTSTRAP_INCLUDE="--include=apt-transport-https"
             fi
-            if [ ! -d $SCRIPT_DIR/rootfs ]; then
-                mkdir -p $SCRIPT_DIR/rootfs
-            fi
-            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz -C $INSTALL_DIR .
+            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+                debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
+            mkdir -p $SCRIPT_DIR/rootfs
+            tar -czf $DEBOOTSTRAP_TARBALL -C $INSTALL_DIR .
         fi
     else
-        if [ $DISTRIBUTION = "orel" ]; then
-            cd /usr/share/debootstrap/scripts
-            ln -s sid orel
-            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --keyring $SCRIPT_DIR/linux-live/basesystem/gpg/astra-archive.gpg --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-        elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-        elif [ $PACKAGE_VARIANT = "minimum1" ] || [ $PACKAGE_VARIANT = "cloud1" ]; then
-            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH --variant=minbase --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-        else
-            sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                debootstrap --arch=$DISTRIBUTION_ARCH --include=apt-transport-https $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
+        local DEBOOTSTRAP_INCLUDE=""
+        if [ $DISTRIBUTION_TYPE != "ubuntu" ]; then
+            DEBOOTSTRAP_INCLUDE="--include=apt-transport-https"
         fi
+        sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+            debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
     fi
 
     build_rootfs
@@ -1048,7 +1022,7 @@ function build_rootfs() {
     current_function
 
     if [ $USE_ROOTFS = "true" ]; then
-        if [ ! -f $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz ]; then
+        if [ ! -f $ROOTFS_TARBALL ]; then
             if [ $CONTAINER_TYPE = "1" ]; then
                 if [ ! -f /.minios-live ]; then
                     setup_host
@@ -1077,13 +1051,6 @@ EOF
 
             chroot_run $INSTALL_DIR pkg update
             chroot_run $INSTALL_DIR pkg install gnupg ca-certificates
-            if [ $DISTRIBUTION = "orel" ]; then
-                cd $INSTALL_DIR
-                wget https://dl.astralinux.ru/astra/stable/2.12_x86-64/repository/pool/non-free/libg/libgost/libgost_2.0.2-5+ci2_amd64.deb
-                chroot_run $INSTALL_DIR pkg install ./libgost_2.0.2-5+ci2_amd64.deb
-                rm $INSTALL_DIR/libgost_2.0.2-5+ci2_amd64.deb
-                cd -
-            fi
 
             if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
                 cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION-snapshot.list $INSTALL_DIR/etc/apt/sources.list
@@ -1105,7 +1072,7 @@ EOF
 
             chroot_umount_fs
 
-            tar -czf $SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz -C $INSTALL_DIR .
+            tar -czf $ROOTFS_TARBALL -C $INSTALL_DIR .
         fi
     fi
 }
@@ -1114,17 +1081,17 @@ EOF
 #
 #
 # =================================================================
-function copy_build_scripts() {
+function copy_build_scripts2() {
     current_function
 
     local DESTINATION
-    set +u
+    toggle_shell_options u
     if [ -z $1 ]; then
         DESTINATION=$INSTALL_DIR
     else
         DESTINATION=$1
     fi
-    set -u
+    toggle_shell_options u
     if [ ! -d $DESTINATION/linux-live ]; then
         mkdir -p $DESTINATION/linux-live
         (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $DESTINATION/linux-live)
@@ -1139,41 +1106,17 @@ function copy_build_scripts() {
     fi
 
     chmod +x $DESTINATION/linux-live/install_chroot
+}
 
-    if [ "$DEV_SYSTEM" = "true" ]; then
-        if [ ! -d $DESTINATION/opt/minios-live ]; then
-            mkdir -p $DESTINATION/opt/minios-live
-            (cd $SCRIPT_DIR && cp --parents -afr * $DESTINATION/opt/minios-live)
-        else
-            find $SCRIPT_DIR/linux-live -type f -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
-                if ! cmp $SCRIPT_DIR/"$file" $DESTINATION/opt/minios-live/"$file"; then
-                    echo -e "$file has been modified since last build run."
-                    echo -e "Copying $SCRIPT_DIR/$file to $DESTINATION/opt/minios-live/$file..."
-                    cp -f $SCRIPT_DIR/"$file" $DESTINATION/opt/minios-live/"$file"
-                fi
-            done
-        fi
-    elif [ $DOWNLOAD_SOURCES = "true" ]; then
-        if [ ! -d $DESTINATION/opt/minios-live ]; then
-            mkdir -p $DESTINATION/opt
-            cd $DESTINATION/opt
-            git clone --depth=1 https://github.com/minios-linux/minios-live.git
-            if [ -d $DESTINATION/opt/minios-live/.git ]; then
-                rm -rf $DESTINATION/opt/minios-live/.git
-            fi
-            if [ -f $DESTINATION/opt/minios-live/.gitignore ]; then
-                rm -f $DESTINATION/opt/minios-live/.gitignore
-            fi
-        fi
-    fi
+function copy_build_scripts() {
+    current_function
 
-    if [ -d $DESTINATION/opt/minios-live/.git ]; then
-        rm -rf $DESTINATION/opt/minios-live/.git
-    fi
-    if [ -f $DESTINATION/opt/minios-live/.gitignore ]; then
-        rm -f $DESTINATION/opt/minios-live/.gitignore
-    fi
+    local DESTINATION=${1:-$INSTALL_DIR}
 
+    mkdir -p $DESTINATION/linux-live
+    rsync -a --exclude='.git' $SCRIPT_DIR/linux-live/ $DESTINATION/linux-live/
+
+    chmod +x $DESTINATION/linux-live/install_chroot
 }
 
 # =================================================================
@@ -1334,7 +1277,7 @@ function create_config_files() {
 UI /$LIVEKITNAME/boot/vesamenu.c32
 
 PROMPT 0
-TIMEOUT 30
+TIMEOUT 100
 
 MENU CLEAR
 MENU HIDDEN
@@ -1363,22 +1306,41 @@ MENU TABMSG [F1] help                                                        [Ta
 EOF
 
     cat <<EOF >$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-if loadfont \$prefix/font.pf2 ; then
-  set default="0"
-  set timeout="3"
-  set hidden_timeout_quiet=false
-  set gfxmode=auto
-  insmod efi_gop
-  insmod efi_uga
-  insmod video_bochs
-  insmod video_cirrus
-  insmod gfxterm
-  insmod png
-  terminal_output gfxterm
+set default=0
+set timeout=10
+set message="Loading kernel and ramdisk..."
+
+loadfont \$prefix/dejavu-bold-16.pf2
+loadfont \$prefix/dejavu-bold-14.pf2
+loadfont \$prefix/roboto-bold-20.pf2
+loadfont \$prefix/roboto-regular-20.pf2
+loadfont \$prefix/unicode.pf2
+
+if [ "\$grub_platform" = "pc" ]; then
+    set gfxmode=1024x768x32
+    set vga="vga=791"
+else
+    set gfxmode=auto
 fi
-set color_normal=white/black
-set color_highlight=black/white
-background_image \$prefix/bootlogo.png
+
+insmod all_video
+insmod gfxterm
+insmod png
+
+set color_normal=light-gray/black
+set color_highlight=white/black
+
+if [ -e /minios/boot/bootlogo.png ]; then
+    set theme=/minios/boot/grub/minios-theme/theme.txt
+else
+    set color_normal=white/black
+    set color_highlight=black/white
+fi
+
+terminal_output gfxterm
+
+insmod play
+play 960 440 1 0 4 440 1
 
 set default_settings="$DEFAULT_SETTINGS"
 set perch_settings="$PERCH_SETTINGS"
@@ -1388,73 +1350,10 @@ set console_settings="console=tty0 console=ttyS0,115200"
 set debug_settings="$DEBUG_SETTINGS"
 set linux_image="/$LIVEKITNAME/boot/vmlinuz"
 set initrd_img="/$LIVEKITNAME/boot/initrfs.img"
-set default=0
-set message="Loading kernel and ramdisk..."
 
 EOF
 
-    if [ $DESKTOP_ENVIRONMENT = "cloud" ]; then
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-LABEL default
-MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS console=tty0 console=ttyS0,115200 $BOOT_SETTINGS toram
-
-EOF
-
-        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-menuentry "Run MiniOS (Copy to RAM)"{
-    echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings \$console_settings $BOOT_SETTINGS toram
-    initrd \$initrd_img
-}
-
-EOF
-        sed -i "s/background_image/#background_image/g" $WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-
-    elif [ $INITRD_TYPE = "uird" ]; then
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
-LABEL default
-MENU LABEL Run MiniOS (Persistent changes)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $PERCH_SETTINGS $BOOT_SETTINGS
-
-LABEL live
-MENU LABEL Run MiniOS (Fresh start)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $LIVE_SETTINGS $BOOT_SETTINGS
-
-LABEL toram
-MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $RAM_SETTINGS $BOOT_SETTINGS
-
-EOF
-        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-menuentry "Run MiniOS (Persistent changes)"{
-    echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings \$perch_settings $BOOT_SETTINGS
-    initrd \$initrd_img
-}
-menuentry "Run MiniOS (Fresh start)"{
-    echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings \$live_settings $BOOT_SETTINGS
-    initrd \$initrd_img
-}
-menuentry "Run MiniOS (Copy to RAM)"{
-    echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings \$ram_settings $BOOT_SETTINGS
-    initrd \$initrd_img
-}
-
-EOF
-
-    else
-        cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
+    cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>$WORK_DIR/image/$LIVEKITNAME/boot/syslinux.cfg
 LABEL default
 MENU LABEL Run MiniOS (Resume previous session)
 KERNEL /$LIVEKITNAME/boot/vmlinuz
@@ -1481,32 +1380,32 @@ KERNEL /$LIVEKITNAME/boot/vmlinuz
 APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img $DEFAULT_SETTINGS $BOOT_SETTINGS$ULTRA_SETTINGS toram
 
 EOF
-        cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
-menuentry "Run MiniOS (Resume previous session)"{
+    cat <<EOF >>$WORK_DIR/image/$LIVEKITNAME/boot/grub/grub.cfg
+menuentry "Run MiniOS (Resume previous session)" --class resume {
     echo \$message
     search --set -f \$linux_image
     linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=resume
     initrd \$initrd_img
 }
-menuentry "Run MiniOS (Start a new session)"{
+menuentry "Run MiniOS (Start a new session)" --class new {
     echo \$message
     search --set -f \$linux_image
     linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=new
     initrd \$initrd_img
 }
-menuentry "Run MiniOS (Choose session during startup)"{
+menuentry "Run MiniOS (Choose session during startup)" --class switch {
     echo \$message
     search --set -f \$linux_image
     linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS perchdir=ask
     initrd \$initrd_img
 }
-menuentry "Run MiniOS (Fresh start)"{
+menuentry "Run MiniOS (Fresh start)" --class live {
     echo \$message
     search --set -f \$linux_image
     linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS
     initrd \$initrd_img
 }
-menuentry "Run MiniOS (Copy to RAM)"{
+menuentry "Run MiniOS (Copy to RAM)" --class ram {
     echo \$message
     search --set -f \$linux_image
     linux \$linux_image \$default_settings $BOOT_SETTINGS$FLUX_SETTINGS$ULTRA_SETTINGS toram
@@ -1514,7 +1413,6 @@ menuentry "Run MiniOS (Copy to RAM)"{
 }
 
 EOF
-    fi
 }
 
 function create_readme() {
@@ -1658,13 +1556,13 @@ function build_iso() {
     ISO=$ISO_DIR/$IMAGE-$COMP_TYPE-$(date +%Y%m%d_%H%M).iso
 
     if [ $REMOVE_OLD_ISO = "true" ]; then
-        set +e
+        toggle_shell_options e
         rm $ISO_DIR/$IMAGE-$COMP_TYPE-*.iso
         while [ -f $ISO_DIR/$LIVEKITNAME.iso ]; do
             rm $ISO_DIR/$LIVEKITNAME.iso
             sleep 1
         done
-        set -e
+        toggle_shell_options e
     fi
 
     xorriso \
@@ -1759,7 +1657,7 @@ function chroot_cleanup() {
 
     local FILE FILENAME
 
-    set +eu
+    toggle_shell_options eu
 
     rm -f $1/$LIVEKITNAME.conf 2>/dev/null
     rm -f $1/$PACKAGE_VARIANT.list 2>/dev/null
@@ -1888,7 +1786,7 @@ function chroot_cleanup() {
         remove_broken_links $1/usr/share/man
     fi
 
-    set -eu
+    toggle_shell_options eu
 }
 
 # =================================================================
@@ -1943,7 +1841,7 @@ EOF
         echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}"
         pkg upgrade
         echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}"
-        install_packages --package-list=$SCRIPT_DIR/package_lists/prerequisites.list
+        install_packages --package-list $SCRIPT_DIR/package_lists/prerequisites.list
     fi
 
 }
@@ -2034,27 +1932,27 @@ function chroot_finish_up() {
 #   install_packages [options]
 #
 # Options:
-#   -l, --package-list=FILE
+#   -l, --package-list FILE
 #     Specify the path to the package list file. If not specified, the default
 #     value of $SCRIPT_DIR/$PACKAGE_VARIANT.list will be used.
 #
-#   -s, --sed-script=SCRIPT
+#   -s, --sed-script SCRIPT
 #     Specify a sed script to modify the package list. This option is provided
 #     for backward compatibility and is not recommended for new code. Instead,
 #     use the --delete-packages and --replace-packages options to remove or
 #     replace packages in the package list.
 #
-#   -d, --delete-packages=PACKAGES
+#   -d, --delete-packages PACKAGES
 #     Specify packages to delete from the package list, separated by spaces.
 #
-#   -r, --replace-packages=PACKAGES
+#   -r, --replace-packages PACKAGES
 #     Specify packages to replace in the package list, in the form
 #     old_package=new_package, separated by spaces.
 #
-#   -a, --add-packages=PACKAGES
+#   -a, --add-packages PACKAGES
 #     Specify additional packages to install, separated by spaces.
 #
-#   -t, --target-release=RELEASE
+#   -t, --target-release RELEASE
 #     Specify the target release for package installation. If provided, this
 #     value will be passed to the `pkg install` command using the `-t` option.
 #
@@ -2068,58 +1966,28 @@ function install_packages() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        -s | --sed-script=*)
-            if [[ "$1" == --* ]]; then
-                SED_SCRIPT="${1#*=}"
-            else
-                SED_SCRIPT="$2"
-                shift
-            fi
+        -s | --sed-script)
+            SED_SCRIPT="$2"
             shift
             ;;
-        -a | --add-packages=*)
-            if [[ "$1" == --* ]]; then
-                ADD_PACKAGES+=(${1#*=})
-            else
-                ADD_PACKAGES+=($2)
-                shift
-            fi
+        -a | --add-packages)
+            ADD_PACKAGES+=($2)
             shift
             ;;
-        -d | --delete-packages=*)
-            if [[ "$1" == --* ]]; then
-                DELETE_PACKAGES="${1#*=}"
-            else
-                DELETE_PACKAGES="$2"
-                shift
-            fi
+        -d | --delete-packages)
+            DELETE_PACKAGES="$2"
             shift
             ;;
-        -r | --replace-packages=*)
-            if [[ "$1" == --* ]]; then
-                REPLACE_PACKAGES="${1#*=}"
-            else
-                REPLACE_PACKAGES="$2"
-                shift
-            fi
+        -r | --replace-packages)
+            REPLACE_PACKAGES="$2"
             shift
             ;;
-        -l | --package-list=*)
-            if [[ "$1" == --* ]]; then
-                PACKAGE_LIST="${1#*=}"
-            else
-                PACKAGE_LIST="$2"
-                shift
-            fi
+        -l | --package-list)
+            PACKAGE_LIST="$2"
             shift
             ;;
-        -t | --target-release=*)
-            if [[ "$1" == --* ]]; then
-                TARGET_RELEASE="${1#*=}"
-            else
-                TARGET_RELEASE="$2"
-                shift
-            fi
+        -t | --target-release)
+            TARGET_RELEASE="$2"
             shift
             ;;
         *)
@@ -2127,6 +1995,7 @@ function install_packages() {
             exit 1
             ;;
         esac
+        shift
     done
 
     if [[ -z "$PACKAGE_LIST" ]]; then
@@ -2232,14 +2101,6 @@ function filter_modules() {
             read_config /etc/minios/buildconfig FILTER_MODULES FILTER_LEVEL
         else
             read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
-            : 'if [ $FILTER_MODULES = "true" ]; then
-                FILTER_MODULES="true"
-                if [[ $MODULE == "00-"* ]] || [[ $MODULE == "01-"* ]]; then
-                    FILTER_LEVEL="0"
-                else
-                    FILTER_LEVEL=$((${MODULE:1:1} - 1))
-                fi
-            fi'
         fi
     fi
     echo -e "=====  ${YELLOW}MODULE=$MODULE${ENDCOLOR}"
@@ -2267,7 +2128,7 @@ function module_chroot_mount_fs() {
         mkdir -p $MODULES_DIR
     fi
 
-    set +u
+    toggle_shell_options u
 
     if [ -z $BUILD_DKMS ] || [ $BUILD_DKMS != "true" ]; then
         if [ $UNION_BUILD_TYPE = "overlayfs" ]; then
@@ -2279,10 +2140,10 @@ function module_chroot_mount_fs() {
                     mkdir -p $MODULES_DIR/bundles/$BUNDLE
                     mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
                 done
-                set +e
+                toggle_shell_options e
                 filter_modules $MODULES_DIR/bundles/
                 MODULES_LIST=${MODULES_LIST/%:/}
-                set -e
+                toggle_shell_options e
             else
                 MODULES=$BUNDLES/
                 filter_modules $MODULES
@@ -2318,7 +2179,7 @@ function module_chroot_mount_fs() {
         fi
     fi
 
-    set -u
+    toggle_shell_options u
 
     if [ ! -d $MODULE_MERGED_DIR/dev ]; then
         mkdir -p $MODULE_MERGED_DIR/dev
@@ -2378,7 +2239,7 @@ function module_chroot_umount_fs() {
 
     local MODULES BUNDLE
 
-    set +e
+    toggle_shell_options e
     umount $MODULE_MERGED_DIR/var/cache/apt/archives
     umount $MODULE_MERGED_DIR/proc
     umount $MODULE_MERGED_DIR/sys
@@ -2415,7 +2276,7 @@ function module_chroot_umount_fs() {
         fi
     fi
 
-    set +u
+    toggle_shell_options u
 
     if [ -z $BUILD_DKMS ] || [ $BUILD_DKMS != "true" ]; then
         MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
@@ -2425,7 +2286,7 @@ function module_chroot_umount_fs() {
         done
     fi
 
-    set -eu
+    toggle_shell_options eu
 
     module_check_mounted
 }
@@ -2475,7 +2336,7 @@ EOF
 # =================================================================
 function module_chroot_cleanup() {
     current_function
-    set +e
+    toggle_shell_options e
     # clean up useless stuff
     rm -rf $MODULE_UPPER_DIR/boot $MODULE_UPPER_DIR/dev $MODULE_UPPER_DIR/proc $MODULE_UPPER_DIR/sys $MODULE_UPPER_DIR/rmp $MODULE_UPPER_DIR/run
     rm -f $MODULE_UPPER_DIR/root/.bash_history
@@ -2514,6 +2375,7 @@ function module_chroot_cleanup() {
             find $MODULE_UPPER_DIR/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 | xargs rm -rf
         fi
     fi
+    toggle_shell_options e
 }
 
 # =================================================================
@@ -2833,10 +2695,10 @@ function build_modules() {
                     remove_symlink_if_exists $MODULE_UPPER_DIR/lib/modules/$KERNEL/build
                     remove_symlink_if_exists $MODULE_UPPER_DIR/lib/modules/$KERNEL/source
 
-                    set +e
+                    toggle_shell_options e
                     copy_kernel_module_files $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL $MODULE_UPPER_DIR/squashfs-root/usr/lib/modules/$KERNEL
                     copy_kernel_module_files $MODULE_UPPER_DIR/lib/modules/$KERNEL $MODULE_UPPER_DIR/squashfs-root/lib/modules/$KERNEL
-                    set -e
+                    toggle_shell_options e
                     if [ $MODULE = "01-kernel" ]; then
                         cd $MODULE_UPPER_DIR/squashfs-root
                         if ls initrd* 2>/dev/null; then
@@ -2901,12 +2763,12 @@ function build_modules() {
                 fi
 
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    set +e
+                    toggle_shell_options e
                     chroot_run $MODULE_MERGED_DIR uncompress_files /etc/alternatives
                     chroot_run $MODULE_MERGED_DIR uncompress_files /usr/share/man
                     chroot_run $MODULE_MERGED_DIR remove_broken_links /etc/alternatives
                     chroot_run $MODULE_MERGED_DIR remove_broken_links /usr/share/man
-                    set -e
+                    toggle_shell_options e
                 fi
 
                 if [ -f $MODULE_UPPER_DIR/.package ] && [ $PACKAGE_VARIANT = "puzzle" ]; then
@@ -3146,7 +3008,7 @@ function container_run() {
             -e DISTRIBUTION_VARIANT="minbase" \
             -e BATCH="true" \
             -e BUILD_TEST_ISO="false" \
-            -e DEV_SYSTEM="false" \
+            -e DEBOOTSTRAP_TARBALL="false" \
             -e DEBIAN_FRONTEND_TYPE="noninteractive" \
             -e APT_CMD="apt-get" \
             -e BOOT_TYPE="hybrid" \
@@ -3211,7 +3073,7 @@ function live_run() {
         LOGPATH="/var/log" \
         BATCH="true" \
         BUILD_TEST_ISO="false" \
-        DEV_SYSTEM="false" \
+        DEBOOTSTRAP_TARBALL="false" \
         DEBIAN_FRONTEND_TYPE="noninteractive" \
         BOOT_TYPE="hybrid" \
         UNION_BUILD_TYPE="overlayfs" \

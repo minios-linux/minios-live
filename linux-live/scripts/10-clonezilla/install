@@ -18,10 +18,10 @@ pkg update
 if [ -f $SCRIPT_DIR/package.list ]; then
     case $DISTRIBUTION in
     bullseye | bookworm | kali-rolling | sid | jammy | lunar)
-        install_packages --package-list="$SCRIPT_DIR/package.list" --replace-packages="exfat-utils=exfatprogs" --delete-packages="exfat-fuse"
+        install_packages --package-list "$SCRIPT_DIR/package.list" --replace-packages "exfat-utils=exfatprogs" --delete-packages "exfat-fuse"
         ;;
     *)
-        install_packages --package-list="$SCRIPT_DIR/package.list"
+        install_packages --package-list "$SCRIPT_DIR/package.list"
         ;;
     esac
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)

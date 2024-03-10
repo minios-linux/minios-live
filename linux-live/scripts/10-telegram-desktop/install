@@ -23,7 +23,7 @@ fi
 if [ -f $SCRIPT_DIR/package.list ]; then
     case $DISTRIBUTION in
     buster | bullseye | bookworm)
-        install_packages --package-list="$SCRIPT_DIR/package.list" --replace-packages="telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
+        install_packages --package-list "$SCRIPT_DIR/package.list" --replace-packages "telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
         PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
         ;;
     *)
@@ -31,7 +31,7 @@ if [ -f $SCRIPT_DIR/package.list ]; then
             pkg install telegram
             PACKAGE="telegram"
         else
-            install_packages --package-list="$SCRIPT_DIR/package.list"
+            install_packages --package-list "$SCRIPT_DIR/package.list"
             PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
         fi
         ;;
