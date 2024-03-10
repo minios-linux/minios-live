@@ -1643,9 +1643,17 @@ function build_iso() {
     else
         IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
     fi
-    [ $KERNEL_AUFS = "true" ] && IMAGE=$IMAGE-aufs
-    [ $KERNEL_TYPE != "default" ] && IMAGE=$IMAGE-$KERNEL_TYPE-$ISO_ARCH
-    [ $BUILD_FROM_SNAPSHOT = "true" ] && IMAGE=$IMAGE-$SNAPSHOT_DATE
+    if [ $KERNEL_AUFS = "true" ]; then
+        IMAGE=$IMAGE-aufs
+    fi
+    if [ $KERNEL_TYPE = "default" ]; then
+        IMAGE=$IMAGE-$ISO_ARCH
+    else
+        IMAGE=$IMAGE-$KERNEL_TYPE-$ISO_ARCH
+    fi
+    if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
+        IMAGE=$IMAGE-$SNAPSHOT_DATE
+    fi
 
     ISO=$ISO_DIR/$IMAGE-$COMP_TYPE-$(date +%Y%m%d_%H%M).iso
 
