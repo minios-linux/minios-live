@@ -20,21 +20,10 @@ echo -e "=====> ${CYAN}Building intramfs image ...${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL=$KERNEL${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_BPO=$KERNEL_BPO${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_AUFS=$KERNEL_AUFS${ENDCOLOR}"
-echo -e "=====  ${YELLOW}INITRD_TYPE=$INITRD_TYPE${ENDCOLOR}"
 
-if [[ $INITRD_TYPE == *"livekit"* ]]; then
-	cd /linux-live/initramfs/$INITRD_TYPE
-	chmod 755 ./initramfs_create
-	INITRAMFS=$(./initramfs_create $KERNEL)
-	if [ "$INITRAMFS" != "" ]; then
-		mv "$INITRAMFS" /boot/initrfs.img
-	fi
-elif [ $INITRD_TYPE = "uird" ]; then
-	if [ $DISTRIBUTION_ARCH = "i386-pae" ]; then
-		DISTRIBUTION_ARCH="i386"
-	fi
-	cd /linux-live/initramfs/uird-$DISTRIBUTION_ARCH
-	sed -i -e "/LANG=/s/=.*/=\"$LOCALE\"/" configs/etc/initvars
-	./mkuird minios -e plymouth,network,fsck,rsync,crypt,virtio,fuse,i18n,uird-soft,reiserfs,cifs,qemu,mc,httpfs -k $KERNEL
-	mv ./uird.minios.cpio.xz /boot/initrfs.img
+cd /linux-live/initramfs/livekit-mos
+chmod 755 ./initramfs_create
+INITRAMFS=$(./initramfs_create $KERNEL)
+if [ "$INITRAMFS" != "" ]; then
+	mv "$INITRAMFS" /boot/initrfs.img
 fi

@@ -14,7 +14,7 @@ function common_variables() {
     local locale layout layoutcode
 
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD INITRD_TYPE BEXT EXPORT_LOGS"
+    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
 
     #
     CONTAINER_TYPE="0"
@@ -102,14 +102,6 @@ function common_variables() {
         BUNDLES=/run/initramfs/memory/bundles
     elif [ -d /memory/bundles ]; then
         BUNDLES=/memory/bundles
-    fi
-
-    if [ $INITRD_TYPE = "livekit-mos" ]; then
-        INITRD_TYPE_SUFFIX="lkm"
-    elif [ $INITRD_TYPE = "livekit-slax" ]; then
-        INITRD_TYPE_SUFFIX="lks"
-    elif [ $INITRD_TYPE = "uird" ]; then
-        INITRD_TYPE_SUFFIX="uird"
     fi
 
     while IFS=, read -r locale layoutcode layout; do
@@ -595,7 +587,6 @@ function new_run() {
     echo "========== Desktop environment: $DESKTOP_ENVIRONMENT"
     echo "========== Package variant: $PACKAGE_VARIANT"
     echo "========== Arch: $DISTRIBUTION_ARCH"
-    echo "========== Initrd type: $INITRD_TYPE"
     echo "========== Kernel type: $KERNEL_TYPE"
     echo "========== Kernel BPO: $KERNEL_BPO"
     echo "========== Kernel AUFS: $KERNEL_AUFS"
@@ -622,7 +613,6 @@ DISTRIBUTION="$DISTRIBUTION"
 DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE"
 PACKAGE_VARIANT="$PACKAGE_VARIANT"
 COMP_TYPE="$COMP_TYPE"
-INITRD_TYPE="$INITRD_TYPE"
 #KERNEL=\$KERNEL
 KERNEL_VERSION="$KERNEL_VERSION"
 KERNEL_ARCH="$KERNEL_ARCH"
@@ -1193,39 +1183,17 @@ function create_config_files() {
 
     BOOT_SETTINGS="quiet"
 
-    if [ $INITRD_TYPE = "livekit-mos" ]; then
-        PERCH_SETTINGS="minios.flags=perch"
-        LIVE_SETTINGS="minios.flags="
-        RAM_SETTINGS="minios.flags=toram"
-    elif [ $INITRD_TYPE = "livekit-slax" ]; then
-        PERCH_SETTINGS="slax.flags=perch"
-        LIVE_SETTINGS="slax.flags="
-        RAM_SETTINGS="slax.flags=toram"
-    elif [ $INITRD_TYPE = "uird" ]; then
-        if [ $KERNEL_AUFS = "true" ] || ([ $DISTRIBUTION = "bionic" ] || [ $DISTRIBUTION = "focal" ]); then
-            PERCH_SETTINGS="uird.mode=changes"
-            LIVE_SETTINGS="uird.mode=clean"
-            RAM_SETTINGS="uird.copy2ram"
-        else
-            PERCH_SETTINGS="uird.union=overlay uird.mode=changes"
-            LIVE_SETTINGS="uird.union=overlay uird.mode=clean"
-            RAM_SETTINGS="uird.union=overlay uird.copy2ram"
-        fi
-    fi
+    PERCH_SETTINGS="minios.flags=perch"
+    LIVE_SETTINGS="minios.flags="
+    RAM_SETTINGS="minios.flags=toram"
 
     FLUX_SETTINGS=""
     ULTRA_SETTINGS=""
 
     if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
-        if [ $INITRD_TYPE = "livekit-mos" ]; then
-            PERCH_SETTINGS="minios.flags=perch,automount"
-            LIVE_SETTINGS="minios.flags=automount"
-            FLUX_SETTINGS=" automount"
-        elif [ $INITRD_TYPE = "livekit-slax" ]; then
-            PERCH_SETTINGS="slax.flags=perch,automount"
-            LIVE_SETTINGS="slax.flags=automount"
-            FLUX_SETTINGS=" automount"
-        fi
+        PERCH_SETTINGS="minios.flags=perch,automount"
+        LIVE_SETTINGS="minios.flags=automount"
+        FLUX_SETTINGS=" automount"
     elif [ $PACKAGE_VARIANT = "ultra" ]; then
         ULTRA_SETTINGS=" apparmor=0 selinux=0"
     fi
@@ -1494,9 +1462,9 @@ function build_iso() {
     DIR="$WORK_DIR/image"
 
     if [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE$
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE_SUFFIX
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -2354,7 +2322,7 @@ function export_kernel() {
                     cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR
                 else
                     cp $WORK_DIR/image/$LIVEKITNAME/boot/$VMLINUZNAME $KERNEL_DIR/vmlinuz-$KERNEL_SUFFIX
-                    cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR/initrfs-$KERNEL_SUFFIX-$INITRD_TYPE.img
+                    cp $WORK_DIR/image/$LIVEKITNAME/boot/$INITRFSNAME $KERNEL_DIR/initrfs-$KERNEL_SUFFIX.img
                 fi
                 echo "Kernel files and initrd image have been exported to a folder $KERNEL_DIR"
             else
@@ -2386,7 +2354,7 @@ function kernel_variables() {
 
     if [ $NAMED_BOOT_FILES = "true" ]; then
         VMLINUZNAME="vmlinuz-$KERNEL_SUFFIX"
-        INITRFSNAME="initrfs-$KERNEL_SUFFIX-$INITRD_TYPE.img"
+        INITRFSNAME="initrfs-$KERNEL_SUFFIX.img"
     else
         VMLINUZNAME="vmlinuz"
         INITRFSNAME="initrfs.img"
@@ -2807,7 +2775,7 @@ function generate_config_files() {
     cp -f "$SCRIPT_DIR/linux-live/buildconfig" "$SCRIPT_DIR/linux-live/container_buildconfig"
     cp -f "$SCRIPT_DIR/linux-live/config" "$SCRIPT_DIR/linux-live/container_config"
 
-    VARS=("DISTRIBUTION_TYPE" "DISTRIBUTION" "DISTRIBUTION_ARCH" "DESKTOP_ENVIRONMENT" "PACKAGE_VARIANT" "INITRD_TYPE" "KERNEL_TYPE" "KERNEL_BPO" "KERNEL_AUFS" "COMP_TYPE" "LOCALE" "MULTILINGUAL")
+    VARS=("DISTRIBUTION_TYPE" "DISTRIBUTION" "DISTRIBUTION_ARCH" "DESKTOP_ENVIRONMENT" "PACKAGE_VARIANT" "KERNEL_TYPE" "KERNEL_BPO" "KERNEL_AUFS" "COMP_TYPE" "LOCALE" "MULTILINGUAL")
     for VAR in "${VARS[@]}"; do
         sed -i -e "/$VAR=/s/=.*/=\"${!VAR}\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
     done
@@ -2815,8 +2783,8 @@ function generate_config_files() {
 }
 
 function container_run() {
-    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
-        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+    if [ ! "$($container_engine ps -q -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
+        if [ "$($container_engine ps -aq -f status=exited -f name=mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE)" ]; then
             # cleanup
             $container_engine rm -f $CONTAINER_NAME
         fi
@@ -2864,7 +2832,6 @@ function container_run() {
             -e REMOVE_LARGE_ICONS="true" \
             -e FILTER_MODULES="false" \
             -e FILTER_LEVEL="3" \
-            -e INITRD_TYPE="$INITRD_TYPE" \
             -e KERNEL_TYPE="$KERNEL_TYPE" \
             -e KERNEL_BPO="$KERNEL_BPO" \
             -e KERNEL_AUFS="$KERNEL_AUFS" \
@@ -2881,69 +2848,6 @@ function container_run() {
             -e SNAPSHOT_DATE="20220223T214737Z" \
             local/mlc /build/minios-live/install -
     fi
-}
-
-function live_run() {
-    generate_config_files
-    # run
-    /usr/bin/env \
-        DISTRIBUTION_TYPE="$DISTRIBUTION_TYPE" \
-        DISTRIBUTION="$DISTRIBUTION" \
-        DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT" \
-        PACKAGE_VARIANT="$PACKAGE_VARIANT" \
-        DISTRIBUTION_ARCH="$DISTRIBUTION_ARCH" \
-        COMP_TYPE="$COMP_TYPE" \
-        LOCALE="$LOCALE" \
-        MULTILINGUAL="$MULTILINGUAL" \
-        TIMEZONE="$TIMEZONE" \
-        USER_NAME="live" \
-        USER_PASSWORD="evil" \
-        ROOT_PASSWORD="toor" \
-        DEFAULT_TARGET="graphical" \
-        ENABLE_SERVICES="" \
-        DISABLE_SERVICES="" \
-        AUTOLOGIN="true" \
-        SSH_KEY="authorized_keys" \
-        SCRIPTS="false" \
-        CLOUD="false" \
-        HIDE_CREDENTIALS="false" \
-        SYSTEM_TYPE="puzzle" \
-        DISTRIBUTION_VARIANT="minbase" \
-        LOGPATH="/var/log" \
-        BATCH="true" \
-        BUILD_TEST_ISO="false" \
-        DEBOOTSTRAP_TARBALL="false" \
-        DEBIAN_FRONTEND_TYPE="noninteractive" \
-        BOOT_TYPE="hybrid" \
-        UNION_BUILD_TYPE="overlayfs" \
-        SYSTEMNAME="MiniOS" \
-        USE_BOOTSTRAP="true" \
-        USE_ROOTFS="true" \
-        REMOVE_OLD_ISO="true" \
-        REMOVE_SOURCES="true" \
-        SKIP_SETUP_HOST="true" \
-        DOWNLOAD_SOURCES="false" \
-        REMOVE_DPKG_DB="false" \
-        KERNEL_MODULES_ONLY="true" \
-        REMOVE_LARGE_ICONS="true" \
-        FILTER_MODULES="false" \
-        FILTER_LEVEL="3" \
-        INITRD_TYPE="$INITRD_TYPE" \
-        KERNEL_TYPE="$KERNEL_TYPE" \
-        KERNEL_BPO="$KERNEL_BPO" \
-        KERNEL_AUFS="$KERNEL_AUFS" \
-        KERNEL_BUILD_DKMS="$KERNEL_BUILD_DKMS" \
-        NAMED_BOOT_FILES="false" \
-        EXPORT_KERNEL="true" \
-        MOVE_KERNEL="false" \
-        EXPORT_LOGS="false" \
-        USE_MX_REPO="false" \
-        USE_ANTIX_REPO="false" \
-        USE_UNOFFICIAL_REPOSITORY="false" \
-        UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3" \
-        BUILD_FROM_SNAPSHOT="false" \
-        SNAPSHOT_DATE="20220223T214737Z" \
-        /build/minios-live/install -
 }
 
 function container_status_check() {
@@ -2979,19 +2883,61 @@ function container_build_finish() {
 function container_build_run() {
     local AUFS_SUFFIX BPO_SUFFIX
     DISTRIBUTION_TYPE="debian"
-    DISTRIBUTION="$1"
-    DESKTOP_ENVIRONMENT="$2"
-    PACKAGE_VARIANT="$3"
-    DISTRIBUTION_ARCH="$4"
-    INITRD_TYPE="$5"
-    KERNEL_TYPE="$6"
-    KERNEL_BPO="$7"
-    KERNEL_AUFS="$8"
-    KERNEL_BUILD_DKMS="$9"
-    COMP_TYPE="${10}"
-    LOCALE="${11}"
     MULTILINGUAL="false"
-    TIMEZONE="${12}"
+
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+        -d | --distribution)
+            DISTRIBUTION="$2"
+            shift
+            ;;
+        -e | --desktop-environment)
+            DESKTOP_ENVIRONMENT="$2"
+            shift
+            ;;
+        -p | --package-variant)
+            PACKAGE_VARIANT="$2"
+            shift
+            ;;
+        -a | --distribution-arch)
+            DISTRIBUTION_ARCH="$2"
+            shift
+            ;;
+        -k | --kernel-type)
+            KERNEL_TYPE="$2"
+            shift
+            ;;
+        -b | --kernel-bpo)
+            KERNEL_BPO="$2"
+            shift
+            ;;
+        -u | --kernel-aufs)
+            KERNEL_AUFS="$2"
+            shift
+            ;;
+        -B | --kernel-build-dkms)
+            KERNEL_BUILD_DKMS="$2"
+            shift
+            ;;
+        -c | --comp-type)
+            COMP_TYPE="$2"
+            shift
+            ;;
+        -l | --locale)
+            LOCALE="$2"
+            shift
+            ;;
+        -T | --timezone)
+            TIMEZONE="$2"
+            shift
+            ;;
+        *)
+            echo "Unknown parameter passed: $1"
+            exit 1
+            ;;
+        esac
+        shift
+    done
 
     if [ $MULTILINGUAL = "true" ]; then
         LANGUAGE_CODE=""
@@ -3011,7 +2957,7 @@ function container_build_run() {
     if [ $KERNEL_AUFS = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$INITRD_TYPE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
+    CONTAINER_NAME="mlc-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$AUFS_SUFFIX$BPO_SUFFIX-$KERNEL_TYPE-$DISTRIBUTION_ARCH-$COMP_TYPE"
 
     if [ ! "$($container_engine ps -q -f name=$CONTAINER_NAME)" ]; then
         if [ "$($container_engine ps -aq -f status=exited -f name=$CONTAINER_NAME)" ]; then
@@ -3042,28 +2988,4 @@ function container_build_run() {
             break
         fi
     done
-}
-
-function live_build_run() {
-    DISTRIBUTION_TYPE="debian"
-    DISTRIBUTION="$1"
-    DESKTOP_ENVIRONMENT="$2"
-    PACKAGE_VARIANT="$3"
-    DISTRIBUTION_ARCH="$4"
-    INITRD_TYPE="$5"
-    KERNEL_TYPE="$6"
-    KERNEL_BPO="$7"
-    KERNEL_AUFS="$8"
-    KERNEL_BUILD_DKMS="$9"
-    COMP_TYPE="${10}"
-    LOCALE="${11}"
-    MULTILINGUAL="${12}"
-    TIMEZONE="${13}"
-    case $1 in
-    trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
-        DISTRIBUTION_TYPE="ubuntu"
-        ;;
-    esac
-
-    live_run
 }

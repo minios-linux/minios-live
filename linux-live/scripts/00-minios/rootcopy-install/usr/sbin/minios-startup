@@ -38,33 +38,21 @@ if [ -z $FROM ] || echo $FROM | grep 'http://' || [ -d "/run/initramfs/memory/is
 elif [ -f /run/initramfs/var/log/from.log ]; then
     FROM=$(cat /run/initramfs/var/log/from.log)
 fi
-if [ -d "/run/initramfs/memory" ]; then
-    LIVE="/run/initramfs/memory"
-    INITRD_TYPE="livekit"
-elif [ -d /memory ]; then
-    LIVE="/memory"
-    INITRD_TYPE="uird"
-fi
+
+LIVE="/run/initramfs/memory"
 BUNDLES="$LIVE/bundles"
 CHANGES="$LIVE/changes"
-if [ "$INITRD_TYPE" = "livekit" ]; then
-    # search for bundles in the mounted directory
-    if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
-        # we found at least one bundle/module here
-        FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
-    elif [ "$(find "/run/initramfs/memory/iso/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
-        FROM=$(echo "/run/initramfs/memory/iso/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
-    fi
-    if [ "$TORAM" = "true" ]; then
-        MEDIA="/run/initramfs/memory/toram"
-    else
-        MEDIA="$FROM"
-    fi
-elif [ "$INITRD_TYPE" = "uird" ]; then
-    if [ "$(find "/memory/data/from/0/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
-        # we found at least one bundle/module here
-        FROM=$(echo "/memory/data/from/0/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
-    fi
+
+# search for bundles in the mounted directory
+if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+    # we found at least one bundle/module here
+    FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+elif [ "$(find "/run/initramfs/memory/iso/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+    FROM=$(echo "/run/initramfs/memory/iso/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+fi
+if [ "$TORAM" = "true" ]; then
+    MEDIA="/run/initramfs/memory/toram"
+else
     MEDIA="$FROM"
 fi
 
@@ -504,7 +492,7 @@ update_config_value() {
 }
 
 # Iterate over a list of variable names
-for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS AUTOLOGIN HIDE_CREDENTIALS INITRD_TYPE SYSTEM_TYPE EXPORT_LOGS; do
+for PARAM in USER_NAME USER_PASSWORD ROOT_PASSWORD HOST_NAME DEFAULT_TARGET ENABLE_SERVICES DISABLE_SERVICES SSH_KEY SCRIPTS AUTOLOGIN HIDE_CREDENTIALS SYSTEM_TYPE EXPORT_LOGS; do
     # Call the update_config_value function for each variable to update its value in the configuration file
     update_config_value "$PARAM"
 done
