@@ -3,7 +3,7 @@
 ##### DISTRIBUTION SETTINGS #####
 # distribution
 #
-# if Debian [stretch, buster, bullseye, bookworm, sid, kali-rolling, orel]
+# if Debian [stretch, buster, bullseye, bookworm, trixie, sid, kali-rolling]
 # if Ubuntu [bionic, focal, jammy]
 DISTRIBUTION="bookworm"
 
@@ -118,16 +118,6 @@ CLOUD="false"
 #
 # [true, false]
 HIDE_CREDENTIALS="false"
-
-# When "puzzle" is set, operations necessary to handle modules that have been built relative to a certain common level are done at boot time; when "classic" is set, no such operations are done.
-# If you plan to plug/unplug modules while the system is running and you don't plan to put packages into the system using apt, then you should use "puzzle".
-# If you plan to use the system as a classic desktop system using saves, updating and installing packages with apt, you should use "classic".
-#
-# [сlassic, puzzle]
-# !!!!!!!!!!!!!!!!!
-# This variable is redefined in minioslib. For all variants of the system, except Puzzle, it is "classic".
-#SYSTEM_TYPE="puzzle"
-###########################
 
 # if ="true", creates a second iso with a constant filename
 #
