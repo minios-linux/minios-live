@@ -69,7 +69,7 @@ function common_variables() {
     fi
 
     case $DISTRIBUTION in
-    stretch | buster | bullseye | bookworm | kali-rolling | sid | orel)
+    stretch | buster | bullseye | bookworm | trixie | kali-rolling | sid | orel)
         DISTRIBUTION_TYPE="debian"
         ;;
     bionic | cosmic | disco | eoan | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
@@ -94,13 +94,7 @@ function common_variables() {
         DISTRIBUTION_URL="http://archive.kali.org/kali"
     fi
 
-    if [ $DISTRIBUTION = "orel" ]; then
-        DISTRIBUTION_URL="http://mirror.yandex.ru/astra/stable/2.12_x86-64/repository"
-    fi
-
-    if [ $DISTRIBUTION = "orel" ] && [ $COMP_TYPE = "zstd" ]; then
-        COMP_TYPE="lz4"
-    elif [ $DISTRIBUTION = "stretch" ] && ([ $COMP_TYPE = "zstd" ] || [ $COMP_TYPE = "lz4" ]); then
+    if [ $DISTRIBUTION = "stretch" ] && ([ $COMP_TYPE = "zstd" ] || [ $COMP_TYPE = "lz4" ]); then
         COMP_TYPE="gzip"
     fi
 
@@ -203,60 +197,30 @@ function console_colors() {
 # =================================================================
 
 function help() {
-    if [ $SCRIPT_DIR != "/usr/bin" ]; then
-        # if $1 is set, use $1 as headline message in help()
-        if [ -z ${1+x} ]; then
-            echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOR}"
-            echo -e
-        else
-            echo -e $1
-            echo
-        fi
-        echo -e "Supported commands: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
+    # if $1 is set, use $1 as headline message in help()
+    if [ -z ${1+x} ]; then
+        echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOR}"
         echo -e
-        echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-        echo -e "\trun from start_cmd to end_cmd"
-        echo -e "\tif start_cmd is omitted, start from first command"
-        echo -e "\tif end_cmd is omitted, end with last command"
-        echo -e "\tenter single cmd to run the specific command"
-        echo -e "\tenter '-' as only argument to run all commands"
-        echo -e "\t"
-        echo -e "Examples:"
-        echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
-        echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
-        echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
-        echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
-        echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
-        exit 0
     else
-        # if $1 is set, use $1 as headline message in help()
-        if [ -z ${1+x} ]; then
-            echo -e "${LIGHTYELLOW}This script builds modules for $SYSTEMNAME.${ENDCOLOR}"
-            echo -e
-        else
-            echo -e $1
-            echo
-        fi
-        echo -e "Supported commands : ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
-        echo -e
-        echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-        echo -e "\trun from start_cmd to end_cmd"
-        echo -e "\tif start_cmd is omitted, start from first command"
-        echo -e "\tif end_cmd is omitted, end with last command"
-        echo -e "\tenter single cmd to run the specific command"
-        echo -e "\tenter '-' as only argument to run all commands"
-        echo -e "\t"
-        echo -e "\tThe installation scripts must be in the folder with the"
-        echo -e "\tname of the future module. For example, to build a module"
-        echo -e "\tnamed 05-vscode, build scripts should be in the following"
-        echo -e "\tpath: ${LIGHTYELLOW}$CURRENT_DIR/modules/05-vscode${ENDCOLOR}"
-        echo -e "Examples:"
-        echo -e "\t${LIGHTYELLOW}$0 build_modules ${ENDCOLOR} build modules"
-        echo -e "\t${LIGHTYELLOW}$0 repack_modules ${ENDCOLOR} repack the system with the"
-        echo -e "\tcompression type specified by /etc/$LIVEKITNAME/config in COMP_TYPE variable"
-        echo -e "\t${LIGHTYELLOW}$0 - ${ENDCOLOR} this command will run both functions alternately"
-        exit 0
+        echo -e $1
+        echo
     fi
+    echo -e "Supported commands: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
+    echo -e
+    echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
+    echo -e "\trun from start_cmd to end_cmd"
+    echo -e "\tif start_cmd is omitted, start from first command"
+    echo -e "\tif end_cmd is omitted, end with last command"
+    echo -e "\tenter single cmd to run the specific command"
+    echo -e "\tenter '-' as only argument to run all commands"
+    echo -e "\t"
+    echo -e "Examples:"
+    echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
+    echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
+    echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
+    echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
+    echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
+    exit 0
 }
 
 function read_cmdline() {
@@ -1141,13 +1105,6 @@ function build_chroot() {
         cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION-snapshot.list $INSTALL_DIR/etc/apt/sources.list
     else
         cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
-    fi
-
-    VANILLA_ASTRA="true"
-    if [ $DISTRIBUTION = "orel" ]; then
-        if [ $VANILLA_ASTRA != "true" ]; then
-            cat $SCRIPT_DIR/linux-live/aptsources/stretch.list | sed '/backports/d' >$INSTALL_DIR/etc/apt/sources.list.d/stretch.list
-        fi
     fi
 
     add_unofficial_repository
@@ -2097,8 +2054,6 @@ function filter_modules() {
     else
         if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
             read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_MODULES FILTER_LEVEL
-        elif [ $SCRIPT_DIR = "/usr/bin" ]; then
-            read_config /etc/minios/buildconfig FILTER_MODULES FILTER_LEVEL
         else
             read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
         fi
@@ -2124,59 +2079,26 @@ function module_chroot_mount_fs() {
 
     module_check_mounted
 
-    if [ $SCRIPT_DIR = "/usr/bin" ]; then
-        mkdir -p $MODULES_DIR
-    fi
-
     toggle_shell_options u
 
     if [ -z $BUILD_DKMS ] || [ $BUILD_DKMS != "true" ]; then
-        if [ $UNION_BUILD_TYPE = "overlayfs" ]; then
-            MODULES_LIST=""
-            if [ $SCRIPT_DIR != "/usr/bin" ]; then
-                MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
-                for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
-                    mkdir -p $MODULES_DIR/bundles/$BUNDLE
-                    mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
-                done
-                toggle_shell_options e
-                filter_modules $MODULES_DIR/bundles/
-                MODULES_LIST=${MODULES_LIST/%:/}
-                toggle_shell_options e
-            else
-                MODULES=$BUNDLES/
-                filter_modules $MODULES
-                MODULES_LIST=${MODULES_LIST/%:/}
-            fi
-            mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
-            mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
-        elif [ $UNION_BUILD_TYPE = "aufs" ]; then
-            MODULES_LIST=""
-            if [ $SCRIPT_DIR != "/usr/bin" ]; then
-                MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
-                for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-                    BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
-                    mkdir -p $MODULES_DIR/bundles/$BUNDLE
-                    mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
-                    MODULES_LIST=$MODULES_LIST":""$MODULES_DIR/bundles/$BUNDLE""=ro"
-                done
-                MODULES_LIST=${MODULES_LIST:1}
-            else
-                MODULES=$BUNDLES/
-                filter_modules $MODULES
-                MODULES_LIST=${MODULES_LIST/%:/}
-            fi
-            mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
-            mount -t aufs -o br:$MODULE_UPPER_DIR=rw:$MODULES_LIST aufs $MODULE_MERGED_DIR
-        fi
+        MODULES_LIST=""
+        MODULES=($WORK_DIR/image/$LIVEKITNAME/*.$BEXT)
+        for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
+            BUNDLE=$(basename ${MODULES[$i]} .$BEXT)
+            mkdir -p $MODULES_DIR/bundles/$BUNDLE
+            mount ${MODULES[$i]} $MODULES_DIR/bundles/$BUNDLE
+        done
+        toggle_shell_options e
+        filter_modules $MODULES_DIR/bundles/
+        MODULES_LIST=${MODULES_LIST/%:/}
+        toggle_shell_options e
+        mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
+        mount -t overlay overlay -o lowerdir=$MODULES_LIST,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
+
     else
         mkdir -p $MODULE_UPPER_DIR $MODULE_WORK_DIR $MODULE_MERGED_DIR
-        if [ $UNION_BUILD_TYPE = "overlayfs" ]; then
-            mount -t overlay overlay -o lowerdir=$LOWER_DIR,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
-        elif [ $UNION_BUILD_TYPE = "aufs" ]; then
-            mount -t aufs -o br:$MODULE_UPPER_DIR=rw:$LOWER_DIR aufs $MODULE_MERGED_DIR
-        fi
+        mount -t overlay overlay -o lowerdir=$LOWER_DIR,upperdir=$MODULE_UPPER_DIR,workdir=$MODULE_WORK_DIR $MODULE_MERGED_DIR
     fi
 
     toggle_shell_options u
@@ -2199,24 +2121,21 @@ function module_chroot_mount_fs() {
 
     mount --bind /dev $MODULE_MERGED_DIR/dev
 
-    if [ $SCRIPT_DIR = "/usr/bin" ]; then
-        echo "nameserver 8.8.8.8" >$MODULE_MERGED_DIR/etc/resolv.conf
-    else
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
-                    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-                        rm $MODULE_MERGED_DIR/etc/resolv.conf
-                    else
-                        mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
-                    fi
+    if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+            if [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
+                if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+                    rm $MODULE_MERGED_DIR/etc/resolv.conf
+                else
+                    mv $MODULE_MERGED_DIR/etc/resolv.conf $MODULE_MERGED_DIR/etc/resolv.conf.bak
                 fi
-                echo "nameserver 8.8.8.8" >>$MODULE_MERGED_DIR/etc/resolv.conf
             fi
-        else
-            mount --bind /run $MODULE_MERGED_DIR/run
+            echo "nameserver 8.8.8.8" >>$MODULE_MERGED_DIR/etc/resolv.conf
         fi
+    else
+        mount --bind /run $MODULE_MERGED_DIR/run
     fi
+
     mount none -t proc $MODULE_MERGED_DIR/proc
     mount none -t sysfs $MODULE_MERGED_DIR/sys
     mount none -t devpts $MODULE_MERGED_DIR/dev/pts
@@ -2246,34 +2165,25 @@ function module_chroot_umount_fs() {
     umount $MODULE_MERGED_DIR/dev/pts
     umount $MODULE_MERGED_DIR/tmp
     umount $MODULE_MERGED_DIR/dev
-    if [ $SCRIPT_DIR = "/usr/bin" ]; then
-        rm -f $MODULE_UPPER_DIR/etc/resolv.conf
 
-        umount $MODULE_MERGED_DIR
-
-        umount $MODULES_DIR/bundles/*
-
-        umount $MODULES_DIR
-    else
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-            if [[ -e $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
-                rm -f $MODULE_UPPER_DIR/etc/resolv.conf
-                mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
-            elif [ -e $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
-                rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
-            fi
-            : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
-                rm -f $MODULE_UPPER_DIR/run/resolvconf/resolv.conf
-                rmdir $MODULE_UPPER_DIR/run/resolvconf'
-        else
-            umount $MODULE_MERGED_DIR/run
-        fi
-        umount $MODULE_MERGED_DIR
-
-        if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+        if [[ -e $MODULE_MERGED_DIR/etc/resolv.conf.bak && ! -L $MODULE_MERGED_DIR/etc/resolv.conf ]] || [ $DISTRIBUTION = "stretch" ]; then
             rm -f $MODULE_UPPER_DIR/etc/resolv.conf
+            mv $MODULE_MERGED_DIR/etc/resolv.conf.bak $MODULE_MERGED_DIR/etc/resolv.conf
+        elif [ -e $MODULE_MERGED_DIR/etc/resolv.conf.bak ] && [ -L $MODULE_MERGED_DIR/etc/resolv.conf ]; then
             rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
         fi
+        : 'umount $MODULE_MERGED_DIR/run/resolvconf/resolv.conf
+                rm -f $MODULE_UPPER_DIR/run/resolvconf/resolv.conf
+                rmdir $MODULE_UPPER_DIR/run/resolvconf'
+    else
+        umount $MODULE_MERGED_DIR/run
+    fi
+    umount $MODULE_MERGED_DIR
+
+    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+        rm -f $MODULE_UPPER_DIR/etc/resolv.conf
+        rm -f $MODULE_UPPER_DIR/etc/resolv.conf.bak
     fi
 
     toggle_shell_options u
@@ -2322,12 +2232,6 @@ EOF
     dpkg-divert --rename --remove /sbin/initctl 2>/dev/null
 EOF
 
-    if [ $SCRIPT_DIR = "/usr/bin" ]; then
-        if [ -d $MODULE_UPPER_DIR/home/$USER_NAME ]; then
-            chown 1000:1000 $MODULE_UPPER_DIR/home/$USER_NAME
-            chown -R 1000:1000 $MODULE_UPPER_DIR/home/$USER_NAME
-        fi
-    fi
 }
 
 # =================================================================
@@ -2590,25 +2494,13 @@ function build_modules() {
             fi
         fi
 
-        if [ $SCRIPT_DIR = "/usr/bin" ]; then
-            WORK_DIR=$CURRENT_DIR
-            SOURCE_MODULES_DIR=$CURRENT_DIR/modules
-            MODULES_DIR=/tmp/build
+        SOURCE_MODULES_DIR=$SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT
+        MODULES_DIR=$WORK_DIR/modules
 
-            if [ -d $SOURCE_MODULES_DIR ]; then
-                cd $SOURCE_MODULES_DIR
-            else
-                help
-            fi
-        else
-            SOURCE_MODULES_DIR=$SCRIPT_DIR/linux-live/modules/$DESKTOP_ENVIRONMENT
-            MODULES_DIR=$WORK_DIR/modules
-
-            cd $SOURCE_MODULES_DIR
-        fi
+        cd $SOURCE_MODULES_DIR
 
         for MODULE in *; do
-            if [ $SCRIPT_DIR != "/usr/bin" ] && (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT 2>/dev/null | grep -q $MODULE 2>/dev/null); then
+            if (ls $WORK_DIR/image/$LIVEKITNAME/*.$BEXT 2>/dev/null | grep -q $MODULE 2>/dev/null); then
                 echo -e "${MAGENTA}$MODULE${ENDCOLOR} module building is skipped, because it is already present in the image folder." #| fold -w 80 -s
             elif ([[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]) && [ $KERNEL_TYPE = "none" ]; then
                 exit
@@ -2784,7 +2676,7 @@ function build_modules() {
                 fi
 
                 # run external actions
-                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR != "/usr/bin" ]; then
+                if [ -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
                     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                         if [ $KERNEL_BUILD_DKMS = "true" ]; then
                             cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
@@ -2793,19 +2685,6 @@ function build_modules() {
                         fi
                     else
                         cp $MODULE_UPPER_DIR/$MODULE.$BEXT $WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
-                    fi
-                elif [ -f $SOURCE_MODULES_DIR/$MODULE/build ] && [ $SCRIPT_DIR = "/usr/bin" ]; then
-                    if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-                        if [ $KERNEL_BUILD_DKMS = "true" ]; then
-                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
-                            chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
-                        else
-                            cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
-                            chmod 666 $CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
-                        fi
-                    else
-                        cp $MODULE_UPPER_DIR/$MODULE.$BEXT $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
-                        chmod 666 $CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                     fi
                 fi
 
@@ -2824,47 +2703,26 @@ function build_modules() {
                 mkmod_corefs $MODULE_UPPER_DIR
 
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
-                    if [ $SCRIPT_DIR = "/usr/bin" ]; then
+                    if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
                         if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
                             if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
                                 if [ $KERNEL_BUILD_DKMS = "true" ]; then
-                                    FILENAME=$CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
+                                    FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
                                 else
-                                    FILENAME=$CURRENT_DIR/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
+                                    FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
                                 fi
                             else
-                                FILENAME=$CURRENT_DIR/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
+                                FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
                             fi
 
                             time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
-
-                            chmod 666 $FILENAME
                         else
-                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} ${RED}is empty${ENDCOLOR}. Nothing to do."
+                            echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
                         fi
-                        module_chroot_umount_fs
                     else
-                        if [ ! -f $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT ]; then
-                            if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
-                                if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-                                    if [ $KERNEL_BUILD_DKMS = "true" ]; then
-                                        FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-ext-$COMP_TYPE.$BEXT
-                                    else
-                                        FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE-$KERNEL_SUFFIX-$COMP_TYPE.$BEXT
-                                    fi
-                                else
-                                    FILENAME=$WORK_DIR/image/$LIVEKITNAME/$MODULE_NAME-$DISTRIBUTION_ARCH-$COMP_TYPE.$BEXT
-                                fi
-
-                                time mksquashfs $COREFS $FILENAME -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
-                            else
-                                echo -e "${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR} is empty. Nothing to do."
-                            fi
-                        else
-                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-                            echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
-                            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-                        fi
+                        echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
+                        echo -e "Please remove ${MAGENTA}$WORK_DIR/image/$LIVEKITNAME/$MODULE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
+                        echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
                     fi
                 fi
             fi
@@ -2910,49 +2768,30 @@ function build_modules_live() {
 }
 
 function repack_module() {
-    if [ $SCRIPT_DIR = "/usr/bin" ]; then
-        cd $CURRENT_DIR
-    fi
     OLD_MODULE=$MODULE
     MODULE=${MODULE%"-$OLD_COMP_TYPE.$BEXT"}
     if [ $COMP_TYPE = $OLD_COMP_TYPE ]; then
         echo "The module is already in the required compression format." && exit
     fi
-    if [ $SCRIPT_DIR != "/usr/bin" ]; then
-        unsquashfs $OLD_MODULE
-        mkmod_corefs $WORK_DIR/image/$LIVEKITNAME/squashfs-root
-        time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
+    unsquashfs $OLD_MODULE
+    mkmod_corefs $WORK_DIR/image/$LIVEKITNAME/squashfs-root
+    time mksquashfs $COREFS $WORK_DIR/image/$LIVEKITNAME/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
 
-        rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
-        rm -f $WORK_DIR/image/$LIVEKITNAME/$OLD_MODULE
-    else
-        if (ls $CURRENT_DIR/*.$BEXT 2>/dev/null | grep -q $MODULE 2>/dev/null); then
-            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-            echo -e "Please remove $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT${ENDCOLOR} if you want to build ${MAGENTA}$MODULE${ENDCOLOR}."
-            echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-        else
-            time mksquashfs $BUNDLES/$OLD_MODULE $CURRENT_DIR/$MODULE-$COMP_TYPE.$BEXT -comp $COMP_TYPE $ADDITIONAL_COMP_OPTS -b 1024K -always-use-fragments -noappend || exit
-        fi
-    fi
+    rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
+    rm -f $WORK_DIR/image/$LIVEKITNAME/$OLD_MODULE
 }
 
 function repack_modules() {
     current_process
 
-    if [ $SCRIPT_DIR != "/usr/bin" ]; then
-        cd $WORK_DIR/image/$LIVEKITNAME/
-    else
-        cd $BUNDLES/
-    fi
+    cd $WORK_DIR/image/$LIVEKITNAME/
 
     for MODULE in *; do
-        if [ $SCRIPT_DIR != "/usr/bin" ] && [ -d $WORK_DIR/image/$LIVEKITNAME/squashfs-root ]; then
+        if [ -d $WORK_DIR/image/$LIVEKITNAME/squashfs-root ]; then
             rm -rf $WORK_DIR/image/$LIVEKITNAME/squashfs-root
         fi
         echo "Repacking module $MODULE"
-        if [ $SCRIPT_DIR != "/usr/bin" ]; then
-            cd $WORK_DIR/image/$LIVEKITNAME
-        fi
+        cd $WORK_DIR/image/$LIVEKITNAME
         OLD_COMP_TYPE=$(unsquashfs -s $MODULE | grep Compression | awk -F" " '{ print $2 }')
         repack_module
     done
