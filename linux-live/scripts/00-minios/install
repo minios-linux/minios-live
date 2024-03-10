@@ -20,21 +20,7 @@ WantedBy=multi-user.target
 
 EOF
 
-if [ $INITRD_TYPE = "uird" ]; then
-    cat <<EOF >/usr/lib/systemd/system/minios-syncconfig.service
-[Unit]
-Description=Sync minios.conf changes
-
-[Service]
-Type=oneshot
-ExecStart=-/bin/sh -c "if [ -f /memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ] && [ -w /memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /memory/data/$LIVEKITNAME/$LIVEKITNAME.conf; fi; sync"
-
-[Install]
-RequiredBy=minios-syncconfig.path
-
-EOF
-elif [ $INITRD_TYPE = "livekit-mos" ] || [ $INITRD_TYPE = "livekit-slax" ]; then
-    cat <<EOF >/usr/lib/systemd/system/minios-syncconfig.service
+cat <<EOF >/usr/lib/systemd/system/minios-syncconfig.service
 [Unit]
 Description=Sync minios.conf changes
 
@@ -46,7 +32,6 @@ ExecStart=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITN
 RequiredBy=minios-syncconfig.path
 
 EOF
-fi
 
 systemctl enable minios-startup.service
 #systemctl enable minios-shutdown.service
