@@ -37,10 +37,6 @@ if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
     new_run
 fi
 
-create_livekitname_install_symlink
-
-create_completion
-
 # check number of args
 if [[ $# == 0 || $# > 3 ]]; then help; fi
 

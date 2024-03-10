@@ -21,7 +21,7 @@ else
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "bullseye" ]; then
             #Slax 11 no longer uses firmware-nonfree
-            install_packages --delete-packages="firmware-linux-nonfree"
+            install_packages --delete-packages "firmware-linux-nonfree"
         else
             install_packages
         fi

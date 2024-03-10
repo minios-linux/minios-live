@@ -22,9 +22,9 @@ fi
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
         if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-                install_packages --package-list="$SCRIPT_DIR/package.list" --target-release="$DISTRIBUTION-backports"
+                install_packages --package-list "$SCRIPT_DIR/package.list" --target-release "$DISTRIBUTION-backports"
         else
-                install_packages --package-list="$SCRIPT_DIR/package.list"
+                install_packages --package-list "$SCRIPT_DIR/package.list"
         fi
 
         PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
