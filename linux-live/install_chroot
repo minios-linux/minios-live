@@ -9,14 +9,12 @@ SET_U=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-#. $SCRIPT_DIR/buildconfig || exit 1
 . $SCRIPT_DIR/minioslib || exit 1
-. $SCRIPT_DIR/config || exit 1
-set +u
+toggle_shell_options u
 if [ -z $BATCH ]; then
-	. $SCRIPT_DIR/buildconfig || exit 1
+	. $SCRIPT_DIR/config || exit 1
 fi
-set -u
+toggle_shell_options u
 . $SCRIPT_DIR/kernelconfig || exit 1
 
 CMD=(chroot_setup_host chroot_pkg_install chroot_finish_up)

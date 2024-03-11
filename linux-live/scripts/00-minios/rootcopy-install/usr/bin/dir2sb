@@ -4,8 +4,7 @@
 
 . /usr/lib/minioslib || exit 1
 
-read_config /etc/minios/config BEXT
-read_config /etc/minios/buildconfig COMP_TYPE
+read_config /etc/minios/config BEXT COMP_TYPE
 
 usage() {
    echo ""

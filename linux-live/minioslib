@@ -80,6 +80,8 @@ function common_variables() {
         exit 1
         ;;
     esac
+
+    # We need to change this.
     if [ $DISTRIBUTION_TYPE = "debian" ]; then
         if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
             DISTRIBUTION_URL="https://snapshot.debian.org/archive/debian/$SNAPSHOT_DATE"
@@ -89,7 +91,6 @@ function common_variables() {
     elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
     fi
-
     if [ $DISTRIBUTION = "kali-rolling" ]; then
         DISTRIBUTION_URL="http://archive.kali.org/kali"
     fi
@@ -124,7 +125,7 @@ function common_variables() {
     if [ $MULTILINGUAL = "true" ]; then
         LANGUAGE_CODE=""
     else
-        LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)-"
+        LANGUAGE_CODE="$(echo $LOCALE | cut -d_ -f1)"
     fi
 
     if [ "$COMP_TYPE" = "zstd" ]; then
@@ -508,12 +509,9 @@ function chroot_mount_fs() {
     mount none -t sysfs $INSTALL_DIR/sys
     mount none -t devpts $INSTALL_DIR/dev/pts
     mount none -t tmpfs $INSTALL_DIR/tmp
-    if [ ! -d $SCRIPT_DIR/aptcache/$DISTRIBUTION ]; then
-        mkdir -p $SCRIPT_DIR/aptcache/$DISTRIBUTION
-    fi
-    if [ ! -d $INSTALL_DIR/var/cache/apt/archives ]; then
-        mkdir -p $INSTALL_DIR/var/cache/apt/archives
-    fi
+
+    mkdir -p $SCRIPT_DIR/aptcache/$DISTRIBUTION $INSTALL_DIR/var/cache/apt/archives
+
     mount --bind $SCRIPT_DIR/aptcache/$DISTRIBUTION $INSTALL_DIR/var/cache/apt/archives
 }
 
@@ -605,7 +603,7 @@ function new_run() {
 # The second file contains several utility functions
 # =================================================================
 function add_chroot_configuration_files() {
-    cat <<EOF >$1/$LIVEKITNAME.conf
+    cat <<EOF >$1/miniosbuild.conf
 BUILD_TEST_ISO="$BUILD_TEST_ISO"
 DEBIAN_FRONTEND_TYPE="$DEBIAN_FRONTEND_TYPE"
 DESKTOP_ENVIRONMENT="$DESKTOP_ENVIRONMENT"
@@ -644,7 +642,7 @@ EOF
 }
 
 function remove_chroot_configuration_files() {
-    rm -f $1/$LIVEKITNAME.conf
+    rm -f $1/miniosbuild.conf
     rm -f $1/functions
     rm -f $1/minioslib
 }
@@ -684,7 +682,10 @@ function pkg() {
     fi
 
     case "$PACKAGE_MANAGER" in
-    apt-get | apt | dnf | yum)
+    apt-get | apt)
+        INSTALL_OPTIONS="--yes"
+        ;;
+    dnf | yum)
         INSTALL_OPTIONS="--yes"
         ;;
     esac
@@ -748,7 +749,7 @@ toggle_shell_options() {
             determine_option_status "${OPTION}"
             if [ "${!SET_OPTION}" = "true" ]; then
                 set "+${OPTION}"
-                print_option_status "${OPTION}"
+                #print_option_status "${OPTION}"
                 continue
             fi
         fi
@@ -756,7 +757,7 @@ toggle_shell_options() {
         if [ "${!SET_OPTION}" = "true" ]; then
             set "-${OPTION}"
             eval "${SET_OPTION}=''"
-            print_option_status "${OPTION}"
+            #print_option_status "${OPTION}"
         fi
     done
 }
@@ -799,7 +800,7 @@ function get_vars() {
     toggle_shell_options u
     add_chroot_configuration_files $1
     . /minioslib
-    read_config /$LIVEKITNAME.conf $VARIABLES
+    read_config /miniosbuild.conf $VARIABLES
     export $VARIABLES
     toggle_shell_options u
 }
@@ -809,7 +810,7 @@ function chroot_run() {
     add_chroot_configuration_files $1
     chroot $1 /bin/bash <<EOF
 . /minioslib
-read_config /$LIVEKITNAME.conf $VARIABLES
+read_config /miniosbuild.conf $VARIABLES
 export $VARIABLES
 ${@:2}
 EOF
@@ -846,129 +847,83 @@ remove_broken_links() {
 function extract_tarball() {
     local TARBALL=$1
     local DESTINATION=$2
+    if [ ! -f "$TARBALL" ]; then
+        echo "File $TARBALL not found!"
+        exit 1
+    fi
     mkdir -p $DESTINATION
     tar -xzf $TARBALL -C $DESTINATION
+    if [ $? -ne 0 ]; then
+        echo "Error extracting tarball $TARBALL!"
+        exit 1
+    fi
 }
 
 function build_bootstrap() {
     current_process
 
-    ROOTFS_TARBALL=$SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz
-    DEBOOTSTRAP_TARBALL=$SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH.tar.gz
+    local ROOTFS_TARBALL=$SCRIPT_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz
+    local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https --include=ca-certificates"
 
     if [ $CONTAINER_TYPE = "1" ]; then
         if [ ! -f /.minios-live ]; then
             setup_host
         fi
     fi
-    if [ $USE_ROOTFS = "true" ]; then
 
-        if [ ! -f $ROOTFS_TARBALL ]; then
-            if [ -f $DEBOOTSTRAP_TARBALL ]; then
-                extract_tarball $DEBOOTSTRAP_TARBALL $INSTALL_DIR
-            else
-                mkdir -p "$SCRIPT_DIR/aptcache/$DISTRIBUTION"
-                mkdir -p "$INSTALL_DIR/var/cache/apt/archives"
-                mount --bind "$SCRIPT_DIR/aptcache/$DISTRIBUTION" "$INSTALL_DIR/var/cache/apt/archives"
-                local DEBOOTSTRAP_INCLUDE=""
-                if [ $DISTRIBUTION_TYPE != "ubuntu" ]; then
-                    DEBOOTSTRAP_INCLUDE="--include=apt-transport-https"
-                fi
-                sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-                    debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-                umount "$INSTALL_DIR/var/cache/apt/archives"
-                mkdir -p $SCRIPT_DIR/rootfs
-                tar -czf $ROOTFS_TARBALL -C $INSTALL_DIR .
-            fi
-        else
+    if [ $USE_ROOTFS = "true" ]; then
+        if [ -f $ROOTFS_TARBALL ]; then
             extract_tarball $ROOTFS_TARBALL $INSTALL_DIR
-        fi
-    elif [ $USE_BOOTSTRAP = "true" ]; then
-        if [ -f $DEBOOTSTRAP_TARBALL ]; then
-            extract_tarball $DEBOOTSTRAP_TARBALL $INSTALL_DIR
         else
-            local DEBOOTSTRAP_INCLUDE=""
-            if [ $DISTRIBUTION_TYPE != "ubuntu" ]; then
-                DEBOOTSTRAP_INCLUDE="--include=apt-transport-https"
-            fi
+            mkdir -p "$SCRIPT_DIR/aptcache/$DISTRIBUTION" "$INSTALL_DIR/var/cache/apt/archives"
+            mount --bind "$SCRIPT_DIR/aptcache/$DISTRIBUTION" "$INSTALL_DIR/var/cache/apt/archives"
+
             sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
                 debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
+            if [ $? -ne 0 ]; then
+                echo "Error running debootstrap!"
+                exit 1
+            fi
+
+            umount "$INSTALL_DIR/var/cache/apt/archives"
+            if [ $? -ne 0 ]; then
+                echo "Error unmounting $INSTALL_DIR/var/cache/apt/archives"
+                exit 1
+            fi
+
             mkdir -p $SCRIPT_DIR/rootfs
-            tar -czf $DEBOOTSTRAP_TARBALL -C $INSTALL_DIR .
-        fi
-    else
-        local DEBOOTSTRAP_INCLUDE=""
-        if [ $DISTRIBUTION_TYPE != "ubuntu" ]; then
-            DEBOOTSTRAP_INCLUDE="--include=apt-transport-https"
-        fi
-        sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
-            debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
-    fi
-
-    build_rootfs
-
-}
-
-function mx_repo() {
-    current_function
-    if [ $USE_MX_REPO = "true" ]; then
-        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-            cd $INSTALL_DIR
-            wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-            chroot_run $INSTALL_DIR pkg install /*.deb
-            rm $INSTALL_DIR/*.deb
-            cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/mx.list
-# MX Community Main and Test Repos
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
-#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
-
-#ahs hardware stack repo
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
-EOF
-        fi
-    fi
-}
-
-function antix_repo() {
-    current_function
-    if [ $USE_ANTIX_REPO = "true" ]; then
-        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-            cd $INSTALL_DIR
-            wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-            chroot_run $INSTALL_DIR pkg install /*.deb
-            rm $INSTALL_DIR/*.deb
-            cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/antix.list
-# antiX Community Repos
-deb http://mirror.yandex.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
-EOF
-        fi
-    fi
-}
-
-function mint_repo() {
-    current_function
-    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-        if [ $DISTRIBUTION = "jammy" ]; then
-            cd $INSTALL_DIR
-            wget http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/linuxmint-keyring_2022.06.21_all.deb
-            chroot_run $INSTALL_DIR pkg install /*.deb
-            rm $INSTALL_DIR/*.deb
-            if [ $DISTRIBUTION = "focal" ]; then
-                cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/linux-mint.list
-deb http://packages.linuxmint.com una main upstream import backport #id:linuxmint_main
-EOF
-            elif [ $DISTRIBUTION = "jammy" ]; then
-                cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/linux-mint.list
-deb http://packages.linuxmint.com vera main upstream import backport #id:linuxmint_main
-EOF
+            tar -czf $ROOTFS_TARBALL -C $INSTALL_DIR .
+            if [ $? -ne 0 ]; then
+                echo "Error creating tarball $ROOTFS_TARBALL!"
+                exit 1
             fi
         fi
+    else
+        sudo DEBIAN_FRONTEND=$DEBIAN_FRONTEND_TYPE \
+            debootstrap --arch=$DISTRIBUTION_ARCH $DEBOOTSTRAP_INCLUDE $DISTRIBUTION $INSTALL_DIR $DISTRIBUTION_URL
+        if [ $? -ne 0 ]; then
+            echo "Error running debootstrap!"
+            exit 1
+        fi
+    fi
+
+    if [ $DISTRIBUTION = "kali-rolling" ]; then
+        DISTRIBUTION="testing"
+        create_apt_list
+        cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
+        chroot_run $INSTALL_DIR pkg update
+        chroot_run $INSTALL_DIR pkg install gnupg
+        chroot_run $INSTALL_DIR apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
+        DISTRIBUTION="kali-rolling"
+    fi
+
+    create_apt_list
+
+    if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
+        cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION-snapshot.list $INSTALL_DIR/etc/apt/sources.list
+        echo 'Acquire::Check-Valid-Until "false";' | sudo tee $INSTALL_DIR/etc/apt/apt.conf.d/00snapshot
+    else
+        cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
     fi
 }
 
@@ -983,7 +938,7 @@ function build_rootfs() {
                 fi
             fi
 
-            chroot_mount_fs
+            chroot_mount_fs $INSTALL_DIR
 
             cat <<'EOF' >$INSTALL_DIR/etc/apt/apt.conf.d/000MiniOS
 APT::Install-Recommends "0";
@@ -1012,9 +967,6 @@ EOF
             else
                 cp -f $SCRIPT_DIR/linux-live/aptsources/$DISTRIBUTION.list $INSTALL_DIR/etc/apt/sources.list
             fi
-
-            mx_repo
-            antix_repo
 
             chroot_run $INSTALL_DIR pkg update
             chroot_run $INSTALL_DIR pkg upgrade
@@ -1085,7 +1037,7 @@ function build_chroot() {
         fi
     fi
 
-    chroot_mount_fs
+    chroot_mount_fs $INSTALL_DIR
 
     copy_build_scripts
 
@@ -1421,8 +1373,8 @@ EOF
     create_readme
 
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-        # miniosbuild.conf generation is in linux-live/scripts/01-kernel/build
-        [ -f $MODULE_UPPER_DIR/miniosbuild.conf ] && read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
+        # kernel.conf generation is in linux-live/scripts/01-kernel/build
+        [ -f $MODULE_UPPER_DIR/kernel.conf ] && read_config $MODULE_UPPER_DIR/kernel.conf KERNEL
 
         copy_build_scripts $MODULE_MERGED_DIR
         chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
@@ -1462,9 +1414,9 @@ function build_iso() {
     DIR="$WORK_DIR/image"
 
     if [ $DESKTOP_ENVIRONMENT = "xfce-ultra" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle" ] || [ $DESKTOP_ENVIRONMENT = "xfce-puzzle-base" ]; then
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE$
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$LANGUAGE_CODE
     else
-        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE$
+        IMAGE=$LIVEKITNAME-$DISTRIBUTION-$DESKTOP_ENVIRONMENT-$PACKAGE_VARIANT-$LANGUAGE_CODE
     fi
     if [ $KERNEL_AUFS = "true" ]; then
         IMAGE=$IMAGE-aufs
@@ -1584,7 +1536,7 @@ function chroot_cleanup() {
 
     toggle_shell_options eu
 
-    rm -f $1/$LIVEKITNAME.conf 2>/dev/null
+    rm -f $1/miniosbuild.conf 2>/dev/null
     rm -f $1/$PACKAGE_VARIANT.list 2>/dev/null
     rm -f $1/$PACKAGE_VARIANT-l10n.list 2>/dev/null
     rm -f $1/build 2>/dev/null
@@ -2020,10 +1972,10 @@ function filter_modules() {
             FILTER_LEVEL=$((${MODULE:1:1} - 1))
         fi
     else
-        if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
-            read_config $SCRIPT_DIR/linux-live/container_buildconfig FILTER_MODULES FILTER_LEVEL
+        if [ -f $SCRIPT_DIR/linux-live/container_config ]; then
+            read_config $SCRIPT_DIR/linux-live/container_config FILTER_MODULES FILTER_LEVEL
         else
-            read_config $SCRIPT_DIR/linux-live/buildconfig FILTER_MODULES FILTER_LEVEL
+            read_config $SCRIPT_DIR/linux-live/config FILTER_MODULES FILTER_LEVEL
         fi
     fi
     echo -e "=====  ${YELLOW}MODULE=$MODULE${ENDCOLOR}"
@@ -2367,8 +2319,8 @@ function kernel_variables() {
 # =================================================================
 function create_initrfs() {
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
-        if [ -f $MODULE_UPPER_DIR/miniosbuild.conf ]; then
-            read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
+        if [ -f $MODULE_UPPER_DIR/kernel.conf ]; then
+            read_config $MODULE_UPPER_DIR/kernel.conf KERNEL
         fi
         copy_build_scripts $MODULE_MERGED_DIR
         chmod +x $MODULE_MERGED_DIR/linux-live/initrfs
@@ -2548,7 +2500,7 @@ function build_modules() {
                 fi
 
                 if [ -f $SOURCE_MODULES_DIR/$MODULE/is_dkms_build ]; then
-                    read_config $MODULE_UPPER_DIR/miniosbuild.conf KERNEL
+                    read_config $MODULE_UPPER_DIR/kernel.conf KERNEL
 
                     remove_symlink_if_exists $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/build
                     remove_symlink_if_exists $MODULE_UPPER_DIR/usr/lib/modules/$KERNEL/source
@@ -2595,11 +2547,9 @@ function build_modules() {
                     if [ ! -d $MODULE_MERGED_DIR/etc/minios ]; then
                         mkdir -p $MODULE_MERGED_DIR/etc/minios
                     fi
-                    if [ -f $SCRIPT_DIR/linux-live/container_config ] && [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
+                    if [ -f $SCRIPT_DIR/linux-live/container_config ]; then
                         cp $SCRIPT_DIR/linux-live/container_config $MODULE_MERGED_DIR/etc/minios/config
-                        cp $SCRIPT_DIR/linux-live/container_buildconfig $MODULE_MERGED_DIR/etc/minios/buildconfig
                     else
-                        cp $SCRIPT_DIR/linux-live/buildconfig $MODULE_MERGED_DIR/etc/minios/buildconfig
                         cp $SCRIPT_DIR/linux-live/config $MODULE_MERGED_DIR/etc/minios/config
                     fi
                     cp $SCRIPT_DIR/linux-live/kernelconfig $MODULE_MERGED_DIR/etc/minios/kernelconfig
@@ -2772,14 +2722,13 @@ function repack_modules() {
 # =================================================================
 
 function generate_config_files() {
-    cp -f "$SCRIPT_DIR/linux-live/buildconfig" "$SCRIPT_DIR/linux-live/container_buildconfig"
     cp -f "$SCRIPT_DIR/linux-live/config" "$SCRIPT_DIR/linux-live/container_config"
 
     VARS=("DISTRIBUTION_TYPE" "DISTRIBUTION" "DISTRIBUTION_ARCH" "DESKTOP_ENVIRONMENT" "PACKAGE_VARIANT" "KERNEL_TYPE" "KERNEL_BPO" "KERNEL_AUFS" "COMP_TYPE" "LOCALE" "MULTILINGUAL")
     for VAR in "${VARS[@]}"; do
-        sed -i -e "/$VAR=/s/=.*/=\"${!VAR}\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+        sed -i -e "/$VAR=/s/=.*/=\"${!VAR}\"/" "$SCRIPT_DIR/linux-live/container_config"
     done
-    sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" "$SCRIPT_DIR/linux-live/container_buildconfig"
+    sed -i -e "/TIMEZONE=/s/=.*/=\"${TIMEZONE//\//\\/}\"/" "$SCRIPT_DIR/linux-live/container_config"
 }
 
 function container_run() {
@@ -2815,13 +2764,12 @@ function container_run() {
             -e DISTRIBUTION_VARIANT="minbase" \
             -e BATCH="true" \
             -e BUILD_TEST_ISO="false" \
-            -e DEBOOTSTRAP_TARBALL="false" \
+            -e ROOTFS_TARBALL="false" \
             -e DEBIAN_FRONTEND_TYPE="noninteractive" \
             -e APT_CMD="apt-get" \
-            -e BOOT_TYPE="hybrid" \
             -e UNION_BUILD_TYPE="overlayfs" \
             -e SYSTEMNAME="MiniOS" \
-            -e USE_BOOTSTRAP="true" \
+            -e USE_ROOTFS="true" \
             -e USE_ROOTFS="true" \
             -e REMOVE_OLD_ISO="true" \
             -e REMOVE_SOURCES="true" \
@@ -2855,9 +2803,6 @@ function container_status_check() {
 }
 
 function container_build_finish() {
-    if [ -f $SCRIPT_DIR/linux-live/container_buildconfig ]; then
-        rm -f $SCRIPT_DIR/linux-live/container_buildconfig
-    fi
     if [ -f $SCRIPT_DIR/linux-live/container_config ]; then
         rm -f $SCRIPT_DIR/linux-live/container_config
     fi

@@ -12,7 +12,7 @@ CWD=$(pwd)
 # Read the configuration from /etc/minios/config for LIVEKITNAME and SYSTEMNAME variables
 read_config /etc/minios/config LIVEKITNAME
 LIVEKITNAME=${LIVEKITNAME:-"minios"}
-read_config /etc/minios/buildconfig SYSTEMNAME
+read_config /etc/minios/config SYSTEMNAME
 SYSTEMNAME=${SYSTEMNAME:-"MiniOS"}
 
 # Regular expression pattern for filtering disks
