@@ -1,11 +1,9 @@
-#!/bin/bash
-# This is a config file for Linux Live Kit build script.
-# You shouldn't need to change anything expect LIVEKITNAME
+######### INIT SETTINGS #########
 
-# Live Kit Name. Defaults to 'linux';
+# Live Kit Name. Defaults to 'minios';
 # This will be the name of the directory created on your CD/USB, which
 # will contain everything including boot files and such.
-# For example, MiniOS changes it to 'minios'
+# For example, 'minios' changes it to 'minios'
 # Must not contain any spaces.
 LIVEKITNAME="minios"
 
@@ -16,11 +14,197 @@ LIVEKITNAME="minios"
 # To enable, set to true
 NETWORK="true"
 
-# If you need support for VM drivers at boot time (QEMU KVM, VMware
-# ESXi), you can enable it here.
-# This is disabled by default since most people won't need it.
-# To enable, set to true
-#CLOUD=false
-
 # Bundle extension, for example 'sb' for .sb extension
 BEXT="sb"
+
+##### DISTRIBUTION SETTINGS #####
+# distribution
+#
+# if Debian [stretch, buster, bullseye, bookworm, trixie, sid, kali-rolling]
+# if Ubuntu [bionic, focal, jammy]
+DISTRIBUTION="bookworm"
+
+# distribution arch
+#
+# [amd64, i386, i386-pae]
+DISTRIBUTION_ARCH="amd64"
+
+# desktop environment
+#
+# [core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt]
+DESKTOP_ENVIRONMENT="xfce"
+
+# system variant, indicates the used list of packages in modules
+#
+# [cloud, minimum, standard, maximum, ultra, puzzle]
+PACKAGE_VARIANT="standard"
+
+# compresssion type
+#
+# stretch: [xz, lzo, gz]
+# buster+: [xz, lzo, gz, lz4, zstd]
+COMP_TYPE="zstd"
+
+###########################
+
+##### KERNEL SETTINGS #####
+# [none, default, rt, cloud, pve, ubuntu, ubuntu-hwe]
+KERNEL_TYPE="default"
+
+# Linux kernel from backports
+#
+# [true, false]
+KERNEL_BPO="false"
+
+# Debian kernel with AUFS support
+#
+# [true, false]
+KERNEL_AUFS="true"
+
+# if "true", then additional drivers for wireless network adapters are compiled during kernel installation
+#
+KERNEL_BUILD_DKMS="false"
+
+# If true, then the names of initrfs.img and vmlinuz will indicate the version of the kernel for which they are intended.
+#
+# [true, false]
+NAMED_BOOT_FILES="false"
+
+# If true, then initrfs.img and vmlinuz will be copied to the minios-live/build/[distribution name]/kernel folder when the kernel is installed.
+#
+# [true, false]
+EXPORT_KERNEL="true"
+
+# If true, then initrfs.img and vmlinuz will be moved to the minios-live/build/[distribution name]/kernel folder when the kernel is installed.
+#
+# [true, false]
+MOVE_KERNEL="false"
+
+# If true, a log folder is created in the minios folder on the media, into which the system startup logs are copied.
+#
+# [true, false]
+EXPORT_LOGS="false"
+###########################
+
+##### LOCALE&TIMEZONE SETTINGS #####
+# [en_US, ru_RU, es_ES, pt_BR]
+LOCALE="en_US"
+
+# If true, locales are generated for several languages defined in the LOCALES variable in minioslib
+# [true, false]
+MULTILINGUAL="false"
+
+# It is not necessary to change the time zone, the system automatically determines the time zone and sets it to the current location if you have Internet access.
+#
+# [any timezone]
+TIMEZONE="Etc/UTC"
+###########################
+
+##### minios.conf SETTINGS #####
+USER_NAME="live"
+USER_PASSWORD="evil"
+ROOT_PASSWORD="toor"
+
+# this parameter only works for initrd livekit-mos
+#
+DEFAULT_TARGET="graphical"
+
+# this parameter only works for initrd livekit-mos
+#
+ENABLE_SERVICES=""
+
+# this parameter only works for initrd livekit-mos
+#
+DISABLE_SERVICES=""
+
+# [true, false]
+SCRIPTS="false"
+
+# [true, false]
+AUTOLOGIN="true"
+
+# file name in the minios folder where the system will look for the ssh public key
+#
+# [any file name]
+SSH_KEY="authorized_keys"
+
+# [true, false]
+CLOUD="false"
+
+# Hide credentials displayed as a hint in the console
+#
+# [true, false]
+HIDE_CREDENTIALS="false"
+
+# if ="true", creates a second iso with a constant filename
+#
+# [true, false]
+BUILD_TEST_ISO="true"
+
+# removes old iso files for this build type
+#
+# [true, false]
+REMOVE_OLD_ISO="true"
+
+# [noninteractive, dialog, text]
+DEBIAN_FRONTEND_TYPE="noninteractive"
+
+# union type used to build the system
+#
+# [aufs, overlayfs]
+UNION_BUILD_TYPE="overlayfs"
+
+# Used when assigned to the ISO name when building minios-live
+#
+SYSTEMNAME="MiniOS"
+
+# using a ready-made rootfs file during installation. If absent, then it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
+#
+# [true, false]
+USE_ROOTFS="true"
+
+# if true, then the installation of packages required for the build is skipped
+#
+# [true, false]
+SKIP_SETUP_HOST="false"
+
+# deleting sources after building
+#
+# [true, false]
+REMOVE_SOURCES="false"
+
+# if true, then removes the dpkg base from the module (it is necessary so that additional modules do not break the common base if they do not use the cumulative structure of modules and are built relative to a certain level, and not relative to all system modules)
+#
+# [true, false]
+REMOVE_DPKG_DB="false"
+
+# [true, false]
+KERNEL_MODULES_ONLY="true"
+
+# [true, false]
+REMOVE_LARGE_ICONS="true"
+
+# if true, then when building modules from within the system, allows you to set the maximum level at which modules will be built
+# for example, level 4 is a build relative to modules 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. If the module is built like this, then it will not conflict with any module built at level 4, if all modules 01-04 are present in the system.
+#
+# [true, false]
+FILTER_MODULES="false"
+
+# modules filter level, see above
+#
+# [0, 1, 2, 3, 4...]
+FILTER_LEVEL="3"
+
+# [true, false]
+USE_UNOFFICIAL_REPOSITORY="false"
+
+# [repo address]
+UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3"
+
+# [true, false]
+BUILD_FROM_SNAPSHOT="false"
+
+# [snapshot date]
+# For example, the latest date with an available Debian 9 repository is as follows
+#SNAPSHOT_DATE="20220630T090257Z"
+SNAPSHOT_DATE="20220223T214737Z"

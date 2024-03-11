@@ -28,7 +28,6 @@ function set_trace_log() {
 
 function set_variables() {
     CONFIG=/etc/minios/config
-    BUILDCONFIG=/etc/minios/buildconfig
     if [ -f "$CONFIG" ]; then
         read_config "$CONFIG" LIVEKITNAME
     else

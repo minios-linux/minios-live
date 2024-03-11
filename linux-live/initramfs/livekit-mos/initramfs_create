@@ -3,15 +3,24 @@
 # Author: Tomas M <http://www.linux-live.org/>
 # Author: crims0n <https://minios.dev>
 
+read_config_value() {
+   cat $1 | egrep -o "(^|[[:space:]])$2=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
+}
+
 [ ! "$1" ] && echo "Builds LiveKit initrfs.img
     Usage:   $0 [\$KERNEL]
     Example: $0 5.10.136" && exit 1
 KERNEL=$1
 if [ -f ../../container_config ]; then
-   . ../../container_config
+   CONFIG="../../container_config"
 else
-   . ../../config
+   CONFIG="../../config"
 fi
+
+#LIVEKITNAME=$(read_config_value $CONFIG LIVEKITNAME)
+#NETWORK=$(read_config_value $CONFIG NETWORK)
+LIVEKITNAME="minios"
+NETWORK="true"
 
 LMK="lib/modules/$KERNEL"
 
@@ -138,34 +147,6 @@ copy_including_deps /$LMK/kernel/drivers/block/loop.*
 copy_including_deps /$LMK/kernel/drivers/block/nbd.* # for Rescuezilla
 copy_including_deps /$LMK/kernel/drivers/md/dm-mod.* # for Ventoy
 
-: 'copy_including_deps /$LMK/kernel/drivers/block
-   copy_including_deps /$LMK/kernel/drivers/hv/hv_vmbus.*
-   copy_including_deps /$LMK/kernel/drivers/md/dm-mod.*
-   #copy_including_deps /$LMK/kernel/drivers/net/hyperv
-   #copy_including_deps /$LMK/kernel/drivers/net/ipvlan
-   copy_including_deps /$LMK/kernel/drivers/net/vmxnet3
-   #copy_including_deps /$LMK/kernel/drivers/net/wireguard
-   #copy_including_deps /$LMK/kernel/drivers/net/eql.*
-   #copy_including_deps /$LMK/kernel/drivers/net/geneve.*
-   #copy_including_deps /$LMK/kernel/drivers/net/macsec.*
-   copy_including_deps /$LMK/kernel/drivers/net/net_failover.*
-   copy_including_deps /$LMK/kernel/drivers/net/netconsole.*
-   copy_including_deps /$LMK/kernel/drivers/net/nlmon.*
-   copy_including_deps /$LMK/kernel/drivers/net/tap.*
-   copy_including_deps /$LMK/kernel/drivers/net/virtio_net.*
-   copy_including_deps /$LMK/kernel/drivers/net/vrf.*
-   copy_including_deps /$LMK/kernel/drivers/net/vsockmon.*
-   copy_including_deps /$LMK/kernel/drivers/net/vxlan.*
-   #copy_including_deps /$LMK/kernel/drivers/net/xen-netfront.*
-   copy_including_deps /$LMK/kernel/drivers/pci/controller
-   copy_including_deps /$LMK/kernel/drivers/pps/pps_core.*
-   copy_including_deps /$LMK/kernel/drivers/ptp/ptp.*
-   copy_including_deps /$LMK/kernel/drivers/scsi
-   copy_including_deps /$LMK/kernel/drivers/virtio/virtio.*
-   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_mmio.*
-   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_pci.*
-   copy_including_deps /$LMK/kernel/drivers/virtio/virtio_ring.*'
-
 # usb drivers
 copy_including_deps /$LMK/kernel/drivers/usb/storage
 copy_including_deps /$LMK/kernel/drivers/usb/host
@@ -243,11 +224,6 @@ if [ -f ../container_config ]; then
    cp ../../container_config $INITRAMFS/lib/config
 else
    cp ../../config $INITRAMFS/lib/
-fi
-if [ -f ../container_buildconfig ]; then
-   cp ../../container_buildconfig $INITRAMFS/lib/buildconfig
-else
-   cp ../../buildconfig $INITRAMFS/lib/
 fi
 
 cd $INITRAMFS

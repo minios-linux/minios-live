@@ -5,24 +5,11 @@
 
 . /usr/lib/minioslib || exit 1
 
-VERSION="1.0"
-CWD=$(pwd)
+VERSION="1.1"
 read_config /etc/minios/config LIVEKITNAME
-LIVEKITNAME=${LIVEKITNAME:-"minios"}
-read_config /etc/minios/buildconfig BOOT_TYPE
-BOOT_TYPE=${BOOT_TYPE:-"hybrid"}
-read_config /etc/minios/buildconfig SYSTEMNAME
-SYSTEMNAME=${SYSTEMNAME:-"MiniOS"}
-
-if [ -d /run/initramfs/memory ]; then
-    SOURCE=/run/initramfs/memory
-elif [ -d /memory ]; then
-    SOURCE="/memory"
-fi
+read_config /etc/minios/config SYSTEMNAME
 
 TEMP=/tmp/"$LIVEKITNAME"iso.$$
-REGEX='^$'
-TARGET=""
 MODULES=()
 
 help() {
@@ -43,13 +30,13 @@ help() {
     exit 0
 }
 
-function brief_help() {
+brief_help() {
     echo "Usage: $(basename $0) [OPTIONS]... [MODULE.SB]..."
     echo "Try '$(basename $0) --help' for more information."
     exit 1
 }
 
-function version() {
+version() {
     echo "$(basename $0) $VERSION"
     exit 0
 }
@@ -91,9 +78,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-if [ "$TARGET" = "" ]; then
-    TARGET="$LIVEKITNAME-$(date +%Y%m%d_%H%M).iso"
-fi
+TARGET=${TARGET:-"$LIVEKITNAME-$(date +%Y%m%d_%H%M).iso"}
 
 if [ -e "$SOURCE/data/$LIVEKITNAME/boot/isolinux.bin" ]; then
     MINIOS=$SOURCE/data/$LIVEKITNAME
@@ -109,36 +94,6 @@ if [ "$MINIOS" = "" ]; then
     echo "Cannot find boot/isolinux.bin in MiniOS data" >&2
     exit 2
 fi
-
-EFI="$MINIOS/boot/EFI"
-
-B="-b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot"
-
-if [ $BOOT_TYPE = "hybrid" ]; then
-    C="-no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot"
-else
-    C="-no-emul-boot -boot-load-size 4 -boot-info-table"
-fi
-
-if [ -x "$(which xorriso 2>/dev/null)" ] && [ $BOOT_TYPE = "hybrid" ]; then
-    M="xorriso -as mkisofs -isohybrid-mbr $MINIOS/boot/isohdpfx.bin"
-    D=" -isohybrid-gpt-basdat -e"
-elif [ -x "$(which genisoimage 2>/dev/null)" ]; then
-    M=genisoimage
-    if [ $BOOT_TYPE = "hybrid" ]; then
-        D="-efi-boot"
-    else
-        D=""
-    fi
-fi
-
-if [ $BOOT_TYPE = "hybrid" ]; then
-    E="/$LIVEKITNAME/boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
-else
-    E=""
-fi
-
-VER="$SYSTEMNAME"
 
 echo $SYSTEMNAME >/tmp/info
 cat <<EOF >/tmp/README
@@ -157,13 +112,12 @@ EOF
 
 GRAFT=$(
     cd "$MINIOS"
-    #find . -type f | sed -r "s:^[.]/::" | egrep -v "^boot/isolinux.(bin|boot)$" | egrep -v "^boot/isohdpfx.(bin|boot)$" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
     find . -type f | sed -r "s:^[.]/::" | egrep -v "^changes/" | egrep -v "$REGEX" | while read LINE; do
         echo "$LIVEKITNAME/$LINE=$MINIOS/$LINE"
     done
-    cd "$EFI"
+    cd "$MINIOS/boot/EFI"
     find . -type f | sed -r "s:^[.]/::" | egrep -v "$REGEX" | while read LINE; do
-        echo "EFI/$LINE=$EFI/$LINE"
+        echo "EFI/$LINE=$MINIOS/boot/EFI/$LINE"
     done
     echo ".disk/info=/tmp/info"
     echo "README=/tmp/README"
@@ -191,9 +145,12 @@ done
     cp "$MINIOS/boot/isolinux.bin" "$TEMP/$LIVEKITNAME/boot"
     cp "$MINIOS/boot/isohdpfx.bin" "$TEMP/$LIVEKITNAME/boot"
     cd "$TEMP"
-    $M -hide-rr-moved -o - -quiet -v -J -R -D -V "$VER" -A "$VER" -input-charset utf-8 \
-        $B $C $D $E -graft-points $GRAFT \
-        .
+    xorriso -as mkisofs -isohybrid-mbr $MINIOS/boot/isohdpfx.bin \
+        -no-emul-boot -boot-load-size 4 -boot-info-table \
+        -eltorito-alt-boot -isohybrid-gpt-basdat -e $LIVEKITNAME/boot/grub/efi.img \
+        -hide-rr-moved -o - -quiet -v -J -R -D -V "$SYSTEMNAME" -A "$SYSTEMNAME" -input-charset utf-8 \
+        -b $LIVEKITNAME/boot/isolinux.bin -c $LIVEKITNAME/boot/isolinux.boot \
+        -graft-points $GRAFT .
 ) >"$TARGET"
 
 rm -Rf $TEMP

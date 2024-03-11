@@ -67,7 +67,7 @@ elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
 else
     KERNEL=$(uname -r)
 fi
-echo "KERNEL=$KERNEL" >/miniosbuild.conf
+echo "KERNEL=$KERNEL" >/kernel.conf
 
 if [ $DISTRIBUTION_ARCH = "amd64" ] && [ $DISTRIBUTION = "orel" ]; then
     DISTRIBUTION_ARCH="x86_64"

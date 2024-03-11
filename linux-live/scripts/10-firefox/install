@@ -7,7 +7,7 @@ set -u          # treat unset variable as error
 . /minioslib || exit 1
 # If we need to use an array of LOCALES in the code, the variables must be read
 # from the file. This crutch may be removed in the future.
-. /minios.conf || exit 1
+. /miniosbuild.conf || exit 1
 
 get_firefox_locale() {
     case "$1" in

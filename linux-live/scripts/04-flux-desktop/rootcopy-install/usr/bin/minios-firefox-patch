@@ -4,7 +4,7 @@
 
 if ! grep -q minios /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js; then
     sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" /usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
-    read_config /run/initramfs/lib/buildconfig DESKTOP_ENVIRONMENT
+    read_config /run/initramfs/lib/config DESKTOP_ENVIRONMENT
     if [[ $DESKTOP_ENVIRONMENT == *"flux"* ]]; then
         cat <<'EOF' >>/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js
 

@@ -2,15 +2,15 @@
 
 export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 
-if [ -f /linux-live/container_buildconfig ]; then
-	. /linux-live/container_buildconfig || exit 1
+if [ -f /linux-live/container_config ]; then
+	. /linux-live/container_config || exit 1
 else
-	. /linux-live/buildconfig || exit 1
+	. /linux-live/config || exit 1
 fi
 . /linux-live/kernelconfig || exit 1
 . /linux-live/minioslib || exit 1
 if [ -z $KERNEL ]; then
-	. /miniosbuild.conf || exit 1
+	. /kernel.conf || exit 1
 fi
 
 console_colors

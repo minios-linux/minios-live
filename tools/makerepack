@@ -13,10 +13,9 @@ ISO_DIR="$BUILD_DIR/../iso"
 KERNEL_DIR="$BUILD_DIR/../kernel"
 
 . $SCRIPT_DIR/../linux-live/minioslib || exit 1
-. $SCRIPT_DIR/../linux-live/config || exit 1
 set +u
 if [ -z $BATCH ]; then
-    . $SCRIPT_DIR/../linux-live/buildconfig || exit 1
+    . $SCRIPT_DIR/../linux-live/config || exit 1
 fi
 set -u
 . $SCRIPT_DIR/../linux-live/kernelconfig || exit 1

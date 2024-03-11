@@ -8,7 +8,6 @@ BASH_XTRACEFD=19
 set -x
 
 . /etc/minios/config || exit 1
-. /etc/minios/buildconfig || exit 1
 . /usr/lib/minioslib || exit 1
 
 CMDLINE=$(cat /proc/cmdline)
@@ -16,19 +15,12 @@ read_cmdline $CMDLINE
 
 if [ -d /run/initramfs/memory/bundles ]; then
     BUNDLES=/run/initramfs/memory/bundles
-    INITRD="livekit"
-elif [ -d /memory/bundles ]; then
-    BUNDLES=/memory/bundles
-    INITRD="uird"
 fi
-if [ "$INITRD" = "livekit" ]; then
-    if [ "$FLAGS" = "toram" ]; then
-        MEDIA="/run/initramfs/memory/toram"
-    else
-        MEDIA="/run/initramfs/memory/data/$LIVEKITNAME"
-    fi
-elif [ "$INITRD" = "uird" ]; then
-    MEDIA="/memory/data/from/0/$LIVEKITNAME"
+
+if [ "$FLAGS" = "toram" ]; then
+    MEDIA="/run/initramfs/memory/toram"
+else
+    MEDIA="/run/initramfs/memory/data/$LIVEKITNAME"
 fi
 
 FX=
