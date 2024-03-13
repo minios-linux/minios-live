@@ -25,6 +25,6 @@ SCRIPT_DIR=$PARENT_DIR
 
 container_engine="docker"
 
-container_build_run --distribution "buster" --desktop-environment "xfce" --package-variant "minimum" --distribution-arch "amd64" --kernel-bpo "true" --kernel-aufs "false" --kernel-build-dkms "false" --comp-type "lz4" --locale "en_US" --timezone "Etc/UTC"
+container_build_run --distribution "bookworm" --desktop-environment "xfce" --package-variant "standard" --distribution-arch "amd64" --kernel-bpo "false" --kernel-aufs "true" --kernel-build-dkms "false" --comp-type "lz4" --locale "en_US" --timezone "Etc/UTC"
 
 container_build_run --distribution "bullseye" --desktop-environment "xfce" --package-variant "standard" --distribution-arch "amd64" --kernel-bpo "false" --kernel-aufs "false" --kernel-build-dkms "true" --comp-type "zstd" --locale "ru_RU" --timezone "Europe/Moscow"
