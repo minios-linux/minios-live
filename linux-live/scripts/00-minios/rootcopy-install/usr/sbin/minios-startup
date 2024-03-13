@@ -298,8 +298,6 @@ if [ ! -f /var/.system_configured ]; then
         for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
             mkdir -p "/root/$DIR"
         done
-        #cp /usr/share/applications/minios-installer.desktop /root/Desktop/
-        #chmod +x /root/Desktop/minios-installer.desktop
     fi
     chown 0:0 /root
     chown -R 0:0 /root
@@ -345,6 +343,7 @@ if [ "$CLOUD" != "true" ]; then
                 chown $USER_ID:$GROUP_ID "/home/$USER_NAME"
                 chown -R $USER_ID:$GROUP_ID "/home/$USER_NAME"
             fi
+        # These lines include the ability to change the username using a configuration file or through kernel parameters.
         elif [ -n "$CURRENT_USER_NAME" ] && [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
             usermod -l "$USER_NAME" "$CURRENT_USER_NAME"
             usermod -m -d "/home/$USER_NAME" "$USER_NAME"
@@ -585,5 +584,3 @@ if [ "$EXPORT_LOGS" = "true" ]; then
         done
     fi
 fi
-
-exit 0

@@ -11,19 +11,18 @@ SET_E=""
 SET_U=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-BUILD_DIR="$SCRIPT_DIR/build"
-ISO_DIR="$BUILD_DIR/iso"
-KERNEL_DIR="$BUILD_DIR/kernel"
-LOCALES_DIR="$BUILD_DIR/locales"
+BUILD_DIR="${SCRIPT_DIR}/build"
+ISO_DIR="${BUILD_DIR}/iso"
+KERNEL_DIR="${BUILD_DIR}/kernel"
+LOCALES_DIR="${BUILD_DIR}/locales"
 
-. $SCRIPT_DIR/linux-live/minioslib || exit 1
-. $SCRIPT_DIR/linux-live/config || exit 1
-set +u
-if [ -z $BATCH ]; then
-    . $SCRIPT_DIR/linux-live/buildconfig || exit 1
+. "${SCRIPT_DIR}/linux-live/minioslib" || exit 1
+toggle_shell_options u
+if [ -z ${BATCH} ]; then
+    . "${SCRIPT_DIR}/linux-live/config" || exit 1
 fi
-set -u
-. $SCRIPT_DIR/linux-live/kernelconfig || exit 1
+toggle_shell_options u
+. "${SCRIPT_DIR}/linux-live/kernelconfig" || exit 1
 
 CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources)
 
@@ -31,7 +30,7 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 INSTALL_DIR=""
 
-common_variables $SCRIPT_DIR/linux-live/layoutcodes.csv
+common_variables ${SCRIPT_DIR}/linux-live/layoutcodes.csv
 
 console_colors
 
@@ -45,29 +44,29 @@ fi
 if [[ $# == 0 || $# > 3 ]]; then help; fi
 
 # loop through args
-dash_flag=false
-start_index=0
-end_index=${#CMD[*]}
+DASH_FLAG="false"
+START_INDEX="0"
+END_INDEX="${#CMD[*]}"
 for ii in "$@"; do
-    if [[ $ii == "-" ]]; then
-        dash_flag=true
+    if [[ "${ii}" == "-" ]]; then
+        DASH_FLAG="true"
         continue
     fi
-    find_index $ii
-    if [[ $dash_flag == false ]]; then
-        start_index=$index
+    find_index "${ii}"
+    if [[ $DASH_FLAG == "false" ]]; then
+        START_INDEX="${INDEX}"
     else
-        end_index=$(($index + 1))
+        END_INDEX=$((${INDEX} + 1))
     fi
 done
-if [[ $dash_flag == false ]]; then
-    end_index=$(($start_index + 1))
+if [[ $DASH_FLAG == "false" ]]; then
+    END_INDEX=$((${START_INDEX} + 1))
 fi
 
-#loop through the commands
-for ((ii = $start_index; ii < $end_index; ii++)); do
+# loop through the commands
+for ((ii = "${START_INDEX}"; ii < "${END_INDEX}"; ii++)); do
     setup_install_dir
-    ${CMD[ii]}
+    "${CMD[ii]}"
 done
 
 echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
