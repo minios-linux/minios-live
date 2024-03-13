@@ -10,7 +10,7 @@ Using minios-live, you can build:
 
 *Debian 9, 10, 11, 12, Testing, Unstable, Kali Linux and Ubuntu 20.04, 22.04 with Xfce4 environment.*
 
-To build, you need to change the parameters in the **linux-live/buildconfig** file to build the required option, then start the build: `./install -`
+To build, you need to change the parameters in the **linux-live/config** file to build the required option, then start the build: `./install -`
 
 It is advisable to use Debian 12 or Ubuntu 22.04 for build, since in this system you can build MiniOS based on Debian 9,10,11,12 and Unbuntu 20.04, 22.04. If you have a different system installed, use docker.
 
@@ -48,7 +48,7 @@ For installation use **install** \- script for guided installation\, **autoinsta
             ./install build_iso
 ```
 
-If you want to just build the system from the beginning just edit `linux-live/buildconfig` and run `./install -`
+If you want to just build the system from the beginning just edit `linux-live/config` and run `./install -`
 
 To build with docker, create a build folder in your home folder, put `minios-live` there, `cd` to `docker` folder and run `01-runme.sh`. This action will install the required programs and create an image. To start the build, edit for yourself and run `02-build.sh`. Sample file content:
 `docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc install -`
