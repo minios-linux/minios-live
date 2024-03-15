@@ -4,11 +4,7 @@
 # Author: crims0n. <http://minios.dev>
 #
 
-# =================================================================
-# =================================================================
 # ========================= VARIABLES =============================
-# =================================================================
-# =================================================================
 
 SET_E=""
 SET_U=""
@@ -138,11 +134,7 @@ common_variables() {
     MKMOD="bin etc home lib lib64 opt root sbin srv usr var"
 }
 
-# =================================================================
-# =================================================================
 # ===================== COMMON FUNCTIONS ==========================
-# =================================================================
-# =================================================================
 
 current_process() {
     echo -e "${LIGHTYELLOW}=====> running ${CYAN}${CMD[ii]}${ENDCOLOR}${LIGHTYELLOW} ...${ENDCOLOR}"
@@ -152,10 +144,7 @@ current_function() {
     echo -e "=====> the ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
 }
 
-# =================================================================
 # beautiful console
-# =================================================================
-
 console_colors() {
     RED="\e[31m"
     GREEN="\e[32m"
@@ -180,10 +169,7 @@ console_colors() {
     ENDCOLOR="\e[0m"
 }
 
-# =================================================================
-# help functions
-# =================================================================
-
+# help function
 help() {
     # if $1 is set, use $1 as headline message in help()
     if [ -z ${1+x} ]; then
@@ -302,10 +288,9 @@ read_cmdline() {
     done
 }
 
-# =============================================================================
 # This function is designed to read a configuration file and assign values to
 # variables.
-# =============================================================================
+#
 # Usage:
 #   read_config CONFIGFILE VARNAME...
 #
@@ -315,7 +300,6 @@ read_cmdline() {
 #
 #   VARNAME
 #     Specify the names of the variables to look for.
-#
 read_config() {
     # Enable extended globbing. This is required for the pattern matching of variable names.
     shopt -s extglob
@@ -364,12 +348,10 @@ read_config() {
     shopt -u extglob
 }
 
-# =============================================================================
 # read_config_value takes two arguments: a filename and a key.
 # It reads the configuration file and searches for the line with the specified
 # key.
 # The function returns the last value of this key.
-# =============================================================================
 read_config_value() {
     if [ ! -f "$1" ]; then
         echo
@@ -382,11 +364,9 @@ read_config_value() {
     fi
 }
 
-# =================================================================
-# parsing input commands
-# =================================================================
-
-find_index() {
+# Checks the index of a given command string in the context of global CMD
+# array. If the command doesn't exist in CMD, it displays the help.
+get_command_index() {
     local i
     for ((i = 0; i < "${#CMD[*]}"; i++)); do
         if [ "${CMD[i]}" == "${1}" ]; then
@@ -394,13 +374,39 @@ find_index() {
             return
         fi
     done
-    help "Command not found: ${1}"
+    help "$(gettext 'Command not found:') ${1}"
 }
 
-# =================================================================
-# only allow 'root' to run the script
-# =================================================================
+# Processes script arguments to decide a range, defined by a start
+# index and end index, of commands to execute from the CMD array.
+determine_command_range() {
+    if (($# < 1 || $# > 3)); then
+        help
+    fi
 
+    DASH_FLAG="false"
+    START_INDEX="0"
+    END_INDEX="${#CMD[@]}"
+
+    for ARG in "$@"; do
+        if [[ "${ARG}" == "-" ]]; then
+            DASH_FLAG="true"
+            continue
+        fi
+        get_command_index "${ARG}"
+        if [[ "${DASH_FLAG}" == "false" ]]; then
+            START_INDEX="${INDEX}"
+        else
+            END_INDEX=$((INDEX + 1))
+        fi
+    done
+
+    if [[ "${DASH_FLAG}" == "false" ]]; then
+        END_INDEX=$((START_INDEX + 1))
+    fi
+}
+
+# only allow 'root' to run the script
 allow_root_only() {
     if [ $(id -u) -ne 0 ]; then
         echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOR}"
@@ -411,10 +417,7 @@ allow_root_only() {
     export LC_ALL=C
 }
 
-# =================================================================
 # check that we are inside chroot
-# =================================================================
-
 check_is_in_chroot() {
     if [ $(stat -c %i /)="2" ]; then
         echo -e "${BOLD}${RED}This script should be run inside chroot only!${ENDCOLOR}"
@@ -422,22 +425,7 @@ check_is_in_chroot() {
     fi
 }
 
-# =================================================================
-# check aufs support
-# =================================================================
-
-aufs_support() {
-    if ! cat /proc/filesystems | grep aufs >/dev/null; then
-        UNION_BUILD_TYPE="overlayfs"
-    else
-        UNION_BUILD_TYPE="aufs"
-    fi
-}
-
-# =================================================================
 # Function to save a variable to a configuration file
-# =================================================================
-
 update_config_variable() {
     # The configuration file and the variable are passed as arguments
     local CONFIG_FILE="${1}"
@@ -477,10 +465,7 @@ update_config_variable() {
     sort -o "${CONFIG_FILE}" "${CONFIG_FILE}"
 }
 
-# =================================================================
 # check if filesystems are unmounted inside chroot
-# =================================================================
-
 check_mounted() {
     current_function
     if grep -qs "$INSTALL_DIR/dev" /proc/mounts || grep -qs "$INSTALL_DIR/run" /proc/mounts || grep -qs "$INSTALL_DIR/proc" /proc/mounts || grep -qs "$INSTALL_DIR/sys" /proc/mounts || grep -qs "$INSTALL_DIR/dev/pts" /proc/mounts || grep -qs "$INSTALL_DIR/tmp" /proc/mounts; then
@@ -489,10 +474,7 @@ check_mounted() {
     fi
 }
 
-# =================================================================
 # check if the folder where the installation will be performed is empty
-# =================================================================
-
 check_install_dir() {
     current_function
     INSTALL_DIR="$WORK_DIR/basesystem"
@@ -503,10 +485,7 @@ check_install_dir() {
     fi
 }
 
-# =================================================================
 # configure build folder
-# =================================================================
-
 setup_install_dir() {
     current_function
     WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
@@ -596,10 +575,7 @@ unmount_dirs() {
     fi
 }
 
-# =================================================================
 # cleaning the build folder
-# =================================================================
-
 cleanup() {
     current_function
     if [ "${CMD[ii]}" = "setup_host" ] || [ "${CMD[ii]}" = "build_bootstrap" ] || [ "${CMD[ii]}" = "build_chroot" ]; then
@@ -620,10 +596,7 @@ cleanup() {
 
 }
 
-# =================================================================
 # mount filesystems inside chroot
-# =================================================================
-
 chroot_mount_fs() {
     current_function
 
@@ -652,10 +625,7 @@ chroot_mount_fs() {
     mount --bind $SCRIPT_DIR/aptcache/$DISTRIBUTION $INSTALL_DIR/var/cache/apt/archives
 }
 
-# =================================================================
 # unmount filesystems inside chroot
-# =================================================================
-
 chroot_umount_fs() {
     current_function
 
@@ -675,11 +645,8 @@ chroot_umount_fs() {
     check_mounted
 }
 
-# =================================================================
 # Displaying information about the start of the build for a more
 # convenient search in the logs
-# =================================================================
-
 new_run() {
     DATE=$(date +"%Y.%m.%d %H:%M")
     echo ""
@@ -709,11 +676,10 @@ new_run() {
     echo "================================================================="
     echo ""
 }
-# =================================================================
+
 # This function creates two configuration files for chroot environment
 # The first file contains various environment variables and their values
 # The second file contains several utility functions
-# =================================================================
 add_chroot_configuration_files() {
     toggle_shell_options u
     cat <<EOF >$1/miniosbuild.conf
@@ -882,16 +848,9 @@ error() {
     toggle_shell_options u
 }
 
-# =================================================================
-# =================================================================
 # ====================== HOST FUNCTIONS ===========================
-# =================================================================
-# =================================================================
 
-# =================================================================
 # Creating a $PACKAGE_VARIANT list from a template
-# =================================================================
-
 create_apt_list() {
     current_function
     if [ $BUILD_FROM_SNAPSHOT = "true" ]; then
@@ -954,10 +913,7 @@ remove_broken_links() {
     find "$1" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 
-# =================================================================
 # Installing the base system
-# =================================================================
-
 extract_tarball() {
     local TARBALL=$1
     local DESTINATION=$2
@@ -1097,37 +1053,6 @@ EOF
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
-copy_build_scripts2() {
-    current_function
-
-    local DESTINATION
-    toggle_shell_options u
-    if [ -z $1 ]; then
-        DESTINATION=$INSTALL_DIR
-    else
-        DESTINATION=$1
-    fi
-    toggle_shell_options u
-    if [ ! -d $DESTINATION/linux-live ]; then
-        mkdir -p $DESTINATION/linux-live
-        (cd $SCRIPT_DIR/linux-live && cp --parents -afr * $DESTINATION/linux-live)
-    else
-        find $SCRIPT_DIR/linux-live -type f -not -path "*.git/*" -print0 | sed "s,$SCRIPT_DIR/linux-live/,,g" | while IFS= read -r -d '' file; do
-            if ! cmp $SCRIPT_DIR/linux-live/"$file" $DESTINATION/linux-live/"$file"; then
-                echo -e "$file has been modified since last build run."
-                echo -e "Copying $SCRIPT_DIR/linux-live/$file to $DESTINATION/linux-live/$file..."
-                cp -f $SCRIPT_DIR/linux-live/"$file" $DESTINATION/linux-live/"$file"
-            fi
-        done
-    fi
-
-    chmod +x $DESTINATION/linux-live/install_chroot
-}
-
 copy_build_scripts() {
     current_function
 
@@ -1139,9 +1064,6 @@ copy_build_scripts() {
     chmod +x $DESTINATION/linux-live/install_chroot
 }
 
-# =================================================================
-#
-# =================================================================
 build_chroot() {
     current_process
 
@@ -1183,9 +1105,6 @@ mkmod_corefs() {
     done
 }
 
-# =================================================================
-#
-# =================================================================
 build_live() {
     current_process
 
@@ -1231,9 +1150,6 @@ EOF
     fi
 }
 
-# =================================================================
-#
-# =================================================================
 create_config_files() {
     DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
     DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
@@ -1497,10 +1413,7 @@ EOF
         [ -d $MODULE_MERGED_DIR/linux-live ] && rm -rf $MODULE_MERGED_DIR/linux-live
     fi
 }
-# =================================================================
-#
-#
-# =================================================================
+
 build_iso() {
     current_process
 
@@ -1589,16 +1502,8 @@ remove_sources() {
     fi
 }
 
-# =================================================================
-# =================================================================
 # ====================== INSTALL FUNCTIONS ========================
-# =================================================================
-# =================================================================
 
-# =================================================================
-#
-#
-# =================================================================
 setup_host() {
     if [ $SKIP_SETUP_HOST != "true" ]; then
         current_process
@@ -1609,10 +1514,6 @@ setup_host() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 chroot_setup_host() {
     current_process
 
@@ -1629,10 +1530,6 @@ chroot_setup_host() {
     ln -s /bin/true /sbin/initctl
 }
 
-# =================================================================
-#
-#
-# =================================================================
 chroot_cleanup() {
     current_function
 
@@ -1770,10 +1667,6 @@ chroot_cleanup() {
     toggle_shell_options eu
 }
 
-# =================================================================
-#
-#
-# =================================================================
 hostreq_pkg_list() {
     echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOR}"
 
@@ -1802,10 +1695,6 @@ hostreq_pkg_list() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 install_prerequesited_packages() {
     echo -e "${YELLOW}=====> installing prerequested software for chroot system ...${ENDCOLOR}"
 
@@ -1827,10 +1716,6 @@ EOF
 
 }
 
-# =================================================================
-#
-#
-# =================================================================
 install_core_packages() {
     echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOR}"
 
@@ -1852,10 +1737,6 @@ install_core_packages() {
     chroot_cleanup
 }
 
-# =================================================================
-#
-#
-# =================================================================
 chroot_pkg_install() {
     current_process
 
@@ -1868,10 +1749,8 @@ chroot_pkg_install() {
     #pkg clean
 }
 
-# =================================================================
 # The chroot_finish_up function performs cleanup tasks within a chroot environment.
 # It removes diversions, temporary files, log files, and cache files.
-# =================================================================
 chroot_finish_up() {
     current_process
 
@@ -1905,10 +1784,9 @@ chroot_finish_up() {
     rm -f /var/lib/dpkg/*-old 2>/dev/null
 }
 
-# =================================================================
 # Function is used to install packages on a system using the
 # packages list.
-# =================================================================
+#
 # Usage:
 #   install_packages [options]
 #
@@ -2012,16 +1890,8 @@ install_packages() {
     fi
 }
 
-# =================================================================
-# =================================================================
 # ======================= MODULE FUNCTIONS ========================
-# =================================================================
-# =================================================================
 
-# =================================================================
-#
-#
-# =================================================================
 module_check_mounted() {
     current_function
     if grep -qs "$MODULE_MERGED_DIR" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/run" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/proc" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/sys" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/dev/pts" /proc/mounts || grep -qs "$MODULE_MERGED_DIR/tmp" /proc/mounts; then
@@ -2030,10 +1900,6 @@ module_check_mounted() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_check_install_dir() {
     current_function
     echo -e "The working directory is ${MAGENTA}$MODULE_UPPER_DIR${ENDCOLOR}."
@@ -2071,10 +1937,6 @@ filter_modules() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_chroot_mount_fs() {
     current_function
 
@@ -2138,10 +2000,6 @@ module_chroot_mount_fs() {
     mount --bind $SCRIPT_DIR/aptcache/$DISTRIBUTION $MODULE_MERGED_DIR/var/cache/apt/archives
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_chroot_umount_fs() {
     current_function
 
@@ -2187,10 +2045,6 @@ module_chroot_umount_fs() {
     module_check_mounted
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_cleanup() {
     current_function
     module_check_mounted
@@ -2200,10 +2054,6 @@ module_cleanup() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_chroot_finish_up() {
     current_function
 
@@ -2220,10 +2070,6 @@ EOF
 
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_chroot_cleanup() {
     current_function
     toggle_shell_options e
@@ -2268,20 +2114,12 @@ module_chroot_cleanup() {
     toggle_shell_options e
 }
 
-# =================================================================
-#
-#
-# =================================================================
 module_build_cleanup() {
     current_function
 
     chroot_cleanup $MODULE_UPPER_DIR
 }
 
-# =================================================================
-#
-#
-# =================================================================
 export_kernel() {
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
         if [ $EXPORT_KERNEL = "true" ]; then
@@ -2321,10 +2159,6 @@ export_kernel() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 kernel_variables() {
     toggle_shell_options u
     KERNEL_SUFFIX=$KERNEL
@@ -2339,10 +2173,6 @@ kernel_variables() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 create_initrfs() {
     if [[ $MODULE == *"kernel"* ]] || [[ $MODULE == *"linux"* ]]; then
         if [ -f $WORK_DIR/miniosbuild.conf ]; then
@@ -2369,10 +2199,6 @@ create_initrfs() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 export_locales() {
     local FILE BASE_NAME NEW_NAME
     if [[ "$MODULE" == *"langpack"* ]]; then
@@ -2386,10 +2212,6 @@ export_locales() {
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 copy_file_if_exists() {
     local SRC=$1
     local DEST=$2
@@ -2511,8 +2333,6 @@ EOF
                     module_chroot_umount_fs
 
                     module_build_cleanup
-
-                    module_remove_unofficial_repository
 
                     # run external actions
                     if [ "$(ls -A $MODULE_UPPER_DIR 2>/dev/null)" != "" ]; then
@@ -2657,8 +2477,6 @@ EOF
 
                 module_chroot_cleanup
 
-                module_remove_unofficial_repository
-
                 mkmod_corefs $MODULE_UPPER_DIR
 
                 if [ ! -f $SOURCE_MODULES_DIR/$MODULE/build ]; then
@@ -2691,10 +2509,6 @@ EOF
     fi
 }
 
-# =================================================================
-#
-#
-# =================================================================
 build_modules_live() {
     current_process
     if [ $CONTAINER_TYPE = "1" ]; then
@@ -2756,11 +2570,7 @@ repack_modules() {
     done
 }
 
-# =================================================================
-# =================================================================
 # ==================== BATCH BUILD FUNCTIONS ======================
-# =================================================================
-# =================================================================
 
 generate_config_files() {
     cp -f "$SCRIPT_DIR/linux-live/config" "$SCRIPT_DIR/linux-live/container_config"

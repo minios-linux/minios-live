@@ -41,33 +41,12 @@ if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
     new_run
 fi
 
-# check number of args
-if [[ $# == 0 || $# -gt 3 ]]; then help; fi
+determine_command_range "$@"
 
-# loop through args
-DASH_FLAG="false"
-START_INDEX="0"
-END_INDEX="${#CMD[*]}"
-for ii in "$@"; do
-    if [[ "${ii}" == "-" ]]; then
-        DASH_FLAG="true"
-        continue
-    fi
-    find_index "${ii}"
-    if [[ $DASH_FLAG == "false" ]]; then
-        START_INDEX="${INDEX}"
-    else
-        END_INDEX=$((INDEX + 1))
-    fi
-done
-if [[ $DASH_FLAG == "false" ]]; then
-    END_INDEX=$((START_INDEX + 1))
-fi
-
-# loop through the commands
-for ((ii = "${START_INDEX}"; ii < "${END_INDEX}"; ii++)); do
+# Run commands within the defined range.
+for ((i = "${START_INDEX}"; i < "${END_INDEX}"; i++)); do
     setup_install_dir
-    "${CMD[ii]}"
+    "${CMD[i]}"
 done
 
 echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
