@@ -10,7 +10,7 @@ set -u          # treat unset variable as error
 SET_E=""
 SET_U=""
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
 BUILD_DIR="${SCRIPT_DIR}/build"
 ISO_DIR="${BUILD_DIR}/iso"
 KERNEL_DIR="${BUILD_DIR}/kernel"
@@ -27,7 +27,7 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 # =============   main  ================
 
-trap 'unmount_dirs ${BUILD_DIR}' EXIT
+trap 'unmount_dirs "${BUILD_DIR}"' EXIT
 
 INSTALL_DIR=""
 
@@ -37,16 +37,16 @@ console_colors
 
 allow_root_only
 
-if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+if [ -f "/.dockerenv" ] || [ "${container}" = "podman" ]; then
     new_run
 fi
 
-determine_command_range "$@"
+determine_command_range "${@}"
 
 # Run commands within the defined range.
-for ((i = "${START_INDEX}"; i < "${END_INDEX}"; i++)); do
+for ((ii = "${START_INDEX}"; ii < "${END_INDEX}"; ii++)); do
     setup_install_dir
-    "${CMD[i]}"
+    "${CMD[ii]}"
 done
 
-echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
+echo -e "${BOLD}${LIGHTYELLOW}${0}${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
