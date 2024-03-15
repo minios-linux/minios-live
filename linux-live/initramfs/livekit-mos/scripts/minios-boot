@@ -16,7 +16,7 @@ declare -A VARIABLES_DEFAULTS=(
 
 . /lib/minioslib
 
-function set_trace_log() {
+set_trace_log() {
     if [ ! -d /var/log/minios ]; then
         mkdir -p /var/log/minios
     fi
@@ -26,7 +26,7 @@ function set_trace_log() {
     set -x
 }
 
-function set_variables() {
+set_variables() {
     CONFIG=/etc/minios/config
     if [ -f "$CONFIG" ]; then
         read_config "$CONFIG" LIVEKITNAME
@@ -36,14 +36,14 @@ function set_variables() {
     MINIOSCONFIG=/etc/minios/"$LIVEKITNAME".conf
 }
 
-function read_cmdline_values() {
+read_cmdline_values() {
     if [ -f /cmdline ]; then
         read -r CMDLINE </cmdline
         read_cmdline "$CMDLINE"
     fi
 }
 
-function set_cloud() {
+set_cloud() {
     if [ -z "$CLOUD" ]; then
         if [ -f "$MINIOSCONFIG" ]; then
             read_config "$MINIOSCONFIG" CLOUD
@@ -66,7 +66,7 @@ function set_cloud() {
     fi
 }
 
-function set_default_target() {
+set_default_target() {
     if [ -z "$DEFAULT_TARGET" ]; then
         if [ -f "$MINIOSCONFIG" ]; then
             read_config "$MINIOSCONFIG" DEFAULT_TARGET
@@ -91,7 +91,7 @@ function set_default_target() {
     fi
 }
 
-function manage_services() {
+manage_services() {
     local SERVICES_VAR ACTION
     ACTION="$1"
     if [ "$ACTION" == "enable" ]; then
@@ -123,7 +123,7 @@ function manage_services() {
     fi
 }
 
-function set_autologin() {
+set_autologin() {
     if [ -z "$AUTOLOGIN" ]; then
         if [ -f "$MINIOSCONFIG" ]; then
             read_config "$MINIOSCONFIG" AUTOLOGIN
@@ -170,7 +170,7 @@ EOF
     fi
 }
 
-function set_scripts() {
+set_scripts() {
     if [ -z "$SCRIPTS" ]; then
         if [ -f "$MINIOSCONFIG" ]; then
             read_config "$MINIOSCONFIG" SCRIPTS
@@ -194,7 +194,7 @@ function set_scripts() {
     fi
 }
 
-function enable_syncconfig() {
+enable_syncconfig() {
     if [ -f /usr/lib/systemd/system/minios-syncconfig.service ]; then
         systemctl enable minios-syncconfig.path
         systemctl enable minios-syncconfig.service

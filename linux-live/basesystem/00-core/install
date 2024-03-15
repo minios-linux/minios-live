@@ -11,14 +11,7 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-# To change ubuntu kernel type, you must also edit the values in the firmware module. This will be fixed later.
-UBUNTU_IMAGE_HWE="true"
-
-if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "bionic" ]; then
-    SYSTEMD_PATH="/lib/systemd"
-else
-    SYSTEMD_PATH="/usr/lib/systemd"
-fi
+SYSTEMD_PATH="/usr/lib/systemd"
 
 timezone_to_array
 
@@ -34,11 +27,6 @@ else
     DEBCONF_SETTINGS=(
         "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8"
     )
-    if [ $DISTRIBUTION = "buster" ]; then
-        DEBCONF_SETTINGS+=(
-            "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT"
-        )
-    fi
 fi
 
 DEBCONF_SETTINGS+=(
@@ -53,11 +41,9 @@ DEBCONF_SETTINGS+=(
     "openssh-server  openssh-server/permit-root-login        boolean false"
 )
 
-if [ $DISTRIBUTION != "buster" ]; then
-    DEBCONF_SETTINGS+=(
-        "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
-    )
-fi
+DEBCONF_SETTINGS+=(
+    "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
+)
 
 if [ $MULTILINGUAL = "true" ]; then
     LOCALES_STRING=""
@@ -79,14 +65,8 @@ if ! dpkg -s gpg &>/dev/null; then
 fi
 
 curl https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
-if [ $DISTRIBUTION = "kali-rolling" ]; then
-    echo "deb https://minios.dev/debian/ bookworm main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
-elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-    echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free
-deb https://minios.dev/debian/ $DISTRIBUTION-backports main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
-else
-    echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
-fi
+echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+
 cat <<EOF >/etc/apt/preferences.d/minios-linux
 Package: *
 Pin: release l=MiniOS Repository
@@ -97,43 +77,21 @@ EOF
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     # Install packages based on distribution
     case $DISTRIBUTION in
-    "bookworm" | "kali-rolling" | "sid")
+    "bookworm" | "trixie" | "sid")
         if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
-            install_packages --delete-packages "jq" --replace-packages "netcat=netcat-openbsd exfat-utils=exfatprogs"
+            install_packages --delete-packages "jq"
         fi
         if [ $KERNEL_BUILD_DKMS = "false" ]; then
-            install_packages --delete-packages "exfat-fuse zfsutils-linux" --replace-packages "netcat=netcat-openbsd exfat-utils=exfatprogs"
+            install_packages --delete-packages "zfsutils-linux"
         else
-            install_packages --delete-packages "exfat-fuse" --replace-packages "netcat=netcat-openbsd exfat-utils=exfatprogs"
+            install_packages
         fi
-        ;;
-    "bullseye")
-        if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
-            install_packages --delete-packages "jq" --replace-packages "exfat-utils=exfatprogs"
-        fi
-        if [ $KERNEL_BUILD_DKMS = "false" ]; then
-            install_packages --delete-packages "exfat-fuse zfsutils-linux" --replace-packages "exfat-utils=exfatprogs"
-        else
-            install_packages --delete-packages "exfat-fuse" --replace-packages "exfat-utils=exfatprogs"
-        fi
-        ;;
-    "buster")
-        install_packages --delete-packages "systemd-timesyncd" --replace-packages "cockpit-podman=cockpit-docker podman=docker"
-        ;;
-    "stretch")
-        install_packages --delete-packages "systemd-timesyncd" --replace-packages "fuse3=fuse"
-        ;;
-    "bionic")
-        install_packages --delete-packages "systemd-timesyncd" --replace-packages "fuse3=fuse acpi-support-base=acpi-support"
-        ;;
-    "focal")
-        install_packages --replace-packages "acpi-support-base=acpi-support" --add-packages "netplan.io"
         ;;
     "jammy")
-        install_packages --delete-packages "exfat-fuse acpi-support-base" --replace-packages "exfat-utils=exfatprogs" --add-packages "netplan.io"
+        install_packages --delete-packages "acpi-support-base" --replace-packages "netcat-openbsd=netcat" --add-packages "netplan.io"
         ;;
     "lunar")
-        install_packages --delete-packages "exfat-fuse acpi-support-base" --replace-packages "netcat=netcat-openbsd exfat-utils=exfatprogs" --add-packages "netplan.io"
+        install_packages --delete-packages "acpi-support-base" --add-packages "netplan.io"
         ;;
     *)
         # Install packages with or without zfsutils-linux based on kernel type
@@ -147,44 +105,20 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
-if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    pkg install \
-        zstd
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "xenial" ] || [ $DISTRIBUTION = "bionic" ]; then
-        pkg install \
-            liblz4-tool
-    else
-        pkg install \
-            lz4
-    fi
+if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+    pkg install zstd lz4
 fi
 
 # install packages
-if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then
-    pkg install \
-        isc-dhcp-client
-elif [ $DESKTOP_ENVIRONMENT = "flux" ] || ([ $PACKAGE_VARIANT = "minimum" ] && [ $DISTRIBUTION != "stretch" ]); then
-    pkg install \
-        connman
+if [ $DESKTOP_ENVIRONMENT = "flux" ] || [ $PACKAGE_VARIANT = "minimum" ]; then
+    pkg install connman
 else
-    pkg install \
-        network-manager
+    pkg install network-manager
 fi
 
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    pkg install \
-        cpio
-fi
-
-if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+    pkg install cpio
     pkg autoremove linux-modules-extra-* linux-firmware
-fi
-
-if [ $KERNEL_TYPE != "none" ]; then
-    # Installing wireguard in bookworm pulls the kernel. We need to figure this out.
-    if ([ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]) && [ $DISTRIBUTION = "bullseye" ]; then
-        pkg install wireguard wireguard-tools
-    fi
 fi
 
 if [ -f /bin/ping ]; then
@@ -211,7 +145,6 @@ fi
 (cd /linux-live/basesystem/00-core/rootcopy-install && cp --parents -afr * /)
 
 # minios-install setup
-#if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
 if [ ! -d /usr/lib/usev/rules.d ]; then
     mkdir -p /usr/lib/udev/rules.d
 fi
@@ -220,32 +153,7 @@ cat <<EOF >/usr/lib/udev/rules.d/90-minios-automount.rules
 KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/minios-automount %r/%k"
 
 EOF
-#fi
-
-if [ ! -d /etc/NetworkManager ]; then
-    if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "stretch" ]; then
-        echo "Enable dhclient.service autostart."
-        cat <<EOF >$SYSTEMD_PATH/system/dhclient.service
-[Unit]
-Description=DHCP Client
-Documentation=man:dhclient(8)
-Wants=network.target
-After=network-pre.target systemd-sysctl.service systemd-modules-load.service
-Before=network.target shutdown.target network-online.target
-ConditionPathExists=!/run/initramfs/net.up.flag
-
-[Service]
-Type=forking
-ExecStart=-/bin/sh -c 'udevadm settle && dhclient -nw'
-PIDFile=/run/dhclient.pid
-
-[Install]
-WantedBy=multi-user.target
-WantedBy=network-online.target
-EOF
-        systemctl enable dhclient
-    fi
-elif [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "bionic" || $DISTRIBUTION = "focal" || $DISTRIBUTION = "jammy" || $DISTRIBUTION = "lunar" ]]; then
+if [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "jammy" || $DISTRIBUTION = "lunar" ]]; then
     if [ ! -d /etc/netplan/ ]; then
         mkdir -p /etc/netplan/
     fi
@@ -292,20 +200,6 @@ WantedBy=multi-user.target
 EOF
     systemctl enable ssh-keygen
     systemctl disable ssh
-fi
-
-if [ $DISTRIBUTION = "bullseye" ]; then
-    if grep -q podman $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-        wget http://ftp.debian.org/debian/pool/main/p/podman-compose/podman-compose_1.0.3-2_all.deb
-        pkg install ./podman-compose_1.0.3-2_all.deb
-        rm -f ./podman-compose_1.0.3-2_all.deb
-        cat <<EOF >>/etc/containers/registries.conf
-
-[registries.search]
-registries = ['docker.io', 'registry.fedoraproject.org', 'quay.io', 'registry.access.redhat.com', 'registry.centos.org']
-
-EOF
-    fi
 fi
 
 if [ ! -f /usr/share/sudo ]; then

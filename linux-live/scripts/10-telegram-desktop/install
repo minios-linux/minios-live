@@ -21,21 +21,13 @@ Pin-Priority: 1001
 EOF
 fi
 if [ -f $SCRIPT_DIR/package.list ]; then
-    case $DISTRIBUTION in
-    buster | bullseye | bookworm)
-        install_packages --package-list "$SCRIPT_DIR/package.list" --replace-packages "telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
+    if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+        pkg install telegram
+        PACKAGE="telegram"
+    else
+        install_packages --package-list "$SCRIPT_DIR/package.list"
         PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
-        ;;
-    *)
-        if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-            pkg install telegram
-            PACKAGE="telegram"
-        else
-            install_packages --package-list "$SCRIPT_DIR/package.list"
-            PACKAGE="$(head -n 1 $SCRIPT_DIR/package.list)"
-        fi
-        ;;
-    esac
+    fi
 
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

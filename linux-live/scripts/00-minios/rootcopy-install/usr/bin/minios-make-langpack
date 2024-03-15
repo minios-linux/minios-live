@@ -120,11 +120,9 @@ for LOCALE in "${LOCALES[@]}"; do
             "locales locales/default_environment_locale      select  $LOCALE.UTF-8"
         )
 
-        if [ "$DISTRIBUTION" != "buster" ]; then
-            DEBCONF_SETTINGS+=(
-                "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
-            )
-        fi
+        DEBCONF_SETTINGS+=(
+            "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
+        )
 
         for SETTING in "${DEBCONF_SETTINGS[@]}"; do
             echo "$SETTING" | debconf-set-selections -v

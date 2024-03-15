@@ -6,7 +6,7 @@
 VERSION="1.1"
 BEXT="sb"
 
-function help() {
+help() {
     echo "Usage: $(basename $0) [OPTIONS] PACKAGE1 [PACKAGE2] [...]"
     echo "Installs packages from repositories and packages them into a module."
     echo ""
@@ -23,18 +23,18 @@ function help() {
     exit 0
 }
 
-function brief_help() {
+brief_help() {
     echo "Usage: $(basename $0) [OPTIONS] PACKAGE1 [PACKAGE2] [...]"
     echo "Try '$(basename $0) --help' for more information."
     exit 1
 }
 
-function version() {
+version() {
     echo "$(basename $0) $VERSION"
     exit 0
 }
 
-function aufs_is_supported() {
+aufs_is_supported() {
     grep -q aufs /proc/filesystems
 }
 

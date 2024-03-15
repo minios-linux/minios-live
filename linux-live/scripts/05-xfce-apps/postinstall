@@ -4,6 +4,6 @@ if [ $PACKAGE_VARIANT = "minimum" ]; then
     sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list
 fi
 
-if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ]; then
     update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
 fi

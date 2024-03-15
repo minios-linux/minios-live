@@ -11,7 +11,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 pkg update
 
 # install packages
-if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
+if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
         apt-add-repository ppa:remmina-ppa-team/remmina-next
         cat <<EOF >/etc/apt/preferences.d/remmina-next
 Package: *
@@ -21,11 +21,7 @@ EOF
 fi
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
 if [ -f $SCRIPT_DIR/package.list ]; then
-        if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-                install_packages --package-list "$SCRIPT_DIR/package.list" --target-release "$DISTRIBUTION-backports"
-        else
-                install_packages --package-list "$SCRIPT_DIR/package.list"
-        fi
+        install_packages --package-list "$SCRIPT_DIR/package.list"
 
         PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
         echo "PACKAGE=$PACKAGE" >/.package

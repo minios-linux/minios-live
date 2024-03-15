@@ -18,19 +18,20 @@ LOCALES_DIR="${BUILD_DIR}/locales"
 
 . "${SCRIPT_DIR}/linux-live/minioslib" || exit 1
 toggle_shell_options u
-if [ -z ${BATCH} ]; then
+if [ -z "${BATCH}" ]; then
     . "${SCRIPT_DIR}/linux-live/config" || exit 1
 fi
 toggle_shell_options u
-. "${SCRIPT_DIR}/linux-live/kernelconfig" || exit 1
 
 CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources)
 
 # =============   main  ================
 
+trap 'unmount_dirs ${BUILD_DIR}' EXIT
+
 INSTALL_DIR=""
 
-common_variables ${SCRIPT_DIR}/linux-live/layoutcodes.csv
+common_variables "${SCRIPT_DIR}/linux-live/layoutcodes.csv"
 
 console_colors
 
@@ -41,7 +42,7 @@ if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
 fi
 
 # check number of args
-if [[ $# == 0 || $# > 3 ]]; then help; fi
+if [[ $# == 0 || $# -gt 3 ]]; then help; fi
 
 # loop through args
 DASH_FLAG="false"
@@ -56,11 +57,11 @@ for ii in "$@"; do
     if [[ $DASH_FLAG == "false" ]]; then
         START_INDEX="${INDEX}"
     else
-        END_INDEX=$((${INDEX} + 1))
+        END_INDEX=$((INDEX + 1))
     fi
 done
 if [[ $DASH_FLAG == "false" ]]; then
-    END_INDEX=$((${START_INDEX} + 1))
+    END_INDEX=$((START_INDEX + 1))
 fi
 
 # loop through the commands

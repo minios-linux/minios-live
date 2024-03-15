@@ -15,11 +15,7 @@ APP_MODULE_NUMBER="5"
 pkg update
 
 # install packages
-if [ $DISTRIBUTION = "stretch" ]; then
-    pkg install chromium
-else
-    pkg install chromium chromium-sandbox
-fi
+pkg install chromium chromium-sandbox
 if [ $LOCALE != "en_US" ]; then
     pkg install chromium-l10n
 fi
@@ -41,7 +37,7 @@ FileManager=pcmanfm
 WebBrowser=$APP_EXECUTABLE
 
 EOF
-    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ]; then
+    elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ]; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar

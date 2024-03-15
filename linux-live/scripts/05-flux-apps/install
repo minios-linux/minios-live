@@ -4,37 +4,22 @@
 
 CWD=$(dirname $(readlink -f $0))
 
-echo "wicd-daemon	wicd/users	multiselect	live" | debconf-set-selections
-
 pkg update
 
 pkg install mousepad pcmanfm galculator lxtask xarchiver xdg-utils libgconf-2-4
 
-if [ $DISTRIBUTION = "stretch" ]; then
-    pkg install wicd
+pkg install connman-gtk
+if [ $LOCALE = "en_US" ]; then
+    sed -i '114G' /etc/skel/.fluxbox/startup
+    sed -i '115i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
+    sed -i '116iexec connman-gtk &' /etc/skel/.fluxbox/startup
 else
-    pkg install connman-gtk
-    if [ $LOCALE = "en_US" ]; then
-        sed -i '114G' /etc/skel/.fluxbox/startup
-        sed -i '115i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
-        sed -i '116iexec connman-gtk &' /etc/skel/.fluxbox/startup
-    else
-        sed -i '117G' /etc/skel/.fluxbox/startup
-        sed -i '118i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
-        sed -i '119iexec connman-gtk &' /etc/skel/.fluxbox/startup
-    fi
+    sed -i '117G' /etc/skel/.fluxbox/startup
+    sed -i '118i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
+    sed -i '119iexec connman-gtk &' /etc/skel/.fluxbox/startup
 fi
 
-if [ $DISTRIBUTION = "stretch" ]; then
-    rm -f /usr/share/applications/6connman.desktop
-else
-    rm -f /usr/share/applications/6wicd.desktop
-    rm -f /usr/share/applications/6connman.desktop
-    rm -rf /etc/wicd
-    rm -f /etc/systemd/system/suspend.target.wants/resume_wifi.service
-    rm -f /usr/bin/wicd-manager
-    rm -f /lib/systemd/system/resume_wifi.service
-fi
+rm -f /usr/share/applications/6connman.desktop
 
 rm -f /usr/share/applications/mousepad.desktop
 rm -f /usr/share/applications/org.xfce.mousepad.desktop
@@ -42,7 +27,6 @@ rm -f /usr/share/applications/org.xfce.mousepad-settings.desktop
 rm -f /usr/share/applications/qalculate-gtk.desktop
 rm -f /usr/share/applications/galculator.desktop
 rm -f /usr/share/applications/pcmanfm.desktop
-rm -f /usr/share/applications/wicd.desktop
 rm -f /usr/share/applications/connman-gtk.desktop
 rm -f /usr/share/applications/nm-applet.desktop
 rm -f /usr/share/applications/nm-connection-editor.desktop
@@ -55,7 +39,6 @@ if [ $LOCALE = "ru_RU" ]; then
     sed -i "s/Name=Calculator/Name=Калькулятор/g" /usr/share/applications/3calculator.desktop
     sed -i "s/Name=Text editor/Name=Текстовый редактор/g" /usr/share/applications/4mousepad.desktop
     sed -i "s/Name=Net Manager/Name=Менеджер сети/g" /usr/share/applications/6connman.desktop
-    sed -i "s/Name=Net Manager/Name=Менеджер сети/g" /usr/share/applications/6wicd.desktop
     sed -i "s/Name=Archiver/Name=Архиватор/g" /usr/share/applications/zxarchiver.desktop
     sed -i "s/Name=Task Manager/Name=Диспетчер задач/g" /usr/share/applications/zlxtask.desktop
 elif [ $LOCALE = "es_ES" ]; then
@@ -64,7 +47,6 @@ elif [ $LOCALE = "es_ES" ]; then
     sed -i "s/Name=Calculator/Name=Calculadora/g" /usr/share/applications/3calculator.desktop
     sed -i "s/Name=Text editor/Name=Editor de texto/g" /usr/share/applications/4mousepad.desktop
     sed -i "s/Name=Net Manager/Name=Gestor de redes/g" /usr/share/applications/6connman.desktop
-    sed -i "s/Name=Net Manager/Name=Gestor de redes/g" /usr/share/applications/6wicd.desktop
     sed -i "s/Name=Archiver/Name=Archivador/g" /usr/share/applications/zxarchiver.desktop
     sed -i "s/Name=Task Manager/Name=Gestor de tareas/g" /usr/share/applications/zlxtask.desktop
 fi

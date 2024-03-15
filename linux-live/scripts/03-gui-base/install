@@ -10,23 +10,14 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case $DISTRIBUTION in
-    "stretch" | "buster")
-        install_packages --delete-packages "libgdk-pixbuf-xlib-2.0-0" --replace-packages "libgdk-pixbuf-2.0-0=libgdk-pixbuf2.0-0"
-        ;;
-    "bionic")
-        install_packages --delete-packages "libgdk-pixbuf-xlib-2.0-0 libdeflate0" --replace-packages "libgdk-pixbuf-2.0-0=libgdk-pixbuf2.0-0 libjpeg62-turbo=libjpeg-turbo8"
-        ;;
-    "focal")
-        install_packages --delete-packages "libgdk-pixbuf-xlib-2.0-0" --replace-packages "libgdk-pixbuf-2.0-0=libgdk-pixbuf2.0-0 libjpeg62-turbo=libjpeg-turbo8"
-        ;;
     "jammy" | "lunar")
-        install_packages --replace-packages "libjpeg62-turbo=libjpeg-turbo8 libwebp6=libwebp7"
+        install_packages --add-packages "libatk1.0-data" --replace-packages "libjpeg62-turbo=libjpeg-turbo8 librest-1.0-0=librest-0.7-0 libtiff6=libtiff5"
         ;;
-    "bookworm" | "kali-rolling")
-        install_packages --delete-packages "libatk1.0-data" --replace-packages "libwebp6=libwebp7 librest-0.7-0=librest-1.0-0 libtiff5=libtiff6"
+    "bookworm" | "trixie" | "testing" | "kali-rolling")
+        install_packages
         ;;
     "sid")
-        install_packages --delete-packages "libatk1.0-data" --replace-packages "libwebp6=libwebp7"
+        install_packages
         ;;
     *)
         install_packages
