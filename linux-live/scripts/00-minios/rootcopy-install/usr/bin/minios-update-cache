@@ -18,7 +18,7 @@ PS4='${LINENO}: '
 set -x
 
 # Function to update various system caches from bundles
-function update_caches() {
+update_caches() {
     if [ ! "$UPDATE_MIME" ]; then
         [ -d "$1/usr/share/mime/" ] && UPDATE_MIME=true && update-mime-database /usr/share/mime &
     fi
@@ -51,7 +51,7 @@ function update_caches() {
 }
 
 # Function to configure kernel modules from bundles
-function configure_kernel_modules() {
+configure_kernel_modules() {
     for MODULE_PATH in $(find $BUNDLES -type d -path "*/lib/modules/*$(uname -r)" -exec find {} -type f \( -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" \) \; 2>/dev/null | egrep -v "$BUNDLES/(01-kernel|$CORE_BUNDLE_PREFIX)"); do
         MODULE_NAME="$(basename $MODULE_PATH | sed 's/.[gx]z$//')"
         [ "$(cat /etc/modprobe.d/*.conf | awk '/^blacklist / && / '$MODULE_NAME'$/ {print $2}')" ] && continue

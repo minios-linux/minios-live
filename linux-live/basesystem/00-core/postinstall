@@ -5,20 +5,6 @@
 pkg purge vim* grub* debconf-i18n installation-report
 pkg autoremove
 
-: 'if [ $DISTRIBUTION_TYPE != "ubuntu" ] && [ $PACKAGE_VARIANT != "cloud" ]; then
-    cd /tmp
-    pkg update 
-    apt-get download acpi-support 
-    dpkg -x acpi-support*.deb /tmp/acpisupport 
-    if [ -L "/lib" ]; then
-        mkdir -p /tmp/acpisupport/usr/lib
-        (cd /tmp/acpisupport/lib && cp --parents -afr * /tmp/acpisupport/usr/lib)
-        rm -rf /tmp/acpisupport/lib
-    fi
-    cd /tmp/acpisupport
-    cp -aR * / 
-fi'
-
 if [ $LOCALE != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then
         cat <<EOF >/etc/default/locale

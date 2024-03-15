@@ -23,12 +23,12 @@ RAMSTORE=$LIVE/modules
 # Print error message and exit
 # $1 = error message
 #
-function die() {
+die() {
     echo "$1" >&2
     exit 1
 }
 
-function print_branches() {
+print_branches() {
     local SI BUNDLE LOOP CWD
 
     SI="/sys/fs/aufs/$(cat /proc/mounts | grep 'aufs / aufs' | egrep -o 'si=([^,) ]+)' | tr = _)"
@@ -48,7 +48,7 @@ function print_branches() {
 # Activate MiniOS Bundle
 # $1 = file to activate
 #
-function activate() {
+activate() {
     local SB TGT BAS
 
     SB="$(readlink -f "$1")"
@@ -98,7 +98,7 @@ function activate() {
 # Deactivate MiniOS bundle of the given name
 # $1 = path to bundle file, or its name
 #
-function deactivate() {
+deactivate() {
     local BUNDLES SB MATCH LOOP LOOPFILE
 
     BUNDLES=$LIVE/bundles
@@ -148,7 +148,7 @@ function deactivate() {
     echo "MiniOS bundle deactivated: $SB"
 }
 
-function help() {
+help() {
     echo "Usage: $(basename $0) [OPTION]... [FILE]..."
     echo "Activate, deactivate or list MiniOS bundles."
     echo "To run this script, the Linux kernel must support AUFS."
@@ -167,19 +167,19 @@ function help() {
     exit 0
 }
 
-function brief_help() {
+brief_help() {
     echo "Usage: $(basename $0) [OPTION]... [FILE]..."
     echo "To run this script, the Linux kernel must support AUFS."
     echo "Try '$(basename $0) --help' for more information."
     exit 1
 }
 
-function version() {
+version() {
     echo "$(basename $0) $VERSION"
     exit 0
 }
 
-function fix_system() {
+fix_system() {
     if [ "$SYSTEM_TYPE" = "puzzle" ]; then
         # fix users
         minios-update-users "$BUNDLES" "$CHANGES" 2>/dev/null
@@ -190,7 +190,7 @@ function fix_system() {
     fi
 }
 
-function aufs_support() {
+aufs_support() {
     if cat /proc/filesystems | grep aufs >/dev/null; then
         AUFS="true"
     else

@@ -502,7 +502,7 @@ echo ""
 
 # If newer kernels are used, then xorg will not run on hyper-v without this configuration file.
 read_config "$CONFIG" DISTRIBUTION DISTRIBUTION_TYPE KERNEL_BPO KERNEL_AUFS
-if ([ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "kali-rolling" ] || [ "$DISTRIBUTION" = "sid" ]) || ([ "$DISTRIBUTION" = "bullseye" ] && [ "$KERNEL_BPO" = "true" ]) || ([ "$DISTRIBUTION_TYPE" = "ubuntu" ] && [ "$KERNEL_AUFS" = "true" ]); then
+if ([ "$DISTRIBUTION" = "bookworm" ] || [ "$DISTRIBUTION" = "sid" ]) || ([ "$DISTRIBUTION_TYPE" = "ubuntu" ] && [ "$KERNEL_AUFS" = "true" ]); then
     if [ "$(virt-what)" = "hyperv" ]; then
         if [ ! -d /etc/X11/xorg.conf.d ]; then
             mkdir -p /etc/X11/xorg.conf.d

@@ -6,14 +6,50 @@ set -u          # treat unset variable as error
 
 . /minioslib || exit 1
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-
-UBUNTU_IMAGE_HWE="false"
-
 pkg update
 
+case "${DISTRIBUTION_ARCH}" in
+"amd64")
+    KERNEL_ARCH="amd64"
+    ;;
+"i386-pae")
+    KERNEL_ARCH="686-pae"
+    ;;
+"i386")
+    KERNEL_ARCH="686"
+    ;;
+"arm64")
+    KERNEL_ARCH="arm64"
+    ;;
+esac
+
+if [ "$KERNEL_AUFS" = "true" ]; then
+    KERNEL_VERSION="6.1"
+    KERNEL="$(LANG=C apt-cache depends linux-image-"$KERNEL_VERSION"-mos-"$KERNEL_ARCH" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
+elif [ "$KERNEL_TYPE" = "none" ]; then
+    KERNEL=""
+elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+    KERNEL="$(LANG=C dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')"
+    KERNEL_VERSION=""
+else
+    KERNEL="$(uname -r)"
+    KERNEL_VERSION=""
+fi
+
+if [ $DISTRIBUTION_ARCH = "amd64" ]; then
+    KERNEL_BUILD_ARCH="x86_64"
+elif [ $DISTRIBUTION_ARCH = "i386" ]; then
+    KERNEL_BUILD_ARCH="i386"
+fi
+
+toggle_shell_options u
+for PARAM in KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH; do
+    update_config_variable "/miniosbuild.conf" "${PARAM}"
+done
+toggle_shell_options u
+
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+    if [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
@@ -21,53 +57,24 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
         pkg install ./*.deb
         rm ./*.deb
-        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-            cat <<EOF >/etc/apt/sources.list.d/mx.list
-# MX Community Main and Test Repos
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
-#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
-
-#ahs hardware stack repo
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
-EOF
-        elif [ $DISTRIBUTION = "sid" ]; then
+        if [ $DISTRIBUTION = "sid" ]; then
             cat <<EOF >/etc/apt/sources.list.d/antix.list
 deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
 EOF
         fi
         pkg update
-        if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-            pkg install \
-                virtualbox-guest-utils
-        fi
         if [ -f /etc/apt/sources.list.d/mx.list ]; then
-            rm /etc/apt/sources.list.d/mx.list
+            rm -f /etc/apt/sources.list.d/mx.list
         fi
         if [ -f /etc/apt/sources.list.d/antix.list ]; then
-            rm /etc/apt/sources.list.d/antix.list
+            rm -f /etc/apt/sources.list.d/antix.list
         fi
     fi
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
-        wget http://download.proxmox.com/debian/proxmox-release-bullseye.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bullseye.gpg
-        echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" >/etc/apt/sources.list.d/pve-install-repo.list
-        pkg update &&
-            apt-get full-upgrade -y
-        KERNEL_IMAGE=$(apt-cache depends pve-kernel-5.15 | grep -m 2 'Depends:' | tail -n1 | sed 's/  Depends: //g')
-    elif [ $KERNEL_TYPE = "ubuntu-hwe" ]; then
-        UBUNTU_KERNEL_VERSION="5.15.0-46"
-        UBUNTU_EXT_KERNEL_VERSION="5.15.0-46.49~20.04.1"
-        KERNEL_IMAGE="linux-image-$UBUNTU_KERNEL_VERSION-generic"
-    elif [ $KERNEL_AUFS = "true" ] && ! { [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "orel" ]; }; then
-        if [ $KERNEL_TYPE = "default" ]; then
-            KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH"
-        else
-            KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
-        fi
-    elif [ $DISTRIBUTION = "orel" ]; then
-        KERNEL_IMAGE="$(apt-cache depends linux-image-5.15-generic | grep -m 2 'Depends:' | grep 'astra' | sed 's/  Depends: //g')"
+    if [ $KERNEL_AUFS = "true" ]; then
+        KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH"
     else
         if [ $KERNEL_TYPE = "default" ]; then
             KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
@@ -76,42 +83,14 @@ if [ $DISTRIBUTION_TYPE = "debian" ]; then
         fi
     fi
 elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $KERNEL_AUFS = "true" ]; then
-        if [ $KERNEL_TYPE = "default" ]; then
-            KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH"
-        else
-            KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_TYPE-$KERNEL_ARCH"
-        fi
-    elif [ $UBUNTU_IMAGE_HWE = "true" ]; then
-        if [ $DISTRIBUTION = "xenial" ]; then
-            KERNEL_IMAGE="$(apt-cache depends linux-image-generic-hwe-16.04 | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
-        elif [ $DISTRIBUTION = "bionic" ]; then
-            KERNEL_IMAGE="$(apt-cache depends linux-image-generic-hwe-18.04 | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
-        elif [ $DISTRIBUTION = "focal" ]; then
-            KERNEL_IMAGE="$(apt-cache depends linux-image-generic-hwe-20.04 | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
-        fi
-    else
-        KERNEL_IMAGE="$(apt-cache depends linux-image-generic | grep -m 1 'Depends:' | sed 's/  Depends: //g')"
-    fi
+    KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH"
 fi
 
 if [ $KERNEL_TYPE != "none" ]; then
     if [ $KERNEL_AUFS != "true" ] && [ $KERNEL_BPO = "true" ]; then
         pkg install -t $DISTRIBUTION-backports $KERNEL_IMAGE
-    elif [ $KERNEL_TYPE = "ubuntu" ]; then
-        wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux-signed/
-        wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux-signed/linux-image-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
-        wget http://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-modules-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
-        pkg install ./linux-*.deb
-        rm ./linux-*.deb
-    elif [ $KERNEL_TYPE = "ubuntu-hwe" ]; then
-        wget http://security.ubuntu.com/ubuntu/pool/main/l/linux-signed-hwe-5.15/linux-image-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
-        wget http://security.ubuntu.com/ubuntu/pool/main/l/linux-hwe-5.15/linux-modules-$UBUNTU_KERNEL_VERSION-generic_$UBUNTU_EXT_KERNEL_VERSION\_amd64.deb
-        pkg install ./linux-*.deb
-        rm ./linux-*.deb
     else
         pkg install $KERNEL_IMAGE
     fi
-
     apt-mark hold $KERNEL_IMAGE
 fi

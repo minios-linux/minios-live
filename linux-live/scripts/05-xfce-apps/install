@@ -16,17 +16,9 @@ pkg update
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     install_packages
 fi
-if [ $PACKAGE_VARIANT = "standard" ] || [ "$PACKAGE_VARIANT" = "maximum" ] || [ "$PACKAGE_VARIANT" = "ultra" ]; then
-    if [ "$DISTRIBUTION" = "stretch" ]; then
-        pkg install \
-            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports libssh-4/$DISTRIBUTION-backports
-    elif [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "bullseye" ]; then
-        pkg install \
-            remmina/$DISTRIBUTION-backports remmina-plugin-rdp/$DISTRIBUTION-backports remmina-plugin-vnc/$DISTRIBUTION-backports
-    else
+if [ $PACKAGE_VARIANT = "standard" ] || [ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]; then
         pkg install \
             remmina remmina-plugin-rdp remmina-plugin-vnc
-    fi
 fi
 
 if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
@@ -268,7 +260,3 @@ EOF
 fi
 
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
-
-if [ "$DISTRIBUTION" = "stretch" ] || [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "orel" ]; then
-    sed -i -e "/FontUseSystem=/s/=.*/=FALSE/" /etc/skel/.config/xfce4/terminal/terminalrc
-fi

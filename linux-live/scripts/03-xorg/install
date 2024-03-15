@@ -43,26 +43,6 @@ EOF
     systemctl disable xrdp
 fi
 
-if [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
-    if [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-        if [ $DISTRIBUTION = "buster" ]; then
-            apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 276ECD5CEF864D8F
-        fi
-        apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F942E0D4E1C726CD
-        cat <<EOF >/etc/apt/sources.list.d/mx.list
-# MX Community Main and Test Repos
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION main non-free
-#deb http://mxrepo.com/mx/testrepo/ $DISTRIBUTION test
-
-#ahs hardware stack repo
-deb http://mxrepo.com/mx/repo/ $DISTRIBUTION ahs
-EOF
-        pkg update
-        pkg install virtualbox-guest-x11
-        rm /etc/apt/sources.list.d/mx.list
-    fi
-fi
-
 if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
     USER_NAME="root"
 fi

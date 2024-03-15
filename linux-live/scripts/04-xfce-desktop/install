@@ -16,7 +16,7 @@ if [ "$LOCALE" = "pt_BR" ]; then
     LNG="br"
 fi
 
-echo "export QT_QPA_PLATFORMTHEME=gtk2" >> /etc/environment
+echo "export QT_QPA_PLATFORMTHEME=gtk2" >>/etc/environment
 
 if [ "$LOCALE" != "en_US" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
@@ -61,25 +61,11 @@ fi
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case "$DISTRIBUTION" in
-    stretch)
-        if [ "$PACKAGE_VARIANT" = "minimum" ]; then
-            install_packages --delete-packages "wicd" --add-packages "librsvg2-common connman-gtk"
-        fi
-        ;;
-    bullseye | focal)
-        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome"
-        ;;
-    bookworm | trixie | sid)
-        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome policykit-1"
-        ;;
     jammy | lunar)
-        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome policykit-1-gnome"
-        ;;
-    bionic)
-        install_packages --delete-packages "wicd blueman" --add-packages "librsvg2-common network-manager-gnome"
+        install_packages --replace-packages "policykit-1=policykit-1-gnome"
         ;;
     *)
-        install_packages --delete-packages "wicd" --add-packages "librsvg2-common network-manager-gnome"
+        install_packages
         ;;
     esac
     if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ]; then
@@ -183,33 +169,6 @@ sed -i 's,<property name="MonospaceFontName" type="empty"/>,<property name="Mono
 sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" type="int" value="1"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<property name="HintStyle" type="string" value="hintfull"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
-#fi
-
-if [ "$DISTRIBUTION" = "stretch" ] || [ "$DISTRIBUTION" = "orel" ]; then
-    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
-<?xml version="1.0" encoding="UTF-8"?>
-
-<channel name="thunar" version="1.0">
-  <property name="last-view" type="string" value="ThunarIconView"/>
-  <property name="last-icon-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_NORMAL"/>
-  <property name="last-separator-position" type="int" value="170"/>
-  <property name="last-show-hidden" type="bool" value="false"/>
-  <property name="last-window-maximized" type="bool" value="false"/>
-  <property name="last-window-width" type="int" value="640"/>
-  <property name="last-window-height" type="int" value="480"/>
-  <property name="last-side-pane" type="string" value="ThunarShortcutsPane"/>
-  <property name="last-location-bar" type="string" value="ThunarLocationEntry"/>
-  <property name="last-details-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_38_PERCENT"/>
-  <property name="last-details-view-column-widths" type="string" value="50,113,50,50,216,50,50,68,50,178"/>
-  <property name="misc-single-click" type="bool" value="false"/>
-  <property name="shortcuts-icon-size" type="string" value="THUNAR_ICON_SIZE_SMALLEST"/>
-  <property name="default-view" type="string" value="ThunarIconView"/>
-  <property name="misc-file-size-binary" type="bool" value="true"/>
-  <property name="misc-middle-click-in-tab" type="bool" value="false"/>
-</channel>
-
-EOF
-fi
 
 if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
@@ -225,11 +184,7 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
 fi
 
 if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-    elif [ $DISTRIBUTION = "bullseye" ] || [ $DISTRIBUTION = "bookworm" ] || [ $DISTRIBUTION = "sid" ] || [ $DISTRIBUTION = "focal" ] || [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ] || [ $DISTRIBUTION = "kali-rolling" ]; then
-        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
-    fi
+    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
@@ -417,7 +372,7 @@ FileManager=Thunar
 WebBrowser=
 
 EOF
-elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "maximum" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
@@ -427,11 +382,7 @@ EOF
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
-    if [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "orel" ]; then
-        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
-    else
-        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
-    fi
+    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
     sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
 fi
 
@@ -457,7 +408,7 @@ elif [ $PACKAGE_VARIANT = "standard" ]; then
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
-elif [ $PACKAGE_VARIANT = "maximum" ]; then
+elif [ $PACKAGE_VARIANT = "toolbox" ]; then
     ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
     ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
@@ -469,10 +420,8 @@ elif [ $PACKAGE_VARIANT = "ultra" ]; then
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
     ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
-    if [ $DISTRIBUTION =! "stretch" ] || [ $DISTRIBUTION != "buster" ]; then
-        sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
-        sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
-    fi
+    sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+    sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 else
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg

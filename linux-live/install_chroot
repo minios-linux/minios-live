@@ -15,7 +15,6 @@ if [ -z $BATCH ]; then
 	. $SCRIPT_DIR/config || exit 1
 fi
 toggle_shell_options u
-. $SCRIPT_DIR/kernelconfig || exit 1
 
 CMD=(chroot_setup_host chroot_pkg_install chroot_finish_up)
 

@@ -20,11 +20,11 @@ BEXT="sb"
 ##### DISTRIBUTION SETTINGS #####
 # distribution
 #
-# if Debian [stretch, buster, bullseye, bookworm, trixie, sid, kali-rolling]
-# if Ubuntu [bionic, focal, jammy]
+# if Debian [bookworm]
+# if Ubuntu [jammy]
 DISTRIBUTION="bookworm"
 
-# distribution arch
+# distribution arch (Debian only)
 #
 # [amd64, i386, i386-pae]
 DISTRIBUTION_ARCH="amd64"
@@ -32,23 +32,22 @@ DISTRIBUTION_ARCH="amd64"
 # desktop environment
 #
 # [core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt]
-DESKTOP_ENVIRONMENT="xfce"
+DESKTOP_ENVIRONMENT="flux"
 
 # system variant, indicates the used list of packages in modules
 #
-# [cloud, minimum, standard, maximum, ultra, puzzle]
-PACKAGE_VARIANT="standard"
+# [minimum, standard, toolbox, ultra, puzzle]
+PACKAGE_VARIANT="minimum"
 
 # compresssion type
 #
-# stretch: [xz, lzo, gz]
-# buster+: [xz, lzo, gz, lz4, zstd]
+# [xz, lzo, gz, lz4, zstd]
 COMP_TYPE="zstd"
 
 ###########################
 
 ##### KERNEL SETTINGS #####
-# [none, default, rt, cloud, pve, ubuntu, ubuntu-hwe]
+# [none, default, rt, cloud]
 KERNEL_TYPE="default"
 
 # Linux kernel from backports
@@ -56,7 +55,7 @@ KERNEL_TYPE="default"
 # [true, false]
 KERNEL_BPO="false"
 
-# Debian kernel with AUFS support
+# kernel with AUFS support
 #
 # [true, false]
 KERNEL_AUFS="true"

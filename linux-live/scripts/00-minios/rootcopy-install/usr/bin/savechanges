@@ -12,7 +12,7 @@ TMP=/tmp/changes$$
 EXCLUDE="^\$|/\$|[.]wh[.][.]wh[.]orph/|^[.]wh[.][.]pwd[.]lock|^[.]wh[.][.]wh[.]plnk/|^[.]wh[.][.]wh[.]aufs|^var/cache/|^var/backups/|^var/tmp/|^var/log/|^var/lib/apt/|^var/lib/dhcp/|^var/lib/systemd/|^sbin/fsck[.]aufs|^etc/resolv[.]conf|^root/[.]Xauthority|^root/[.]xsession-errors|^root/[.]fehbg|^root/[.]fluxbox/lastwallpaper|^root/[.]fluxbox/menu_resolution|^etc/mtab|^etc/fstab|^boot/|^dev/|^mnt/|^proc/|^run/|^sys/|^tmp/"
 CHANGES=/run/initramfs/memory/changes
 
-function help() {
+help() {
     echo "Usage: $(basename $0) [target_file.$BEXT] [changes_directory]"
     echo "Saves all changed files in a compressed filesystem bundle,"
     echo "excluding some predefined files such as /etc/mtab, temp & log files,"
@@ -28,13 +28,13 @@ function help() {
     exit 0
 }
 
-function brief_help() {
+brief_help() {
     echo "Usage: $(basename $0) [target_file.$BEXT] [changes_directory]"
     echo "Try '$(basename $0) --help' for more information."
     exit 1
 }
 
-function version() {
+version() {
     echo "$(basename $0) $VERSION"
     exit 0
 }

@@ -7,11 +7,8 @@ if [ -f /linux-live/container_config ]; then
 else
 	. /linux-live/config || exit 1
 fi
-. /linux-live/kernelconfig || exit 1
-. /linux-live/minioslib || exit 1
-if [ -z $KERNEL ]; then
-	. /kernel.conf || exit 1
-fi
+. /minioslib || exit 1
+. /miniosbuild.conf || exit 1
 
 console_colors
 
