@@ -8,19 +8,19 @@ else
 	. /linux-live/config || exit 1
 fi
 . /minioslib || exit 1
-. /miniosbuild.conf || exit 1
+. /minios-build.conf || exit 1
 
 console_colors
 
 # build initramfs image
 echo -e "=====> ${CYAN}Building intramfs image ...${ENDCOLOR}"
-echo -e "=====  ${YELLOW}KERNEL=$KERNEL${ENDCOLOR}"
-echo -e "=====  ${YELLOW}KERNEL_BPO=$KERNEL_BPO${ENDCOLOR}"
-echo -e "=====  ${YELLOW}KERNEL_AUFS=$KERNEL_AUFS${ENDCOLOR}"
+echo -e "=====  ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
+echo -e "=====  ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
+echo -e "=====  ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
 
 cd /linux-live/initramfs/livekit-mos
 chmod 755 ./initramfs_create
-INITRAMFS=$(./initramfs_create $KERNEL)
-if [ "$INITRAMFS" != "" ]; then
-	mv "$INITRAMFS" /boot/initrfs.img
+INITRAMFS=$(./initramfs_create "${KERNEL}")
+if [ -n "${INITRAMFS}" ]; then
+	mv "${INITRAMFS}" /boot/initrfs.img
 fi

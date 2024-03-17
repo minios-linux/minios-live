@@ -67,7 +67,7 @@ common_variables() {
     stretch | buster | bullseye | bookworm | trixie | kali-rolling | sid | orel)
         DISTRIBUTION_TYPE="debian"
         ;;
-    bionic | cosmic | disco | eoan | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
+    bionic | focal | jammy | noble)
         DISTRIBUTION_TYPE="ubuntu"
         ;;
     *)
@@ -292,31 +292,32 @@ read_cmdline() {
 # variables.
 #
 # Usage:
-#   read_config CONFIGFILE VARNAME...
+#   read_config CONFIG_FILE VAR_NAME...
 #
 # Arguments:
-#   CONFIGFILE
+#   CONFIG_FILE
 #     Specify the configuration file.
 #
-#   VARNAME
+#   VAR_NAME
 #     Specify the names of the variables to look for.
+#
 read_config() {
     # Enable extended globbing. This is required for the pattern matching of variable names.
     shopt -s extglob
 
     # The first argument is the configuration file.
-    local CONFIGFILE="${1?No configuration file given}"
+    local CONFIG_FILE="${1?No configuration file given}"
 
     # All other arguments are the variable names to look for.
     local KEYLIST="${@:2}"
 
     # Check if the configuration file exists and is readable.
-    if [[ ! -f "${CONFIGFILE}" ]]; then
-        echo >&2 "\"${CONFIGFILE}\" is not a file!"
+    if [[ ! -f "${CONFIG_FILE}" ]]; then
+        echo >&2 "\"${CONFIG_FILE}\" is not a file!"
         exit 1
     fi
-    if [[ ! -r "${CONFIGFILE}" ]]; then
-        echo >&2 "\"${CONFIGFILE}\" is not readable!"
+    if [[ ! -r "${CONFIG_FILE}" ]]; then
+        echo >&2 "\"${CONFIG_FILE}\" is not readable!"
         exit 1
     fi
 
@@ -342,10 +343,80 @@ read_config() {
                 eval ${LHS}=\"${RHS}\"
             fi
         fi
-    done <<<"$(tr -d '\r' <${CONFIGFILE})"
+    done <<<"$(tr -d '\r' <${CONFIG_FILE})"
 
     # Disable extended globbing after we're done using it.
     shopt -u extglob
+}
+
+# This function is designed to update a configuration file with new values for variables.
+#
+# Usage:
+#   update_config CONFIG_FILE VAR_NAME...
+#
+# Arguments:
+#   CONFIG_FILE
+#     Specify the configuration file.
+#
+#   VAR_NAME
+#     Specify the names of the variables to update.
+#     These can be simple variables or arrays.
+#
+update_config() {
+    # The configuration file is passed as the first argument
+    local CONFIG_FILE="${1?No configuration file given}"
+    shift
+
+    # Check if the configuration file exists and is readable.
+    if [[ ! -f "${CONFIG_FILE}" ]]; then
+        echo >&2 "\"${CONFIG_FILE}\" is not a file!"
+        exit 1
+    fi
+    if [[ ! -r "${CONFIG_FILE}" ]]; then
+        echo >&2 "\"${CONFIG_FILE}\" is not readable!"
+        exit 1
+    fi
+
+    # Iterate over every variable passed as argument
+    for ARG in "$@"; do
+        local -n VAR="${ARG}"
+        local NEW_VALUE ELEMENT
+
+        # If the variable is empty, continue to next
+        if [[ -z "${VAR[@]}" ]]; then
+            continue
+        fi
+
+        # Check if the variable is an array or a simple variable
+        case "$(declare -p "${ARG}" 2>/dev/null)" in
+        "declare -a"*)
+            # If it's an array, construct the new value as an array
+            NEW_VALUE="${ARG}=("
+            for ELEMENT in "${VAR[@]}"; do
+                NEW_VALUE+="\"${ELEMENT}\""
+                [[ "${ELEMENT}" != "${VAR[-1]}" ]] && NEW_VALUE+=" "
+            done
+            NEW_VALUE+=")"
+            ;;
+        *)
+            # If it's a simple variable, construct the new value as a string
+            NEW_VALUE="${ARG}=\"${VAR}\""
+            ;;
+        esac
+        # If the variable already exists in the configuration file, replace the old value with the new one
+        if grep -q "^${ARG}=" "${CONFIG_FILE}"; then
+            sed -i "s|^${ARG}=.*|${NEW_VALUE}|" "${CONFIG_FILE}"
+        else
+            # If the variable does not exist, append the variable and its value to the end of the configuration file
+            echo -e "\n${NEW_VALUE}" >>"${CONFIG_FILE}"
+        fi
+    done
+
+    # Remove empty lines from the configuration file
+    sed -i '/^$/d' "${CONFIG_FILE}"
+
+    # Sort the lines in the configuration file in alphabetical order
+    sort -o "${CONFIG_FILE}" "${CONFIG_FILE}"
 }
 
 # read_config_value takes two arguments: a filename and a key.
@@ -425,50 +496,11 @@ check_is_in_chroot() {
     fi
 }
 
-# Function to save a variable to a configuration file
-update_config_variable() {
-    # The configuration file and the variable are passed as arguments
-    local CONFIG_FILE="${1}"
-    local -n VAR="${2}"
-    local NEW_VALUE ELEMENT
-
-    # If the variable is empty, return
-    if [[ -z "${VAR[@]}" ]]; then
-        return
-    fi
-    # Check if the variable is an array or a simple variable
-    case "$(declare -p "${2}" 2>/dev/null)" in
-    "declare -a"*)
-        # If it's an array, construct the new value as an array
-        NEW_VALUE="${2}=("
-        for ELEMENT in "${VAR[@]}"; do
-            NEW_VALUE+="\"${ELEMENT}\""
-            [[ "${ELEMENT}" != "${VAR[-1]}" ]] && NEW_VALUE+=" "
-        done
-        NEW_VALUE+=")"
-        ;;
-    *)
-        # If it's a simple variable, construct the new value as a string
-        NEW_VALUE="${2}=\"${VAR}\""
-        ;;
-    esac
-    # If the variable already exists in the configuration file, replace the old value with the new one
-    if grep -q "^${2}=" "${CONFIG_FILE}"; then
-        sed -i "s|^${2}=.*|${NEW_VALUE}|" "${CONFIG_FILE}"
-    else
-        # If the variable does not exist, append the variable and its value to the end of the configuration file
-        echo -e "\n${NEW_VALUE}" >>"${CONFIG_FILE}"
-    fi
-    # Remove empty lines from the configuration file
-    sed -i '/^$/d' "${CONFIG_FILE}"
-    # Sort the lines in the configuration file in alphabetical order
-    sort -o "${CONFIG_FILE}" "${CONFIG_FILE}"
-}
-
 # check if the folder where the installation will be performed is empty
 check_install_dir() {
     current_function
     INSTALL_DIR="${WORK_DIR}/basesystem"
+    mkdir -p "${INSTALL_DIR}"
     echo -e "The working directory is ${MAGENTA}${INSTALL_DIR}${ENDCOLOR}."
     if [ "$(ls -A "${INSTALL_DIR}" 2>/dev/null)" != "" ]; then
         cleanup
@@ -479,60 +511,20 @@ check_install_dir() {
 setup_install_dir() {
     current_function
     WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
-    if [ "${INSTALL_DIR}" = "" ]; then
-        INSTALL_DIR="${WORK_DIR}/basesystem"
-        mkdir -p "${INSTALL_DIR}"
-        check_install_dir
+    toggle_shell_options u
+    if [ -z "${APTCACHE_DIR}" ]; then
+        APTCACHE_DIR="${WORK_DIR}/aptcache"
+    fi
+    if [ -z "${ROOTFS_TARBALL}" ]; then
+        ROOTFS_TARBALL="${WORK_DIR}/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz"
     fi
     toggle_shell_options u
-    cat <<EOF >"${WORK_DIR}/miniosbuild.conf"
-BUILD_TEST_ISO="${BUILD_TEST_ISO}"
-DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
-DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
-DISTRIBUTION="${DISTRIBUTION}"
-DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
-PACKAGE_VARIANT="${PACKAGE_VARIANT}"
-COMP_TYPE="${COMP_TYPE}"
-KERNEL="${KERNEL}"
-KERNEL_ARCH="${KERNEL_ARCH}"
-KERNEL_TYPE="${KERNEL_TYPE}"
-KERNEL_BPO="${KERNEL_BPO}"
-KERNEL_AUFS="${KERNEL_AUFS}"
-KERNEL_BUILD_DKMS="${KERNEL_BUILD_DKMS}"
-LIVEKITNAME="${LIVEKITNAME}"
-SYSTEMNAME="${SYSTEMNAME}"
-DISTRIBUTION_ARCH="${DISTRIBUTION_ARCH}"
-LOCALE="${LOCALE}"
-LOCALES=(${LOCALES[@]})
-MULTILINGUAL="${MULTILINGUAL}"
-LAYOUT="${LAYOUT}"
-LAYOUTCODE="${LAYOUTCODE}"
-TIMEZONE="${TIMEZONE}"
-MODULE="${MODULE}"
-USER_NAME="${USER_NAME}"
-BEXT="${BEXT}"
-EOF
-    toggle_shell_options u
+    if [ -z "${INSTALL_DIR}" ]; then
+        check_install_dir
+    fi
+    generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
     EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
-    cat <<EOF >"$EXCLUDE_CORE_FILE"
-${INSTALL_DIR}/boot
-${INSTALL_DIR}/root/.bash_history
-${INSTALL_DIR}/root/.cache
-${INSTALL_DIR}/root/.local/share/mc
-${INSTALL_DIR}/root/.wget-hsts
-${INSTALL_DIR}/var/lib/apt/extended_states
-${INSTALL_DIR}/var/lib/dhcp/dhclient.leases
-${INSTALL_DIR}/var/lib/systemd/random-seed
-${INSTALL_DIR}/initrd.img
-${INSTALL_DIR}/initrd.img.old
-${INSTALL_DIR}/vmlinuz
-${INSTALL_DIR}/vmlinuz.old
-${INSTALL_DIR}/miniosbuild.conf
-${INSTALL_DIR}/minioslib
-${INSTALL_DIR}/linux-live
-${INSTALL_DIR}/install
-${INSTALL_DIR}/build
-EOF
+    generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
 }
 
 # Unmount directories
@@ -541,7 +533,7 @@ unmount_dirs() {
 
     local DIR_PATH="$1"
     local ATTEMPTS="0"
-    local UNMOUNTED
+    local DIR UNMOUNTED
     while true; do
         UNMOUNTED="true"
         for DIR in $(mount | grep ${DIR_PATH} | awk '{print $3}'); do
@@ -586,22 +578,48 @@ cleanup() {
     fi
 }
 
+setup_chroot_environment() {
+    local DIR_PATH="$1"
+
+    for DIR in dev run proc sys tmp; do
+        mkdir -p "${DIR_PATH}/${DIR}"
+    done
+
+    mount --bind /dev "${DIR_PATH}/dev"
+    mount --bind /run "${DIR_PATH}/run"
+    mount none -t proc "${DIR_PATH}/proc"
+    mount none -t sysfs "${DIR_PATH}/sys"
+    mount none -t devpts "${DIR_PATH}/dev/pts"
+    mount none -t tmpfs "${DIR_PATH}/tmp"
+
+    mkdir -p "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
+    mount --bind "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
+}
+
+update_resolv_conf() {
+    local DIR_PATH="${1}"
+    local RESOLV_PATH="${DIR_PATH}/etc/resolv.conf"
+    local BACKUP_PATH="${RESOLV_PATH}.bak"
+
+    if [ -f "/.dockerenv" ] || [ "${container}" = "podman" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+        if [ -L "${RESOLV_PATH}" ]; then
+            mv "${RESOLV_PATH}" "${BACKUP_PATH}"
+            echo "nameserver 8.8.8.8" >"${RESOLV_PATH}"
+        elif [ -e "${BACKUP_PATH}" ]; then
+            mv "${BACKUP_PATH}" "${RESOLV_PATH}"
+        fi
+    fi
+}
+
 # mount filesystems inside chroot
 chroot_mount_fs() {
     current_function
 
     unmount_dirs "${BUILD_DIR}"
 
-    mount --bind /dev "${INSTALL_DIR}/dev"
-    mount --bind /run "${INSTALL_DIR}/run"
-    mount none -t proc "${INSTALL_DIR}/proc"
-    mount none -t sysfs "${INSTALL_DIR}/sys"
-    mount none -t devpts "${INSTALL_DIR}/dev/pts"
-    mount none -t tmpfs "${INSTALL_DIR}/tmp"
+    setup_chroot_environment "${INSTALL_DIR}"
 
-    mkdir -p "${SCRIPT_DIR}/aptcache/${DISTRIBUTION}" "${INSTALL_DIR}/var/cache/apt/archives"
-
-    mount --bind "${SCRIPT_DIR}/aptcache/${DISTRIBUTION}" "${INSTALL_DIR}/var/cache/apt/archives"
+    update_resolv_conf "${INSTALL_DIR}"
 }
 
 # Displaying information about the start of the build for a more
@@ -636,38 +654,67 @@ new_run() {
     echo ""
 }
 
+generate_chroot_configuration_file() {
+    toggle_shell_options u
+    cat <<EOF >"${1}"
+BEXT="${BEXT}"
+BUILD_TEST_ISO="${BUILD_TEST_ISO}"
+COMP_TYPE="${COMP_TYPE}"
+DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
+DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
+DISTRIBUTION="${DISTRIBUTION}"
+DISTRIBUTION_ARCH="${DISTRIBUTION_ARCH}"
+DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
+KERNEL="${KERNEL}"
+KERNEL_ARCH="${KERNEL_ARCH}"
+KERNEL_AUFS="${KERNEL_AUFS}"
+KERNEL_BPO="${KERNEL_BPO}"
+KERNEL_BUILD_ARCH="${KERNEL_BUILD_ARCH}"
+KERNEL_BUILD_DKMS="${KERNEL_BUILD_DKMS}"
+KERNEL_TYPE="${KERNEL_TYPE}"
+KERNEL_VERSION="${KERNEL_VERSION}"
+LAYOUT="${LAYOUT}"
+LAYOUTCODE="${LAYOUTCODE}"
+LIVEKITNAME="${LIVEKITNAME}"
+LOCALE="${LOCALE}"
+LOCALES=(${LOCALES[@]})
+MODULE="${MODULE}"
+MULTILINGUAL="${MULTILINGUAL}"
+PACKAGE_VARIANT="${PACKAGE_VARIANT}"
+SYSTEMNAME="${SYSTEMNAME}"
+TIMEZONE="${TIMEZONE}"
+USER_NAME="${USER_NAME}"
+EOF
+    toggle_shell_options u
+}
+
+generate_squashfs_exclude_file() {
+    cat <<EOF >"${1}"
+${2}/boot
+${2}/root/.bash_history
+${2}/root/.cache
+${2}/root/.local/share/mc
+${2}/root/.wget-hsts
+${2}/var/lib/apt/extended_states
+${2}/var/lib/dhcp/dhclient.leases
+${2}/var/lib/systemd/random-seed
+${2}/initrd.img
+${2}/initrd.img.old
+${2}/vmlinuz
+${2}/vmlinuz.old
+${2}/minios-build.conf
+${2}/minioslib
+${2}/linux-live
+${2}/install
+${2}/build
+EOF
+}
+
 # This function creates two configuration files for chroot environment
 # The first file contains various environment variables and their values
 # The second file contains several utility functions
 add_chroot_configuration_files() {
-    toggle_shell_options u
-    cat <<EOF >"$1/miniosbuild.conf"
-BUILD_TEST_ISO="${BUILD_TEST_ISO}"
-DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
-DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
-DISTRIBUTION="${DISTRIBUTION}"
-DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
-PACKAGE_VARIANT="${PACKAGE_VARIANT}"
-COMP_TYPE="${COMP_TYPE}"
-KERNEL="${KERNEL}"
-KERNEL_ARCH="${KERNEL_ARCH}"
-KERNEL_TYPE="${KERNEL_TYPE}"
-KERNEL_BPO="${KERNEL_BPO}"
-KERNEL_AUFS="${KERNEL_AUFS}"
-KERNEL_BUILD_DKMS="${KERNEL_BUILD_DKMS}"
-LIVEKITNAME="${LIVEKITNAME}"
-SYSTEMNAME="${SYSTEMNAME}"
-DISTRIBUTION_ARCH="${DISTRIBUTION_ARCH}"
-LOCALE="${LOCALE}"
-LOCALES=(${LOCALES[@]})
-MULTILINGUAL="${MULTILINGUAL}"
-LAYOUT="${LAYOUT}"
-LAYOUTCODE="${LAYOUTCODE}"
-TIMEZONE="${TIMEZONE}"
-MODULE="${MODULE}"
-USER_NAME="${USER_NAME}"
-BEXT="${BEXT}"
-EOF
+    generate_chroot_configuration_file "${1}/minios-build.conf"
     if [ -f "${SCRIPT_DIR}/linux-live/minioslib" ]; then
         cp "${SCRIPT_DIR}/linux-live/minioslib" "$1/minioslib"
     elif [ -f "/linux-live/minioslib" ]; then
@@ -675,62 +722,41 @@ EOF
     elif [ -f "/usr/lib/minioslib" ]; then
         cp "/usr/lib/minioslib" "$1/minioslib"
     fi
-    toggle_shell_options u
 }
 
 remove_chroot_configuration_files() {
-    rm -f "$1/miniosbuild.conf"
+    rm -f "$1/minios-build.conf"
     rm -f "$1/minioslib"
 }
 
 timezone_to_array() {
     local IFS
     IFS="/"
-    TIMEZONE=("${TIMEZONE}")
+    TIMEZONE=(${TIMEZONE})
 }
 
 pkg() {
-    local PACKAGE_MANAGER INSTALL_OPTIONS
+    local PACKAGE_MANAGER INSTALL_OPTIONS COMMAND
 
     if command -v apt-get >/dev/null 2>&1; then
         PACKAGE_MANAGER="apt-get"
     elif command -v apt >/dev/null 2>&1; then
         PACKAGE_MANAGER="apt"
-    elif command -v dnf >/dev/null 2>&1; then
-        PACKAGE_MANAGER="dnf"
-    elif command -v yum >/dev/null 2>&1; then
-        PACKAGE_MANAGER="yum"
     else
         echo "Error: Could not find a supported package manager" >&2
         exit 1
     fi
 
-    case "${PACKAGE_MANAGER}" in
-    apt-get | apt)
-        INSTALL_OPTIONS="--yes"
-        ;;
-    dnf | yum)
-        INSTALL_OPTIONS="--yes"
-        ;;
-    esac
-
-    local COMMAND="$1"
+    INSTALL_OPTIONS="--yes"
+    COMMAND="$1"
     shift
 
     case "${COMMAND}" in
-    install | remove | update | upgrade | autoremove | purge | clean | build-dep | source)
-        if [ "${PACKAGE_MANAGER}" = "apt-get" ] || [ "${PACKAGE_MANAGER}" = "apt" ]; then
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
-        else
-            "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
-        fi
+    install | remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
         ;;
-    update)
-        if [ "${PACKAGE_MANAGER}" = "apt-get" ] || [ "${PACKAGE_MANAGER}" = "apt" ]; then
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}"
-        else
-            "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}"
-        fi
+    update | edit-sources | moo | download | check)
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
         ;;
     *)
         echo "Invalid command: ${COMMAND}" >&2
@@ -817,11 +843,11 @@ create_apt_list() {
     fi
 }
 
-get_vars() {
+export_chroot_variables() {
     current_function
-    add_chroot_configuration_files
+    add_chroot_configuration_files /
     . /minioslib
-    read_config /miniosbuild.conf "${VARIABLES}"
+    read_config /minios-build.conf "${VARIABLES}"
     export ${VARIABLES}
 }
 
@@ -830,7 +856,7 @@ chroot_run() {
     add_chroot_configuration_files "${1}"
     chroot "${1}" /bin/bash <<EOF
 . /minioslib
-read_config /miniosbuild.conf "${VARIABLES}"
+read_config /minios-build.conf "${VARIABLES}"
 export ${VARIABLES}
 ${@:2}
 EOF
@@ -877,7 +903,6 @@ extract_tarball() {
 build_bootstrap() {
     current_process
 
-    local ROOTFS_TARBALL="${SCRIPT_DIR}/rootfs/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz"
     local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https --include=ca-certificates"
 
     if [ "${CONTAINER_TYPE}" = "1" ]; then
@@ -890,36 +915,20 @@ build_bootstrap() {
         if [ -f "${ROOTFS_TARBALL}" ]; then
             extract_tarball "${ROOTFS_TARBALL}" "${INSTALL_DIR}"
         else
-            mkdir -p "${SCRIPT_DIR}/aptcache/${DISTRIBUTION}" "${INSTALL_DIR}/var/cache/apt/archives"
-            mount --bind "${SCRIPT_DIR}/aptcache/${DISTRIBUTION}" "${INSTALL_DIR}/var/cache/apt/archives"
+            mkdir -p "${APTCACHE_DIR}" "${INSTALL_DIR}/var/cache/apt/archives"
+            mount --bind "${APTCACHE_DIR}" "${INSTALL_DIR}/var/cache/apt/archives"
 
             sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
-                debootstrap --arch="${DISTRIBUTION_ARCH}" "${DEBOOTSTRAP_INCLUDE}" "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
-            if [ $? -ne 0 ]; then
-                echo "Error running debootstrap!"
-                exit 1
-            fi
+                debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
 
             umount "${INSTALL_DIR}/var/cache/apt/archives"
-            if [ $? -ne 0 ]; then
-                echo "Error unmounting ${INSTALL_DIR}/var/cache/apt/archives"
-                exit 1
-            fi
 
             mkdir -p "${SCRIPT_DIR}/rootfs"
             tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" .
-            if [ $? -ne 0 ]; then
-                echo "Error creating tarball ${ROOTFS_TARBALL}!"
-                exit 1
-            fi
         fi
     else
         sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
-            debootstrap --arch="${DISTRIBUTION_ARCH}" "${DEBOOTSTRAP_INCLUDE}" "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
-        if [ $? -ne 0 ]; then
-            echo "Error running debootstrap!"
-            exit 1
-        fi
+            debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
     fi
 
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
@@ -950,7 +959,7 @@ copy_build_scripts() {
     mkdir -p "${DESTINATION}/linux-live"
     rsync -a --exclude='.git' "${SCRIPT_DIR}/linux-live/" "${DESTINATION}/linux-live/"
 
-    chmod +x "${DESTINATION}/linux-live/install_chroot"
+    chmod +x "${DESTINATION}/linux-live/install-chroot"
 }
 
 build_chroot() {
@@ -975,9 +984,9 @@ build_chroot() {
     fi
 
     if [ -f /.minios-live-container ]; then
-        chroot_run "${INSTALL_DIR}" /linux-live/install_chroot -
+        chroot_run "${INSTALL_DIR}" /linux-live/install-chroot -
     else
-        chroot "${INSTALL_DIR}" /linux-live/install_chroot -
+        chroot "${INSTALL_DIR}" /linux-live/install-chroot -
     fi
 
     unmount_dirs "${BUILD_DIR}"
@@ -1284,11 +1293,11 @@ EOF
 
     if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
         # kernel.conf generation is in linux-live/scripts/01-kernel/build
-        [ -f "${WORK_DIR}/miniosbuild.conf" ] && read_config "${WORK_DIR}/miniosbuild.conf" KERNEL
+        [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
         copy_build_scripts "${MODULE_MERGED_DIR}"
-        chmod +x "${MODULE_MERGED_DIR}/linux-live/initrfs"
-        chroot_run "${MODULE_MERGED_DIR}" "/linux-live/initrfs"
+        chmod +x "${MODULE_MERGED_DIR}/linux-live/build-initramfs"
+        chroot_run "${MODULE_MERGED_DIR}" "/linux-live/build-initramfs"
 
         # copy boot files
         kernel_variables
@@ -1305,6 +1314,8 @@ EOF
 
 build_iso() {
     current_process
+
+    local DIR
 
     if [ "${CONTAINER_TYPE}" = "1" ] && [ ! -f "/.minios-live" ]; then
         setup_host
@@ -1341,7 +1352,7 @@ build_iso() {
 
     if [ "${REMOVE_OLD_ISO}" = "true" ]; then
         toggle_shell_options e
-        rm "${ISO_DIR}/${IMAGE}-${COMP_TYPE}-*.iso"
+        rm "${ISO_DIR}/${IMAGE}-${COMP_TYPE}-"*".iso"
         while [ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]; do
             rm "${ISO_DIR}/${LIVEKITNAME}.iso"
             sleep 1
@@ -1610,9 +1621,10 @@ EOF
 
 # This function installs the core packages within the chroot system.
 install_core_packages() {
+    current_process
     echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOR}"
 
-    get_vars
+    export_chroot_variables
 
     if [ -f /linux-live/basesystem/00-core/preinstall ]; then
         chmod +x /linux-live/basesystem/00-core/preinstall
@@ -1628,15 +1640,7 @@ install_core_packages() {
     fi
 
     chroot_cleanup
-}
 
-# This function handles package installation within a chroot environment.
-chroot_pkg_install() {
-    current_process
-
-    install_core_packages
-
-    # remove unused
     pkg autoremove
 }
 
@@ -1709,6 +1713,8 @@ install_packages() {
     local PACKAGE_LIST=""
     local TARGET_RELEASE=""
 
+    console_colors
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
         -s | --sed-script)
@@ -1765,14 +1771,29 @@ install_packages() {
         SED_SCRIPT+="s#${OLD_PKG}#${NEW_PKG}#g;"
     done
 
-    pkg update
+    # Create an array with package names
+    PACKAGE_ARRAY=($(grep -vE "^\s*#" $PACKAGE_LIST | tr "\n" " "))
+    PACKAGES_TO_INSTALL=()
+
+    if [ ! -e /var/cache/apt/pkgcache.bin ]; then
+        pkg update
+    fi
+
+    # Check each package for existence in the repository
+    for PACKAGE in "${PACKAGE_ARRAY[@]}"; do
+        # Check if the package is available in the repository
+        if ! LANG=C apt-cache show "${PACKAGE%%=*}" >/dev/null 2>&1; then
+            echo -e "${YELLOW}${BOLD}Warning:${ENDCOLOR} ${CYAN}${PACKAGE%%=*}${ENDCOLOR} is not available in the repository."
+            continue
+        fi
+        PACKAGES_TO_INSTALL+=("$PACKAGE")
+    done
 
     if [[ -z "$SED_SCRIPT" ]]; then
-        pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} \
-            $(grep -vE "^\s*#" $PACKAGE_LIST | tr "\n" " ") ${ADD_PACKAGES[@]}
+        pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} ${PACKAGES_TO_INSTALL[@]} ${ADD_PACKAGES[@]}
     else
         pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} \
-            $(grep -vE "^\s*#" $PACKAGE_LIST | sed "$SED_SCRIPT" | tr "\n" " ") ${ADD_PACKAGES[@]}
+            $(printf "%s\n" "${PACKAGES_TO_INSTALL[@]}" | sed "$SED_SCRIPT" | tr "\n" " ") ${ADD_PACKAGES[@]}
     fi
 }
 
@@ -1781,7 +1802,7 @@ module_check_mounted() {
     current_function
     if grep -qs "${MODULE_MERGED_DIR}" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/dev" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/run" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/proc" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/sys" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/dev/pts" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
-        module_unmount_dirs "${BUILD_DIR}"
+        module_unmount_dirs
     fi
 }
 
@@ -1791,7 +1812,6 @@ module_check_install_dir() {
     echo -e "The working directory is ${MAGENTA}${MODULE_UPPER_DIR}${ENDCOLOR}."
     if [ "$(ls -A ${MODULE_UPPER_DIR} 2>/dev/null)" != "" ]; then
         module_cleanup
-        module_check_mounted
     fi
 }
 
@@ -1828,120 +1848,47 @@ filter_modules() {
 module_chroot_mount_fs() {
     current_function
 
-    local MODULES BUNDLE FILTER
+    local MODULES BUNDLE FILTER DIR
 
-    module_check_mounted
+    unmount_dirs "${WORK_DIR}"
 
-    toggle_shell_options u
+    MODULES_LIST=""
+    MODULES=("${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}")
+    for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
+        BUNDLE=$(basename "${MODULES[$i]}" ."${BEXT}")
+        mkdir -p "${MODULES_DIR}/bundles/${BUNDLE}"
+        mount "${MODULES[$i]}" "${MODULES_DIR}/bundles/${BUNDLE}"
+    done
+    toggle_shell_options e
+    filter_modules "${MODULES_DIR}/bundles/"
+    MODULES_LIST=${MODULES_LIST/%:/}
+    toggle_shell_options e
+    mkdir -p "${MODULE_UPPER_DIR}" "${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
+    mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_UPPER_DIR}",workdir="${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
 
-    if [ -z "${BUILD_DKMS}" ] || [ "${BUILD_DKMS}" != "true" ]; then
-        MODULES_LIST=""
-        MODULES=("${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}")
-        for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-            BUNDLE=$(basename "${MODULES[$i]}" ."${BEXT}")
-            mkdir -p "${MODULES_DIR}/bundles/${BUNDLE}"
-            mount "${MODULES[$i]}" "${MODULES_DIR}/bundles/${BUNDLE}"
-        done
-        toggle_shell_options e
-        filter_modules "${MODULES_DIR}/bundles/"
-        MODULES_LIST=${MODULES_LIST/%:/}
-        toggle_shell_options e
-        mkdir -p "${MODULE_UPPER_DIR}" "${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
-        mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_UPPER_DIR}",workdir="${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
+    setup_chroot_environment "${MODULE_MERGED_DIR}"
 
-    else
-        mkdir -p "${MODULE_UPPER_DIR}" "${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
-        mount -t overlay overlay -o lowerdir="${LOWER_DIR}",upperdir="${MODULE_UPPER_DIR}",workdir="${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
-    fi
-
-    toggle_shell_options u
-
-    mkdir -p "${MODULE_MERGED_DIR}/dev"
-    mkdir -p "${MODULE_MERGED_DIR}/run"
-    mkdir -p "${MODULE_MERGED_DIR}/proc"
-    mkdir -p "${MODULE_MERGED_DIR}/sys"
-    mkdir -p "${MODULE_MERGED_DIR}/tmp"
-
-    mount --bind /dev "${MODULE_MERGED_DIR}/dev"
-
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-        if [ -L "${MODULE_MERGED_DIR}/etc/resolv.conf" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-            if [ -L "${MODULE_MERGED_DIR}/etc/resolv.conf" ]; then
-                if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-                    rm "${MODULE_MERGED_DIR}/etc/resolv.conf"
-                else
-                    mv "${MODULE_MERGED_DIR}/etc/resolv.conf" "${MODULE_MERGED_DIR}/etc/resolv.conf.bak"
-                fi
-            fi
-            echo "nameserver 8.8.8.8" >>"${MODULE_MERGED_DIR}/etc/resolv.conf"
-        fi
-    else
-        mount --bind /run "${MODULE_MERGED_DIR}/run"
-    fi
-
-    mount none -t proc "${MODULE_MERGED_DIR}/proc"
-    mount none -t sysfs "${MODULE_MERGED_DIR}/sys"
-    mount none -t devpts "${MODULE_MERGED_DIR}/dev/pts"
-    mount none -t tmpfs "${MODULE_MERGED_DIR}/tmp"
-    mkdir -p "${SCRIPT_DIR}/aptcache/${DISTRIBUTION}"
-    mkdir -p "${MODULE_MERGED_DIR}/var/cache/apt/archives"
-    mount --bind "${SCRIPT_DIR}/aptcache/${DISTRIBUTION}" "${MODULE_MERGED_DIR}/var/cache/apt/archives"
+    update_resolv_conf "${MODULE_MERGED_DIR}"
 }
 
 # This function unmounts directories within a chroot environment.
 module_unmount_dirs() {
     current_function
 
-    local MODULES BUNDLE
+    unmount_dirs "${WORK_DIR}"
 
-    toggle_shell_options e
-    umount "${MODULE_MERGED_DIR}/var/cache/apt/archives"
-    umount "${MODULE_MERGED_DIR}/proc"
-    umount "${MODULE_MERGED_DIR}/sys"
-    umount "${MODULE_MERGED_DIR}/dev/pts"
-    umount "${MODULE_MERGED_DIR}/tmp"
-    umount "${MODULE_MERGED_DIR}/dev"
-
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
-        if [[ -e "${MODULE_MERGED_DIR}/etc/resolv.conf.bak" && ! -L "${MODULE_MERGED_DIR}/etc/resolv.conf" ]]; then
-            rm -f "${MODULE_UPPER_DIR}/etc/resolv.conf"
-            mv "${MODULE_MERGED_DIR}/etc/resolv.conf.bak" "${MODULE_MERGED_DIR}/etc/resolv.conf"
-        elif [ -e "${MODULE_MERGED_DIR}/etc/resolv.conf.bak" ] && [ -L "${MODULE_MERGED_DIR}/etc/resolv.conf" ]; then
-            rm -f "${MODULE_UPPER_DIR}/etc/resolv.conf.bak"
-        fi
-    else
-        umount "${MODULE_MERGED_DIR}/run"
-    fi
-    umount "${MODULE_MERGED_DIR}"
-
-    if [ -f /.dockerenv ] || [ "$container" = "podman" ]; then
+    if [ -e "${MODULE_UPPER_DIR}/etc/resolv.conf" ]; then
         rm -f "${MODULE_UPPER_DIR}/etc/resolv.conf"
+    elif [ -e "${MODULE_UPPER_DIR}/etc/resolv.conf.bak" ]; then
         rm -f "${MODULE_UPPER_DIR}/etc/resolv.conf.bak"
     fi
-
-    toggle_shell_options u
-
-    if [ -z "${BUILD_DKMS}" ] || [ "${BUILD_DKMS}" != "true" ]; then
-        MODULES=("${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}")
-        for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
-            BUNDLE=$(basename "${MODULES[$i]}" ."${BEXT}")
-            umount "${MODULES_DIR}/bundles/${BUNDLE}"
-        done
-    fi
-
-    toggle_shell_options eu
-
-    module_check_mounted
 }
 
 # Function to clean up the module
 module_cleanup() {
     current_function
-    module_check_mounted
+    unmount_dirs "${WORK_DIR}"
     rm -rf "${MODULE_UPPER_DIR}"
-    if [ -d "${MODULE_UPPER_DIR}" ]; then
-        module_cleanup
-    fi
 }
 
 # Function to finalize chroot environment
@@ -2009,42 +1956,44 @@ module_build_cleanup() {
     chroot_cleanup "${MODULE_UPPER_DIR}"
 }
 
-# Function to export kernel if it's a kernel or linux module
+# функция для экспорта ядра, если это ядро или модуль Linux
 export_kernel() {
-    if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-        if [ "${EXPORT_KERNEL}" = "true" ]; then
-            current_function
-            kernel_variables
-            mkdir -p "${KERNEL_DIR}"
-            if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
-                KERNEL_MODULE_NAME="${MODULE}-${KERNEL_SUFFIX}-ext-${COMP_TYPE}.${BEXT}"
-            else
-                KERNEL_MODULE_NAME="${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
-            fi
-            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/${KERNEL_MODULE_NAME}" ]; then
-                cp "${WORK_DIR}/image/${LIVEKITNAME}/${KERNEL_MODULE_NAME}" "${KERNEL_DIR}"
-                if [ "${NAMED_BOOT_FILES}" = "true" ]; then
-                    cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}" "${KERNEL_DIR}"
-                    cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}" "${KERNEL_DIR}"
-                else
-                    cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}" "${KERNEL_DIR}/vmlinuz-${KERNEL_SUFFIX}"
-                    cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}" "${KERNEL_DIR}/initrfs-${KERNEL_SUFFIX}.img"
-                fi
-                echo "Kernel files and initrd image have been exported to a folder ${KERNEL_DIR}"
-            else
-                echo "Kernel files could not be found."
-            fi
+    if [[ "${MODULE}" != *"kernel"* ]]; then
+        return
+    fi
+
+    if [ "${EXPORT_KERNEL}" = "TRUE" ] || [ "${MOVE_KERNEL}" = "TRUE" ]; then
+        local OPERATION="copied"
+        [ "${MOVE_KERNEL}" = "TRUE" ] && OPERATION="moved"
+
+        current_function
+        kernel_variables
+        mkdir -p "${KERNEL_DIR}"
+
+        if [ "${KERNEL_BUILD_DKMS}" = "TRUE" ]; then
+            KERNEL_MODULE_NAME="${MODULE}-${KERNEL_SUFFIX}-ext-${COMP_TYPE}.${BEXT}"
+        else
+            KERNEL_MODULE_NAME="${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
         fi
-        if [ "${MOVE_KERNEL}" = "true" ]; then
-            mkdir -p "${KERNEL_DIR}"
-            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}" ]; then
-                mv "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}" "${KERNEL_DIR}"
-                mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}" "${KERNEL_DIR}"
-                mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}" "${KERNEL_DIR}"
-                echo "Kernel files and initrd image have been moved to a folder ${KERNEL_DIR}"
+
+        local SOURCE_PATH="${WORK_DIR}/image/${LIVEKITNAME}/${KERNEL_MODULE_NAME}"
+        local VMLINUX_PATH="${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        local INITRFS_PATH="${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
+
+        if [ -f "${SOURCE_PATH}" ]; then
+            ${MOVE_KERNEL} "${SOURCE_PATH}" "${KERNEL_DIR}"
+
+            if [ "${NAMED_BOOT_FILES}" = "TRUE" ]; then
+                ${MOVE_KERNEL} "${VMLINUX_PATH}" "${KERNEL_DIR}"
+                ${MOVE_KERNEL} "${INITRFS_PATH}" "${KERNEL_DIR}"
             else
-                echo "Kernel files could not be found."
+                ${MOVE_KERNEL} "${VMLINUX_PATH}" "${KERNEL_DIR}/vmlinuz-${KERNEL_SUFFIX}"
+                ${MOVE_KERNEL} "${INITRFS_PATH}" "${KERNEL_DIR}/initrfs-${KERNEL_SUFFIX}.img"
             fi
+
+            echo "Kernel files and initrd image have been ${OPERATION} to a folder ${KERNEL_DIR}"
+        else
+            echo "Kernel files could not be found."
         fi
     fi
 }
@@ -2067,19 +2016,19 @@ kernel_variables() {
 # Function to create initial ramdisk file system (initrfs) for a Linux kernel
 create_initrfs() {
     if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-        if [ -f "${WORK_DIR}/miniosbuild.conf" ]; then
-            read_config "${WORK_DIR}/miniosbuild.conf" KERNEL
+        if [ -f "${WORK_DIR}/minios-build.conf" ]; then
+            read_config "${WORK_DIR}/minios-build.conf" KERNEL
         fi
         copy_build_scripts "${MODULE_MERGED_DIR}"
         chmod +x "${MODULE_MERGED_DIR}/linux-live/initrfs"
         chroot "${MODULE_MERGED_DIR}" /linux-live/initrfs
         kernel_variables
-        if ls "${MODULE_MERGED_DIR}/boot/vmlinuz-**-**-*" 2>/dev/null; then
-            cp "${MODULE_MERGED_DIR}/boot/vmlinuz-**-**-*" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        elif ls "${MODULE_MERGED_DIR}/boot/vmlinuz-**.**.*" 2>/dev/null; then
-            cp "${MODULE_MERGED_DIR}/boot/vmlinuz-**.**.*" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        if ls "${MODULE_MERGED_DIR}"/boot/vmlinuz-**-**-* 2>/dev/null; then
+            cp "${MODULE_MERGED_DIR}"/boot/vmlinuz-**-**-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        elif ls "${MODULE_MERGED_DIR}"/boot/vmlinuz-**.**.* 2>/dev/null; then
+            cp "${MODULE_MERGED_DIR}"/boot/vmlinuz-**.**.* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
         else
-            cp "${MODULE_MERGED_DIR}/boot/vmlinuz-*" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+            cp "${MODULE_MERGED_DIR}"/boot/vmlinuz-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
         fi
         cp "${MODULE_MERGED_DIR}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
         sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux.cfg"
@@ -2181,25 +2130,7 @@ build_modules() {
             MODULE_WORK_DIR="${MODULES_DIR}/${MODULE}-work"
             MODULE_MERGED_DIR="${MODULES_DIR}/${MODULE}-merged"
             EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-module-exclude"
-            cat <<EOF >"${EXCLUDE_MODULE_FILE}"
-${MODULE_UPPER_DIR}/boot
-${MODULE_UPPER_DIR}/root/.bash_history
-${MODULE_UPPER_DIR}/root/.cache
-${MODULE_UPPER_DIR}/root/.local/share/mc
-${MODULE_UPPER_DIR}/root/.wget-hsts
-${MODULE_UPPER_DIR}/var/lib/apt/extended_states
-${MODULE_UPPER_DIR}/var/lib/dhcp/dhclient.leases
-${MODULE_UPPER_DIR}/var/lib/systemd/random-seed
-${MODULE_UPPER_DIR}/initrd.img
-${MODULE_UPPER_DIR}/initrd.img.old
-${MODULE_UPPER_DIR}/vmlinuz
-${MODULE_UPPER_DIR}/vmlinuz.old
-${MODULE_UPPER_DIR}/miniosbuild.conf
-${MODULE_UPPER_DIR}/minioslib
-${MODULE_UPPER_DIR}/linux-live
-${MODULE_UPPER_DIR}/install
-${MODULE_UPPER_DIR}/build
-EOF
+            generate_squashfs_exclude_file "${EXCLUDE_MODULE_FILE}" "${MODULE_UPPER_DIR}"
 
             module_check_install_dir
 
@@ -2232,14 +2163,14 @@ EOF
             fi
 
             if [[ "${MODULE}" == *"kernel"* ]]; then
-                if [ -f "${MODULE_UPPER_DIR}/miniosbuild.conf" ]; then
-                    read_config "${MODULE_UPPER_DIR}/miniosbuild.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
-                    update_config_variable "${WORK_DIR}/miniosbuild.conf" KERNEL
+                if [ -f "${MODULE_UPPER_DIR}/minios-build.conf" ]; then
+                    read_config "${MODULE_UPPER_DIR}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
+                    update_config "${WORK_DIR}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                 fi
             fi
 
             if [ -f "${SOURCE_MODULES_DIR}/${MODULE}/build" ]; then
-                module_unmount_dirs "${BUILD_DIR}"
+                module_unmount_dirs
 
                 module_build_cleanup
 
@@ -2273,7 +2204,7 @@ EOF
             fi
 
             if [ -f "${SOURCE_MODULES_DIR}/${MODULE}/is_dkms_build" ]; then
-                read_config "${INSTALL_DIR}/miniosbuild.conf" KERNEL
+                read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
                 handle_files 'symlink' "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/build"
                 handle_files 'symlink' "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/source"
@@ -2308,10 +2239,9 @@ EOF
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                 fi
-
                 chroot_run "${MODULE_MERGED_DIR}" time mksquashfs /squashfs-root "/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend || exit
 
-                rm -f "${MODULE_UPPER_DIR}/miniosbuild.conf"
+                rm -f "${MODULE_UPPER_DIR}/minios-build.conf"
             fi
 
             # copy files
@@ -2379,7 +2309,7 @@ EOF
 
             module_chroot_finish_up
 
-            module_unmount_dirs "${BUILD_DIR}"
+            module_unmount_dirs
 
             if [ ! -f "${SOURCE_MODULES_DIR}/${MODULE}/build" ]; then
                 module_build_cleanup
@@ -2517,10 +2447,6 @@ container_run() {
             -e EXPORT_KERNEL="true" \
             -e MOVE_KERNEL="false" \
             -e EXPORT_LOGS="false" \
-            -e USE_MX_REPO="false" \
-            -e USE_ANTIX_REPO="false" \
-            -e USE_UNOFFICIAL_REPOSITORY="false" \
-            -e UNOFFICIAL_REPOSITORY_ADDRESS="http://10.3.0.3" \
             -e BUILD_FROM_SNAPSHOT="false" \
             -e SNAPSHOT_DATE="20220223T214737Z" \
             local/mlc /build/minios-live/install -
@@ -2617,7 +2543,7 @@ container_build_run() {
     fi
 
     case $1 in
-    trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic)
+    trusty | xenial | bionic | focal | groovy | hirsute | impish | jammy | kinetic | lunar | mantic | noble)
         DISTRIBUTION_TYPE="ubuntu"
         ;;
     esac

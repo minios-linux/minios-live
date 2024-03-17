@@ -11,17 +11,29 @@ SET_E=""
 SET_U=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
-BUILD_DIR="${SCRIPT_DIR}/build"
+
+if [ "${SCRIPT_DIR}" = "/usr/bin" ]; then
+    . "/usr/lib/minios-live/minioslib" || exit 1
+    toggle_shell_options u
+    if [ -z "${BATCH}" ]; then
+        . "/etc/minios-live/config" || exit 1
+    fi
+    toggle_shell_options u
+    BUILD_DIR="${PWD}/build"
+else
+    . "${SCRIPT_DIR}/linux-live/minioslib" || exit 1
+    toggle_shell_options u
+    if [ -z "${BATCH}" ]; then
+        . "${SCRIPT_DIR}/linux-live/config" || exit 1
+    fi
+    toggle_shell_options u
+    BUILD_DIR="${SCRIPT_DIR}/build"
+    APTCACHE_DIR="${SCRIPT_DIR}/aptcache/${DISTRIBUTION}"
+    ROOTFS_TARBALL="${SCRIPT_DIR}/rootfs/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz"
+fi
 ISO_DIR="${BUILD_DIR}/iso"
 KERNEL_DIR="${BUILD_DIR}/kernel"
 LOCALES_DIR="${BUILD_DIR}/locales"
-
-. "${SCRIPT_DIR}/linux-live/minioslib" || exit 1
-toggle_shell_options u
-if [ -z "${BATCH}" ]; then
-    . "${SCRIPT_DIR}/linux-live/config" || exit 1
-fi
-toggle_shell_options u
 
 CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources)
 

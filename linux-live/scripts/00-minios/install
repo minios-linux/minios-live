@@ -4,7 +4,7 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. /minioslib || exit 1
+. "/minioslib" || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -26,7 +26,7 @@ Description=Sync minios.conf changes
 
 [Service]
 Type=oneshot
-ExecStart=-/bin/sh -c "if [ -f /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ] && [ -w /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /run/initramfs/memory/data/$LIVEKITNAME/$LIVEKITNAME.conf; fi; sync"
+ExecStart=-/bin/sh -c "if [ -f /run/initramfs/memory/data/${LIVEKITNAME}/${LIVEKITNAME}.conf ] && [ -w /run/initramfs/memory/data/${LIVEKITNAME}/${LIVEKITNAME}.conf ]; then cp -fp /etc/${LIVEKITNAME}/${LIVEKITNAME}.conf /run/initramfs/memory/data/${LIVEKITNAME}/${LIVEKITNAME}.conf; fi; sync"
 
 [Install]
 RequiredBy=minios-syncconfig.path
@@ -41,7 +41,7 @@ if [ -f /usr/lib/systemd/system/minios-syncconfig.service ]; then
 fi
 #systemctl enable minios-script-launcher.service
 
-if [ $PACKAGE_VARIANT = "cloud" ] || [[ $DESKTOP_ENVIRONMENT == *"rdp-kiosk"* ]]; then
+if [ "${PACKAGE_VARIANT}" = "cloud" ]; then
     if [ -d /usr/share/minios/html ]; then
         rm -rf /usr/share/minios/html
     fi
