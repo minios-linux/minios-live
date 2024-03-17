@@ -7,7 +7,7 @@ set -u          # treat unset variable as error
 . /minioslib || exit 1
 # If we need to use an array of LOCALES in the code, the variables must be read
 # from the file. This crutch may be removed in the future.
-. /miniosbuild.conf || exit 1
+. /minios-build.conf || exit 1
 
 get_firefox_locale() {
     case "$1" in
@@ -48,7 +48,7 @@ pkg update
 
 # install packages
 if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "lunar" ]; then
+    if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "noble" ]; then
         pkg install software-properties-common
         add-apt-repository ppa:mozillateam/ppa
         cat <<EOF >/etc/apt/preferences.d/mozilla-firefox

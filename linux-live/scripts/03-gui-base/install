@@ -10,7 +10,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case $DISTRIBUTION in
-    "jammy" | "lunar")
+    "jammy" | "noble")
         install_packages --add-packages "libatk1.0-data" --replace-packages "libjpeg62-turbo=libjpeg-turbo8 librest-1.0-0=librest-0.7-0 libtiff6=libtiff5"
         ;;
     "bookworm" | "trixie" | "testing" | "kali-rolling")

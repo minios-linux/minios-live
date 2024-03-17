@@ -4,7 +4,7 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. /minioslib || exit 1
+. "/minioslib" || exit 1
 
 pkg update
 
@@ -22,34 +22,31 @@ case "${DISTRIBUTION_ARCH}" in
     KERNEL_ARCH="arm64"
     ;;
 esac
-
-if [ "$KERNEL_AUFS" = "true" ]; then
+if [ "${KERNEL_BPO}" = "true" ]; then
+    BPO="-t ${DISTRIBUTION}-backports"
+    KERNEL_VERSION="6.5"
+else
+    BPO=""
     KERNEL_VERSION="6.1"
-    KERNEL="$(LANG=C apt-cache depends linux-image-"$KERNEL_VERSION"-mos-"$KERNEL_ARCH" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
-elif [ "$KERNEL_TYPE" = "none" ]; then
-    KERNEL=""
+fi
+
+KERNEL=""
+if [ "${KERNEL_AUFS}" = "true" ]; then
+    KERNEL="$(LANG=C apt-cache depends linux-image-"${KERNEL_VERSION}"-mos-"${KERNEL_ARCH}" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
 elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
     KERNEL="$(LANG=C dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')"
-    KERNEL_VERSION=""
+elif [ "${KERNEL_TYPE}" = "none" ]; then
+    return
 else
     KERNEL="$(uname -r)"
-    KERNEL_VERSION=""
-fi
-
-if [ $DISTRIBUTION_ARCH = "amd64" ]; then
-    KERNEL_BUILD_ARCH="x86_64"
-elif [ $DISTRIBUTION_ARCH = "i386" ]; then
-    KERNEL_BUILD_ARCH="i386"
 fi
 
 toggle_shell_options u
-for PARAM in KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH; do
-    update_config_variable "/miniosbuild.conf" "${PARAM}"
-done
+update_config "/minios-build.conf" "KERNEL"
 toggle_shell_options u
 
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+    if [ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ]; then
         wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
         wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
@@ -72,25 +69,21 @@ EOF
     fi
 fi
 
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    if [ $KERNEL_AUFS = "true" ]; then
-        KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+    if [ "${KERNEL_AUFS}" = "true" ]; then
+        KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
     else
-        if [ $KERNEL_TYPE = "default" ]; then
-            KERNEL_IMAGE="linux-image-$KERNEL_ARCH"
+        if [ "${KERNEL_TYPE}" = "default" ]; then
+            KERNEL_IMAGE="linux-image-${KERNEL_ARCH}"
         else
-            KERNEL_IMAGE="linux-image-$KERNEL_TYPE-$KERNEL_ARCH"
+            KERNEL_IMAGE="linux-image-${KERNEL_TYPE}-${KERNEL_ARCH}"
         fi
     fi
-elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    KERNEL_IMAGE="linux-image-$KERNEL_VERSION-mos-$KERNEL_ARCH"
+elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+    KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
 fi
 
-if [ $KERNEL_TYPE != "none" ]; then
-    if [ $KERNEL_AUFS != "true" ] && [ $KERNEL_BPO = "true" ]; then
-        pkg install -t $DISTRIBUTION-backports $KERNEL_IMAGE
-    else
-        pkg install $KERNEL_IMAGE
-    fi
-    apt-mark hold $KERNEL_IMAGE
+if [ "${KERNEL_TYPE}" != "none" ]; then
+    pkg install "${BPO}" "${KERNEL_IMAGE}"
+    apt-mark hold "${KERNEL_IMAGE}"
 fi

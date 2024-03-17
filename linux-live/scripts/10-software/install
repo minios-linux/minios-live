@@ -10,39 +10,45 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 pkg update
 
+if [ $PACKAGE_VARIANT = "novice" ]; then
+    PACKAGE_LIST="$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+else
+    PACKAGE_LIST="$SCRIPT_DIR/package.list"
+fi
+
 # install packages
 case $DISTRIBUTION in
 bookworm)
-    install_packages --package-list "$SCRIPT_DIR/package.list" --replace-packages "telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
+    install_packages --package-list "$PACKAGE_LIST" --replace-packages "telegram-desktop=telegram-desktop/$DISTRIBUTION-backports"
     ;;
 *)
-    install_packages --package-list "$SCRIPT_DIR/package.list"
+    install_packages --package-list "$PACKAGE_LIST"
     ;;
 esac
 
-if grep -q 'imagemagick' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
+if grep -q 'imagemagick' "$PACKAGE_LIST"; then
     rm -f /usr/share/applications/display-im6.q16.desktop
 fi
-if grep -q 'obs-studio' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
+if grep -q 'obs-studio' "$PACKAGE_LIST"; then
     if [ -f /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png ]; then
         mv /usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png /usr/share/pixmaps/
     elif [ -f /usr/share/icons/hicolor/256x256/apps/obs.png ]; then
         mv /usr/share/icons/hicolor/256x256/apps/obs.png /usr/share/pixmaps/
     fi
 fi
-if grep -q 'pdfmod' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
+if grep -q 'pdfmod' "$PACKAGE_LIST"; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s pdfshuffler.png pdfmod.png
     done
 fi
-if grep -q 'guake' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
+if grep -q 'guake' "$PACKAGE_LIST"; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s utilities-terminal.png guake.png
     done
 fi
-if grep -q 'drawio' $SCRIPT_DIR/package.list >/dev/null 2>&1; then
+if grep -q 'drawio' "$PACKAGE_LIST"; then
     for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
         cd /usr/share/icons/elementary-xfce/apps/$FOLDER
         ln -s libreoffice-draw.png drawio.png

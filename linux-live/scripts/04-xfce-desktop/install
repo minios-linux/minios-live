@@ -61,26 +61,20 @@ fi
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case "$DISTRIBUTION" in
-    jammy | lunar)
+    jammy | noble)
         install_packages --replace-packages "policykit-1=policykit-1-gnome"
         ;;
     *)
         install_packages
         ;;
     esac
-    if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ]; then
+    if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "novice" ]; then
         case "$DISTRIBUTION" in
-        bullseye | bookworm)
+        bookworm)
             pkg install pulseaudio-module-xrdp
-            ;;
-        jammy)
-            tar -xzf /pulseaudio-module-xrdp.u2204.tar.gz -C /
             ;;
         esac
     fi
-fi
-if [ -f /pulseaudio-module-xrdp.u2204.tar.gz ]; then
-    rm /pulseaudio-module-xrdp.u2204.tar.gz
 fi
 
 if [ -f /usr/bin/connman-gtk ]; then
@@ -396,11 +390,7 @@ fi
 for BACKGROUND in /usr/share/backgrounds/MiniOS*.svg; do
     ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
 done
-if [ $DISTRIBUTION = "orel" ]; then
-    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-blue-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
-elif [ $PACKAGE_VARIANT = "minimum" ]; then
+if [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "novice" ]; then
     ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-verticals.png
     ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
     ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-shapes.svg

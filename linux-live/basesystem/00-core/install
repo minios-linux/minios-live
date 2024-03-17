@@ -4,10 +4,8 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. /minioslib || exit 1
-# If we need to use an array of LOCALES in the code, the variables must be read
-# from the file. This crutch may be removed in the future.
-. /miniosbuild.conf || exit 1
+. "/minioslib" || exit 1
+. "/minios-build.conf" || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -15,13 +13,13 @@ SYSTEMD_PATH="/usr/lib/systemd"
 
 timezone_to_array
 
-if [ $LOCALE != "en_US" ]; then
+if [ "${LOCALE}" != "en_US" ]; then
     DEBCONF_SETTINGS=(
-        "keyboard-configuration  keyboard-configuration/layoutcode       string  us,$LAYOUTCODE"
-        "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT"
+        "keyboard-configuration  keyboard-configuration/layoutcode       string  us,${LAYOUTCODE}"
+        "keyboard-configuration  keyboard-configuration/variant  select  ${LAYOUT}"
         "keyboard-configuration  keyboard-configuration/toggle   select  Alt+Shift"
         "tzdata  tzdata/Zones/${TIMEZONE[0]}     select  ${TIMEZONE[1]}"
-        "locales locales/locales_to_be_generated multiselect     $LOCALE.UTF-8 UTF-8"
+        "locales locales/locales_to_be_generated multiselect     ${LOCALE}.UTF-8 UTF-8"
     )
 else
     DEBCONF_SETTINGS=(
@@ -30,7 +28,7 @@ else
 fi
 
 DEBCONF_SETTINGS+=(
-    "locales locales/default_environment_locale      select  $LOCALE.UTF-8"
+    "locales locales/default_environment_locale      select  ${LOCALE}.UTF-8"
     "davfs2 davfs2/suid_file boolean true"
     "console-setup   console-setup/codeset47 select  Guess optimal character set"
     "console-setup   console-setup/charmap47 select  UTF-8"
@@ -42,22 +40,22 @@ DEBCONF_SETTINGS+=(
 )
 
 DEBCONF_SETTINGS+=(
-    "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
+    "keyboard-configuration  keyboard-configuration/layout   select  ${LAYOUT}"
 )
 
-if [ $MULTILINGUAL = "true" ]; then
+if [ "${MULTILINGUAL}" = "true" ]; then
     LOCALES_STRING=""
     for ITEM in "${LOCALES[@]}"; do
-        LOCALES_STRING+="$ITEM.UTF-8 UTF-8, "
+        LOCALES_STRING+="${ITEM}.UTF-8 UTF-8, "
     done
     LOCALES_STRING=${LOCALES_STRING%??}
     DEBCONF_SETTINGS+=(
-        "locales locales/locales_to_be_generated multiselect $LOCALES_STRING"
+        "locales locales/locales_to_be_generated multiselect ${LOCALES_STRING}"
     )
 fi
 
 for SETTING in "${DEBCONF_SETTINGS[@]}"; do
-    echo "$SETTING" | debconf-set-selections -v
+    echo "${SETTING}" | debconf-set-selections -v
 done
 
 if ! dpkg -s gpg &>/dev/null; then
@@ -65,7 +63,7 @@ if ! dpkg -s gpg &>/dev/null; then
 fi
 
 curl https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
-echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+echo "deb https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
 
 cat <<EOF >/etc/apt/preferences.d/minios-linux
 Package: *
@@ -74,14 +72,14 @@ Pin-Priority: 1001
 EOF
 
 # Check if package variant list file exists
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+if [ -f "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list" ]; then
     # Install packages based on distribution
-    case $DISTRIBUTION in
+    case "${DISTRIBUTION}" in
     "bookworm" | "trixie" | "sid")
-        if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $PACKAGE_VARIANT = "minimum" ]; then
+        if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] && [ "${PACKAGE_VARIANT}" = "minimum" ]; then
             install_packages --delete-packages "jq"
         fi
-        if [ $KERNEL_BUILD_DKMS = "false" ]; then
+        if [ "${KERNEL_BUILD_DKMS}" = "false" ]; then
             install_packages --delete-packages "zfsutils-linux"
         else
             install_packages
@@ -90,12 +88,12 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     "jammy")
         install_packages --delete-packages "acpi-support-base" --replace-packages "netcat-openbsd=netcat" --add-packages "netplan.io"
         ;;
-    "lunar")
+    "noble")
         install_packages --delete-packages "acpi-support-base" --add-packages "netplan.io"
         ;;
     *)
         # Install packages with or without zfsutils-linux based on kernel type
-        if [ $KERNEL_TYPE = "none" ]; then
+        if [ "${KERNEL_TYPE}" = "none" ]; then
             install_packages --delete-packages "zfsutils-linux"
         else
             install_packages
@@ -105,18 +103,18 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 # install packages
-if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ]; then
+if [ "${PACKAGE_VARIANT}" = "standard" ] || [ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ]; then
     pkg install zstd lz4
 fi
 
 # install packages
-if [ $DESKTOP_ENVIRONMENT = "flux" ] || [ $PACKAGE_VARIANT = "minimum" ]; then
+if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ]; then
     pkg install connman
 else
     pkg install network-manager
 fi
 
-if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     pkg install cpio
     pkg autoremove linux-modules-extra-* linux-firmware
 fi
@@ -125,18 +123,18 @@ if [ -f /bin/ping ]; then
     chmod +s /bin/ping
 fi
 
-if grep -q docker $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q docker "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable docker.socket
     systemctl disable docker.service
     systemctl disable containerd.service
 fi
-if grep -q libvirt $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q libvirt "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable libvirtd
 fi
-if grep -q open-iscsi $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q open-iscsi "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable iscsid
 fi
-if grep -q nfs-common $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q nfs-common "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable rpcbind
 fi
 
@@ -153,7 +151,7 @@ cat <<EOF >/usr/lib/udev/rules.d/90-minios-automount.rules
 KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/minios-automount %r/%k"
 
 EOF
-if [ -d /etc/NetworkManager ] && [[ $DISTRIBUTION = "jammy" || $DISTRIBUTION = "lunar" ]]; then
+if [ -d /etc/NetworkManager ] && [[ "${DISTRIBUTION}" = "jammy" || "${DISTRIBUTION}" = "noble" ]]; then
     if [ ! -d /etc/netplan/ ]; then
         mkdir -p /etc/netplan/
     fi
@@ -182,9 +180,9 @@ if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service
     systemctl disable grub-initrd-fallback.service
 fi
 
-if grep -q ssh $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q ssh "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     echo "Enable ssh.service autostart."
-    cat <<EOF >$SYSTEMD_PATH/system/ssh-keygen.service
+    cat <<EOF >"${SYSTEMD_PATH}/system/ssh-keygen.service"
 [Unit]
 Description=Generate sshd keys
 Before=ssh.service
@@ -205,13 +203,13 @@ fi
 if [ ! -f /usr/share/sudo ]; then
     cat <<EOF >/usr/share/sudo
 #!/bin/bash
-if [ "$#" -lt 1 ]; then
+if [ "\$#" -lt 1 ]; then
    echo "Usage: sudo [command] [arguments]"
    exit 1
 fi
 
-if [ "$UID" = 0 ]; then
-   exec "$@"
+if [ "\$UID" = 0 ]; then
+   exec "\$@"
 fi
 
 echo "Sudo is not installed. Run the command as root or install sudo."
@@ -223,7 +221,7 @@ if [ -f /etc/locale.gen ]; then
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 fi
 
-if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     cat >/etc/default/keyboard <<'EOF'
 # KEYBOARD CONFIGURATION FILE
 
@@ -239,7 +237,7 @@ EOF
     dpkg-reconfigure -f noninteractive keyboard-configuration
 fi
 
-if grep console-setup $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep console-setup "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     cat >/etc/default/console-setup <<'EOF'
 # CONFIGURATION FILE FOR SETUPCON
 
@@ -261,26 +259,26 @@ EOF
     dpkg-reconfigure -f noninteractive console-setup
 fi
 
-if grep -q firewalld $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q firewalld "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable firewalld
 else
     rm -rf /etc/firewalld
 fi
-if grep -q cockpit $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q cockpit "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable cockpit.socket
 fi
 
-if grep -q laptop-mode-tools $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if grep -q laptop-mode-tools "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     if [ -f /usr/share/applications/laptop-mode-tools.desktop ]; then
         rm /usr/share/applications/laptop-mode-tools.desktop
     fi
 fi
 
 if ! grep -q LANG /etc/default/locale; then
-    echo "LANG=\"$LOCALE.UTF-8\"" >>/etc/default/locale
+    echo "LANG=\"${LOCALE}.UTF-8\"" >>/etc/default/locale
 fi
 
-echo root:$ROOT_PASSWORD | chpasswd
+echo root:"${ROOT_PASSWORD}" | chpasswd
 cp -f /etc/skel/.bashrc /root/
 sed -i 's,01;32m,01;31m,g' /root/.bashrc
 
