@@ -25,30 +25,24 @@ get_firefox_locale() {
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    FIREFOX_BRANDING="/usr/share/firefox-esr/browser/defaults/preferences/firefox-branding.js"
-elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    FIREFOX_BRANDING="/etc/firefox/syspref.js"
-fi
-
-LNG="$(echo $LOCALE | cut -d_ -f1)"
-if [ "$MULTILINGUAL" = "true" ]; then
+LNG="$(echo "${LOCALE}" | cut -d_ -f1)"
+if [ "${MULTILINGUAL}" = "true" ]; then
     FIREFOX_LOCALES=()
     for ITEM in "${LOCALES[@]}"; do
-        if [ "$ITEM" != "en_US" ]; then
-            get_firefox_locale "$ITEM"
-            FIREFOX_LOCALES+=("$FIREFOX_LOCALE")
+        if [ "${ITEM}" != "en_US" ]; then
+            get_firefox_locale "${ITEM}"
+            FIREFOX_LOCALES+=("${FIREFOX_LOCALE}")
         fi
     done
 else
-    get_firefox_locale "$LOCALE"
+    get_firefox_locale "${LOCALE}"
 fi
 
 pkg update
 
 # install packages
-if [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-    if [ $DISTRIBUTION = "jammy" ] || [ $DISTRIBUTION = "noble" ]; then
+if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+    if [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ]; then
         pkg install software-properties-common
         add-apt-repository ppa:mozillateam/ppa
         cat <<EOF >/etc/apt/preferences.d/mozilla-firefox
@@ -57,31 +51,30 @@ Pin: release o=LP-PPA-mozillateam
 Pin-Priority: 1001
 EOF
     fi
-    pkg install \
-        firefox
+    pkg install firefox
     # need to ckeck
-    if [ $LOCALE != "en_US" ]; then
-        pkg install \
-            firefox-locale-"$(echo $LOCALE | cut -d_ -f1)"
+    if [ "${LOCALE}" != "en_US" ]; then
+        pkg install "firefox-locale-$(echo ${LOCALE} | cut -d_ -f1)"
     fi
-elif [ $DISTRIBUTION_TYPE = "debian" ]; then
-    pkg install \
-        firefox-esr
-    if [ $MULTILINGUAL = "true" ]; then
+elif [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+    pkg install firefox-esr
+    if [ "${MULTILINGUAL}" = "true" ]; then
         FIREFOX_LOCALES_STRING=""
         for ITEM in "${FIREFOX_LOCALES[@]}"; do
-            FIREFOX_LOCALES_STRING+="firefox-esr-l10n-$ITEM "
+            FIREFOX_LOCALES_STRING+="firefox-esr-l10n-${ITEM} "
         done
-        FIREFOX_LOCALES_STRING=${FIREFOX_LOCALES_STRING%?}
-        pkg install $FIREFOX_LOCALES_STRING
+        FIREFOX_LOCALES_STRING="${FIREFOX_LOCALES_STRING%?}"
+        pkg install "${FIREFOX_LOCALES_STRING}"
     else
-        if [ "$LOCALE" != "en_US" ]; then
-            pkg install firefox-esr-l10n-$FIREFOX_LOCALE
+        if [ "${LOCALE}" != "en_US" ]; then
+            pkg install "firefox-esr-l10n-${FIREFOX_LOCALE}"
         fi
     fi
 fi
 
-if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
+pkg install minios-welcome
+
+if [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]] && [ "${PACKAGE_VARIANT}" != "puzzle" ]; then
     if [ ! -d /etc/skel/.config/xfce4 ]; then
         mkdir -p /etc/skel/.config/xfce4
     fi
@@ -102,42 +95,22 @@ WebBrowser=firefox
 EOF
     fi
 fi
-if [[ $DESKTOP_ENVIRONMENT == *"lxqt"* ]] && [ -f /etc/skel/.config/lxqt/panel.conf ]; then
+if [[ "${DESKTOP_ENVIRONMENT}" == *"lxqt"* ]] && [ -f /etc/skel/.config/lxqt/panel.conf ]; then
     sed -i '46iapps\\3\\desktop=/usr/share/applications/firefox-esr.desktop' /etc/skel/.config/lxqt/panel.conf
 fi
 
 echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
 
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
-    sed -i "s,about:welcome,file:///usr/share/minios/html/index.html,g" $FIREFOX_BRANDING
-elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
-
-    cat <<EOF >>$FIREFOX_BRANDING
-pref("startup.homepage_welcome_url", "file:///usr/share/minios/html/index.html");
-EOF
-fi
-cat <<'EOF' >>$FIREFOX_BRANDING
-
-pref("browser.tabs.drawInTitlebar", true);
-pref("general.smoothScroll", false);
-pref("browser.compactmode.show", true);
-pref("browser.uidensity", 1);
-pref("browser.tabs.inTitlebar", 1);
-pref("browser.newtabpage.activity-stream.feeds.topsites", false);
-pref("browser.toolbars.bookmarks.visibility", "never");
-
-EOF
-
-if [ $DISTRIBUTION_TYPE = "debian" ] && [ $DESKTOP_ENVIRONMENT != "flux" ]; then
-    sed -i "s,/usr/lib,env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
-elif [ $DISTRIBUTION_TYPE = "debian" ] && [ $DESKTOP_ENVIRONMENT = "flux" ]; then
+if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [[ "${DESKTOP_ENVIRONMENT}" = *"xfce"* ]]; then
+    sed -i "s,^Exec=/usr/lib,Exec=env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
+elif [ "${DISTRIBUTION_TYPE}" = "debian" ] && [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
     rm -f /usr/share/applications/firefox-esr.desktop
 fi
 
-if [ $DISTRIBUTION_TYPE = "debian" ]; then
+if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
     PACKAGE="firefox-esr"
-elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
+elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     PACKAGE="firefox"
 fi
-echo "PACKAGE=$PACKAGE" >/.package
-echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
+echo "PACKAGE=\"${PACKAGE}\"" >/.package
+echo "VERSION=\"$(dpkg -s "${PACKAGE}" | grep Version | sed 's/Version: //g' | sed 's/:/-/g')\"" >>/.package
