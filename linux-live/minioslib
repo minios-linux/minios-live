@@ -236,7 +236,7 @@ read_cmdline() {
             SSH_KEY="${i#*=}"
             shift # past argument=value
             ;;
-        $LIVEKITNAME.flags=*)
+        ${LIVEKITNAME}.flags=*)
             FLAGS="${i#*=}"
             shift # past argument=value
             ;;
@@ -719,8 +719,8 @@ add_chroot_configuration_files() {
         cp "${SCRIPT_DIR}/linux-live/minioslib" "$1/minioslib"
     elif [ -f "/linux-live/minioslib" ]; then
         cp "/linux-live/minioslib" "$1/minioslib"
-    elif [ -f "/usr/lib/minioslib" ]; then
-        cp "/usr/lib/minioslib" "$1/minioslib"
+    elif [ -f "/usr/lib/minios/libminioslive" ]; then
+        cp "/usr/lib/minios/libminioslive" "$1/minioslib"
     fi
 }
 
@@ -1162,18 +1162,18 @@ APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOO
 
 LABEL asksession
 MENU LABEL Run MiniOS (Choose session during startup)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
 
 LABEL live
 MENU LABEL Run MiniOS (Fresh start)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
 
 LABEL toram
 MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /$LIVEKITNAME/boot/vmlinuz
-APPEND vga=791 initrd=/$LIVEKITNAME/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${ULTRA_SETTINGS} toram
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${ULTRA_SETTINGS} toram
 
 EOF
     cat <<EOF >>"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
@@ -2246,7 +2246,8 @@ build_modules() {
 
             # copy files
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
-                cp "${SCRIPT_DIR}/linux-live/minioslib" "${MODULE_MERGED_DIR}/usr/lib/minioslib"
+                #cp "${SCRIPT_DIR}/linux-live/minioslib" "${MODULE_MERGED_DIR}/usr/lib/minios/libminioslive"
+                mkdir -p "${MODULE_MERGED_DIR}/usr/share/minios"
                 cp "${SCRIPT_DIR}/linux-live/layoutcodes.csv" "${MODULE_MERGED_DIR}/usr/share/minios/layoutcodes.csv"
                 mkdir -p "${MODULE_MERGED_DIR}/etc/minios"
                 if [ -f "${SCRIPT_DIR}/linux-live/container_config" ]; then
