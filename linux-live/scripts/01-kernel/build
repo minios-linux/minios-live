@@ -69,11 +69,11 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         ;;
     esac
 
-    pkg install "${BPO} broadcom-sta-dkms"
+    pkg install "${BPO}" broadcom-sta-dkms
 
     if ([ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ] || [ "${PACKAGE_VARIANT}" = "puzzle" ]) && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v
-        pkg install "${BPO} zfs-dkms"
+        pkg install "${BPO}" zfs-dkms
     fi
     if [ "${DISTRIBUTION}" = "bookworm" ]; then
         DEBIAN_FRONTEND=noninteractive
@@ -82,7 +82,7 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
             realtek-rtl8814au-dkms \
             realtek-rtl88xxau-dkms \
             rtl8821cu-dkms
-        source_install "https://github.com/cilynx/rtl88x2bu.git"
+        #source_install "https://github.com/cilynx/rtl88x2bu.git"
     elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" != "true" ]; then
         pkg install \
             realtek-rtl88xxau-dkms \

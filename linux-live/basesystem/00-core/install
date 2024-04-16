@@ -110,6 +110,7 @@ fi
 # install packages
 if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ]; then
     pkg install connman
+    systemctl disable dnsmasq
 else
     pkg install network-manager
 fi

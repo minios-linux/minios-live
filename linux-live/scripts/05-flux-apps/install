@@ -6,9 +6,10 @@ CWD=$(dirname $(readlink -f $0))
 
 pkg update
 
-pkg install mousepad pcmanfm galculator lxtask xarchiver xdg-utils libgconf-2-4
+if [ -f $SCRIPT_DIR/package.list ]; then
+    install_packages
+fi
 
-pkg install connman-gtk
 if [ $LOCALE = "en_US" ]; then
     sed -i '114G' /etc/skel/.fluxbox/startup
     sed -i '115i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
@@ -18,8 +19,6 @@ else
     sed -i '118i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
     sed -i '119iexec connman-gtk &' /etc/skel/.fluxbox/startup
 fi
-
-rm -f /usr/share/applications/6connman.desktop
 
 rm -f /usr/share/applications/mousepad.desktop
 rm -f /usr/share/applications/org.xfce.mousepad.desktop
@@ -33,20 +32,27 @@ rm -f /usr/share/applications/nm-connection-editor.desktop
 rm -f /usr/share/applications/xarchiver.desktop
 rm -f /usr/share/applications/lxtask.desktop
 
-if [ $LOCALE = "ru_RU" ]; then
-    # Apps
-    sed -i "s/Name=File Manager/Name=Менеджер файлов/g" /usr/share/applications/2pcmanfm.desktop
-    sed -i "s/Name=Calculator/Name=Калькулятор/g" /usr/share/applications/3calculator.desktop
-    sed -i "s/Name=Text editor/Name=Текстовый редактор/g" /usr/share/applications/4mousepad.desktop
-    sed -i "s/Name=Net Manager/Name=Менеджер сети/g" /usr/share/applications/6connman.desktop
-    sed -i "s/Name=Archiver/Name=Архиватор/g" /usr/share/applications/zxarchiver.desktop
-    sed -i "s/Name=Task Manager/Name=Диспетчер задач/g" /usr/share/applications/zlxtask.desktop
-elif [ $LOCALE = "es_ES" ]; then
-    # Apps
-    sed -i "s/Name=File Manager/Name=Gestor de archivos/g" /usr/share/applications/2pcmanfm.desktop
-    sed -i "s/Name=Calculator/Name=Calculadora/g" /usr/share/applications/3calculator.desktop
-    sed -i "s/Name=Text editor/Name=Editor de texto/g" /usr/share/applications/4mousepad.desktop
-    sed -i "s/Name=Net Manager/Name=Gestor de redes/g" /usr/share/applications/6connman.desktop
-    sed -i "s/Name=Archiver/Name=Archivador/g" /usr/share/applications/zxarchiver.desktop
-    sed -i "s/Name=Task Manager/Name=Gestor de tareas/g" /usr/share/applications/zlxtask.desktop
-fi
+# For each .desktop file in the /usr/share/applications directory
+for FILE in /usr/share/applications/*.desktop; do
+
+    # If the file contains a translated name for the current language layout
+    if grep -q "Name\[$LAYOUTCODE\]" $FILE; then
+
+        # Find and store the translated name, generic name, and comment
+        TRANSLATED_NAME=$(grep "Name\[$LAYOUTCODE\]" $FILE | head -1 | cut -d= -f2-)
+        TRANSLATED_GENERIC_NAME=$(grep "GenericName\[$LAYOUTCODE\]" $FILE | head -1 | cut -d= -f2-)
+        TRANSLATED_COMMENT=$(grep "Comment\[$LAYOUTCODE\]" $FILE | head -1 | cut -d= -f2-)
+
+        # If the translated name is not empty, replace the original name with it
+        [ ! -z "$TRANSLATED_NAME" ] && sed -i -e "s/^Name=.*/Name=$TRANSLATED_NAME/g" $FILE
+
+        # If the generic name is not empty, replace the original generic name with it
+        [ ! -z "$TRANSLATED_GENERIC_NAME" ] && sed -i -e "s/^GenericName=.*/GenericName=$TRANSLATED_GENERIC_NAME/g" $FILE
+
+        # If the comment is not empty, replace the original comment with it
+        [ ! -z "$TRANSLATED_COMMENT" ] && sed -i -e "s/^Comment=.*/Comment=$TRANSLATED_COMMENT/g" $FILE
+
+        # Remove the lines with translated names, generic names, and comments
+        sed -i -e "/Name\[/d;/GenericName\[/d;/Comment\[/d" $FILE
+    fi
+done
