@@ -219,7 +219,6 @@ cp shutdown $INITRAMFS
 chmod a+x $INITRAMFS/shutdown
 ln -s ../init $INITRAMFS/bin/init
 cp ./livekitlib $INITRAMFS/lib/
-cp ../../minioslib $INITRAMFS/lib/
 if [ -f ../container_config ]; then
    cp ../../container_config $INITRAMFS/lib/config
 else

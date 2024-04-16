@@ -77,17 +77,41 @@ cleanup() {
     rm -rf "$DESTINATION_DIR"
 }
 
+usage() {
+  cat <<EOF
+
+Usage: $(basename "$0") [option]
+
+This script generates language packs for MiniOS.
+
+Options:
+  --help    Display this help message and exit.
+
+Functions:
+* get_firefox_locale - Return the locale for the Firefox installation based on the current system locale.
+* get_libreoffice_locale - Return the locale for the LibreOffice installation based on the current system locale.
+* get_libreoffice_lc_messages - Return the locale string used by LibreOffice.
+* copy_files - Copy specified files from a source path to a destination directory.
+* copy_locale_files - Copy locale specific files for various applications such as Firefox and LibreOffice.
+* cleanup - Remove the temp directory created during the execution of the script.
+
+EOF
+}
+
+console_colors
+allow_root_only
+
+if [ "$1" = "--help" ]; then
+    usage
+    exit 0
+fi
+
 # Get the list of all locales, exclude C, C.utf8 and POSIX, and remove .utf8 ending
 LOCALES=($(locale -a | grep -v -E '^C$|^C.utf8$|^POSIX$' | sed 's/\.utf8//'))
 DESTINATION_DIR=$(mktemp -d)
 
 # Set trap to clean up temporary directory on exit
 trap cleanup EXIT
-
-#dpkg --remove --force-depends locales
-#rm -f /etc/locale.gen
-#pkg update
-#pkg install locales
 
 # Loop over each locale
 for LOCALE in "${LOCALES[@]}"; do
@@ -134,12 +158,9 @@ for LOCALE in "${LOCALES[@]}"; do
         pkg install locales
         update-locale LANG=$LOCALE.UTF-8
 
-        #DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales
         DEBIAN_FRONTEND=noninteractive dpkg-reconfigure keyboard-configuration
 
-        #if [ ! -d /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml ]; then
-        #    mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
-        #fi
+        mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
         cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 <?xml version="1.0" encoding="UTF-8"?>
 

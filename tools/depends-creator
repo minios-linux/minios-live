@@ -1,0 +1,65 @@
+#!/bin/bash
+
+function show_help {
+    echo "Depends-Creator Script"
+    echo
+    echo "Usage: ./depends-creator [OPTIONS] [FILE]"
+    echo
+    echo "OPTIONS:"
+    echo "--help                  Displays this help message"
+    echo
+    echo "FILE:"
+    echo "File name of packages list. Default: packages.txt"
+}
+
+# Checking for root permissions
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root"
+    exit 1
+fi
+
+# Initialization
+FLAG_HELP=0
+FILE_NAME="packages.txt"
+
+# Analysis of parameters
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --help)
+        FLAG_HELP=1
+        shift
+        ;;
+    *)
+        FILE_NAME="$1"
+        shift
+        ;;
+    esac
+done
+
+# Show help if requested
+if [ $FLAG_HELP -eq 1 ]; then
+    show_help
+    exit 0
+fi
+
+# Check if file exists and readable
+if [ ! -f "$FILE_NAME" ]; then
+    echo "Error: File '$FILE_NAME' does not exist."
+    exit 1
+fi
+
+if [ ! -r "$FILE_NAME" ]; then
+    echo "Error: File '$FILE_NAME' is not readable."
+    exit 1
+fi
+
+# Main logic
+DEPENDS=""
+while IFS= read -r -a PACKAGE; do
+    VERSION_FULL=$(apt-cache policy "${PACKAGE}" | grep -m1 -oP '(?<=Candidate: )(\S+)')
+    VERSION=$(echo "$VERSION_FULL" | cut -d':' -f2 | cut -d'-' -f1 | cut -d'+' -f1)
+    DEPENDS="${DEPENDS}, ${PACKAGE} (>= ${VERSION})"
+done <"${FILE_NAME}"
+
+DEPENDS="Depends: ${DEPENDS:2}, \${misc:Depends}"
+echo "${DEPENDS}"

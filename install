@@ -41,8 +41,6 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 trap 'unmount_dirs "${BUILD_DIR}"' EXIT
 
-INSTALL_DIR=""
-
 common_variables "${SCRIPT_DIR}/linux-live/layoutcodes.csv"
 
 console_colors

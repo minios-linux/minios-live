@@ -4,43 +4,120 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. /minioslib || exit 1
-# If we need to use an array of LOCALES in the code, the variables must be read
-# from the file. This crutch may be removed in the future.
-. /minios-build.conf || exit 1
+. /minioslib
+. /minios-build.conf
 
-get_firefox_locale() {
-    case "$1" in
-    "ca_ES" | "en_CA" | "en_GB" | "es_AR" | "es_CL" | "es_ES" | "es_MX" | "fy_NL" | "ga_IE" | "gu_IN" | "hi_IN" | "hy_AM" | "nb_NO" | "ne_NP" | "nn_NO" | "pa_IN" | "pt_BR" | "pt_PT" | "sv_SE" | "zh_CN" | "zh_TW")
-        FIREFOX_LOCALE=$(echo $1 | tr '_' '-' | tr '[:upper:]' '[:lower:]')
-        ;;
-    "ca_ES")
-        FIREFOX_LOCALE="ca-valencia"
-        ;;
-    *)
-        FIREFOX_LOCALE="$(echo $1 | cut -d_ -f1)"
-        ;;
-    esac
-}
+declare -A FIREFOX_LOCALES=(
+    ["ach_GB"]="ach,"
+    ["af_ZA"]="af,af"
+    ["an_ES"]="an,an"
+    ["ar_AE"]="ar,ar"
+    ["ast_ES"]="ast,ast"
+    ["az_AZ"]="az,az"
+    ["be_BY"]="be,be"
+    ["bg_BG"]="bg,bg"
+    ["bn_BD"]="bn,bn"
+    ["bn_IN"]="bn,bn"
+    ["br_FR"]="br,br"
+    ["bs_BA"]="bs,bs"
+    ["ca_ES"]="ca-valencia,ca"
+    ["cak_GT"]="cak,cak"
+    ["cs_CZ"]="cs,cs"
+    ["cy_GB"]="cy,cy"
+    ["da_DK"]="da,da"
+    ["de_DE"]="de,de"
+    ["dsb_DE"]="dsb,"
+    ["el_GR"]="el,el"
+    ["en_CA"]="en-ca,en"
+    ["en_GB"]="en-gb,en"
+    ["en_US"]=",en"
+    ["eo_XX"]="eo,eo"
+    ["es_AR"]="es-ar,es"
+    ["es_CL"]="es-cl,es"
+    ["es_ES"]="es-es,es"
+    ["es_MX"]="es-mx,es"
+    ["et_EE"]="et,et"
+    ["eu_ES"]="eu,eu"
+    ["fa_IR"]="fa,fa"
+    ["ff_SN"]="ff,"
+    ["fi_FI"]="fi,fi"
+    ["fr_FR"]="fr,fr"
+    ["fur_IT"]="fur,"
+    ["fy_NL"]="fy-nl,fy"
+    ["ga_IE"]="ga-ie,ga"
+    ["gd_GB"]="gd,gd"
+    ["gl_ES"]="gl,gl"
+    ["gn_PY"]="gn,gn"
+    ["gu_IN"]="gu-in,gu"
+    ["he_IL"]="he,he"
+    ["hi_IN"]="hi-in,hi"
+    ["hr_HR"]="hr,hr"
+    ["hsb_DE"]="hsb,hsb"
+    ["hu_HU"]="hu,hu"
+    ["hy_AM"]="hy-am,hy"
+    ["ia_FR"]="ia,ia"
+    ["ia_XX"]="ia,ia"
+    ["id_ID"]="id,id"
+    ["is_IS"]="is,is"
+    ["it_IT"]="it,it"
+    ["ja_JP"]="ja,ja"
+    ["ka_GE"]="ka,ka"
+    ["kab_DZ"]="kab,kab"
+    ["kk_KZ"]="kk,kk"
+    ["km_KH"]="km,km"
+    ["kn_IN"]="kn,kn"
+    ["ko_KR"]="ko,ko"
+    ["lij_IT"]="lij,"
+    ["lt_LT"]="lt,lt"
+    ["lv_LV"]="lv,lv"
+    ["mk_MK"]="mk,mk"
+    ["mr_IN"]="mr,mr"
+    ["ms_MY"]="ms,ms"
+    ["my_MM"]="my,my"
+    ["nb_NO"]="nb-no,nb"
+    ["ne_NP"]="ne-np,ne"
+    ["nl_NL"]="nl,nl"
+    ["nn_NO"]="nn-no,nn"
+    ["oc_FR"]="oc,oc"
+    ["pa_IN"]="pa-in,pa"
+    ["pl_PL"]="pl,pl"
+    ["pt_BR"]="pt-br,pt"
+    ["pt_PT"]="pt-pt,pt"
+    ["rm_CH"]="rm,"
+    ["ro_RO"]="ro,ro"
+    ["ru_RU"]="ru,ru"
+    ["sc_IT"]="sc,"
+    ["sco_GB"]="sco,"
+    ["si_LK"]="si,si"
+    ["sk_SK"]="sk,sk"
+    ["sl_SI"]="sl,sl"
+    ["son_ML"]="son,"
+    ["sq_AL"]="sq,sq"
+    ["sr_RS"]="sr,sr"
+    ["sv_SE"]="sv-se,sv"
+    ["szl_PL"]="szl,szl"
+    ["ta_IN"]="ta,ta"
+    ["te_IN"]="te,te"
+    ["tg_TJ"]="tg,tg"
+    ["th_TH"]="th,th"
+    ["tl_PH"]="tl,"
+    ["tr_TR"]="tr,tr"
+    ["trs_MX"]="trs,"
+    ["uk_UA"]="uk,uk"
+    ["ur_PK"]="ur,ur"
+    ["uz_UZ"]="uz,uz"
+    ["vi_VN"]="vi,vi"
+    ["xh_ZA"]="xh,xh"
+    ["zh_CN"]="zh-cn,zh-hans"
+    ["zh_TW"]="zh-tw,zh-hant"
+)
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-
-LNG="$(echo "${LOCALE}" | cut -d_ -f1)"
-if [ "${MULTILINGUAL}" = "true" ]; then
-    FIREFOX_LOCALES=()
-    for ITEM in "${LOCALES[@]}"; do
-        if [ "${ITEM}" != "en_US" ]; then
-            get_firefox_locale "${ITEM}"
-            FIREFOX_LOCALES+=("${FIREFOX_LOCALE}")
-        fi
-    done
-else
-    get_firefox_locale "${LOCALE}"
-fi
+PACKAGE="firefox-esr"
 
 pkg update
 
-# install packages
+# Conditional statements for package installation
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     if [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ]; then
         pkg install software-properties-common
@@ -51,66 +128,75 @@ Pin: release o=LP-PPA-mozillateam
 Pin-Priority: 1001
 EOF
     fi
-    pkg install firefox
-    # need to ckeck
-    if [ "${LOCALE}" != "en_US" ]; then
-        pkg install "firefox-locale-$(echo ${LOCALE} | cut -d_ -f1)"
-    fi
-elif [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
-    pkg install firefox-esr
-    if [ "${MULTILINGUAL}" = "true" ]; then
-        FIREFOX_LOCALES_STRING=""
-        for ITEM in "${FIREFOX_LOCALES[@]}"; do
-            FIREFOX_LOCALES_STRING+="firefox-esr-l10n-${ITEM} "
-        done
-        FIREFOX_LOCALES_STRING="${FIREFOX_LOCALES_STRING%?}"
-        pkg install "${FIREFOX_LOCALES_STRING}"
-    else
-        if [ "${LOCALE}" != "en_US" ]; then
-            pkg install "firefox-esr-l10n-${FIREFOX_LOCALE}"
-        fi
-    fi
 fi
 
-pkg install minios-welcome
+pkg install "${PACKAGE}"
 
-if [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]] && [ "${PACKAGE_VARIANT}" != "puzzle" ]; then
-    if [ ! -d /etc/skel/.config/xfce4 ]; then
-        mkdir -p /etc/skel/.config/xfce4
+# Form INSTALL_LOCALES from LOCALES or from LOCALE
+INSTALL_LOCALES=("${LOCALES[@]}")
+[[ "${MULTILINGUAL}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
+
+for locale in "${INSTALL_LOCALES[@]}"; do
+    [[ "${locale}" = "en_US" ]] && continue # skip en_US
+
+    if [[ ! -v FIREFOX_LOCALES[${locale}] ]]; then
+        echo "Locale ${locale} is not supported, skipping."
+        continue
     fi
 
-    if grep -q "xterm" /etc/skel/.config/xfce4/helpers.rc >/dev/null 2>&1; then
+    IFS=',' read -ra FIREFOX_LOCALE_VALUES <<<"${FIREFOX_LOCALES[${locale}]}"
+
+    if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+        PACKAGE_LOCALE=${FIREFOX_LOCALE_VALUES[1]:-${FIREFOX_LOCALE_VALUES[0]}}
+        if [ -n "${PACKAGE_LOCALE}" ]; then
+            pkg install "${PACKAGE}-locale-${PACKAGE_LOCALE}"
+        else
+            echo "No package available for locale ${locale}, skipping."
+        fi
+    elif [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+        PACKAGE_LOCALE=${FIREFOX_LOCALE_VALUES[0]}
+        if [ -n "${PACKAGE_LOCALE}" ]; then
+            pkg install "${PACKAGE}-l10n-${PACKAGE_LOCALE}"
+        else
+            echo "No package available for locale ${locale}, skipping."
+        fi
+    fi
+done
+
+#Conditional Desktop environment settings
+if [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]] && [ "${PACKAGE_VARIANT}" != "puzzle" ]; then
+    mkdir -p /etc/skel/.config/xfce4
+    if grep -q "xterm" /etc/skel/.config/xfce4/helpers.rc; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm
 FileManager=Thunar
-WebBrowser=firefox
-
+WebBrowser=${PACKAGE}
 EOF
-    elif grep -q "xfce4-terminal" /etc/skel/.config/xfce4/helpers.rc >/dev/null 2>&1; then
+    elif grep -q "xfce4-terminal" /etc/skel/.config/xfce4/helpers.rc; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
-WebBrowser=firefox
-
+WebBrowser=${PACKAGE}
 EOF
     fi
 fi
+
 if [[ "${DESKTOP_ENVIRONMENT}" == *"lxqt"* ]] && [ -f /etc/skel/.config/lxqt/panel.conf ]; then
-    sed -i '46iapps\\3\\desktop=/usr/share/applications/firefox-esr.desktop' /etc/skel/.config/lxqt/panel.conf
+    sed -i "46iapps\\3\\desktop=/usr/share/applications/${PACKAGE}.desktop" /etc/skel/.config/lxqt/panel.conf
 fi
 
-echo "application/pdf=firefox-esr.desktop" >>/usr/share/applications/mimeapps.list
+echo "application/pdf=${PACKAGE}.desktop" >>/usr/share/applications/mimeapps.list
 
-if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [[ "${DESKTOP_ENVIRONMENT}" = *"xfce"* ]]; then
-    sed -i "s,^Exec=/usr/lib,Exec=env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/firefox-esr.desktop
-elif [ "${DISTRIBUTION_TYPE}" = "debian" ] && [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
-    rm -f /usr/share/applications/firefox-esr.desktop
+if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]]; then
+    sed -i "s,^Exec=/usr/lib,Exec=env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/${PACKAGE}.desktop
+elif [ "${DESKTOP_ENVIRONMENT}" == "flux" ]; then
+    FILES="/usr/share/applications/firefox.desktop /usr/share/applications/firefox-esr.desktop"
+    for FILE in ${FILES}; do
+        if [ -f "${FILE}" ]; then
+            rm -f ${FILE}
+        fi
+    done
 fi
 
-if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
-    PACKAGE="firefox-esr"
-elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-    PACKAGE="firefox"
-fi
 echo "PACKAGE=\"${PACKAGE}\"" >/.package
 echo "VERSION=\"$(dpkg -s "${PACKAGE}" | grep Version | sed 's/Version: //g' | sed 's/:/-/g')\"" >>/.package

@@ -4,9 +4,8 @@
 # Author: crims0n. <http://minios.dev>
 #
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+# ======= Global Variables =======
 
-# Declare an associative array for the variable names and their default values
 declare -A VARIABLES_DEFAULTS=(
     ["DEFAULT_TARGET"]="graphical"
     ["CLOUD"]="false"
@@ -14,7 +13,13 @@ declare -A VARIABLES_DEFAULTS=(
     ["AUTOLOGIN"]="true"
 )
 
-. /lib/minioslib
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+CONFIG="/etc/minios/config"
+MINIOSCONFIG="/etc/minios/minios.conf"
+
+# ======= Functions =======
+
+source /lib/minios/libminioslive
 
 set_trace_log() {
     if [ ! -d /var/log/minios ]; then
@@ -26,14 +31,94 @@ set_trace_log() {
     set -x
 }
 
-set_variables() {
-    CONFIG=/etc/minios/config
-    if [ -f "$CONFIG" ]; then
-        read_config "$CONFIG" LIVEKITNAME
-    else
-        LIVEKITNAME="minios"
-    fi
-    MINIOSCONFIG=/etc/minios/"$LIVEKITNAME".conf
+read_cmdline() {
+    for i in "${@}"; do
+        case $i in
+        user_name=*)
+            USER_NAME="${i#*=}"
+            shift
+            ;;
+        user_password=*)
+            USER_PASSWORD="${i#*=}"
+            shift
+            ;;
+        root_password=*)
+            ROOT_PASSWORD="${i#*=}"
+            shift
+            ;;
+        host_name=*)
+            HOST_NAME="${i#*=}"
+            shift
+            ;;
+        default_target=*)
+            DEFAULT_TARGET="${i#*=}"
+            shift
+            ;;
+        text)
+            TEXT_MODE="true"
+            shift
+            ;;
+        enable_services=*)
+            ENABLE_SERVICES="${i#*=}"
+            shift
+            ;;
+        disable_services=*)
+            DISABLE_SERVICES="${i#*=}"
+            shift
+            ;;
+        ssh_key=*)
+            SSH_KEY="${i#*=}"
+            shift
+            ;;
+        ${LIVEKITNAME}.flags=*)
+            FLAGS="${i#*=}"
+            shift
+            ;;
+        slax.flags=*)
+            SFLAGS="${i#*=}"
+            shift
+            ;;
+        toram)
+            TORAM="true"
+            shift
+            ;;
+        perchdir=*)
+            PERCHDIR="${i#*=}"
+            shift
+            ;;
+        scripts=*)
+            SCRIPTS="${i#*=}"
+            shift
+            ;;
+        cloud)
+            CLOUD="true"
+            shift
+            ;;
+        hide_credentials)
+            HIDE_CREDENTIALS="true"
+            shift
+            ;;
+        static_profiles)
+            STATIC_PROFILES="true"
+            shift
+            ;;
+        autologin=*)
+            AUTOLOGIN="${i#*=}"
+            shift
+            ;;
+        system_type=*)
+            SYSTEM_TYPE="${i#*=}"
+            shift
+            ;;
+        from=*)
+            FROM="${i#*=}"
+            shift
+            ;;
+        *)
+            UNKNOWN="true"
+            ;;
+        esac
+    done
 }
 
 read_cmdline_values() {
@@ -115,9 +200,9 @@ manage_services() {
         IFS=',' read -ra SERVICES <<<"${!SERVICES_VAR}"
         for SERVICE in "${SERVICES[@]}"; do
             if [ "$SERVICE" = "cockpit" ]; then
-                systemctl "$ACTION" cockpit.socket
+                systemctl "$ACTION" "$SERVICE.socket"
             else
-                systemctl "$ACTION" "$SERVICE"
+                systemctl "$ACTION" "$SERVICE.service"
             fi
         done
     fi
@@ -159,7 +244,7 @@ After=systemd-user-sessions.service
 ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$USER_NAME"
 
 [Install]
-[WantedBy]=graphical.target
+WantedBy=graphical.target
 
 EOF
         fi
@@ -194,17 +279,9 @@ set_scripts() {
     fi
 }
 
-enable_syncconfig() {
-    if [ -f /usr/lib/systemd/system/minios-syncconfig.service ]; then
-        systemctl enable minios-syncconfig.path
-        systemctl enable minios-syncconfig.service
-    fi
-}
-
 console_colors
 allow_root_only
 set_trace_log "boot.trace"
-set_variables
 read_cmdline_values
 set_cloud
 set_default_target
@@ -212,9 +289,8 @@ manage_services enable
 manage_services disable
 set_autologin
 set_scripts
-enable_syncconfig
 
 echo ""
-echo "/etc/minios/$LIVEKITNAME.conf configuration file contents:"
-cat /etc/minios/"$LIVEKITNAME".conf
+echo "/etc/minios/minios.conf configuration file contents:"
+cat "/etc/minios/minios.conf"
 echo ""

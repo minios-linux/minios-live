@@ -20,15 +20,15 @@ For installation use **install** \- script for guided installation\, **autoinsta
 
 **Supported commands:** `setup_host build_bootstrap build_chroot build_live build_modules build_iso`
 
-*setup\_host* \- installing packages required for building on the host
+*setup\_host* \- install packages required for building on the host
 
 *build\_bootstrap* \- install a minimal system using debootstrap
 
-*build\_chroot* \- installation of the rest of the components required to start the system
+*build\_chroot* \- install of the rest of the components required to start the system
 
 *build\_live* \- build squashfs image
 
-*build\_modules\_chroot* \- building modules
+*build\_modules\_chroot* \- build modules
 
 *build\_iso* \- build the final ISO image
 
