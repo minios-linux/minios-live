@@ -113,7 +113,7 @@ declare -A FIREFOX_LOCALES=(
 )
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-PACKAGE="firefox-esr"
+[ "${DISTRIBUTION}" = "bionic" ] && PACKAGE="firefox" || PACKAGE="firefox-esr"
 
 pkg update
 
@@ -133,7 +133,7 @@ fi
 pkg install "${PACKAGE}"
 
 # Form INSTALL_LOCALES from LOCALES or from LOCALE
-INSTALL_LOCALES=("${LOCALES[@]}")
+INSTALL_LOCALES=("${!LOCALES[@]}")
 [[ "${MULTILINGUAL}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
 
 for locale in "${INSTALL_LOCALES[@]}"; do

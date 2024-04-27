@@ -19,106 +19,18 @@ MINIOSCONFIG="/etc/minios/minios.conf"
 
 # ======= Functions =======
 
-source /lib/minios/libminioslive
+if [ -f /lib/minios/libminioslive ]; then
+    . /lib/minios/libminioslive
+elif [ -f /usr/lib/minios/libminioslive ]; then
+    . /usr/lib/minios/libminioslive
+fi
 
 set_trace_log() {
-    if [ ! -d /var/log/minios ]; then
-        mkdir -p /var/log/minios
-    fi
+    mkdir -p /var/log/minios
     exec 19>/var/log/minios/"$1"
     BASH_XTRACEFD=19
     PS4='${LINENO}: '
     set -x
-}
-
-read_cmdline() {
-    for i in "${@}"; do
-        case $i in
-        user_name=*)
-            USER_NAME="${i#*=}"
-            shift
-            ;;
-        user_password=*)
-            USER_PASSWORD="${i#*=}"
-            shift
-            ;;
-        root_password=*)
-            ROOT_PASSWORD="${i#*=}"
-            shift
-            ;;
-        host_name=*)
-            HOST_NAME="${i#*=}"
-            shift
-            ;;
-        default_target=*)
-            DEFAULT_TARGET="${i#*=}"
-            shift
-            ;;
-        text)
-            TEXT_MODE="true"
-            shift
-            ;;
-        enable_services=*)
-            ENABLE_SERVICES="${i#*=}"
-            shift
-            ;;
-        disable_services=*)
-            DISABLE_SERVICES="${i#*=}"
-            shift
-            ;;
-        ssh_key=*)
-            SSH_KEY="${i#*=}"
-            shift
-            ;;
-        ${LIVEKITNAME}.flags=*)
-            FLAGS="${i#*=}"
-            shift
-            ;;
-        slax.flags=*)
-            SFLAGS="${i#*=}"
-            shift
-            ;;
-        toram)
-            TORAM="true"
-            shift
-            ;;
-        perchdir=*)
-            PERCHDIR="${i#*=}"
-            shift
-            ;;
-        scripts=*)
-            SCRIPTS="${i#*=}"
-            shift
-            ;;
-        cloud)
-            CLOUD="true"
-            shift
-            ;;
-        hide_credentials)
-            HIDE_CREDENTIALS="true"
-            shift
-            ;;
-        static_profiles)
-            STATIC_PROFILES="true"
-            shift
-            ;;
-        autologin=*)
-            AUTOLOGIN="${i#*=}"
-            shift
-            ;;
-        system_type=*)
-            SYSTEM_TYPE="${i#*=}"
-            shift
-            ;;
-        from=*)
-            FROM="${i#*=}"
-            shift
-            ;;
-        *)
-            UNKNOWN="true"
-            ;;
-        esac
-    done
 }
 
 read_cmdline_values() {
@@ -145,7 +57,7 @@ set_cloud() {
         CLOUD="${VARIABLES_DEFAULTS[CLOUD]}"
     fi
     if [ "$CLOUD" = "true" ]; then
-        user="root"
+        USER_NAME="root"
         DEFAULT_TARGET="multi-user"
         systemctl enable ssh
     fi
@@ -199,11 +111,7 @@ manage_services() {
     if [ -n "${!SERVICES_VAR}" ]; then
         IFS=',' read -ra SERVICES <<<"${!SERVICES_VAR}"
         for SERVICE in "${SERVICES[@]}"; do
-            if [ "$SERVICE" = "cockpit" ]; then
-                systemctl "$ACTION" "$SERVICE.socket"
-            else
-                systemctl "$ACTION" "$SERVICE.service"
-            fi
+            systemctl "$ACTION" "$SERVICE"
         done
     fi
 }
@@ -279,6 +187,52 @@ set_scripts() {
     fi
 }
 
+user_setup() {
+    local USER_NAME=$1
+    echo "User name is ${USER_NAME}"
+    if [ ! -f /var/.system_configured ]; then
+        adduser --uid 1000 --gecos '' "${USER_NAME}" --disabled-password
+    fi
+}
+
+user_modifications() {
+    local USER_NAME=$1
+    cp -rT /etc/skel "/home/${USER_NAME}"
+}
+
+change_user() {
+    local USER_NAME=$1
+    local USER_GROUP="${USER_NAME}"
+    local CURRENT_USER_NAME=$2
+    local CURRENT_USER_GROUP=$3
+    if [ -n "${CURRENT_USER_NAME}" ] && [ "${USER_NAME}" != "${CURRENT_USER_NAME}" ]; then
+        usermod -l "${USER_NAME}" "${CURRENT_USER_NAME}"
+        usermod -m -d "/home/${USER_NAME}" "${USER_NAME}"
+        groupmod -n "${USER_GROUP}" "${CURRENT_USER_GROUP}"
+    fi
+}
+
+create_user_dirs() {
+    local USER_NAME=$1
+    if [ -d "/home/${USER_NAME}" ]; then
+        for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+            mkdir -p "/home/${USER_NAME}/${DIR}"
+        done
+        if [ ! -d "/home/${USER_NAME}/.ssh" ]; then
+            mkdir "/home/${USER_NAME}/.ssh"
+            chmod 700 "/home/${USER_NAME}/.ssh"
+        fi
+        if [ -f /root/.ssh/authorized_keys ]; then
+            cp /root/.ssh/authorized_keys "/home/${USER_NAME}/.ssh/authorized_keys"
+        fi
+        USER_ID=$(id -u "${USER_NAME}")
+        GROUP_ID=$(id -g "${USER_NAME}")
+        chown ${USER_ID}:${GROUP_ID} "/home/${USER_NAME}"
+        chown -R ${USER_ID}:${GROUP_ID} "/home/${USER_NAME}"
+    fi
+}
+
+mkdir -p /etc/minios
 console_colors
 allow_root_only
 set_trace_log "boot.trace"
@@ -289,6 +243,28 @@ manage_services enable
 manage_services disable
 set_autologin
 set_scripts
+
+read_config "$CONFIG" USER_SETUP
+if [ "${USER_SETUP}" = "initrd" ]; then
+    if [ "${CLOUD}" != "true" ]; then
+        if id -nu 1000; then
+            CURRENT_USER_NAME=$(id -nu 1000)
+            CURRENT_USER_GROUP=$(id -ng 1000)
+        fi
+        if [ "${USER_NAME}" != "root" ]; then
+            user_setup "${USER_NAME}"
+            user_modifications "${USER_NAME}"
+            change_user "${USER_NAME}" "${CURRENT_USER_NAME}" "${CURRENT_USER_GROUP}"
+            create_user_dirs "${USER_NAME}"
+        elif [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
+            user_setup "guest"
+            create_user_dirs "guest"
+        fi
+    else
+        USER_NAME="root"
+        DEFAULT_TARGET="multi-user"
+    fi
+fi
 
 echo ""
 echo "/etc/minios/minios.conf configuration file contents:"

@@ -24,7 +24,7 @@ get_libreoffice_locale() {
 
 if [ "$MULTILINGUAL" = "true" ]; then
     LIBREOFFICE_LOCALES=()
-    for ITEM in "${LOCALES[@]}"; do
+    for ITEM in "${!LOCALES[@]}"; do
         if [ "$ITEM" != "en_US" ]; then
             get_libreoffice_locale "$ITEM"
             LIBREOFFICE_LOCALES+=("$LIBREOFFICE_LOCALE")

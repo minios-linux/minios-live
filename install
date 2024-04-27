@@ -41,7 +41,7 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 trap 'unmount_dirs "${BUILD_DIR}"' EXIT
 
-common_variables "${SCRIPT_DIR}/linux-live/layoutcodes.csv"
+common_variables
 
 console_colors
 
@@ -50,6 +50,10 @@ allow_root_only
 if [ -f "/.dockerenv" ] || [ "${container}" = "podman" ]; then
     new_run
 fi
+
+toggle_shell_options e
+check_internet
+toggle_shell_options e
 
 determine_command_range "${@}"
 
