@@ -63,3 +63,48 @@ if [ -L /etc/systemd/system/display-manager.service ]; then
 else
     exit 1
 fi
+
+# Check if Xorg binary exists before operating on it
+if [ -f /usr/lib/xorg/Xorg ]; then
+    chmod u+s /usr/lib/xorg/Xorg
+else
+    error "Xorg binary does not exist."
+    exit 1
+fi
+
+# Only perform operations if directories exist
+if [ -d /usr/share/icons/breeze_cursors ]; then
+    rm -Rf /usr/share/icons/breeze_cursors
+fi
+
+if [ -d /usr/share/icons/Breeze_Snow ]; then
+    mv /usr/share/icons/Breeze_Snow /usr/share/icons/breeze_cursors
+fi
+
+cd /tmp
+
+apt-get download x11-xserver-utils
+
+if [ -f x11-xserver-utils*.deb ]; then
+    dpkg -x x11-xserver-utils*.deb /tmp/x11utils
+    cd /tmp/x11utils
+    cp -aR * /
+    cd -
+    rm -f x11-xserver-utils*.deb
+else
+    error "x11-xserver-utils deb file does not exist."
+    exit 1
+fi
+
+if [ -d /usr/share/icons/hicolor/256x256 ]; then
+    rm -Rf /usr/share/icons/hicolor/256x256
+fi
+
+if [ "$DISTRIBUTION" != "orel" ]; then
+    if type update-alternatives >/dev/null 2>&1; then
+        update-alternatives --set x-terminal-emulator /usr/bin/xterm
+    else
+        error "update-alternatives not found."
+        exit 1
+    fi
+fi

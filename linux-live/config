@@ -136,6 +136,11 @@ CLOUD="false"
 # [true, false]
 HIDE_CREDENTIALS="false"
 
+# This option specifies at what point you should create and configure the user and their home folder. By default, the systemd service performs these actions, but some older distributions hang during the operation and do not create the user.
+#
+# [systemd, initrd]
+USER_SETUP="systemd"
+
 ##### BUILDER SETTINGS #####
 # if ="true", creates a second iso with a constant filename
 #

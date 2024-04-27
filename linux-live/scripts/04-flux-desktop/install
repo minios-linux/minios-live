@@ -25,12 +25,12 @@ fi
 for FILE in /usr/share/applications/*.desktop; do
 
     # If the file contains a translated name for the current language layout
-    if grep -q "Name\[$LAYOUTCODE\]" $FILE; then
+    if grep -q "Name\[$LAYOUTID\]" $FILE; then
 
         # Find and store the translated name, generic name, and comment
-        TRANSLATED_NAME=$(grep "Name\[$LAYOUTCODE\]" $FILE | head -1 | cut -d= -f2-)
-        TRANSLATED_GENERIC_NAME=$(grep "GenericName\[$LAYOUTCODE\]" $FILE | head -1 | cut -d= -f2-)
-        TRANSLATED_COMMENT=$(grep "Comment\[$LAYOUTCODE\]" $FILE | head -1 | cut -d= -f2-)
+        TRANSLATED_NAME=$(grep "Name\[$LAYOUTID\]" $FILE | head -1 | cut -d= -f2-)
+        TRANSLATED_GENERIC_NAME=$(grep "GenericName\[$LAYOUTID\]" $FILE | head -1 | cut -d= -f2-)
+        TRANSLATED_COMMENT=$(grep "Comment\[$LAYOUTID\]" $FILE | head -1 | cut -d= -f2-)
 
         # If the translated name is not empty, replace the original name with it
         [ ! -z "$TRANSLATED_NAME" ] && sed -i -e "s/^Name=.*/Name=$TRANSLATED_NAME/g" $FILE

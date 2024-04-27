@@ -13,7 +13,7 @@ common_variables() {
     local locale layout layoutcode
 
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUT LAYOUTCODE TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
+    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
 
     #
     CONTAINER_TYPE="0"
@@ -71,7 +71,7 @@ common_variables() {
         DISTRIBUTION_TYPE="ubuntu"
         ;;
     *)
-        echo "Unknown distribution: ${DISTRIBUTION}"
+        error "Unknown distribution: ${DISTRIBUTION}"
         exit 1
         ;;
     esac
@@ -96,22 +96,26 @@ common_variables() {
         BUNDLES=/memory/bundles
     fi
 
-    while IFS=, read -r locale layoutcode layout; do
-        if [ "${locale}" == "${LOCALE}" ]; then
-            LAYOUTCODE="${layoutcode}"
-            LAYOUT="${layout}"
-            break
-        fi
-    done <"${1}"
+    declare -A LOCALES=(
+        ["de_DE"]="de,German"
+        ["en_US"]="us,English (US)"
+        ["es_ES"]="es,Spanish"
+        ["fr_FR"]="fr,French"
+        ["it_IT"]="it,Italian"
+        ["pt_BR"]="br,Portuguese (Brazil)"
+        ["ru_RU"]="ru,Russian"
+    )
 
-    if [ -z "${LAYOUT}" ]; then
-        echo "Locale not recognized, defaulting to English (US) layout"
-        LAYOUT="English (US)"
-        LAYOUTCODE="us"
+    if [[ -n "${LOCALES[$LOCALE]}" ]]; then
+        IFS=',' read -r LAYOUTID LAYOUTDSC <<<"${LOCALES[$LOCALE]}"
+    else
+        warning "Locale not recognized, defaulting to English (US) layout"
+        LAYOUTID="us"
+        LAYOUTDSC="English (US)"
     fi
 
     # An array of locales. Used if MULTILINGUAL=true.
-    LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
+    #LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
 
     if [ "${MULTILINGUAL}" = "true" ]; then
         LANGUAGE_CODE=""
@@ -373,9 +377,9 @@ print_option_status() {
     local SET_OPTION="SET_${OPTION^^}"
 
     if [[ $- == *${OPTION}* ]]; then
-        echo "Option -${OPTION} is currently set."
+        information "Option -${OPTION} is currently set."
     else
-        echo "Option -${OPTION} is currently unset."
+        information "Option -${OPTION} is currently unset."
     fi
 }
 
@@ -416,12 +420,30 @@ toggle_shell_options() {
     done
 }
 
-# Display an error message and exit the program.
+# Display an error message.
 error() {
     toggle_shell_options u
     local MESSAGE="${1}"
 
-    echo -e "${BOLD}${RED}Error:${ENDCOLOR} ${MESSAGE}" >&2
+    echo -e "${BOLD}${RED}E:${ENDCOLOR} ${MESSAGE}" >&2
+    toggle_shell_options u
+}
+
+# Display a warning message.
+warning() {
+    toggle_shell_options u
+    local MESSAGE="${1}"
+
+    echo -e "${BOLD}${YELLOW}W:${ENDCOLOR} ${MESSAGE}"
+    toggle_shell_options u
+}
+
+# Display an information message.
+information() {
+    toggle_shell_options u
+    local MESSAGE="${1}"
+
+    echo -e "${BOLD}${BLUE}I:${ENDCOLOR} ${MESSAGE}"
     toggle_shell_options u
 }
 
@@ -505,6 +527,25 @@ determine_command_range() {
     fi
 }
 
+# Check internet connectivity
+check_internet() {
+    if command -v wget >/dev/null; then
+        wget -q --spider https://google.com
+    elif command -v curl >/dev/null; then
+        curl --silent --head https://google.com
+    else
+        error "Neither wget nor curl is available on this system."
+        exit 1
+    fi
+
+    if [ $? -eq 0 ]; then
+        information "Internet connection is available."
+    else
+        error "Internet connection is not available."
+        exit 1
+    fi
+}
+
 # check that we are inside chroot
 check_is_in_chroot() {
     if [ $(stat -c %i /)="2" ]; then
@@ -517,7 +558,7 @@ check_is_in_chroot() {
 setup_install_dir() {
     current_function
     WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
-    INSTALL_DIR="${WORK_DIR}/basesystem"
+    INSTALL_DIR="${WORK_DIR}/core"
     mkdir -p "${INSTALL_DIR}"
 
     toggle_shell_options u
@@ -547,7 +588,7 @@ unmount_dirs() {
             umount "${DIR}" 2>/dev/null || UNMOUNTED="false"
         done
         if [ "${UNMOUNTED}" = "true" ]; then
-            echo "The file systems inside the ${DIR_PATH} directory are unmounted."
+            information "The file systems inside the ${DIR_PATH} directory are unmounted."
             break
         fi
         sleep 1
@@ -576,17 +617,17 @@ directory_cleanup() {
 
     if [ -n "${TARGET_DIR}" ]; then
         unmount_dirs "${TARGET_DIR}"
-        echo "Deleting directory ${TARGET_DIR}"
+        information "Deleting directory ${TARGET_DIR}"
         if [ -d "${TARGET_DIR}" ]; then
             rm -rf "${TARGET_DIR}"
             if [ $? -eq 0 ]; then
-                echo "Successfully deleted ${TARGET_DIR}"
+                information "Successfully deleted ${TARGET_DIR}"
             else
                 error "Failed to delete directory ${TARGET_DIR}"
                 exit 1
             fi
         else
-            echo "Directory ${TARGET_DIR} does not exist, thus not removed."
+            warning "Directory ${TARGET_DIR} does not exist, thus not removed."
         fi
         mkdir -p "${TARGET_DIR}"
     fi
@@ -687,8 +728,8 @@ KERNEL_BUILD_ARCH="${KERNEL_BUILD_ARCH}"
 KERNEL_BUILD_DKMS="${KERNEL_BUILD_DKMS}"
 KERNEL_TYPE="${KERNEL_TYPE}"
 KERNEL_VERSION="${KERNEL_VERSION}"
-LAYOUT="${LAYOUT}"
-LAYOUTCODE="${LAYOUTCODE}"
+LAYOUTDSC="${LAYOUTDSC}"
+LAYOUTID="${LAYOUTID}"
 LIVEKITNAME="${LIVEKITNAME}"
 LOCALE="${LOCALE}"
 LOCALES=(${LOCALES[@]})
@@ -757,7 +798,7 @@ pkg() {
     elif command -v apt >/dev/null 2>&1; then
         PACKAGE_MANAGER="apt"
     else
-        echo "Error: Could not find a supported package manager" >&2
+        error "Error: Could not find a supported package manager" >&2
         exit 1
     fi
 
@@ -773,7 +814,7 @@ pkg() {
         DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
         ;;
     *)
-        echo "Invalid command: ${COMMAND}" >&2
+        error "Invalid command: ${COMMAND}" >&2
         exit 1
         ;;
     esac
@@ -847,13 +888,13 @@ extract_tarball() {
     local TARBALL="${1}"
     local DESTINATION="${2}"
     if [ ! -f "${TARBALL}" ]; then
-        echo "File ${TARBALL} not found!"
+        error "File ${TARBALL} not found!"
         exit 1
     fi
     mkdir -p "${DESTINATION}"
     tar -xzf "${TARBALL}" -C "${DESTINATION}"
     if [ $? -ne 0 ]; then
-        echo "Error extracting tarball ${TARBALL}!"
+        error "Error extracting tarball ${TARBALL}!"
         exit 1
     fi
 }
@@ -1273,11 +1314,6 @@ build_iso() {
         setup_host
     fi
 
-    #check_install_dir
-
-    #INSTALL_DIR="${WORK_DIR}/basesystem"
-    #[ "${INSTALL_DIR}" = "" ] && INSTALL_DIR=$(cat "${SCRIPT_DIR}/.install_dir")
-
     cd "${WORK_DIR}/image"
     mkdir -p "${ISO_DIR}"
 
@@ -1392,7 +1428,7 @@ get_base_path() {
     elif [ "${1}" == "module" ]; then
         BASE_PATH="${MODULE_UPPER_DIR}"
     else
-        echo "Invalid mode. Choose either 'core' or module"
+        error "Invalid mode. Choose either 'core' or module."
         exit 1
     fi
     echo "${BASE_PATH}"
@@ -1496,7 +1532,7 @@ chroot_cleanup() {
     KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES:-false}" # By default, delete locales
 
     if [ "${MULTILINGUAL}" = "true" ]; then
-        LOCALES_TO_KEEP=("${LOCALES[@]}")
+        LOCALES_TO_KEEP=("${!LOCALES[@]}")
     else
         LOCALES_TO_KEEP=("$LOCALE")
     fi
@@ -1521,7 +1557,7 @@ chroot_cleanup() {
 
             # Iterate over all paths and patterns
             for PATH_AND_PATTERN in "${PATHS_AND_PATTERNS_TO_CLEAN[@]}"; do
-                echo "Checking files in ${PATH_AND_PATTERN}..."
+                information "Checking files in ${PATH_AND_PATTERN}..."
 
                 # Iterate over all files and directories matching the current pattern
                 for FILE in ${PATH_AND_PATTERN}; do
@@ -1540,18 +1576,18 @@ chroot_cleanup() {
 
                     # If the file or directory should not be kept, delete it
                     if ! ${KEEP}; then
-                        echo "Deleting ${FILE}..."
+                        information "Deleting ${FILE}..."
                         rm -rf "${FILE}"
                     else
-                        echo "Keeping ${FILE}..."
+                        information "Keeping ${FILE}..."
                     fi
                 done
             done
 
-            echo "Locale cleanup completed."
+            information "Locale cleanup completed."
         fi
     else
-        echo "Skipping locale cleanup due to KEEP_ALL_LOCALES variable setting."
+        information "Skipping locale cleanup due to KEEP_ALL_LOCALES variable setting."
     fi
 
     if [ -z "${BASE_PATH}" ]; then
@@ -1622,17 +1658,17 @@ install_core_packages() {
 
     export_chroot_variables
 
-    if [ -f /linux-live/basesystem/00-core/preinstall ]; then
-        chmod +x /linux-live/basesystem/00-core/preinstall
-        /linux-live/basesystem/00-core/preinstall
+    if [ -f /linux-live/scripts/00-core/preinstall ]; then
+        chmod +x /linux-live/scripts/00-core/preinstall
+        /linux-live/scripts/00-core/preinstall
     fi
-    if [ -f /linux-live/basesystem/00-core/install ]; then
-        chmod +x /linux-live/basesystem/00-core/install
-        /linux-live/basesystem/00-core/install
+    if [ -f /linux-live/scripts/00-core/install ]; then
+        chmod +x /linux-live/scripts/00-core/install
+        /linux-live/scripts/00-core/install
     fi
-    if [ -f /linux-live/basesystem/00-core/postinstall ]; then
-        chmod +x /linux-live/basesystem/00-core/postinstall
-        /linux-live/basesystem/00-core/postinstall
+    if [ -f /linux-live/scripts/00-core/postinstall ]; then
+        chmod +x /linux-live/scripts/00-core/postinstall
+        /linux-live/scripts/00-core/postinstall
     fi
 
     chroot_cleanup core
@@ -1670,8 +1706,35 @@ chroot_finish_up() {
     rm -f /var/lib/dpkg/*-old 2>/dev/null
 }
 
+# Checks if the package is available in the repository.
+check_package() {
+    PACKAGE_NAME="$1"
+    PACKAGE_VERSION="$2"
+
+    if [ -z "${PACKAGE_VERSION}" ]; then
+        # If no version is specified, check only if package is available
+        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
+            return 1
+        else
+            return 0
+        fi
+    else
+        # If version is specified, check if that version is available
+        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
+            return 0
+        else
+            warning "Version ${CYAN}${PACKAGE_VERSION}${ENDCOLOR} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not in the repository, fall back to the available version."
+            if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
+                return 1
+            else
+                return 0 # Package (any version) is still available, return 0
+            fi
+        fi
+    fi
+}
+
 # Function is used to install packages on a system using the
-# packages list.
+# package list.
 #
 # Usage:
 #   install_packages [options]
@@ -1701,7 +1764,21 @@ chroot_finish_up() {
 #     Specify the target release for package installation. If provided, this
 #     value will be passed to the `pkg install` command using the `-t` option.
 #
+# Package List Format:
+# The packages in the list should be stated as strings containing the package name and additional
+# parameters separated by the '|' character. Each parameter can contain the package name, an action
+# ('+' for installation or '-' for skipping), and compatible distributions (like `package1|
+# package2 + distro1 distro2| package3 - distro1 distro2`).
+# This allows the script to handle each package individually. The script will check for the package's
+# presence in the repository. If the package is found, it will be added to the install list.
+# In case the '-' action character is given, the package will be ignored. Compatibility with
+# distribution for each package is checked before the action is taken.
+#
+# Any packages that are not supported for a specific distribution, or packages
+# that aren't found in the repository, will be flagged as warnings.
+#
 install_packages() {
+    toggle_shell_options u
     local SED_SCRIPT=""
     local ADD_PACKAGES=()
     local DELETE_PACKAGES=""
@@ -1714,20 +1791,28 @@ install_packages() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
         -s | --sed-script)
-            SED_SCRIPT="$2"
-            shift
+            while [[ $# -gt 1 && $2 != -* ]]; do
+                SED_SCRIPT+="$2"
+                shift
+            done
             ;;
         -a | --add-packages)
-            ADD_PACKAGES+=("$2")
-            shift
+            while [[ $# -gt 1 && $2 != -* ]]; do
+                ADD_PACKAGES+=($2)
+                shift
+            done
             ;;
         -d | --delete-packages)
-            DELETE_PACKAGES="$2"
-            shift
+            while [[ $# -gt 1 && $2 != -* ]]; do
+                DELETE_PACKAGES+=($2)
+                shift
+            done
             ;;
         -r | --replace-packages)
-            REPLACE_PACKAGES="$2"
-            shift
+            while [[ $# -gt 1 && $2 != -* ]]; do
+                REPLACE_PACKAGES+=($2)
+                shift
+            done
             ;;
         -l | --package-list)
             PACKAGE_LIST="$2"
@@ -1738,20 +1823,20 @@ install_packages() {
             shift
             ;;
         *)
-            echo "Invalid option: $1" >&2
+            error "Invalid option: $1" >&2
             exit 1
             ;;
         esac
         shift
     done
 
-    if [[ -z "$PACKAGE_LIST" ]]; then
+    if [[ -z "${PACKAGE_LIST}" ]]; then
         if [ -f "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list" ]; then
             PACKAGE_LIST="${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"
         elif [ -f "${SCRIPT_DIR}/package.list" ]; then
             PACKAGE_LIST="${SCRIPT_DIR}/package.list"
         else
-            echo "There are no lists of packages here."
+            error "There are no lists of packages here."
             exit 1
         fi
     fi
@@ -1767,30 +1852,128 @@ install_packages() {
         SED_SCRIPT+="s#${OLD_PKG}#${NEW_PKG}#g;"
     done
 
-    # Create an array with package names
-    PACKAGE_ARRAY=($(grep -vE "^\s*#" $PACKAGE_LIST | tr "\n" " "))
-    PACKAGES_TO_INSTALL=()
+    while IFS= read -r LINE; do
+        # Remove everything after the # sign (if present)
+        LINE=${LINE%%#*}
+        # Only add the line to the array if it's not empty
+        if [[ ! -z "${LINE// /}" ]]; then
+            LINE=$(echo "${LINE}" | sed "${SED_SCRIPT}")
+            if [[ ! -z "${LINE// /}" ]]; then
+                PACKAGE_ARRAY+=("${LINE}")
+            fi
+        fi
+    done < <(grep -vE '^\s*#' "${PACKAGE_LIST}")
 
-    if [ ! -e /var/cache/apt/pkgcache.bin ]; then
+    PACKAGE_ARRAY=("${PACKAGE_ARRAY[@]}" "${ADD_PACKAGES[@]}")
+
+    # Checking for the existence of /var/cache/apt/pkgcache.bin
+    if [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
+        # If the file doesn't exist, updating the package list
+        information "pkgcache.bin cache file missing. Running update of package list..."
         pkg update
+    else
+        information "pkgcache.bin cache file detected. Update of package list is not required."
     fi
 
     # Check each package for existence in the repository
     for PACKAGE in "${PACKAGE_ARRAY[@]}"; do
-        # Check if the package is available in the repository
-        if ! LANG=C apt-cache show "${PACKAGE%%=*}" >/dev/null 2>&1; then
-            echo -e "${YELLOW}${BOLD}Warning:${ENDCOLOR} ${CYAN}${PACKAGE%%=*}${ENDCOLOR} is not available in the repository."
-            continue
-        fi
-        PACKAGES_TO_INSTALL+=("$PACKAGE")
+        IFS='|' read -a SPLIT_PACKAGE <<<"${PACKAGE}"
+
+        # Search for an available package in EACH_PKG
+        for EACH_PKG in "${SPLIT_PACKAGE[@]}"; do
+            # Parse package name, action(+/-), and distributions
+            IFS=' ' read -ra PKG_ACTION_DISTS <<<"${EACH_PKG}"
+            PACKAGE_NAME="${PKG_ACTION_DISTS[0]}"
+            # Check if the package name ends with '!'
+            MANDATORY=false
+            if [[ ${PACKAGE_NAME: -1} == "!" ]]; then
+                PACKAGE_NAME="${PACKAGE_NAME%?}" # Remove '!' from the package name
+                MANDATORY=true
+            fi
+            PACKAGE_VERSION=""
+            if [[ ${PACKAGE} == *"="* ]]; then
+                PACKAGE_VERSION="${PACKAGE_NAME#*=}"
+            fi
+            PACKAGE_NAME="${PACKAGE_NAME%%=*}"
+
+            # Default action if not provided, process as + (allow action)
+            ACTION="+"
+            DISTRIBUTIONS=("all") # all distributions are allowed by default
+
+            if [[ "${PKG_ACTION_DISTS[1]}" == "+" ]] || [[ "${PKG_ACTION_DISTS[1]}" == "-" ]]; then
+                ACTION="${PKG_ACTION_DISTS[1]}"
+                if [[ -n "${PKG_ACTION_DISTS[2]}" ]]; then
+                    DISTRIBUTIONS=("${PKG_ACTION_DISTS[@]:2}")
+                fi
+            elif [[ -n "${PKG_ACTION_DISTS[1]}" ]]; then
+                DISTRIBUTIONS=("${PKG_ACTION_DISTS[@]:1}")
+            fi
+
+            handle_package() {
+                if check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}"; then
+                    information "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} has been found in the repository and will be installed for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
+                    if [ -n "${PACKAGE_VERSION}" ]; then
+                        PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}=${PACKAGE_VERSION}")
+                        PACKAGES_TO_HOLD+=("${PACKAGE_NAME}")
+                    else
+                        PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}")
+                    fi
+                    return 0
+                else
+                    if ${MANDATORY}; then
+                        error "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not found in repository or is not supported for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
+                        exit 1
+                    else
+                        warning "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not found in repository or is not supported for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
+                        sleep 0.5
+                        return 1
+                    fi
+                fi
+            }
+
+            # Initiate the handling of distribution-related actions
+            case "${ACTION}" in
+            "+")
+                if [[ " ${DISTRIBUTIONS[@]} " =~ " ${DISTRIBUTION} " ]] || [[ " ${DISTRIBUTIONS[@]} " =~ " all " ]]; then
+                    if handle_package; then
+                        break
+                    fi
+                else
+                    warning "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} will not be installed for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
+                    sleep 0.5
+                fi
+                ;;
+            "-")
+                if [[ " ${DISTRIBUTIONS[@]} " =~ " ${DISTRIBUTION} " ]]; then
+                    if ${MANDATORY}; then
+                        error "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} cannot be skipped for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
+                        exit 1
+                    else
+                        warning "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} will not be installed for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
+                        sleep 0.5
+                        continue 2
+                    fi
+                else
+                    if handle_package; then
+                        break
+                    fi
+                fi
+                ;;
+            esac
+        done
     done
 
-    if [[ -z "$SED_SCRIPT" ]]; then
-        pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} ${PACKAGES_TO_INSTALL[@]} ${ADD_PACKAGES[@]}
-    else
-        pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} \
-            $(printf "%s\n" "${PACKAGES_TO_INSTALL[@]}" | sed "$SED_SCRIPT" | tr "\n" " ") ${ADD_PACKAGES[@]}
+    pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} "${PACKAGES_TO_INSTALL[@]}"
+
+    if [ ${#PACKAGES_TO_HOLD[@]} -ne 0 ]; then
+        information "Holding package versions..."
+        for PACKAGE in "${PACKAGES_TO_HOLD[@]}"; do
+            information "Holding ${PACKAGE}..."
+            sudo apt-mark hold "${PACKAGE}"
+        done
     fi
+
+    toggle_shell_options u
 }
 
 # This function checks for mounted filesystems in chroot and unmounts them.
@@ -1843,11 +2026,11 @@ module_chroot_mount_fs() {
     MODULES=("${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}")
     for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
         BUNDLE=$(basename "${MODULES[$i]}" ."${BEXT}")
-        mkdir -p "${MODULES_DIR}/bundles/${BUNDLE}"
-        mount "${MODULES[$i]}" "${MODULES_DIR}/bundles/${BUNDLE}"
+        mkdir -p "${OVERLAYS}/bundles/${BUNDLE}"
+        mount "${MODULES[$i]}" "${OVERLAYS}/bundles/${BUNDLE}"
     done
     toggle_shell_options e
-    filter_modules "${MODULES_DIR}/bundles/"
+    filter_modules "${OVERLAYS}/bundles/"
     MODULES_LIST=${MODULES_LIST/%:/}
     toggle_shell_options e
     mkdir -p "${MODULE_UPPER_DIR}" "${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
@@ -1932,9 +2115,9 @@ export_kernel() {
                 ${MOVE_KERNEL} "${INITRFS_PATH}" "${KERNEL_DIR}/initrfs-${KERNEL_SUFFIX}.img"
             fi
 
-            echo "Kernel files and initrd image have been ${OPERATION} to a folder ${KERNEL_DIR}"
+            information "Kernel files and initrd image have been ${OPERATION} to a folder ${KERNEL_DIR}"
         else
-            echo "Kernel files could not be found."
+            information "Kernel files could not be found."
         fi
     fi
 }
@@ -2038,7 +2221,7 @@ handle_files() {
         fi
         ;;
     *)
-        echo "Invalid type: ${TYPE}"
+        error "Invalid type: ${TYPE}"
         return 1
         ;;
     esac
@@ -2048,7 +2231,7 @@ handle_files() {
 build_modules() {
     current_process
 
-    local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME
+    local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS MODULE_DIR TARGET_DIR DIR
 
     if [ "${CONTAINER_TYPE}" = "1" ]; then
         if [ ! -f "/.minios-live" ]; then
@@ -2057,7 +2240,7 @@ build_modules() {
     fi
 
     SOURCE_MODULES_DIR="${SCRIPT_DIR}/linux-live/modules/${DESKTOP_ENVIRONMENT}"
-    MODULES_DIR="${WORK_DIR}/modules"
+    OVERLAYS="${WORK_DIR}/overlays"
 
     cd "${SOURCE_MODULES_DIR}"
 
@@ -2067,9 +2250,9 @@ build_modules() {
         elif ([[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]) && [ "${KERNEL_TYPE}" = "none" ]; then
             return
         else
-            MODULE_UPPER_DIR="${MODULES_DIR}/${MODULE}-upper"
-            MODULE_WORK_DIR="${MODULES_DIR}/${MODULE}-work"
-            MODULE_MERGED_DIR="${MODULES_DIR}/${MODULE}-merged"
+            MODULE_UPPER_DIR="${OVERLAYS}/${MODULE}-upper"
+            MODULE_WORK_DIR="${OVERLAYS}/${MODULE}-work"
+            MODULE_MERGED_DIR="${OVERLAYS}/${MODULE}-merged"
             EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-module-exclude"
             generate_squashfs_exclude_file "${EXCLUDE_MODULE_FILE}" "${MODULE_UPPER_DIR}"
 
@@ -2119,10 +2302,10 @@ build_modules() {
 
                 # run external actions
                 if [ "$(ls -A "${MODULE_UPPER_DIR}" 2>/dev/null)" != "" ]; then
-                    mkdir -p "${WORK_DIR}/modules/tmp"
+                    mkdir -p "${OVERLAYS}/tmp"
                     mkmod_corefs "${MODULE_UPPER_DIR}"
-                    time mksquashfs "${MODULE_UPPER_DIR}" "${WORK_DIR}/modules/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend || exit
-                    mv "${WORK_DIR}/modules/tmp/${MODULE}-stock.${BEXT}" "${MODULE_UPPER_DIR}/${MODULE}-stock.${BEXT}"
+                    time mksquashfs "${MODULE_UPPER_DIR}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend || exit
+                    mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${MODULE_UPPER_DIR}/${MODULE}-stock.${BEXT}"
                     cd "${MODULE_UPPER_DIR}" || exit 1
                     unsquashfs "${MODULE}-stock.${BEXT}"
                 else
@@ -2169,15 +2352,20 @@ build_modules() {
                     fi
                     if [ "${KERNEL_MODULES_ONLY}" = "true" ]; then
                         bash -c "
-                            shopt -s extglob
+                        shopt -s extglob
+                        if [ -d "${MODULE_UPPER_DIR}/squashfs-root/usr/lib/modules" ]; then
                             rm -rf !(usr)
                             cd "${MODULE_UPPER_DIR}/squashfs-root/usr"
                             rm -Rf !(lib)
                             cd "${MODULE_UPPER_DIR}/squashfs-root/usr/lib"
                             rm -Rf !(modules)
-                            cd "${MODULE_UPPER_DIR}/squashfs-root"
-                            shopt -u extglob
-                            "
+                        elif [ -d "${MODULE_UPPER_DIR}/squashfs-root/lib/modules" ]; then
+                            rm -Rf !(lib)
+                            cd "${MODULE_UPPER_DIR}/squashfs-root/lib"
+                            rm -Rf !(modules)
+                        fi
+                        cd "${MODULE_UPPER_DIR}/squashfs-root"
+                        shopt -u extglob"
                     else
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
@@ -2191,7 +2379,6 @@ build_modules() {
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
                 #cp "${SCRIPT_DIR}/linux-live/minioslib" "${MODULE_MERGED_DIR}/usr/lib/minios/libminioslive"
                 mkdir -p "${MODULE_MERGED_DIR}/usr/share/minios"
-                cp "${SCRIPT_DIR}/linux-live/layoutcodes.csv" "${MODULE_MERGED_DIR}/usr/share/minios/layoutcodes.csv"
                 mkdir -p "${MODULE_MERGED_DIR}/etc/minios"
                 if [ -f "${SCRIPT_DIR}/linux-live/container_config" ]; then
                     cp "${SCRIPT_DIR}/linux-live/container_config" "${MODULE_MERGED_DIR}/etc/minios/config"

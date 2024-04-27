@@ -124,28 +124,28 @@ for LOCALE in "${LOCALES[@]}"; do
 
         while IFS=, read -r locale layoutcode layout; do
             if [ "$locale" == "$LOCALE" ]; then
-                LAYOUTCODE="$layoutcode"
-                LAYOUT="$layout"
+                LAYOUTID="$layoutcode"
+                LAYOUTDSC="$layout"
                 break
             fi
         done </usr/share/minios/layoutcodes.csv
 
-        if [ -z "$LAYOUT" ]; then
+        if [ -z "$LAYOUTDSC" ]; then
             echo "Locale not recognized, defaulting to English (US) layout"
-            LAYOUT="English (US)"
-            LAYOUTCODE="us"
+            LAYOUTDSC="English (US)"
+            LAYOUTID="us"
         fi
 
         DEBCONF_SETTINGS=(
-            "keyboard-configuration  keyboard-configuration/layoutcode       string  us,$LAYOUTCODE"
-            "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUT"
+            "keyboard-configuration  keyboard-configuration/layoutcode       string  us,$LAYOUTID"
+            "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUTDSC"
             "keyboard-configuration  keyboard-configuration/toggle   select  Alt+Shift"
             "locales locales/locales_to_be_generated multiselect     $LOCALE.UTF-8 UTF-8"
             "locales locales/default_environment_locale      select  $LOCALE.UTF-8"
         )
 
         DEBCONF_SETTINGS+=(
-            "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUT"
+            "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUTDSC"
         )
 
         for SETTING in "${DEBCONF_SETTINGS[@]}"; do
@@ -167,7 +167,7 @@ for LOCALE in "${LOCALES[@]}"; do
 <channel name="keyboard-layout" version="1.0">
   <property name="Default" type="empty">
     <property name="XkbDisable" type="bool" value="false"/>
-    <property name="XkbLayout" type="string" value="us,$LAYOUTCODE"/>
+    <property name="XkbLayout" type="string" value="us,$LAYOUTID"/>
     <property name="XkbVariant" type="string" value=","/>
     <property name="XkbOptions" type="empty">
       <property name="Group" type="string" value="grp:alt_shift_toggle"/>
