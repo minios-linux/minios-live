@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Functions library :: for Linux Live Kit scripts
 # Author: Tomas M. <http://www.linux-live.org>
@@ -1234,8 +1234,13 @@ minios_boot() {
    # Create a log directory in the target directory
    mkdir -p $2/var/log/minios
 
-   #if [ ! -f $2/usr/lib/systemd/system/minios-syncconfig.service ]; then
-      cat <<EOF >$2/usr/lib/systemd/system/minios-syncconfig.service
+   if [ -d "/usr/lib/systemd/system" ]; then
+      SYSTEMDSYSTEM="/usr/lib/systemd/system"
+   elif [ -d "/lib/systemd/system" ]; then
+      SYSTEMDSYSTEM="/lib/systemd/system"
+   fi
+
+   cat <<EOF >$2$SYSTEMDSYSTEM/minios-syncconfig.service
 [Unit]
 Description=Sync minios.conf changes
 
