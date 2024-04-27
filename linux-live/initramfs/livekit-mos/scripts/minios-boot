@@ -16,7 +16,11 @@ declare -A VARIABLES_DEFAULTS=(
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 CONFIG="/etc/minios/config"
 MINIOSCONFIG="/etc/minios/minios.conf"
-
+if [ -d "/usr/lib/systemd/system" ]; then
+    SYSTEMDSYSTEM="/usr/lib/systemd/system"
+elif [ -d "/lib/systemd/system" ]; then
+    SYSTEMDSYSTEM="/lib/systemd/system"
+fi
 # ======= Functions =======
 
 if [ -f /lib/minios/libminioslive ]; then
@@ -141,8 +145,8 @@ set_autologin() {
     fi
 
     if [ "$AUTOLOGIN" = "true" ]; then
-        if [ -f /usr/lib/systemd/system/xorg.service ]; then
-            cat <<EOF >/usr/lib/systemd/system/xorg.service
+        if [ -f $SYSTEMDSYSTEM/xorg.service ]; then
+            cat <<EOF >$SYSTEMDSYSTEM/xorg.service
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
@@ -159,7 +163,7 @@ EOF
     fi
 
     if [ -f /usr/bin/x11vnc ]; then
-        sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" /usr/lib/systemd/system/x11vnc.service
+        sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" $SYSTEMDSYSTEM/x11vnc.service
     fi
 }
 
