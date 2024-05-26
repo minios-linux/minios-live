@@ -39,6 +39,8 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 # =============   main  ================
 
+create_log_file "$@"
+
 trap 'unmount_dirs "${BUILD_DIR}"' EXIT
 
 common_variables

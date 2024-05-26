@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+	<action>
+		<icon>utilities-terminal</icon>
+		<name>Terminal Hier öffnen</name>
+		<submenu></submenu>
+		<unique-id>1713380276737258-1</unique-id>
+		<command>exo-open --working-directory %f --launch TerminalEmulator</command>
+		<description>Terminal im aktuellen Verzeichnis öffnen</description>
+		<range></range>
+		<patterns>*</patterns>
+		<startup-notify/>
+		<directories/>
+	</action>
+	<action>
+		<icon>module-connect</icon>
+		<name>Modul aktivieren</name>
+		<submenu></submenu>
+		<unique-id>1713385765967387-1</unique-id>
+		<command>pkexec /usr/bin/sb activate %f</command>
+		<description>Aktiviert das angegebene Modul</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<other-files/>
+	</action>
+	<action>
+		<icon>module-disconnect</icon>
+		<name>Modul deaktivieren</name>
+		<submenu></submenu>
+		<unique-id>1713385872440460-2</unique-id>
+		<command>pkexec /usr/bin/sb deactivate %f</command>
+		<description>Deaktiviert das angegebene Modul</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<other-files/>
+	</action>
+	<action>
+		<icon>module-create</icon>
+		<name>Modul erstellen</name>
+		<submenu></submenu>
+		<unique-id>1713386118612735-3</unique-id>
+		<command>/usr/bin/dir2sb %f</command>
+		<description>Erstellt ein Modul aus dem angegebenen Verzeichnis</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<directories/>
+	</action>
+	<action>
+		<icon>module-extract</icon>
+		<name>Modul extrahieren</name>
+		<submenu></submenu>
+		<unique-id>1713386196741360-4</unique-id>
+		<command>/usr/bin/sb2dir %f</command>
+		<description>Extrahiert das angegebene Modul</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<other-files/>
+	</action>
+</actions>

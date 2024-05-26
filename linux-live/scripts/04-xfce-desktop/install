@@ -81,6 +81,18 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     fi
 fi
 
+for SIZE in 16 24 32 48 64 96 128 symbolic; do
+    cd /usr/share/icons/elementary-xfce/mimes/$SIZE
+    if [ -f office-database.png ]; then
+        ln -s office-database.png application-x-sb.png
+    fi
+done
+ln -s mimes /usr/share/icons/elementary-xfce/mimetypes
+update-mime-database /usr/share/mime
+if [ -f /etc/skel/.config/Thunar/uca.$LNG.xml ]; then
+    cp /etc/skel/.config/Thunar/uca.$LNG.xml /etc/skel/.config/Thunar/uca.xml
+fi
+
 if [ -f /usr/bin/connman-gtk ]; then
     if [ ! -d /etc/skel/.config/autostart ]; then
         mkdir -p /etc/skel/.config/autostart

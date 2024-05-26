@@ -1234,19 +1234,19 @@ minios_boot() {
    # Create a log directory in the target directory
    mkdir -p $2/var/log/minios
 
-   if [ -d "/usr/lib/systemd/system" ]; then
-      SYSTEMDSYSTEM="/usr/lib/systemd/system"
-   elif [ -d "/lib/systemd/system" ]; then
-      SYSTEMDSYSTEM="/lib/systemd/system"
+   if [ -d "$2/usr/lib/systemd/system" ]; then
+      SYSTEMDSYSTEM="$2/usr/lib/systemd/system"
+   elif [ -d "$2/lib/systemd/system" ]; then
+      SYSTEMDSYSTEM="$2/lib/systemd/system"
    fi
 
-   cat <<EOF >$2$SYSTEMDSYSTEM/minios-syncconfig.service
+   cat <<EOF >$SYSTEMDSYSTEM/minios-syncconfig.service
 [Unit]
 Description=Sync minios.conf changes
 
 [Service]
 Type=oneshot
-ExecStart=-/bin/sh -c "if [ -f /run/initramfs/$1/$LIVEKITNAME.conf ] && [ -w /run/initramfs/$1/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /run/initramfs/$1/$LIVEKITNAME.conf; fi; sync"
+ExecStart=-/bin/sh -c "if [ -f /run/initramfs$1/$LIVEKITNAME.conf ] && [ -w /run/initramfs$1/$LIVEKITNAME.conf ]; then cp -fp /etc/$LIVEKITNAME/$LIVEKITNAME.conf /run/initramfs$1/$LIVEKITNAME.conf; fi; sync"
 
 [Install]
 RequiredBy=minios-syncconfig.path
