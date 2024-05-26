@@ -97,13 +97,13 @@ common_variables() {
     fi
 
     declare -A LOCALES=(
-        ["de_DE"]="de,German"
-        ["en_US"]="us,English (US)"
-        ["es_ES"]="es,Spanish"
-        ["fr_FR"]="fr,French"
-        ["it_IT"]="it,Italian"
-        ["pt_BR"]="br,Portuguese (Brazil)"
-        ["ru_RU"]="ru,Russian"
+        ["de_DE"]="de,German,de,de"
+        ["en_US"]="us,English (US),,en"
+        ["es_ES"]="es,Spanish,es-es,es"
+        ["fr_FR"]="fr,French,fr,fr"
+        ["it_IT"]="it,Italian,it,it"
+        ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt"
+        ["ru_RU"]="ru,Russian,ru,ru"
     )
 
     if [[ -n "${LOCALES[$LOCALE]}" ]]; then
@@ -114,13 +114,10 @@ common_variables() {
         LAYOUTDSC="English (US)"
     fi
 
-    # An array of locales. Used if MULTILINGUAL=true.
-    #LOCALES=("de_DE" "en_US" "es_ES" "fr_FR" "it_IT" "pt_BR" "ru_RU")
-
     if [ "${MULTILINGUAL}" = "true" ]; then
-        LANGUAGE_CODE=""
+        LANGID=""
     else
-        LANGUAGE_CODE="$(echo ${LOCALE} | cut -d_ -f1)"
+        LANGID="$(echo ${LOCALE} | cut -d_ -f1)"
     fi
 
     if [ "${COMP_TYPE}" = "zstd" ]; then
@@ -546,6 +543,29 @@ check_internet() {
     fi
 }
 
+# Function to create a log file to record script output
+create_log_file() {
+    toggle_shell_options u
+    if [ -z "${LOG_FILE}" ]; then
+        export LOG_FILE="${BUILD_DIR}/build-$(date +%Y%m%d-%H%M%S).log"
+        mkdir -p "${BUILD_DIR}"
+        ARGS=""
+        # Loop over all arguments and add them to ARGS in quotes
+        for VAR in "$@"; do
+            ARGS="${ARGS}\"${VAR}\" "
+        done
+        script -q -e -c "${0} ${ARGS}" "${LOG_FILE}"
+
+        # Check if LOG_FILE exists and clean it from escape sequences
+        if [ -f "${LOG_FILE}" ]; then
+            sed -i 's/\x1B\[[0-9;]*[JKmsu]//g' "${LOG_FILE}"
+        fi
+
+        exit $?
+    fi
+    toggle_shell_options u
+}
+
 # check that we are inside chroot
 check_is_in_chroot() {
     if [ $(stat -c %i /)="2" ]; then
@@ -572,7 +592,7 @@ setup_install_dir() {
 
     generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
     EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
-    generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
+    #generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
 }
 
 # Unmount directories
@@ -712,6 +732,15 @@ new_run() {
 generate_chroot_configuration_file() {
     toggle_shell_options u
     cat <<EOF >"${1}"
+declare -A LOCALES=(
+    ["de_DE"]="de,German,de,de"
+    ["en_US"]="us,English (US),,en"
+    ["es_ES"]="es,Spanish,es-es,es"
+    ["fr_FR"]="fr,French,fr,fr"
+    ["it_IT"]="it,Italian,it,it"
+    ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt"
+    ["ru_RU"]="ru,Russian,ru,ru"
+)
 BEXT="${BEXT}"
 BUILD_TEST_ISO="${BUILD_TEST_ISO}"
 COMP_TYPE="${COMP_TYPE}"
@@ -732,7 +761,6 @@ LAYOUTDSC="${LAYOUTDSC}"
 LAYOUTID="${LAYOUTID}"
 LIVEKITNAME="${LIVEKITNAME}"
 LOCALE="${LOCALE}"
-LOCALES=(${LOCALES[@]})
 MODULE="${MODULE}"
 MULTILINGUAL="${MULTILINGUAL}"
 PACKAGE_VARIANT="${PACKAGE_VARIANT}"
@@ -1320,9 +1348,9 @@ build_iso() {
     DIR="${WORK_DIR}/image"
 
     if [ "${DESKTOP_ENVIRONMENT}" = "xfce-ultra" ] || [ "${DESKTOP_ENVIRONMENT}" = "xfce-puzzle" ] || [ "${DESKTOP_ENVIRONMENT}" = "xfce-puzzle-base" ]; then
-        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${LANGUAGE_CODE}"
+        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${LANGID}"
     else
-        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGUAGE_CODE}"
+        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}"
     fi
     if [ "${KERNEL_AUFS}" = "true" ]; then
         IMAGE="${IMAGE}-aufs"
@@ -2253,8 +2281,8 @@ build_modules() {
             MODULE_UPPER_DIR="${OVERLAYS}/${MODULE}-upper"
             MODULE_WORK_DIR="${OVERLAYS}/${MODULE}-work"
             MODULE_MERGED_DIR="${OVERLAYS}/${MODULE}-merged"
-            EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-module-exclude"
-            generate_squashfs_exclude_file "${EXCLUDE_MODULE_FILE}" "${MODULE_UPPER_DIR}"
+            EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-${MODULE}-exclude"
+            #generate_squashfs_exclude_file "${EXCLUDE_MODULE_FILE}" "${MODULE_UPPER_DIR}"
 
             module_cleanup
 
@@ -2521,8 +2549,8 @@ generate_config_files() {
 }
 
 container_run() {
-    if [ ! "$(${container_engine} ps -q -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGUAGE_CODE}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
-        if [ "$(${container_engine} ps -aq -f status=exited -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGUAGE_CODE}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
+    if [ ! "$(${container_engine} ps -q -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
+        if [ "$(${container_engine} ps -aq -f status=exited -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
             # cleanup
             ${container_engine} rm -f ${CONTAINER_NAME}
         fi
@@ -2667,9 +2695,9 @@ container_build_run() {
     done
 
     if [ ${MULTILINGUAL} = "true" ]; then
-        LANGUAGE_CODE=""
+        LANGID=""
     else
-        LANGUAGE_CODE="$(echo ${LOCALE} | cut -d_ -f1)-"
+        LANGID="$(echo ${LOCALE} | cut -d_ -f1)-"
     fi
 
     case $1 in
@@ -2684,7 +2712,7 @@ container_build_run() {
     if [ ${KERNEL_AUFS} = "true" ]; then
         AUFS_SUFFIX="-aufs"
     fi
-    CONTAINER_NAME="mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGUAGE_CODE}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE}"
+    CONTAINER_NAME="mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE}"
 
     if [ ! "$(${container_engine} ps -q -f name=${CONTAINER_NAME})" ]; then
         if [ "$(${container_engine} ps -aq -f status=exited -f name=${CONTAINER_NAME})" ]; then

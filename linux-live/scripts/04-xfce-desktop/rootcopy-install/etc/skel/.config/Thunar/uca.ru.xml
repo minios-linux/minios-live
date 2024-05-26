@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+	<action>
+		<icon>utilities-terminal</icon>
+		<name>Открыть терминал здесь</name>
+		<submenu></submenu>
+		<unique-id>1713380276737258-1</unique-id>
+		<command>exo-open --working-directory %f --launch TerminalEmulator</command>
+		<description>Открыть терминал в текущем каталоге</description>
+		<range></range>
+		<patterns>*</patterns>
+		<startup-notify/>
+		<directories/>
+	</action>
+	<action>
+		<icon>module-connect</icon>
+		<name>Подключить модуль</name>
+		<submenu></submenu>
+		<unique-id>1713385765967387-1</unique-id>
+		<command>pkexec /usr/bin/sb activate %f</command>
+		<description>Подключить указанный модуль</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<other-files/>
+	</action>
+	<action>
+		<icon>module-disconnect</icon>
+		<name>Отключить модуль</name>
+		<submenu></submenu>
+		<unique-id>1713385872440460-2</unique-id>
+		<command>pkexec /usr/bin/sb deactivate %f</command>
+		<description>Отключить указанный модуль</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<other-files/>
+	</action>
+	<action>
+		<icon>module-create</icon>
+		<name>Создать модуль</name>
+		<submenu></submenu>
+		<unique-id>1713386118612735-3</unique-id>
+		<command>/usr/bin/dir2sb %f</command>
+		<description>Создать модуль из указанного каталога</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<directories/>
+	</action>
+	<action>
+		<icon>module-extract</icon>
+		<name>Извлечь модуль</name>
+		<submenu></submenu>
+		<unique-id>1713386196741360-4</unique-id>
+		<command>/usr/bin/sb2dir %f</command>
+		<description>Извлечь указанный модуль</description>
+		<range>*</range>
+		<patterns>*.sb</patterns>
+		<other-files/>
+	</action>
+</actions>
