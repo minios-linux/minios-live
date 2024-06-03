@@ -1,4 +1,151 @@
 #!/bin/bash
+# This script creates a SquashFS image with the kernel modules and initramfs image.
+# Author: crims0n <https://minios.dev>
+set -euo pipefail
+
+# Display help information
+show_help() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  --help        Show this help message and exit
+
+This script creates a SquashFS image with the kernel modules and an initramfs image.
+EOF
+    exit 0
+}
+
+# Check for --help option
+if [[ "${1-}" == "--help" ]]; then
+    show_help
+fi
+
+# Function to print steps
+print_step() {
+    echo -e "\033[1;32m* $1...\033[0m"
+}
+
+# Check for root privileges
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root."
+    exit 1
+fi
+
+# Function to select the kernel version
+select_kernel() {
+    print_step "Selecting kernel version"
+    # Get the list of installed kernels
+    mapfile -t kernels < <(ls /lib/modules)
+    echo "  Installed kernels found: ${kernels[*]}"
+    # Use whiptail to select the kernel, even if there is only one
+    options=()
+    for kernel in "${kernels[@]}"; do
+        options+=("$kernel" "")
+    done
+    kernel=$(whiptail --title "Select the Kernel" --menu "Choose a kernel:" 15 60 4 "${options[@]}" 3>&1 1>&2 2>&3)
+    if [ -z "$kernel" ]; then
+        echo "No kernel selected. Exiting."
+        exit 1
+    fi
+    echo "  Selected kernel: $kernel"
+}
+
+# Declare variables
+temp_dir=$(mktemp -d)
+sqfs_mod=""
+vmlinuz_path=""
+kernel=""
+
+# Function to clean up on exit
+cleanup() {
+    print_step "Cleaning up temporary files and unmounting directories"
+    cp "${temp_dir}/livekit/initramfs.log" initramfs-$kernel.log
+    rm -rf "$temp_dir"
+    echo "  Cleanup complete."
+}
+trap cleanup EXIT
+
+# Select kernel version
+select_kernel
+
+# Determine the path to the vmlinuz file
+if [ -f "/boot/vmlinuz-$kernel" ]; then
+    vmlinuz_path="/boot/vmlinuz-$kernel"
+elif [ -f "/run/initramfs/memory/data/minios/boot/vmlinuz-$kernel" ]; then
+    vmlinuz_path="/run/initramfs/memory/data/minios/boot/vmlinuz-$kernel"
+elif [ -f "/run/initramfs/memory/data/minios/boot/vmlinuz" ]; then
+    vmlinuz_path="/run/initramfs/memory/data/minios/boot/vmlinuz"
+fi
+if [ ! -f "$vmlinuz_path" ]; then
+    echo "Error: The vmlinuz file for the selected kernel does not exist."
+    exit 1
+fi
+
+# Copy the kernel image
+print_step "Copying kernel image"
+cp "$vmlinuz_path" "./vmlinuz-$kernel"
+echo "  Kernel image copied to: ./vmlinuz-$kernel"
+
+# Determine the modules directory
+print_step "Determining modules directory"
+if [ -d "/lib/modules/$kernel" ]; then
+    sqfs_mod="/lib/modules"
+else
+    echo "Error: The modules directory does not exist."
+    exit 1
+fi
+
+# Create SquashFS file for kernel modules
+print_step "Creating SquashFS file for kernel modules"
+mkdir -p "${temp_dir}/kernel/$sqfs_mod"
+cp -r "/lib/modules/$kernel" "${temp_dir}/kernel/$sqfs_mod"
+
+if [ -f "01-kernel-$kernel.sb" ]; then
+    rm "01-kernel-$kernel.sb"
+fi
+mksquashfs "${temp_dir}/kernel" "01-kernel-$kernel.sb" -comp zstd -Xcompression-level 19 -b 1024K -always-use-fragments -noappend -quiet -progress
+rm -rf "${temp_dir}/kernel"
+echo "  SquashFS file created: 01-kernel-$kernel.sb"
+
+# Copy necessary binaries and libraries
+print_step "Copying necessary binaries and libraries"
+mkdir -p "$temp_dir/livekit/"{static,scripts,other}
+
+for bin in busybox eject resize2fs mc ncurses-menu blkid; do
+    if [ -f "/run/initramfs/bin/$bin" ]; then
+        cp "/run/initramfs/bin/$bin" "$temp_dir/livekit/static"
+    fi
+done
+for bin in mount.dynfilefs mount.httpfs2 mount.ntfs-3g; do
+    if [ -f "/run/initramfs/bin/@$bin" ]; then
+        cp "/run/initramfs/bin/@$bin" "$temp_dir/livekit/static/$bin"
+    fi
+done
+for script in minios-boot; do
+    if [ -f "/run/initramfs/bin/$script" ]; then
+        cp "/run/initramfs/bin/$script" "$temp_dir/livekit/scripts"
+    fi
+done
+
+for file in config livekitlib; do
+    if [ -f "/run/initramfs/lib/$file" ]; then
+        cp "/run/initramfs/lib/$file" "$temp_dir/livekit/$file"
+    fi
+done
+for file in init shutdown; do
+    if [ -f "/run/initramfs/$file" ]; then
+        cp "/run/initramfs/$file" "$temp_dir/livekit/$file"
+    fi
+done
+
+if [ -f "/run/initramfs/usr/share/terminfo/l/linux" ]; then
+    cp "/run/initramfs/usr/share/terminfo/l/linux" "$temp_dir/livekit/other/linux3.0"
+fi
+
+# Create initramfs creation script
+cat <<'EOF' >"$temp_dir/livekit/initramfs_create"
+#!/bin/bash
 # Create initramfs image
 # Author: Tomas M <http://www.linux-live.org/>
 # Author: crims0n <https://minios.dev>
@@ -90,15 +237,17 @@ cp static/resize2fs $INITRAMFS/bin
 cp static/mc $INITRAMFS/bin
 cp static/mount.dynfilefs $INITRAMFS/bin/@mount.dynfilefs
 cp static/mount.httpfs2 $INITRAMFS/bin/@mount.httpfs2
-cp static/mount.ntfs-3g $INITRAMFS/bin/@mount.ntfs-3g
 cp static/ncurses-menu $INITRAMFS/bin
-cp static/blkid $INITRAMFS/bin
-
 mkdir -p $INITRAMFS/usr/share/terminfo/l
 cp other/linux3.0 $INITRAMFS/usr/share/terminfo/l/linux
 
-cp scripts/minios-boot $INITRAMFS/bin
+# if the kernel has a version lower than 5.15, it does not support NTFS3, we use NTFS-3G.
+if [[ "$(printf '%s\n' "$KERNEL" 5.15 | sort -Vr | head -n1)" == 5.15 ]]; then
+   cp static/mount.ntfs-3g $INITRAMFS/bin/@mount.ntfs-3g
+fi
 
+cp static/blkid $INITRAMFS/bin
+cp scripts/minios-boot $INITRAMFS/bin
 chmod a+x $INITRAMFS/bin/*
 mkdir -p $INITRAMFS/etc/modprobe.d
 echo "options loop max_loop=64" >$INITRAMFS/etc/modprobe.d/local-loop.conf
@@ -232,3 +381,14 @@ echo $INITRAMFS.img
 
 cd ..
 rm -Rf $INITRAMFS
+
+EOF
+chmod +x "$temp_dir/livekit/initramfs_create"
+
+# Create initramfs image
+print_step "Creating initramfs image"
+pushd "$temp_dir/livekit"
+initramfs_path=$(./initramfs_create "$kernel")
+popd
+cp "$initramfs_path" "initrfs-$kernel.img"
+echo -e "  Initramfs image created: initrfs-$kernel.img"

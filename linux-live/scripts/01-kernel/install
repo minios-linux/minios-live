@@ -31,7 +31,9 @@ else
 fi
 
 KERNEL=""
-if [ "${KERNEL_AUFS}" = "true" ]; then
+if [ -f /rootcopy-install/$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb | head -n 1) ]; then
+    KERNEL="$(dpkg-deb -I /rootcopy-install/$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb | head -n 1) | grep 'Linux kernel, version' | awk '{print $NF}')"
+elif [ "${KERNEL_AUFS}" = "true" ]; then
     KERNEL="$(LANG=C apt-cache depends linux-image-"${KERNEL_VERSION}"-mos-"${KERNEL_ARCH}" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
 elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
     KERNEL="$(LANG=C dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')"
@@ -84,6 +86,11 @@ elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
 fi
 
 if [ "${KERNEL_TYPE}" != "none" ]; then
-    pkg install "${BPO}" "${KERNEL_IMAGE}"
-    apt-mark hold "${KERNEL_IMAGE}"
+    if [ -f /rootcopy-install/$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb | head -n 1) ]; then
+        cd /rootcopy-install
+        pkg install ./$(ls linux-image-*${KERNEL_ARCH}.deb | head -n 1)
+    else
+        pkg install "${BPO}" "${KERNEL_IMAGE}"
+        apt-mark hold "${KERNEL_IMAGE}"
+    fi
 fi
