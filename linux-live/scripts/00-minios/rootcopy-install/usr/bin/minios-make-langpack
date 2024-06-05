@@ -204,6 +204,6 @@ done
 # Loop over each locale again to create a squashfs file for each one
 for LOCALE in "${LOCALES[@]}"; do
     if [ "$LOCALE" != "en_US" ]; then
-        mksquashfs "${DESTINATION_DIR}/${LOCALE}" "99-langpack-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-xz.sb" -comp xz -b 1024K -always-use-fragments -noappend
+        mksquashfs "${DESTINATION_DIR}/${LOCALE}" "99-langpack-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-xz.sb" -comp xz -b 1024K -always-use-fragments -noappend -quiet -progress
     fi
 done

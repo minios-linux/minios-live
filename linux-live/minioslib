@@ -96,14 +96,24 @@ common_variables() {
         BUNDLES=/memory/bundles
     fi
 
+    # LOCALES is an associative array where each key-value pair is a locale with its related configurations.
+    # Key: Locale code (e.g., "en_US" for American English)
+    # Value: A comma-separated string that defines the keyboard layout code, layout name, Firefox locale in Debian, Firefox locale in Ubuntu, and LibreOffice locale in Debian.
+    # 
+    # The fields are as follows:
+    #   1. Keyboard layout code (e.g., "us" for U.S. layout)
+    #   2. Keyboard layout name (e.g., "English (US)")
+    #   3. Firefox locale name in Debian (if applicable)
+    #   4. Firefox locale name in Ubuntu (if applicable)
+    #   5. LibreOffice locale in Debian
     declare -A LOCALES=(
-        ["de_DE"]="de,German,de,de"
-        ["en_US"]="us,English (US),,en"
-        ["es_ES"]="es,Spanish,es-es,es"
-        ["fr_FR"]="fr,French,fr,fr"
-        ["it_IT"]="it,Italian,it,it"
-        ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt"
-        ["ru_RU"]="ru,Russian,ru,ru"
+        ["de_DE"]="de,German,de,de,de"
+        ["en_US"]="us,English (US),,en,"
+        ["es_ES"]="es,Spanish,es-es,es,es"
+        ["fr_FR"]="fr,French,fr,fr,fr"
+        ["it_IT"]="it,Italian,it,it,it"
+        ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt,pt-br"
+        ["ru_RU"]="ru,Russian,ru,ru,ru"
     )
 
     if [[ -n "${LOCALES[$LOCALE]}" ]]; then
@@ -1054,7 +1064,7 @@ build_live() {
     # create compressed 00-core.sb
     mkmod_corefs "${INSTALL_DIR}"
 
-    time mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend || exit 1
+    time mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
 
 }
 
@@ -1125,6 +1135,31 @@ F1 help.txt zblack.png
 MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
 MENU TABMSG [F1] help                                                        [Tab] cmdline >
 
+LABEL default
+MENU LABEL Run MiniOS (Resume previous session)
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=resume
+
+LABEL perch
+MENU LABEL Run MiniOS (Start a new session)
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=new
+
+LABEL asksession
+MENU LABEL Run MiniOS (Choose session during startup)
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
+
+LABEL live
+MENU LABEL Run MiniOS (Fresh start)
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
+
+LABEL toram
+MENU LABEL Run MiniOS (Copy to RAM)
+KERNEL /${LIVEKITNAME}/boot/vmlinuz
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${ULTRA_SETTINGS} toram
+
 EOF
 
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
@@ -1170,36 +1205,6 @@ set debug_settings="${DEBUG_SETTINGS}"
 set linux_image="/${LIVEKITNAME}/boot/vmlinuz"
 set initrd_img="/${LIVEKITNAME}/boot/initrfs.img"
 
-EOF
-
-    cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >>"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux.cfg"
-LABEL default
-MENU LABEL Run MiniOS (Resume previous session)
-KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=resume
-
-LABEL perch
-MENU LABEL Run MiniOS (Start a new session)
-KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=new
-
-LABEL asksession
-MENU LABEL Run MiniOS (Choose session during startup)
-KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
-
-LABEL live
-MENU LABEL Run MiniOS (Fresh start)
-KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
-
-LABEL toram
-MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${ULTRA_SETTINGS} toram
-
-EOF
-    cat <<EOF >>"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
 menuentry "Run MiniOS (Resume previous session)" --class resume {
     echo \$message
     search --set -f \$linux_image
@@ -2268,7 +2273,7 @@ build_modules() {
         fi
     fi
 
-    VARIANTS="${SCRIPT_DIR}/linux-live/variants/${DESKTOP_ENVIRONMENT}"
+    VARIANTS="${SCRIPT_DIR}/linux-live/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
     cd "${VARIANTS}"
@@ -2330,7 +2335,7 @@ build_modules() {
                 if [ "$(ls -A "${MODULE_UPPER_DIR}" 2>/dev/null)" != "" ]; then
                     mkdir -p "${OVERLAYS}/tmp"
                     mkmod_corefs "${MODULE_UPPER_DIR}"
-                    time mksquashfs "${MODULE_UPPER_DIR}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend || exit
+                    time mksquashfs "${MODULE_UPPER_DIR}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${MODULE_UPPER_DIR}/${MODULE}-stock.${BEXT}"
                     cd "${MODULE_UPPER_DIR}" || exit 1
                     unsquashfs "${MODULE}-stock.${BEXT}"
@@ -2396,7 +2401,7 @@ build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                 fi
-                chroot_run "${MODULE_MERGED_DIR}" time mksquashfs /squashfs-root "/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend || exit
+                chroot_run "${MODULE_MERGED_DIR}" time mksquashfs /squashfs-root "/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
                 rm -f "${MODULE_UPPER_DIR}/minios-build.conf"
             fi
@@ -2488,7 +2493,7 @@ build_modules() {
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
                         fi
 
-                        time mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend || exit
+                        time mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     else
                         echo -e "${MAGENTA}${MODULE_UPPER_DIR}${ENDCOLOR} is empty. Nothing to do."
                     fi
@@ -2512,7 +2517,7 @@ repack_module() {
     fi
     unsquashfs "${OLD_MODULE}"
     mkmod_corefs "${WORK_DIR}/image/${LIVEKITNAME}/squashfs-root"
-    time mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend || exit
+    time mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
     rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/squashfs-root"
     rm -f "${WORK_DIR}/image/${LIVEKITNAME}/${OLD_MODULE}"
