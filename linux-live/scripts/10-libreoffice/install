@@ -11,33 +11,44 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 pkg update
 
+# Read package list and install packages
 if [ -f $SCRIPT_DIR/package.list ]; then
     install_packages --package-list "$SCRIPT_DIR/package.list"
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
-
-    INSTALL_LOCALES=("${!LOCALES[@]}")
-    [[ "${MULTILINGUAL}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
-
-    for locale in "${INSTALL_LOCALES[@]}"; do
-        [[ "${locale}" = "en_US" ]] && continue
-
-        if [[ ! -v LOCALES[${locale}] ]]; then
-            echo "Locale ${locale} is not supported, skipping."
-            continue
-        fi
-
-        oldIFS=$IFS
-        IFS=',' read -ra LOCALE_VALUES <<<"${LOCALES[${locale}]}"
-        IFS=$oldIFS
-
-        LIBREOFFICE_LOCALE=${LOCALE_VALUES[4]:-${LOCALE_VALUES[0]}}
-
-        if [ -n "${LIBREOFFICE_LOCALE}" ]; then
-            pkg install "libreoffice-l10n-${LIBREOFFICE_LOCALE}"
-        else
-            echo "No package available for locale ${locale}, skipping."
-        fi
-    done
 fi
+
+# Function for locale package installation
+function install_locale_package() {
+    local PACKAGE=$1
+    local LOCALE_CONFIG=$2
+
+    IFS=',' read -ra CONFIG <<< "${LOCALE_CONFIG}"
+    local PACKAGE_LOCALE=${CONFIG[4]:-${CONFIG[0]}}
+
+    if [ -n "${PACKAGE_LOCALE}" ]; then
+        pkg install "${PACKAGE}-l10n-${PACKAGE_LOCALE}"
+    else
+        echo "No package available for locale ${locale}, skipping."
+    fi
+}
+
+# Form INSTALL_LOCALES from LOCALES or from LOCALE
+INSTALL_LOCALES=("${!LOCALES[@]}")
+[[ "${MULTILINGUAL}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
+
+for locale in "${INSTALL_LOCALES[@]}"; do
+    if [[ ! -v LOCALES[${locale}] ]]; then
+        echo "Locale ${locale} is not supported, skipping."
+        continue
+    fi
+
+    LOCALE_CONFIG="${LOCALES[${locale}]}"
+    if [ -z "${LOCALE_CONFIG//,/}" ]; then
+        echo "No configuration available for locale ${locale}, skipping."
+        continue
+    fi
+
+    install_locale_package "${PACKAGE}" "${LOCALE_CONFIG}"
+done

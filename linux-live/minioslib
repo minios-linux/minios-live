@@ -99,7 +99,7 @@ common_variables() {
     # LOCALES is an associative array where each key-value pair is a locale with its related configurations.
     # Key: Locale code (e.g., "en_US" for American English)
     # Value: A comma-separated string that defines the keyboard layout code, layout name, Firefox locale in Debian, Firefox locale in Ubuntu, and LibreOffice locale in Debian.
-    # 
+    #
     # The fields are as follows:
     #   1. Keyboard layout code (e.g., "us" for U.S. layout)
     #   2. Keyboard layout name (e.g., "English (US)")
@@ -117,7 +117,8 @@ common_variables() {
     )
 
     if [[ -n "${LOCALES[$LOCALE]}" ]]; then
-        IFS=',' read -r LAYOUTID LAYOUTDSC <<<"${LOCALES[$LOCALE]}"
+        LAYOUTID=$(echo "${LOCALES[$LOCALE]}" | cut -d',' -f1)
+        LAYOUTDSC=$(echo "${LOCALES[$LOCALE]}" | cut -d',' -f2)
     else
         warning "Locale not recognized, defaulting to English (US) layout"
         LAYOUTID="us"
@@ -743,13 +744,13 @@ generate_chroot_configuration_file() {
     toggle_shell_options u
     cat <<EOF >"${1}"
 declare -A LOCALES=(
-    ["de_DE"]="de,German,de,de"
-    ["en_US"]="us,English (US),,en"
-    ["es_ES"]="es,Spanish,es-es,es"
-    ["fr_FR"]="fr,French,fr,fr"
-    ["it_IT"]="it,Italian,it,it"
-    ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt"
-    ["ru_RU"]="ru,Russian,ru,ru"
+    ["de_DE"]="de,German,de,de,de"
+    ["en_US"]="us,English (US),,en,"
+    ["es_ES"]="es,Spanish,es-es,es,es"
+    ["fr_FR"]="fr,French,fr,fr,fr"
+    ["it_IT"]="it,Italian,it,it,it"
+    ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt,pt-br"
+    ["ru_RU"]="ru,Russian,ru,ru,ru"
 )
 BEXT="${BEXT}"
 BUILD_TEST_ISO="${BUILD_TEST_ISO}"
@@ -773,6 +774,7 @@ LIVEKITNAME="${LIVEKITNAME}"
 LOCALE="${LOCALE}"
 MODULE="${MODULE}"
 MULTILINGUAL="${MULTILINGUAL}"
+KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES}"
 PACKAGE_VARIANT="${PACKAGE_VARIANT}"
 SYSTEMNAME="${SYSTEMNAME}"
 TIMEZONE="${TIMEZONE}"

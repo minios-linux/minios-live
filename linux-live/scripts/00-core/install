@@ -119,7 +119,7 @@ if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     pkg autoremove linux-modules-extra-* linux-firmware
 fi
 
-if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ]; then
+if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ]; then
     systemctl disable dnsmasq
 fi
 
