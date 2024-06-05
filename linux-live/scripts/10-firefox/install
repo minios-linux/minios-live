@@ -28,40 +28,39 @@ fi
 pkg install "${PACKAGE}"
 
 # Function for locale package installation
-function install_locale_package() {
+install_locale_package() {
     local DISTRIBUTION_TYPE=$1
     local PACKAGE=$2
-    local PACKAGE_LOCALE=$3
+    local LOCALE_CONFIG=$3
 
-    if [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
-        pkg install "${PACKAGE}-locale-${PACKAGE_LOCALE}"
-    elif [ "$DISTRIBUTION_TYPE" = "debian" ]; then
-        pkg install "${PACKAGE}-l10n-${PACKAGE_LOCALE}"
+    IFS=',' read -ra CONFIG <<<"${LOCALE_CONFIG}"
+    local PACKAGE_LOCALE_DEBIAN=${CONFIG[2]}
+    local PACKAGE_LOCALE_UBUNTU=${CONFIG[3]}
+
+    if [ "$DISTRIBUTION_TYPE" = "ubuntu" ] && [ -n "${PACKAGE_LOCALE_UBUNTU}" ]; then
+        pkg install "${PACKAGE}-locale-${PACKAGE_LOCALE_UBUNTU}"
+    elif [ "$DISTRIBUTION_TYPE" = "debian" ] && [ -n "${PACKAGE_LOCALE_DEBIAN}" ]; then
+        pkg install "${PACKAGE}-l10n-${PACKAGE_LOCALE_DEBIAN}"
     fi
 }
 
 # Form INSTALL_LOCALES from LOCALES or from LOCALE
 INSTALL_LOCALES=("${!LOCALES[@]}")
-[[ "${MULTILINGUAL}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
+[[ "${MULTILINGUAL}" = "false" ]] && [[ "${KEEP_ALL_LOCALES}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
 
 for locale in "${INSTALL_LOCALES[@]}"; do
-    [[ "${locale}" = "en_US" ]] && continue
-
     if [[ ! -v LOCALES[${locale}] ]]; then
         echo "Locale ${locale} is not supported, skipping."
         continue
     fi
 
-    oldIFS=$IFS
-    IFS=',' read -ra LOCALE_VALUES <<<"${LOCALES[${locale}]}"
-    IFS=$oldIFS
-
-    PACKAGE_LOCALE=${LOCALE_VALUES[3]:-${LOCALE_VALUES[0]}}
-    if [ -n "${PACKAGE_LOCALE}" ]; then
-        install_locale_package "${DISTRIBUTION_TYPE}" "${PACKAGE}" "${PACKAGE_LOCALE}"
-    else
-        echo "No package available for locale ${locale}, skipping."
+    LOCALE_CONFIG="${LOCALES[${locale}]}"
+    if [ -z "${LOCALE_CONFIG//,/}" ]; then
+        echo "No configuration available for locale ${locale}, skipping."
+        continue
     fi
+
+    install_locale_package "${DISTRIBUTION_TYPE}" "${PACKAGE}" "${LOCALE_CONFIG}"
 done
 
 # Conditional Desktop environment settings
