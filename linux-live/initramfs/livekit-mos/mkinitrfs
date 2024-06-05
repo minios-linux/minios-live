@@ -1,0 +1,264 @@
+#!/bin/bash
+# Create initramfs image
+# Author: Tomas M <http://www.linux-live.org/>
+# Author: crims0n <https://minios.dev>
+set -euo pipefail
+
+# Check if KERNEL is supplied as an argument
+[ $# -eq 0 ] && echo "Builds LiveKit initrfs.img
+    Usage:   $0 <KERNEL VERSION> [COMPRESSION TYPE]
+    Example: $0 $(uname -r)" && exit 1
+
+# Check for root privileges
+if [[ "$EUID" -ne 0 ]]; then
+    echo "ERROR: This script must be run as root."
+    exit 1
+fi
+
+# copy file to initramfs tree, including
+# all library dependencies (as shown by ldd)
+# $1 = file to copy (full path)
+copy_including_deps() {
+    # if source doesn't exist or target exists, do nothing
+    if [ ! -e "$1" -o -e "$INITRAMFS/$1" ]; then
+        return
+    fi
+
+    cp -R --parents "$1" "$INITRAMFS"
+    if [ -L "$1" ]; then
+        DIR="$(dirname "$1")"
+        LNK="$(readlink "$1")"
+        copy_including_deps "$(
+            cd "$DIR"
+            realpath -s "$LNK"
+        )"
+    fi
+
+    # Use `ldd` only if $1 is a file and is not a kernel module
+    if [ -f "$1" ] && [[ "$1" != "/lib/modules/"* ]]; then
+        ldd "$1" 2>/dev/null | sed -r "s/.*=>|[(].*//g" | sed -r "s:^\\s+|\\s+$::g" |
+            while read LIB; do
+                copy_including_deps "$LIB"
+            done
+    fi
+
+    for MOD in $(find "$1" -type f | grep .ko); do
+        for DEP in $(cat "/$LMK/modules.dep" | fgrep "/$(basename $MOD):"); do
+            copy_including_deps "/$LMK/$DEP"
+        done
+    done
+
+    shift
+    if [ "${1-}" != "" ]; then
+        copy_including_deps "$@"
+    fi
+}
+
+copy_files() {
+    local DEST_DIR FILES DIR FILE
+    DEST_DIR=$1
+    shift 1
+    FILES=$@
+
+    for FILE in ${FILES[@]}; do
+        DIR="$(dirname ${FILE})"
+        FILE="$(basename ${FILE})"
+
+        mkdir -p "$DEST_DIR/$DIR"
+        if [ ! -f "$ORIGIN_DIR/$DIR/$FILE" ]; then
+            echo "ERROR: File "$ORIGIN_DIR/$DIR/$FILE" not found."
+            exit 1
+        fi
+        cp "$ORIGIN_DIR/$DIR/$FILE" "$DEST_DIR/$DIR/$FILE"
+    done
+}
+
+# Assign kernel version from the first script argument
+KERNEL="$1"
+COMP="${2:-xz}"
+
+# Redirect trace to log file and start tracing commands
+LOG_FILE="/tmp/initrfs-$KERNEL-$$.log"
+exec 19>"$LOG_FILE"
+BASH_XTRACEFD=19
+set -x
+
+# Set compression parameters
+if [ $COMP = "xz" ]; then
+    COMP_PARAMS="-T0 -f --extreme --check=crc32"
+else
+    COMP_PARAMS=""
+fi
+
+# Set config file path
+if [ -f "../../container_config" ]; then
+    CONFIG="../../container_config"
+elif [ -f "../../config" ]; then
+    CONFIG="../../config"
+elif [ -f "/etc/minios/config" ]; then
+    CONFIG="/etc/minios/config"
+elif [ -f "/run/initramfs/lib/config" ]; then
+    CONFIG="/run/initramfs/lib/config"
+fi
+
+# Assign config values
+NETWORK="true"
+CLOUD="false"
+
+# Set paths and filenames
+LMK="lib/modules/$KERNEL"
+INITRAMFS="/tmp/initrfs-$KERNEL-$$"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+if [ -d "$INITRAMFS" ]; then
+    rm -Rf "$INITRAMFS"
+fi
+mkdir -p "$INITRAMFS"/{bin,dev,etc,lib,lib64,mnt,proc,root,run,sys,tmp,usr,var/log}
+ln -s bin "$INITRAMFS/sbin"
+
+if [ -f "$SCRIPT_DIR/lib/livekitlib" ]; then
+    ORIGIN_DIR="$SCRIPT_DIR"
+elif [ -f "/run/initramfs/lib/livekitlib" ]; then
+    ORIGIN_DIR="/run/initramfs"
+else
+    echo "ERROR: Required path not found."
+    exit 1
+fi
+
+FILES=(mkinitrfs bin/busybox bin/eject bin/resize2fs bin/mc bin/@mount.dynfilefs bin/@mount.httpfs2 bin/@mount.ntfs-3g bin/ncurses-menu bin/blkid bin/minios-boot usr/share/terminfo/l/linux)
+copy_files "$INITRAMFS" "${FILES[@]}"
+
+chmod a+x "$INITRAMFS/bin/"*
+chmod a+x "$INITRAMFS/mkinitrfs"
+mkdir -p "$INITRAMFS/etc/modprobe.d"
+echo "options loop max_loop=64" >"$INITRAMFS/etc/modprobe.d/local-loop.conf"
+
+"$INITRAMFS/bin/busybox" | grep , | grep -v Copyright | tr "," " " | while read LINE; do
+    for TOOL in $LINE; do
+        if [ ! -e "$INITRAMFS/bin/$TOOL" ]; then
+            ln -s busybox "$INITRAMFS/bin/$TOOL"
+        fi
+    done
+done
+rm -f "$INITRAMFS/"{s,}bin/init
+
+mknod "$INITRAMFS/dev/console" c 5 1
+mknod "$INITRAMFS/dev/null" c 1 3
+mknod "$INITRAMFS/dev/ram0" b 1 0
+mknod "$INITRAMFS/dev/tty1" c 4 1
+mknod "$INITRAMFS/dev/tty2" c 4 2
+mknod "$INITRAMFS/dev/tty3" c 4 3
+mknod "$INITRAMFS/dev/tty4" c 4 4
+
+copy_including_deps "/$LMK/kernel/fs/aufs"
+copy_including_deps "/$LMK/kernel/fs/overlayfs"
+copy_including_deps "/$LMK/kernel/fs/ext2"
+copy_including_deps "/$LMK/kernel/fs/ext3"
+copy_including_deps "/$LMK/kernel/fs/ext4"
+copy_including_deps "/$LMK/kernel/fs/exfat"
+copy_including_deps "/$LMK/kernel/fs/fat"
+copy_including_deps "/$LMK/kernel/fs/nls"
+copy_including_deps "/$LMK/kernel/fs/fuse"
+copy_including_deps "/$LMK/kernel/fs/isofs"
+copy_including_deps "/$LMK/kernel/fs/ntfs"
+copy_including_deps "/$LMK/kernel/fs/ntfs3"
+copy_including_deps "/$LMK/kernel/fs/squashfs"
+copy_including_deps "/$LMK/kernel/fs/btrfs"
+copy_including_deps "/$LMK/kernel/fs/xfs"
+copy_including_deps "/$LMK/kernel/fs/efivarfs" # for Clonezilla
+
+copy_including_deps "/$LMK/kernel/crypto/lz4"*.*
+copy_including_deps "/$LMK/kernel/crypto/zstd."*
+
+# crc32c is needed for ext4, but I don't know which one, add them all, they are small
+find "/$LMK/kernel/" | grep crc32c | while read LINE; do
+    copy_including_deps "$LINE"
+done
+
+copy_including_deps "/$LMK/kernel/drivers/staging/zsmalloc" # needed by zram
+copy_including_deps "/$LMK/kernel/drivers/block/zram"
+copy_including_deps "/$LMK/kernel/drivers/block/loop."*
+copy_including_deps "/$LMK/kernel/drivers/block/nbd."* # for Rescuezilla
+copy_including_deps "/$LMK/kernel/drivers/md/dm-mod."* # for Ventoy
+
+# usb drivers
+copy_including_deps "/$LMK/kernel/drivers/usb/storage"
+copy_including_deps "/$LMK/kernel/drivers/usb/host"
+copy_including_deps "/$LMK/kernel/drivers/usb/common"
+copy_including_deps "/$LMK/kernel/drivers/usb/core"
+copy_including_deps "/$LMK/kernel/drivers/hid/usbhid"
+copy_including_deps "/$LMK/kernel/drivers/hid/hid."*
+copy_including_deps "/$LMK/kernel/drivers/hid/uhid."*
+copy_including_deps "/$LMK/kernel/drivers/hid/hid-generic."*
+
+# disk and cdrom drivers
+copy_including_deps "/$LMK/kernel/drivers/cdrom"
+copy_including_deps "/$LMK/kernel/drivers/scsi/sr_mod."*
+copy_including_deps "/$LMK/kernel/drivers/scsi/sd_mod."*
+copy_including_deps "/$LMK/kernel/drivers/scsi/scsi_mod."*
+copy_including_deps "/$LMK/kernel/drivers/scsi/sg."*
+
+# virtual disk drivers
+copy_including_deps "/$LMK/kernel/drivers/scsi/hv_storvsc."*
+
+if [ "$CLOUD" = "true" ]; then
+    copy_including_deps "/$LMK/kernel/drivers/virtio/virtio."*
+    copy_including_deps "/$LMK/kernel/drivers/virtio/virtio_mmio."*
+    copy_including_deps "/$LMK/kernel/drivers/virtio/virtio_pci."*
+    copy_including_deps "/$LMK/kernel/drivers/virtio/virtio_ring."*
+    copy_including_deps "/$LMK/kernel/drivers/scsi/vmw_pvscsi."*
+    copy_including_deps "/$LMK/kernel/drivers/scsi/virtio_scsi."*
+    copy_including_deps "/$LMK/kernel/drivers/block/virtio_blk."*
+    copy_including_deps "/$LMK/kernel/drivers/scsi/hv_storvsc."*
+fi
+
+copy_including_deps "/$LMK/kernel/drivers/ata"
+copy_including_deps "/$LMK/kernel/drivers/nvme"
+copy_including_deps "/$LMK/kernel/drivers/mmc"
+
+# network support drivers
+if [ "$NETWORK" = "true" ]; then
+    copy_including_deps "/$LMK/kernel/drivers/net/ethernet"
+    copy_including_deps "/$LMK/kernel/drivers/net/phy"
+    if [ "$CLOUD" = "true" ]; then
+        copy_including_deps "/$LMK/kernel/drivers/net/vmxnet3"
+        copy_including_deps "/$LMK/kernel/drivers/net/virtio_net."*
+    fi
+fi
+
+# copy all custom-built modules
+copy_including_deps "/$LMK/updates"
+
+copy_including_deps "/$LMK/modules."*
+
+copy_including_deps "/usr/share/terminfo/l/linux"
+
+find "$INITRAMFS" -name "*.ko.gz" -exec gunzip {} \;
+find "$INITRAMFS" -name "*.ko.xz" -exec unxz {} \;
+
+# trim modules.order file. Perhaps we could remove it entirely
+MODULEORDER="$(
+    cd "$INITRAMFS/$LMK/"
+    find -name "*.ko" | sed -r "s:^./::g" | tr "\n" "|" | sed -r "s:[.]:.:g"
+)"
+cat "$INITRAMFS/$LMK/modules.order" | sed -r "s/.ko.gz\$/.ko/" | grep -E "$MODULEORDER"/foo/bar >"$INITRAMFS/$LMK/_"
+mv "$INITRAMFS/$LMK/_" "$INITRAMFS/$LMK/modules.order"
+
+depmod -b "$INITRAMFS" "$KERNEL"
+
+echo "root::0:0::/root:/bin/bash" >"$INITRAMFS/etc/passwd"
+touch "$INITRAMFS/etc/"{m,fs}tab
+
+FILES=(init shutdown lib/livekitlib)
+copy_files "$INITRAMFS" "${FILES[@]}"
+chmod a+x "$INITRAMFS/init"
+chmod a+x "$INITRAMFS/shutdown"
+ln -s ../init "$INITRAMFS/bin/init"
+cp "$CONFIG" "$INITRAMFS/lib/config"
+
+cd "$INITRAMFS"
+find . -print | cpio -o -H newc | $COMP $COMP_PARAMS >"$INITRAMFS.img"
+echo "$INITRAMFS.img"
+
+cd "$INITRAMFS/.."
+rm -Rf "$INITRAMFS"

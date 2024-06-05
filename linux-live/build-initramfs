@@ -19,8 +19,8 @@ echo -e "=====  ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
 
 cd /linux-live/initramfs/livekit-mos
-chmod 755 ./initramfs_create
-INITRAMFS=$(./initramfs_create "${KERNEL}")
+chmod 755 ./mkinitrfs
+INITRAMFS=$(./mkinitrfs "${KERNEL}")
 if [ -n "${INITRAMFS}" ]; then
 	mv "${INITRAMFS}" /boot/initrfs.img
 fi
