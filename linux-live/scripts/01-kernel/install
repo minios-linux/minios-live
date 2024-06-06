@@ -48,30 +48,6 @@ update_config "/minios-build.conf" "KERNEL"
 toggle_shell_options u
 
 if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
-    if [ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ]; then
-        wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
-        wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
-        wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
-        wget https://mxrepo.com/mx/repo/pool/main/m/mx23-archive-keyring/mx23-archive-keyring_2023.6.6_all.deb
-        wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
-        pkg install ./*.deb
-        rm ./*.deb
-        if [ $DISTRIBUTION = "sid" ]; then
-            cat <<EOF >/etc/apt/sources.list.d/antix.list
-deb http://ftp.debian.ru/mirrors/MX-Linux/MX-Packages/antix/$DISTRIBUTION/ $DISTRIBUTION main nonfree
-EOF
-        fi
-        pkg update
-        if [ -f /etc/apt/sources.list.d/mx.list ]; then
-            rm -f /etc/apt/sources.list.d/mx.list
-        fi
-        if [ -f /etc/apt/sources.list.d/antix.list ]; then
-            rm -f /etc/apt/sources.list.d/antix.list
-        fi
-    fi
-fi
-
-if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
     if [ "${KERNEL_AUFS}" = "true" ]; then
         KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
     else

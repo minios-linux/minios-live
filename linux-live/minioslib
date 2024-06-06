@@ -12,6 +12,9 @@ SET_U=""
 common_variables() {
     local locale layout layoutcode
 
+    console_colors
+    declare_locales
+
     # List of variables passed to chroot.
     VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
 
@@ -95,26 +98,6 @@ common_variables() {
     elif [ -d /memory/bundles ]; then
         BUNDLES=/memory/bundles
     fi
-
-    # LOCALES is an associative array where each key-value pair is a locale with its related configurations.
-    # Key: Locale code (e.g., "en_US" for American English)
-    # Value: A comma-separated string that defines the keyboard layout code, layout name, Firefox locale in Debian, Firefox locale in Ubuntu, and LibreOffice locale in Debian.
-    #
-    # The fields are as follows:
-    #   1. Keyboard layout code (e.g., "us" for U.S. layout)
-    #   2. Keyboard layout name (e.g., "English (US)")
-    #   3. Firefox locale name in Debian (if applicable)
-    #   4. Firefox locale name in Ubuntu (if applicable)
-    #   5. LibreOffice locale in Debian
-    declare -A LOCALES=(
-        ["de_DE"]="de,German,de,de,de"
-        ["en_US"]="us,English (US),,en,"
-        ["es_ES"]="es,Spanish,es-es,es,es"
-        ["fr_FR"]="fr,French,fr,fr,fr"
-        ["it_IT"]="it,Italian,it,it,it"
-        ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt,pt-br"
-        ["ru_RU"]="ru,Russian,ru,ru,ru"
-    )
 
     if [[ -n "${LOCALES[$LOCALE]}" ]]; then
         LAYOUTID=$(echo "${LOCALES[$LOCALE]}" | cut -d',' -f1)
@@ -430,29 +413,41 @@ toggle_shell_options() {
 
 # Display an error message.
 error() {
-    toggle_shell_options u
-    local MESSAGE="${1}"
-
+    local MESSAGE="${1-}"
     echo -e "${BOLD}${RED}E:${ENDCOLOR} ${MESSAGE}" >&2
-    toggle_shell_options u
 }
 
 # Display a warning message.
 warning() {
-    toggle_shell_options u
-    local MESSAGE="${1}"
-
+    local MESSAGE="${1-}"
     echo -e "${BOLD}${YELLOW}W:${ENDCOLOR} ${MESSAGE}"
-    toggle_shell_options u
 }
 
 # Display an information message.
 information() {
-    toggle_shell_options u
-    local MESSAGE="${1}"
-
+    local MESSAGE="${1-}"
     echo -e "${BOLD}${BLUE}I:${ENDCOLOR} ${MESSAGE}"
-    toggle_shell_options u
+}
+
+declare_locales() {
+    # LOCALES is an associative array where each key-value pair is a locale with its related configurations.
+    # Key: Locale code (e.g., "en_US" for American English)
+    # Value: A comma-separated string that defines the following:
+    #   1. Keyboard layout code (e.g., "us" for U.S. layout)
+    #   2. Keyboard layout name (e.g., "English (US)")
+    #   3. Firefox locale name in Debian
+    #   4. Firefox locale name in Ubuntu (Mozilla repository)
+    #   5. LibreOffice locale name in Debian and in Ubuntu
+    #   6. LibreOffice LC_MESSAGES
+    declare -Ag LOCALES=(
+        ["de_DE"]="de,German,de,de,de,de"
+        ["en_US"]="us,English (US),,en,,"
+        ["es_ES"]="es,Spanish,es-es,es,es,es"
+        ["fr_FR"]="fr,French,fr,fr,fr,fr"
+        ["it_IT"]="it,Italian,it,it,it,it"
+        ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt,pt-br,br"
+        ["ru_RU"]="ru,Russian,ru,ru,ru,ru"
+    )
 }
 
 #------- LIBMINIOSLIVE -------
@@ -743,15 +738,6 @@ new_run() {
 generate_chroot_configuration_file() {
     toggle_shell_options u
     cat <<EOF >"${1}"
-declare -A LOCALES=(
-    ["de_DE"]="de,German,de,de,de"
-    ["en_US"]="us,English (US),,en,"
-    ["es_ES"]="es,Spanish,es-es,es,es"
-    ["fr_FR"]="fr,French,fr,fr,fr"
-    ["it_IT"]="it,Italian,it,it,it"
-    ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt,pt-br"
-    ["ru_RU"]="ru,Russian,ru,ru,ru"
-)
 BEXT="${BEXT}"
 BUILD_TEST_ISO="${BUILD_TEST_ISO}"
 COMP_TYPE="${COMP_TYPE}"
