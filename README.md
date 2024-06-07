@@ -1,4 +1,4 @@
-# 🌟 MiniOS 🌟
+# MiniOS
 
 ![MiniOS](images/minios.png)
 
