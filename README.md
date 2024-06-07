@@ -1,8 +1,6 @@
-# MiniOS
+# ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/minios-linux/minios-live/total?style=for-the-badge&logoSize=30&label=%20TOTAL%20DOWNLOADS&labelColor=white&color=orange)
 
 ![MiniOS](images/minios.png)
-
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/minios-linux/minios-live/total?style=for-the-badge&logoSize=30&label=%20TOTAL%20DOWNLOADS&labelColor=white&color=orange)
 
 MiniOS aims to provide users with a reliable, user-friendly portable system with a graphical interface. These scripts build a bootable MiniOS ISO image.
 
