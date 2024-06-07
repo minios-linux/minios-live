@@ -1,57 +1,172 @@
-[![MiniOS](images/minios.png)](https://minios.dev)
+# 🌟 MiniOS 🌟
 
-The goal of MiniOS is to provide users with a reliable user-friendly portable system with a graphical interface.
+![MiniOS](images/minios.png)
 
-These scripts build a bootable MiniOS ISO image.
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/minios-linux/minios-live/total?style=for-the-badge&logoSize=30&label=%20TOTAL%20DOWNLOADS&labelColor=white&color=orange)
 
-Using minios-live, you can build:
+MiniOS aims to provide users with a reliable, user-friendly portable system with a graphical interface. These scripts build a bootable MiniOS ISO image.
 
-*Debian 12 with Fluxbox environment (analogous to [Slax](https://www.slax.org/)).*
+## 🛠️ Build Options
 
-*Debian 12, Unstable, and Ubuntu 22.04 with Xfce4 environment.*
+Using `minios-live`, you can build the following configurations:
 
-To build, you need to change the parameters in the **linux-live/config** file to build the required option, then start the build: `./install -`
+- **Debian 12 with Fluxbox environment** (analogous to [Slax](https://www.slax.org/)).
+- **Debian 12, Debian Unstable, and Ubuntu 22.04 with Xfce4 environment**.
 
-It is advisable to use Debian 12 or Ubuntu 22.04 for build, if you have a different system installed, use docker.
+## 🏗️ Building MiniOS
 
-For installation use **install** \- script for guided installation\, **autoinstall** \- script for automatic installation\.
+### Prerequisites
 
-**Never run scripts from linux-live folder! They will break your system.**
+- It is advisable to use Debian 12 or Ubuntu 22.04 for building.
+- ⚠️ **WARNING**: Never run scripts from the `linux-live` folder directly. It will break your system.
 
-**Supported commands:** `setup_host build_bootstrap build_chroot build_live build_modules build_iso`
+### Build Commands
 
-*setup\_host* \- install packages required for building on the host
+To start the build process, use the following commands:
 
-*build\_bootstrap* \- install a minimal system using debootstrap
+- **`setup_host`** - Install packages required for building on the host.
+- **`build_bootstrap`** - Install a minimal system using `debootstrap`.
+- **`build_chroot`** - Install the remaining components required to start the system.
+- **`build_live`** - Build the SquashFS image.
+- **`build_modules`** - Build additional modules.
+- **`build_iso`** - Build the final ISO image.
 
-*build\_chroot* \- install of the rest of the components required to start the system
+### Command Syntax
 
-*build\_live* \- build squashfs image
-
-*build\_modules\_chroot* \- build modules
-
-*build\_iso* \- build the final ISO image
-
-**Syntax:** `./install [start_cmd] [-] [end_cmd]`
-
-* launch from start\_cmd to end\_cmd
-* if start\_cmd is omitted, all commands are executed starting from the first
-* if end\_cmd is omitted, all commands up to the last are executed
-* enter one command to run a specific command
-* enter '-' as the only argument to run all commands
-
-```
-  Examples: ./install -
-            ./install build_bootstrap - build_chroot
-            ./install - build_chroot
-            ./install build_bootstrap -
-            ./install build_iso
+```sh
+./minios-live [start_cmd] [-] [end_cmd]
 ```
 
-If you want to just build the system from the beginning just edit `linux-live/config` and run `./install -`
+- **start_cmd**: The command to start from (optional).
+- **-**: Execute all commands between `start_cmd` and `end_cmd`.
+- **end_cmd**: The command to end with (optional).
 
-To build with docker, create a build folder in your home folder, put `minios-live` there, `cd` to `docker` folder and run `01-runme.sh`. This action will install the required programs and create an image. To start the build, edit for yourself and run `02-build.sh`. Sample file content:
-`docker run --rm -it --name mlc --privileged -v /home/user/build:/build local/mlc install -`
-or you can use the `minios-live/batch-build` script by editing the necessary parameters for yourself instead of `02-runme.sh`.
+#### Examples
 
-Author: crims0n [https://minios.dev](https://minios.dev)
+- Run all commands:
+  
+  ```sh
+  ./minios-live -
+  ```
+
+- Run from `build_bootstrap` to `build_chroot`:
+  
+  ```sh
+  ./minios-live build_bootstrap - build_chroot
+  ```
+
+- Run up to `build_chroot`:
+  
+  ```sh
+  ./minios-live - build_chroot
+  ```
+
+- Run from `build_bootstrap` to the end:
+  
+  ```sh
+  ./minios-live build_bootstrap -
+  ```
+
+- Run only `build_iso`:
+  
+  ```sh
+  ./minios-live build_iso
+  ```
+
+### Quick Start
+
+To build the system from the beginning, edit `linux-live/config` and run:
+
+```sh
+./minios-live -
+```
+
+## 📖 Step-by-Step Build Guide
+
+### Step 1: Configuration
+
+To build, change the parameters in the `linux-live/config` file to select the desired option. This file allows you to configure various aspects of the build process, such as the distribution, desktop environment, and system settings. Key configuration options include:
+
+- **Distribution**: Specifies the base distribution (e.g., Debian or Ubuntu) and its version.
+- **Architecture**: Defines the target architecture (e.g., amd64, i386).
+- **Desktop Environment**: Chooses the desktop environment (e.g., XFCE, Fluxbox).
+- **Package Variant**: Selects the set of packages to include (e.g., standard, minimum).
+- **Kernel Options**: Configures the kernel type and version.
+- **Localization**: Sets the locale and timezone.
+- **User Settings**: Configures default user and password.
+- **Build Options**: Includes settings for module compression, union file system type, and ISO naming.
+
+### Step 2: Setup Host
+
+Install the necessary packages on the host system:
+
+```sh
+./minios-live setup_host
+```
+
+This command will ensure your host system has all the required tools and dependencies to proceed with the build.
+
+### Step 3: Build Bootstrap
+
+Install a minimal system using `debootstrap`:
+
+```sh
+./minios-live build_bootstrap
+```
+
+This step will create the initial file system with the basic Debian or Ubuntu system.
+
+### Step 4: Build Chroot
+
+Install the remaining components required to start the system:
+
+```sh
+./minios-live build_chroot
+```
+
+This step adds additional software and configurations to the minimal system created in the previous step.
+
+### Step 5: Build Live
+
+Create the SquashFS image:
+
+```sh
+./minios-live build_live
+```
+
+This step compresses the file system into a SquashFS image, which is used for the live environment.
+
+### Step 6: Build Modules
+
+Build the additional modules:
+
+```sh
+./minios-live build_modules
+```
+
+Modules in MiniOS are compressed SquashFS files that contain specific parts of the operating system. These modules can include the kernel, firmware, desktop environments, applications, and other components. Each module is built in sequence and can be updated or replaced independently. Here is an example of the modules included in MiniOS Standard:
+
+- **00-core-amd64-zstd.sb**: Core system files. Built using the `build_bootstrap`-`build_live` commands.
+- **00-minios-amd64-zstd.sb**: Essential MiniOS components.
+- **01-kernel-6.1.90-mos-amd64-zstd.sb**: Kernel modules.
+- **02-firmware-amd64-zstd.sb**: Firmware for various hardware components.
+- **03-xorg-amd64-zstd.sb**: Xorg display server, Blackbox window manager and xterm terminal emulator.
+- **04-xfce-desktop-amd64-zstd.sb**: XFCE desktop environment.
+- **05-xfce-apps-amd64-zstd.sb**: Applications for the XFCE environment.
+- **06-firefox-amd64-zstd.sb**: Firefox web browser.
+
+The modules are built in sequence, and if a module is already built, it is skipped. The `build_modules` command handles this process automatically.
+
+### Step 7: Build ISO
+
+Build the final ISO image:
+
+```sh
+./minios-live build_iso
+```
+
+This command generates the bootable ISO image that can be used to create bootable USB drives or CDs.
+
+## ✍️ Author
+
+Created by [crims0n](https://github.com/crim50n). For more information, visit [minios.dev](https://minios.dev).
