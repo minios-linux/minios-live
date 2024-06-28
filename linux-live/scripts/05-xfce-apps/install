@@ -44,7 +44,8 @@ fi
 if grep -q "gnumeric" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
     sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
 fi
-if ! grep -q "rescuezilla" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+#if ! grep -q "rescuezilla" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if ! command -v clonezilla >/dev/null 2>&1; then
     rm -f /usr/sbin/clonezilla.sh
     rm -f /usr/share/applications/clonezilla.desktop
     rm -f /usr/share/pixmaps/ocslogo.png

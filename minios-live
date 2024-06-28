@@ -15,17 +15,13 @@ SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
 if [ "${SCRIPT_DIR}" = "/usr/bin" ]; then
     . "/usr/lib/minios-live/minioslib" || exit 1
     toggle_shell_options u
-    if [ -z "${BATCH}" ]; then
-        . "/etc/minios-live/config" || exit 1
-    fi
+    [ -z "${BATCH}" ] && . "/etc/minios-live/config" || exit 1
     toggle_shell_options u
     BUILD_DIR="${PWD}/build"
 else
     . "${SCRIPT_DIR}/linux-live/minioslib" || exit 1
     toggle_shell_options u
-    if [ -z "${BATCH}" ]; then
-        . "${SCRIPT_DIR}/linux-live/config" || exit 1
-    fi
+    [ -z "${BATCH}" ] && . "${SCRIPT_DIR}/linux-live/config" || exit 1
     toggle_shell_options u
     BUILD_DIR="${SCRIPT_DIR}/build"
     APTCACHE_DIR="${SCRIPT_DIR}/aptcache/${DISTRIBUTION}"
@@ -49,15 +45,13 @@ console_colors
 
 allow_root_only
 
-if [ -f "/.dockerenv" ] || [ "${container}" = "podman" ]; then
-    new_run
-fi
+[ -f "/.dockerenv" ] || [ "${container}" = "podman" ] && new_run
 
 toggle_shell_options e
 check_internet
 toggle_shell_options e
 
-determine_command_range "${@}"
+determine_command_range "$@"
 
 # Run commands within the defined range.
 for ((ii = "${START_INDEX}"; ii < "${END_INDEX}"; ii++)); do
