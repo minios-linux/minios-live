@@ -1729,8 +1729,8 @@ chroot_finish_up() {
 
 # Checks if the package is available in the repository.
 check_package() {
-    PACKAGE_NAME="$1"
-    PACKAGE_VERSION="$2"
+    local PACKAGE_NAME="$1"
+    local PACKAGE_VERSION="$2"
 
     if [ -z "${PACKAGE_VERSION}" ]; then
         # If no version is specified, check only if package is available
@@ -1788,8 +1788,8 @@ check_package() {
 # Package List Format:
 # The packages in the list should be stated as strings containing the package name and additional
 # parameters separated by the '|' character. Each parameter can contain the package name, an action
-# ('+' for installation or '-' for skipping), and compatible distributions (like `package1|
-# package2 + distro1 distro2| package3 - distro1 distro2`).
+# ('+' for installation or '-' for skipping), and compatible distributions (like `package1 |
+# package2 + distro1 distro2 | package3 - distro1 distro2`).
 # This allows the script to handle each package individually. The script will check for the package's
 # presence in the repository. If the package is found, it will be added to the install list.
 # In case the '-' action character is given, the package will be ignored. Compatibility with
@@ -2198,10 +2198,10 @@ export_locales() {
     fi
 }
 
-# handle_files() - A generic function to manage different types of files
+# handle() - A generic function to manage different types of files
 #
 # Usage:
-# handle_files SRC DEST TYPE
+# handle SRC DEST TYPE
 #
 # Where:
 # SRC - The source file or directory
@@ -2211,7 +2211,7 @@ export_locales() {
 # - directory: Copies the content of a directory, if it is not empty
 # - symlink: Removes a symbolic link, if it exists
 # - module: Copies kernel module files, if the source directory exists
-handle_files() {
+handle() {
     local TYPE=$1
     local SRC=$2
     if [ "${TYPE}" != "symlink" ]; then
@@ -2219,7 +2219,7 @@ handle_files() {
     fi
 
     case $TYPE in
-    regular)
+    file)
         if [ -f "${SRC}" ]; then
             cp "${SRC}" "${DEST}"
             chmod +x "${DEST}"
@@ -2239,7 +2239,7 @@ handle_files() {
     module)
         if [ -d "${SRC}" ]; then
             mkdir -p "${DEST}"
-            handle_files "directory" "${SRC}" "${DEST}"
+            handle directory "${SRC}" "${DEST}"
         fi
         ;;
     *)
@@ -2261,10 +2261,10 @@ build_modules() {
         fi
     fi
 
-    VARIANTS="${SCRIPT_DIR}/linux-live/environments/${DESKTOP_ENVIRONMENT}"
+    ENVIRONMENTS="${SCRIPT_DIR}/linux-live/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
-    cd "${VARIANTS}"
+    cd "${ENVIRONMENTS}"
 
     for MODULE in *; do
         if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | grep -q "${MODULE}" 2>/dev/null); then
@@ -2283,26 +2283,26 @@ build_modules() {
             module_chroot_mount_fs
 
             # run pre-install script
-            handle_files regular "${VARIANTS}/${MODULE}/preinstall" "${MODULE_MERGED_DIR}/preinstall"
+            handle file "${ENVIRONMENTS}/${MODULE}/preinstall" "${MODULE_MERGED_DIR}/preinstall"
             if [ -f "${MODULE_MERGED_DIR}/preinstall" ]; then
                 echo -e "=====> ${GREEN}preinstall${ENDCOLOR} script is executing ..."
                 chroot_run "${MODULE_MERGED_DIR}" /preinstall
             fi
 
             # copy files
-            if [ -f "${VARIANTS}/${MODULE}/build" ]; then
-                handle_files "directory" "${VARIANTS}/${MODULE}/rootcopy-install" "${MODULE_MERGED_DIR}/rootcopy-install"
+            if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
+                handle directory "${ENVIRONMENTS}/${MODULE}/rootcopy-install" "${MODULE_MERGED_DIR}/rootcopy-install"
             else
-                handle_files "directory" "${VARIANTS}/${MODULE}/rootcopy-install" "${MODULE_MERGED_DIR}"
+                handle directory "${ENVIRONMENTS}/${MODULE}/rootcopy-install" "${MODULE_MERGED_DIR}"
             fi
 
             # run install script
-            handle_files regular "${VARIANTS}/${MODULE}/install" "${MODULE_MERGED_DIR}/install"
+            handle file "${ENVIRONMENTS}/${MODULE}/install" "${MODULE_MERGED_DIR}/install"
             if [ -f "${MODULE_MERGED_DIR}/install" ]; then
-                handle_files regular "${VARIANTS}/${MODULE}/cleanup" "${MODULE_MERGED_DIR}/cleanup"
-                handle_files regular "${VARIANTS}/${MODULE}/${PACKAGE_VARIANT}.list" "${MODULE_MERGED_DIR}/${PACKAGE_VARIANT}.list"
-                handle_files regular "${VARIANTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" "${MODULE_MERGED_DIR}/${PACKAGE_VARIANT}-l10n.list"
-                handle_files regular "${VARIANTS}/${MODULE}/package.list" "${MODULE_MERGED_DIR}/package.list"
+                handle file "${ENVIRONMENTS}/${MODULE}/cleanup" "${MODULE_MERGED_DIR}/cleanup"
+                handle file "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" "${MODULE_MERGED_DIR}/${PACKAGE_VARIANT}.list"
+                handle file "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" "${MODULE_MERGED_DIR}/${PACKAGE_VARIANT}-l10n.list"
+                handle file "${ENVIRONMENTS}/${MODULE}/package.list" "${MODULE_MERGED_DIR}/package.list"
                 echo -e "=====> ${GREEN}install${ENDCOLOR} script is executing ..."
                 chroot_run "${MODULE_MERGED_DIR}" /install
             fi
@@ -2314,7 +2314,7 @@ build_modules() {
                 fi
             fi
 
-            if [ -f "${VARIANTS}/${MODULE}/build" ]; then
+            if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 module_unmount_dirs
 
                 chroot_cleanup module
@@ -2334,12 +2334,12 @@ build_modules() {
                 module_chroot_mount_fs
 
                 # run build script
-                if [ -f $VARIANTS/$MODULE/build ]; then
-                    cp $VARIANTS/$MODULE/build $MODULE_MERGED_DIR/build
+                if [ -f $ENVIRONMENTS/$MODULE/build ]; then
+                    cp $ENVIRONMENTS/$MODULE/build $MODULE_MERGED_DIR/build
                     chmod +x $MODULE_MERGED_DIR/build
-                    if [ "$(ls -A $VARIANTS/$MODULE/patches 2>/dev/null)" != "" ]; then
+                    if [ "$(ls -A $ENVIRONMENTS/$MODULE/patches 2>/dev/null)" != "" ]; then
                         mkdir -p $MODULE_MERGED_DIR/patches
-                        (cd $VARIANTS/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                        (cd $ENVIRONMENTS/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
                     fi
 
                     chroot_run "${MODULE_MERGED_DIR}" /build
@@ -2348,17 +2348,17 @@ build_modules() {
                 fi
             fi
 
-            if [ -f "${VARIANTS}/${MODULE}/is_dkms_build" ]; then
+            if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
                 read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
-                handle_files symlink "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/build"
-                handle_files symlink "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/source"
-                handle_files symlink "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}/build"
-                handle_files symlink "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}/source"
+                handle symlink "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/build"
+                handle symlink "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/source"
+                handle symlink "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}/build"
+                handle symlink "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}/source"
 
                 toggle_shell_options e
-                handle_files module "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}" "${MODULE_UPPER_DIR}/squashfs-root/usr/lib/modules/${KERNEL}"
-                handle_files module "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}" "${MODULE_UPPER_DIR}/squashfs-root/lib/modules/${KERNEL}"
+                handle module "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}" "${MODULE_UPPER_DIR}/squashfs-root/usr/lib/modules/${KERNEL}"
+                handle module "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}" "${MODULE_UPPER_DIR}/squashfs-root/lib/modules/${KERNEL}"
                 toggle_shell_options e
 
                 if [ "${MODULE}" = "01-kernel" ]; then
@@ -2405,26 +2405,26 @@ build_modules() {
                     cp "${SCRIPT_DIR}/linux-live/config" "${MODULE_MERGED_DIR}/etc/minios/config"
                 fi
             fi
-            if [ ! -f "${VARIANTS}/${MODULE}/build" ]; then
-                if [ "$(ls -A "${VARIANTS}/${MODULE}/rootcopy-postinstall" 2>/dev/null)" != "" ]; then
-                    (cd "${VARIANTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_MERGED_DIR}/")
+            if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
+                if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" 2>/dev/null)" != "" ]; then
+                    (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_MERGED_DIR}/")
                 fi
             else
-                if [ "$(ls -A "${VARIANTS}/${MODULE}/rootcopy-postinstall" 2>/dev/null)" != "" ]; then
+                if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" 2>/dev/null)" != "" ]; then
                     mkdir -p "${MODULE_MERGED_DIR}/rootcopy-postinstall"
-                    (cd "${VARIANTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_MERGED_DIR}/rootcopy-postinstall/")
+                    (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_MERGED_DIR}/rootcopy-postinstall/")
                 fi
             fi
 
             # run post-install script
-            if [ -f "${VARIANTS}/${MODULE}/postinstall" ]; then
+            if [ -f "${ENVIRONMENTS}/${MODULE}/postinstall" ]; then
                 echo -e "=====> ${GREEN}postinstall${ENDCOLOR} script is executing ..."
-                cp "${VARIANTS}/${MODULE}/postinstall" "${MODULE_MERGED_DIR}/postinstall"
+                cp "${ENVIRONMENTS}/${MODULE}/postinstall" "${MODULE_MERGED_DIR}/postinstall"
                 chmod +x "${MODULE_MERGED_DIR}/postinstall"
                 chroot_run "${MODULE_MERGED_DIR}" /postinstall
             fi
 
-            if [ ! -f "${VARIANTS}/${MODULE}/build" ]; then
+            if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 toggle_shell_options e
                 chroot_run "${MODULE_MERGED_DIR}" uncompress_files /etc/alternatives
                 chroot_run "${MODULE_MERGED_DIR}" uncompress_files /usr/share/man
@@ -2446,7 +2446,7 @@ build_modules() {
             fi
 
             # run external actions
-            if [ -f "${VARIANTS}/${MODULE}/build" ]; then
+            if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
                     if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
                         cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-ext-${COMP_TYPE}.${BEXT}"
@@ -2462,13 +2462,13 @@ build_modules() {
 
             module_unmount_dirs
 
-            if [ ! -f "${VARIANTS}/${MODULE}/build" ]; then
+            if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 chroot_cleanup module
             fi
 
             mkmod_corefs "${MODULE_UPPER_DIR}"
 
-            if [ ! -f "${VARIANTS}/${MODULE}/build" ]; then
+            if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" ]; then
                     if [ "$(ls -A "${MODULE_UPPER_DIR}" 2>/dev/null)" != "" ]; then
                         if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then

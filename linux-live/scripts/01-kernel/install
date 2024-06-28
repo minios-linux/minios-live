@@ -70,3 +70,7 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
         apt-mark hold "${KERNEL_IMAGE}"
     fi
 fi
+
+if [ "${KERNEL_AUFS}" = "true" ] && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
+    pkg install realtek-modules
+fi
