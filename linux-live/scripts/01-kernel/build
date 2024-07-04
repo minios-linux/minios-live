@@ -75,7 +75,7 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v
         pkg install "${BPO}" zfs-dkms
     fi
-    if [ "${DISTRIBUTION}" = "bookworm" ]; then
+    : 'if [ "${DISTRIBUTION}" = "bookworm" ]; then
         DEBIAN_FRONTEND=noninteractive
         pkg install \
             realtek-rtl8188eus-dkms \
@@ -104,5 +104,5 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
             realtek-rtl88xxau-dkms \
             rtl8821cu-dkms
         source_install "https://github.com/cilynx/rtl88x2bu.git"
-    fi
+    fi'
 fi

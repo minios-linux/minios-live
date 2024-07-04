@@ -72,13 +72,16 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         install_packages
         ;;
     esac
-    if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "novice" ]; then
-        case "$DISTRIBUTION" in
-        bookworm)
-            pkg install pulseaudio-module-xrdp
-            ;;
-        esac
-    fi
+    #if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "novice" ]; then
+    #case "$DISTRIBUTION" in
+    #bookworm)
+    #pkg install pulseaudio-module-xrdp pipewire pipewire-module-xrdp
+    #;;
+    #jammy | noble | trixie | sid)
+    #    pkg install pipewire pipewire-module-xrdp
+    #    ;;
+    #esac
+    #fi
 fi
 
 for SIZE in 16 24 32 48 64 96 128 symbolic; do

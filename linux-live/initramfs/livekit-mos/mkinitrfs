@@ -125,7 +125,20 @@ else
     exit 1
 fi
 
-FILES=(mkinitrfs bin/busybox bin/eject bin/resize2fs bin/mc bin/@mount.dynfilefs bin/@mount.httpfs2 bin/@mount.ntfs-3g bin/ncurses-menu bin/blkid bin/minios-boot usr/share/terminfo/l/linux)
+FILES=(
+    mkinitrfs
+    bin/busybox
+    bin/eject
+    bin/resize2fs
+    bin/mc
+    bin/@mount.dynfilefs
+    bin/@mount.httpfs2
+    bin/@mount.ntfs-3g
+    bin/ncurses-menu
+    bin/blkid
+    bin/minios-boot
+    usr/share/terminfo/l/linux
+)
 copy_files "$INITRAMFS" "${FILES[@]}"
 
 chmod a+x "$INITRAMFS/bin/"*

@@ -8,10 +8,9 @@ trap '_failure ${LINENO} "$BASH_COMMAND"' ERR
 
 # ############################################################################ #
 
-
 touch /.minios-live-container
 apt-get update -y
-apt-get install -y wget sudo debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd git curl
+apt-get install -y wget sudo debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd git curl rsync
 apt-get clean
 find /var/log/ -type f | xargs rm -f
 rm -f /var/backups/*

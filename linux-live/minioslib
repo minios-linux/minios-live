@@ -121,6 +121,18 @@ common_variables() {
     else
         ADDITIONAL_COMP_OPTS=""
     fi
+
+    if [ "${PACKAGE_VARIANT}" = "toolbox" ]; then
+        # Check if ENABLE_SERVICES contains the ssh service
+        if [[ ",${ENABLE_SERVICES}," != *",ssh,"* ]]; then
+            # If not, add it
+            if [ -z "${ENABLE_SERVICES}" ]; then
+                ENABLE_SERVICES="ssh"
+            else
+                ENABLE_SERVICES="${ENABLE_SERVICES},ssh"
+            fi
+        fi
+    fi
 }
 
 # ===================== COMMON FUNCTIONS ==========================
@@ -800,8 +812,8 @@ add_chroot_configuration_files() {
         cp "${SCRIPT_DIR}/linux-live/minioslib" "$1/minioslib"
     elif [ -f "/linux-live/minioslib" ]; then
         cp "/linux-live/minioslib" "$1/minioslib"
-    elif [ -f "/usr/lib/minios/libminioslive" ]; then
-        cp "/usr/lib/minios/libminioslive" "$1/minioslib"
+        #elif [ -f "/usr/lib/minios/libminioslive" ]; then
+        #   cp "/usr/lib/minios/libminioslive" "$1/minioslib"
     fi
 }
 
@@ -1072,6 +1084,7 @@ SSH_KEY="${SSH_KEY}"
 SCRIPTS="${SCRIPTS}"
 HIDE_CREDENTIALS="${HIDE_CREDENTIALS}"
 AUTOLOGIN="${AUTOLOGIN}"
+LINK_USER_DIRS="${LINK_USER_DIRS}"
 SYSTEM_TYPE="${SYSTEM_TYPE}"
 EXPORT_LOGS="${EXPORT_LOGS}"
 EOF
@@ -1195,33 +1208,33 @@ set initrd_img="/${LIVEKITNAME}/boot/initrfs.img"
 
 menuentry "Run MiniOS (Resume previous session)" --class resume {
     echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=resume
-    initrd \$initrd_img
+    search --set -f /${LIVEKITNAME}/boot/vmlinuz
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=resume
+    initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Start a new session)" --class new {
     echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=new
-    initrd \$initrd_img
+    search --set -f /${LIVEKITNAME}/boot/vmlinuz
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=new
+    initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Choose session during startup)" --class switch {
     echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
-    initrd \$initrd_img
+    search --set -f /${LIVEKITNAME}/boot/vmlinuz
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
+    initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Fresh start)" --class live {
     echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
-    initrd \$initrd_img
+    search --set -f /${LIVEKITNAME}/boot/vmlinuz
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
+    initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Copy to RAM)" --class ram {
     echo \$message
-    search --set -f \$linux_image
-    linux \$linux_image \$default_settings ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} toram
-    initrd \$initrd_img
+    search --set -f /${LIVEKITNAME}/boot/vmlinuz
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} toram
+    initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 
 EOF
@@ -2568,6 +2581,7 @@ container_run() {
             -e SCRIPTS="false" \
             -e CLOUD="false" \
             -e HIDE_CREDENTIALS="false" \
+            -e LINK_USER_DIRS="false" \
             -e SYSTEM_TYPE="puzzle" \
             -e DISTRIBUTION_VARIANT="minbase" \
             -e BATCH="true" \

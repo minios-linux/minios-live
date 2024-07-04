@@ -8,7 +8,7 @@ LIVEKITNAME="minios"
 # PXE or to load data using 'from' boot parameter from a http server,
 # you will need network modules included in your initrd.
 # This is disabled by default since most people won't need it.
-# To enable, set to true
+# To enable, set to true.
 #
 # [true, false]
 NETWORK="true"
@@ -19,33 +19,35 @@ NETWORK="true"
 BEXT="sb"
 
 ##### DISTRIBUTION SETTINGS #####
-# distribution
+# Distribution name
 #
 # if Debian [bookworm]
 # if Ubuntu [jammy, noble]
 DISTRIBUTION="bookworm"
 
-# distribution arch (Debian only)
+# Distribution architecture (Debian only)
 #
 # [amd64, i386, i386-pae]
 DISTRIBUTION_ARCH="amd64"
 
-# desktop environment
+# Desktop environment
 #
 # [core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt, devel]
 DESKTOP_ENVIRONMENT="xfce"
 
-# system variant, indicates the used list of packages in modules
+# System variant, indicates the used list of packages in modules
 #
 # [minimum, standard, toolbox, ultra, puzzle]
 PACKAGE_VARIANT="standard"
 
-# compresssion type
+# Compression type
 #
 # [xz, lzo, gz, lz4, zstd]
 COMP_TYPE="zstd"
 
 ##### KERNEL SETTINGS #####
+# Kernel type
+#
 # [none, default, rt, cloud]
 KERNEL_TYPE="default"
 
@@ -54,13 +56,14 @@ KERNEL_TYPE="default"
 # [true, false]
 KERNEL_BPO="false"
 
-# kernel with AUFS support
+# Kernel with AUFS support
 #
 # [true, false]
 KERNEL_AUFS="true"
 
-# if "true", then additional drivers for wireless network adapters are compiled during kernel installation
+# If "true", then additional drivers for wireless network adapters are compiled during kernel installation
 #
+# [true, false]
 KERNEL_BUILD_DKMS="false"
 
 # If true, then the names of initrfs.img and vmlinuz will indicate the version of the kernel for which they are intended.
@@ -83,51 +86,70 @@ MOVE_KERNEL="false"
 # [true, false]
 EXPORT_LOGS="false"
 
-##### LOCALE&TIMEZONE SETTINGS #####
+##### LOCALE & TIMEZONE SETTINGS #####
+# System locale
+#
 # [en_US, ru_RU, es_ES, pt_BR]
 LOCALE="en_US"
 
 # If true, locales are generated for several languages defined in the LOCALES variable in minioslib
+#
 # [true, false]
 MULTILINGUAL="false"
 
 # If true, all available locales are kept. If false, only the locales specified in the LOCALES variable of minioslib are kept. 
+#
 # [true, false]
 KEEP_ALL_LOCALES="false"
 
+# Timezone setting
 # It is not necessary to change the time zone, the system automatically determines the time zone and sets it to the current location if you have Internet access.
 #
 # [any timezone]
 TIMEZONE="Etc/UTC"
 
 ##### minios.conf SETTINGS #####
+# Username for the system
+#
 USER_NAME="live"
+
+# User password for the system
+#
 USER_PASSWORD="evil"
+
+# Root password for the system
+#
 ROOT_PASSWORD="toor"
 
-# this parameter only works for initrd livekit-mos
+# Default target for initrd livekit-mos
 #
 DEFAULT_TARGET="graphical"
 
-# this parameter only works for initrd livekit-mos
+# Enable services for initrd livekit-mos
 #
 ENABLE_SERVICES=""
 
-# this parameter only works for initrd livekit-mos
+# Disable services for initrd livekit-mos
 #
 DISABLE_SERVICES=""
 
+# Enable or disable scripts
+#
 # [true, false]
 SCRIPTS="false"
 
+# Enable or disable autologin
+#
 # [true, false]
 AUTOLOGIN="true"
 
-# file name in the minios folder where the system will look for the ssh public key
+# File name in the minios folder where the system will look for the SSH public key
 #
 # [any file name]
 SSH_KEY="authorized_keys"
 
+# Enable or disable cloud support
+#
 # [true, false]
 CLOUD="false"
 
@@ -136,26 +158,35 @@ CLOUD="false"
 # [true, false]
 HIDE_CREDENTIALS="false"
 
-# This option specifies at what point you should create and configure the user and their home folder. By default, the systemd service performs these actions, but some older distributions hang during the operation and do not create the user.
+# Specifies at what point to create and configure the user and their home folder
+# By default, the systemd service performs these actions, but some older distributions hang during the operation and do not create the user.
 #
 # [systemd, initrd]
 USER_SETUP="systemd"
 
+# Determines if user directories should be linked to directories on an external media
+# If set to "true", the directories will be linked and a desktop.ini file will be created for each directory to display the correct icons and localization in Windows.
+#
+# [true, false]
+LINK_USER_DIRS="false"
+
 ##### BUILDER SETTINGS #####
-# if ="true", creates a second iso with a constant filename
+# If true, creates a second iso with a constant filename
 #
 # [true, false]
 BUILD_TEST_ISO="true"
 
-# removes old iso files for this build type
+# Removes old iso files for this build type
 #
 # [true, false]
 REMOVE_OLD_ISO="true"
 
+# Debian frontend type
+#
 # [noninteractive, dialog, text]
 DEBIAN_FRONTEND_TYPE="noninteractive"
 
-# union type used to build the system
+# Union type used to build the system
 #
 # [aufs, overlayfs]
 UNION_BUILD_TYPE="overlayfs"
@@ -164,47 +195,55 @@ UNION_BUILD_TYPE="overlayfs"
 #
 SYSTEMNAME="MiniOS"
 
-# using a ready-made rootfs file during installation. If absent, then it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
+# Use a pre-made rootfs file during installation. If absent, it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
 #
 # [true, false]
 USE_ROOTFS="true"
 
-# if true, then the installation of packages required for the build is skipped
+# If true, skips the installation of packages required for the build
 #
 # [true, false]
 SKIP_SETUP_HOST="false"
 
-# deleting sources after building
+# Deletes sources after building
 #
 # [true, false]
 REMOVE_SOURCES="false"
 
-# if true, then removes the dpkg base from the module (it is necessary so that additional modules do not break the common base if they do not use the cumulative structure of modules and are built relative to a certain level, and not relative to all system modules)
+# If true, removes the dpkg base from the module (necessary so that additional modules do not break the common base if they do not use the cumulative structure of modules and are built relative to a certain level, and not relative to all system modules)
 #
 # [true, false]
 REMOVE_DPKG_DB="false"
 
+# If true, only kernel modules are included
+#
 # [true, false]
 KERNEL_MODULES_ONLY="true"
 
+# If true, removes large icons from the build
+#
 # [true, false]
 REMOVE_LARGE_ICONS="true"
 
-# if true, then when building modules from within the system, allows you to set the maximum level at which modules will be built
-# for example, level 4 is a build relative to modules 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. If the module is built like this, then it will not conflict with any module built at level 4, if all modules 01-04 are present in the system.
+# If true, allows setting the maximum level at which modules will be built when building modules from within the system
+# For example, level 4 is a build relative to modules 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. If the module is built like this, it will not conflict with any module built at level 4 if all modules 01-04 are present in the system.
 #
 # [true, false]
 FILTER_MODULES="false"
 
-# modules filter level, see above
+# Modules filter level, see above
 #
 # [0, 1, 2, 3, 4...]
 FILTER_LEVEL="3"
 
+# If true, builds from snapshot
+#
 # [true, false]
 BUILD_FROM_SNAPSHOT="false"
 
-# [snapshot date]
+# Snapshot date for the build
 # For example, the latest date with an available Debian 9 repository is as follows
+#
+# [snapshot date]
 SNAPSHOT_DATE="20220630T090257Z"
 #SNAPSHOT_DATE="20220223T214737Z"
