@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# This script is triggered when the /usr/share/polkit-1/actions directory is modified.
+# It replaces the string <allow_active>auth_admin_keep</allow_active> with <allow_active>yes</allow_active> in all files in the directory.
+
+# Directory to monitor
+DIR="/usr/share/polkit-1/actions"
+
+# Loop over all files in the directory
+for FILE in "$DIR"/*; do
+    # Check if the FILE is a regular FILE and if it is, process it
+    if [ -f "$FILE" ]; then
+        # Use sed to replace <allow_active>auth_admin_keep</allow_active> with <allow_active>yes</allow_active> in the FILE
+        sudo sed -i 's/<allow_active>auth_admin_keep<\/allow_active>/<allow_active>yes<\/allow_active>/g' "$FILE"
+        sudo sed -i 's/<allow_active>auth_admin<\/allow_active>/<allow_active>yes<\/allow_active>/g' "$FILE"
+    fi
+done
+
+echo "The $DIR directory has been modified and all files have been updated."

@@ -17,11 +17,11 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     install_packages
 fi
 
-if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
-if grep -q "imagemagick" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if [ -f "/usr/share/applications/display-im6.q16.desktop" ]; then
     rm -f /usr/share/applications/display-im6.q16.desktop
 fi
 
@@ -30,9 +30,27 @@ if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
         pkg install vlc-l10n
     fi
 fi
-if grep -q "xfce4-clipman" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    sed -i "15i Name[ru]=Настройки менеджера буфера обмена" /usr/share/applications/xfce4-clipman-settings.desktop &&
-        sed -i "29i Comment[ru]=Настройте свой буфер обмена" /usr/share/applications/xfce4-clipman-settings.desktop
+if [ -f "/usr/share/applications/xfce4-clipman-settings.desktop" ]; then
+    sed -i "15i Name[ru]=Настройки менеджера буфера обмена" /usr/share/applications/xfce4-clipman-settings.desktop
+    sed -i "29i Comment[ru]=Настройте свой буфер обмена" /usr/share/applications/xfce4-clipman-settings.desktop
+fi
+if [ -f "/usr/share/applications/isomaster.desktop" ]; then
+    sed -i "s,/usr/share/isomaster/icons/isomaster.png,isomaster,g" /usr/share/applications/isomaster.desktop
+fi
+if [ -f "/usr/share/applications/Hard_Disk_Sentinel_GUI.desktop" ]; then
+    sed -i "s,/usr/share/icons/HDSentinel_GUI.ico,hdsentinel,g" /usr/share/applications/Hard_Disk_Sentinel_GUI.desktop
+fi
+if [ -f "/usr/share/applications/guymager.desktop" ]; then
+    sed -i "s,guymager_128.png,guymager,g" /usr/share/applications/guymager.desktop
+fi
+if [ -f "/usr/share/applications/zulumount-gui.desktop" ]; then
+    sed -i "s,zuluMount.xpm,zuluMount,g" /usr/share/applications/zulumount-gui.desktop
+fi
+if [ -f "/usr/share/applications/zulucrypt-gui.desktop" ]; then
+    sed -i "s,zuluCrypt.xpm,zuluCrypt,g" /usr/share/applications/zulucrypt-gui.desktop
+fi
+if [ -f "/usr/share/applications/hardinfo.desktop" ]; then
+    sed -i "s,/usr/share/hardinfo/pixmaps/logo.png,hardinfo,g" /usr/share/applications/hardinfo.desktop
 fi
 if [ "$LOCALE" != "en_US" ]; then
     if [ "$LOCALE" = "pt_BR" ] || [ "$LOCALE" = "zh_CN" ] || [ "$LOCALE" = "zh_TW" ]; then
@@ -41,10 +59,9 @@ if [ "$LOCALE" != "en_US" ]; then
         sed -i "s/doublecmd.en.po/doublecmd.$LNG.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
     fi
 fi
-if grep -q "gnumeric" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if [ -f "/usr/share/applications/gnumeric.desktop" ]; then
     sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
 fi
-#if ! grep -q "rescuezilla" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
 if ! command -v clonezilla >/dev/null 2>&1; then
     rm -f /usr/sbin/clonezilla.sh
     rm -f /usr/share/applications/clonezilla.desktop

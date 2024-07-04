@@ -350,7 +350,9 @@ fs_options() {
    echo -n "-o rw"
 
    if [ "$1" = "vfat" ]; then
-      echo ",check=s,shortname=mixed,iocharset=utf8"
+      echo ",umask=000,check=s,shortname=mixed,iocharset=utf8"
+   elif [ "$1" = "ntfs-3g" ] || [ "$1" = "ntfs3" ] || [ "$1" = "exfat" ]; then
+      echo ",umask=000"
    fi
 }
 
@@ -518,7 +520,7 @@ download_data_pxe() {
 }
 
 # Interactively ask the user to select a disk partition.
-# $1 = action and folder path, e.g. for from: ask/where/is/my/system
+# $1 = action and folder path, e.g. for from: askdisk:where/is/my/system
 # $2 = mode: from or perchdir
 #
 ask_disk() {
@@ -527,11 +529,7 @@ ask_disk() {
 
    WHERE="$1"
    MODE="$2"
-   if [ "$MODE" = "from" ]; then
-      COMMAND="ask"
-   elif [ "$MODE" = "perchdir" ]; then
-      COMMAND="askdisk"
-   fi
+   COMMAND="askdisk"
 
    if echo "$WHERE" | grep -q "^$COMMAND"; then
       (while true; do
@@ -548,8 +546,8 @@ ask_disk() {
       done) &
       ASKPID=$!
       sleep 1 # give blkid some chance to finish
-      if echo "$WHERE" | grep -q "^$COMMAND/"; then
-         DIR="$(echo "$WHERE" | cut -d '/' -f 2-)"
+      if echo "$WHERE" | grep -q "^$COMMAND:"; then
+         DIR="$(echo "$WHERE" | cut -d ':' -f 2- | tr ':' '/')"
       else
          if [ "$MODE" = "from" ]; then
             DIR="$LIVEKITNAME"
@@ -559,8 +557,8 @@ ask_disk() {
       fi
       DEVICE="$(ncurses-menu -t "Look for /$DIR directory on:" -f /tmp/ask.txt -s 2>&1 >/dev/tty1 </dev/tty1)"
       DEVICE="$(echo "$DEVICE" | cut -d : -f 1)"
-      if echo "$WHERE" | grep -q "^$COMMAND/"; then
-         WHERE="$DEVICE/$(echo "$WHERE" | cut -d '/' -f 2-)"
+      if echo "$WHERE" | grep -q "^$COMMAND:"; then
+         WHERE="$DEVICE/$(echo "$WHERE" | cut -d ':' -f 2- | tr ':' '/')"
       else
          WHERE="$DEVICE/$DIR"
       fi
@@ -595,9 +593,13 @@ find_data_try() {
             DEVICE="$(echo "$FROM" | cut -d '/' -f 1-3)"
             FROM="$(echo "$FROM" | cut -d '/' -f 4-)"
          fi
-         if [ "$FROM" = "" ]; then
-            FROM="$LIVEKITNAME"
-         fi
+      elif echo "$FROM" | grep -q '^label:'; then
+         LABEL=$(echo "$FROM" | awk -F":" '{print $2}' | awk -F"/" '{print $1}')
+         DEVICE=$(blkid | grep "LABEL=\"$LABEL\"" | cut -d ':' -f 1 | cut -d ' ' -f 1)
+         FROM="$(echo "$FROM" | cut -d '/' -f 2-)"
+      fi
+      if [ "$FROM" = "" ]; then
+         FROM="$LIVEKITNAME"
       fi
 
       FS="$(device_bestfs "$DEVICE")"
@@ -659,7 +661,7 @@ find_data() {
    fi
 
    # If user wants to get asked, ask and periodically update list of devices
-   # boot parameter specified as from=ask or from=ask/directory/where/system/is/installed
+   # boot parameter specified as from=askdisk or from=askdisk/directory/where/system/is/installed
    FROM=$(ask_disk "$FROM" from)
 
    # default to livekitname autodetected on all disks
@@ -793,6 +795,10 @@ mount_perch_device() {
          DEVICE="$(echo "$PERCHDIR" | cut -d '/' -f 1-3)"
          PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 4-)"
       fi
+   elif echo "$PERCHDIR" | grep -q '^label:'; then
+      LABEL=$(echo "$PERCHDIR" | awk -F":" '{print $2}' | awk -F"/" '{print $1}')
+      DEVICE=$(blkid | grep "LABEL=\"$LABEL\"" | cut -d ':' -f 1 | cut -d ' ' -f 1)
+      PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 2-)"
    fi
 
    FS="$(device_bestfs "$DEVICE")"
