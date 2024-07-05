@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: debian-latest
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
@@ -20,3 +20,9 @@ jobs:
         echo "Starting build..."
         minios-live -
         echo "Build completed."
+
+    - name: Archive build output
+      uses: actions/upload-artifact@v2
+      with:
+        name: minios-iso
+        path: build/iso/*.iso
