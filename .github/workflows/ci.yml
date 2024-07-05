@@ -18,11 +18,11 @@ jobs:
     - name: Run build
       run: |
         echo "Starting build..."
-        minios-live -
+        ./minios-live -
         echo "Build completed."
 
     - name: Archive build output
       uses: actions/upload-artifact@v2
       with:
         name: minios-iso
-        path: build/iso/*.iso
+        path: ./build/iso/*.iso
