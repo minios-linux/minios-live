@@ -52,6 +52,15 @@ fi
 if [ -f "/usr/share/applications/hardinfo.desktop" ]; then
     sed -i "s,/usr/share/hardinfo/pixmaps/logo.png,hardinfo,g" /usr/share/applications/hardinfo.desktop
 fi
+if [ -f "/usr/share/applications/zenmap.desktop" ]; then
+    sed -i "s,Exec=zenmap %F,Exec=pkexec /usr/bin/zenmap %F,g" /usr/share/applications/zenmap.desktop
+fi
+if [ -f "/usr/share/applications/zenmap-root.desktop" ]; then
+    rm -f /usr/share/applications/zenmap-root.desktop
+fi
+if [ -f "/usr/share/applications/org.wireshark.Wireshark.desktop" ]; then
+    sed -i "s,Exec=wireshark %f,Exec=pkexec /usr/bin/wireshark %f,g" /usr/share/applications/org.wireshark.Wireshark.desktop
+fi
 if [ "$LOCALE" != "en_US" ]; then
     if [ "$LOCALE" = "pt_BR" ] || [ "$LOCALE" = "zh_CN" ] || [ "$LOCALE" = "zh_TW" ]; then
         sed -i "s/doublecmd.en.po/doublecmd.$LOCALE.po/g" /etc/skel/.config/doublecmd/doublecmd.xml
