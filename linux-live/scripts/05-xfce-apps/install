@@ -10,6 +10,14 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 LNG="$(echo "$LOCALE" | cut -d_ -f1)"
 
+DEBCONF_SETTINGS+=(
+    "wireshark-common        wireshark-common/install-setuid boolean true"
+)
+
+for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+    echo "${SETTING}" | debconf-set-selections -v
+done
+
 pkg update
 
 # install packages
@@ -58,9 +66,9 @@ fi
 if [ -f "/usr/share/applications/zenmap-root.desktop" ]; then
     rm -f /usr/share/applications/zenmap-root.desktop
 fi
-if [ -f "/usr/share/applications/org.wireshark.Wireshark.desktop" ]; then
-    sed -i "s,Exec=wireshark %f,Exec=pkexec /usr/bin/wireshark %f,g" /usr/share/applications/org.wireshark.Wireshark.desktop
-fi
+#if [ -f "/usr/share/applications/org.wireshark.Wireshark.desktop" ]; then
+#    sed -i 's,Exec=wireshark %f,Exec=pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /usr/bin/wireshark %f,g' /usr/share/applications/org.wireshark.Wireshark.desktop
+#fi
 if [ "$LOCALE" != "en_US" ]; then
     if [ "$LOCALE" = "pt_BR" ] || [ "$LOCALE" = "zh_CN" ] || [ "$LOCALE" = "zh_TW" ]; then
         sed -i "s/doublecmd.en.po/doublecmd.$LOCALE.po/g" /etc/skel/.config/doublecmd/doublecmd.xml

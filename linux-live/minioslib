@@ -1745,6 +1745,16 @@ check_package() {
     local PACKAGE_NAME="$1"
     local PACKAGE_VERSION="$2"
 
+    # Check if the package is 'qemu-kvm'
+    if [ "${PACKAGE_NAME}" = "qemu-kvm" ]; then
+        # Check the output for specific keywords
+        if echo $(LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1) | grep -q 'purely virtual'; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+
     if [ -z "${PACKAGE_VERSION}" ]; then
         # If no version is specified, check only if package is available
         if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
