@@ -708,7 +708,7 @@ update_resolv_conf() {
 chroot_mount_fs() {
     current_function
 
-    unmount_dirs "${BUILD_DIR}"
+    unmount_dirs "${WORK_DIR}"
 
     setup_chroot_environment "${INSTALL_DIR}"
 
@@ -1028,7 +1028,7 @@ build_chroot() {
         chroot "${INSTALL_DIR}" /linux-live/install-chroot -
     fi
 
-    unmount_dirs "${BUILD_DIR}"
+    unmount_dirs "${WORK_DIR}"
 }
 
 mkmod_corefs() {
