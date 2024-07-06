@@ -36,22 +36,5 @@ if grep -q 'obs-studio' "$PACKAGE_LIST"; then
         mv /usr/share/icons/hicolor/256x256/apps/obs.png /usr/share/pixmaps/
     fi
 fi
-if grep -q 'pdfmod' "$PACKAGE_LIST"; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s pdfshuffler.png pdfmod.png
-    done
-fi
-if grep -q 'guake' "$PACKAGE_LIST"; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s utilities-terminal.png guake.png
-    done
-fi
-if grep -q 'drawio' "$PACKAGE_LIST"; then
-    for FOLDER in $(ls /usr/share/icons/elementary-xfce/apps | grep -E '^[0-9]+$'); do
-        cd /usr/share/icons/elementary-xfce/apps/$FOLDER
-        ln -s libreoffice-draw.png drawio.png
-    done
-fi
+
 update-icon-caches /usr/share/icons/*
