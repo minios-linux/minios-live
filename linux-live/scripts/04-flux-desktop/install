@@ -17,6 +17,10 @@ rm -f /usr/share/applications/compton.desktop
 rm -f /etc/skel/.fluxbox/fbpotgen.sh
 rm -f /etc/skel/.fluxbox/menu.pot
 
+if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+    rm -f /usr/share/applications/yad-icon-browser.desktop
+fi
+
 if [ $LOCALE = "ru_RU" ] || [ $LOCALE = "es_ES" ] || [ $LOCALE = "pt_BR" ] || [ $MULTILINGUAL = "true" ]; then
     pkg install fbxkb
 fi

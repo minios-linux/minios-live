@@ -62,9 +62,13 @@ if [ -f "/usr/share/applications/hardinfo.desktop" ]; then
 fi
 if [ -f "/usr/share/applications/zenmap.desktop" ]; then
     sed -i "s,Exec=zenmap %F,Exec=pkexec /usr/bin/zenmap %F,g" /usr/share/applications/zenmap.desktop
+    sed -i "s,/usr/share/zenmap/pixmaps/zenmap.png,zenmap,g" /usr/share/applications/zenmap.desktop
 fi
 if [ -f "/usr/share/applications/zenmap-root.desktop" ]; then
     rm -f /usr/share/applications/zenmap-root.desktop
+fi
+if [ -f "/usr/share/applications/veracrypt.desktop" ]; then
+    sed -i "s,VeraCrypt-48x48,veracrypt,g" /usr/share/applications/veracrypt.desktop
 fi
 #if [ -f "/usr/share/applications/org.wireshark.Wireshark.desktop" ]; then
 #    sed -i 's,Exec=wireshark %f,Exec=pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /usr/bin/wireshark %f,g' /usr/share/applications/org.wireshark.Wireshark.desktop
