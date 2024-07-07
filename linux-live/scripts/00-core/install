@@ -286,7 +286,6 @@ dpkg-reconfigure -f noninteractive locales
 
 echo root:"${ROOT_PASSWORD}" | chpasswd
 cp -f /etc/skel/.bashrc /root/
-sed -i 's,01;32m,01;31m,g' /root/.bashrc
 
 if wget -O /usr/bin/pacapt https://github.com/icy/pacapt/raw/ng/pacapt 2>/dev/null; then
     chmod 755 /usr/bin/pacapt
