@@ -29,9 +29,20 @@ if [ -d /etc/NetworkManager/dispatcher.d ]; then
 case "$2" in
     up)
         sleep 3
-        timedatectl set-local-rtc 0
-        timedatectl set-ntp true
-        timedatectl set-timezone "$(curl --fail https://ipapi.co/timezone)"
+        # Check the availability of https://ipapi.co/timezone over a minute at intervals
+        for i in {1..60}
+        do
+            if curl --output /dev/null --silent --head --fail https://ipapi.co/timezone
+            then
+                timedatectl set-local-rtc 0
+                timedatectl set-ntp true
+                timedatectl set-timezone "$(curl --fail https://ipapi.co/timezone)"
+                break
+            else
+                echo "https://ipapi.co/timezone is not available. Attempt number $i..."
+                sleep 1
+            fi
+        done
     ;;
 esac
 EOF

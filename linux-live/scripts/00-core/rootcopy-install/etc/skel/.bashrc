@@ -57,11 +57,14 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    if [ $(id -u) -eq 0 ]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    else
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    fi
 else
     PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
-unset color_prompt force_color_prompt
 
 # If this is an xterm set the title to user@host:dir
 case "$TERM" in
@@ -116,23 +119,60 @@ if ! shopt -oq posix; then
     fi
 fi
 
+# Function to update and get packages using apt-get
 apt-get() {
-    if [ -e /var/cache/apt/pkgcache.bin ]; then
-        /usr/bin/apt-get "$@"
-    else
+    # Check if package cache is older than 24 hours
+    if [ ! -e /var/cache/apt/pkgcache.bin ] || (($(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin) >= 24 * 60 * 60)); then
+        # Update package list
         /usr/bin/apt-get update
-        /usr/bin/apt-get "$@"
     fi
+    # Get packages
+    /usr/bin/apt-get "$@"
 }
 
+# Function to update and get packages using apt
 apt() {
-    if [ -e /var/cache/apt/pkgcache.bin ]; then
-        /usr/bin/apt "$@"
-    else
+    # Check if package cache is older than 24 hours
+    if [ ! -e /var/cache/apt/pkgcache.bin ] || (($(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin) >= 24 * 60 * 60)); then
+        # Update package list
         /usr/bin/apt update
-        /usr/bin/apt "$@"
     fi
+    # Get packages
+    /usr/bin/apt "$@"
 }
 
+# Export functions
 export -f apt-get
 export -f apt
+
+# Function to check package cache
+check_package_cache() {
+    # Check if package cache has been checked
+    if [ "$PACKAGE_CACHE_CHECKED" != "true" ]; then
+        # Check if package cache is older than 24 hours
+        if [ ! -e /var/cache/apt/pkgcache.bin ] || (($(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin) >= 24 * 60 * 60)); then
+            local CMD_UPDATE
+            # Check if user is root
+            if [ "$(id -u)" != "0" ]; then
+                CMD_UPDATE="sudo apt update"
+            else
+                CMD_UPDATE="apt update"
+            fi
+            # Display message based on language
+            case ${LANG%%_*} in
+            "C" | "en") echo -e "\033[1mAttention:\033[0m The package database is outdated.\nIt is recommended to run '\033[1m${CMD_UPDATE}\033[0m' before installing software." ;;
+            "de") echo -e "\033[1mAchtung:\033[0m Die Paketdatenbank ist veraltet.\nEs wird empfohlen, '\033[1m${CMD_UPDATE}\033[0m' vor der Installation von Software auszuführen." ;;
+            "es") echo -e "\033[1mAtención:\033[0m La base de datos de paquetes está desactualizada.\nSe recomienda ejecutar '\033[1m${CMD_UPDATE}\033[0m' antes de instalar software." ;;
+            "fr") echo -e "\033[1mAttention:\033[0m La base de données des paquets est obsolète.\nIl est recommandé d'exécuter '\033[1m${CMD_UPDATE}\033[0m' avant d'installer des logiciels." ;;
+            "it") echo -e "\033[1mAttenzione:\033[0m Il database dei pacchetti è obsoleto.\nSi consiglia di eseguire '\033[1m${CMD_UPDATE}\033[0m' prima di installare il software." ;;
+            "pt") echo -e "\033[1mAtenção:\033[0m A base de dados de pacotes está desatualizada.\nÉ recomendado executar '\033[1m${CMD_UPDATE}\033[0m' antes de instalar softwares." ;;
+            "ru") echo -e "\033[1mВнимание:\033[0m База данных пакетов устарела.\nРекомендуется выполнить '\033[1m${CMD_UPDATE}\033[0m' перед установкой программ." ;;
+            esac
+        fi
+        # Mark package cache as checked
+        export PACKAGE_CACHE_CHECKED=true
+    fi
+}
+
+# Set prompt command to check package cache
+PROMPT_COMMAND="check_package_cache"
