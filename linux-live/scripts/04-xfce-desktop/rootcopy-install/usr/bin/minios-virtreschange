@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# switch to bigger screen size right away
+OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
+xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
