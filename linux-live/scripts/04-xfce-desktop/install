@@ -406,35 +406,35 @@ if [ ! -d /usr/share/backgrounds/xfce ]; then
     mkdir -p /usr/share/backgrounds/xfce
 fi
 
-for BACKGROUND in /usr/share/backgrounds/MiniOS*.svg; do
+for BACKGROUND in /usr/share/backgrounds/MiniOS*; do
     ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
 done
 if [ $PACKAGE_VARIANT = "minimum" ] || [ $PACKAGE_VARIANT = "novice" ]; then
-    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-jungle.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    ln -s ../MiniOS4-wallpaper-jungle.png /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS4-wallpaper-jungle.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS4-wallpaper-jungle.png /usr/share/backgrounds/xfce/xfce-shapes.svg
 elif [ $PACKAGE_VARIANT = "standard" ]; then
-    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    ln -s ../MiniOS4-wallpaper-sea.png /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS4-wallpaper-sea.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS4-wallpaper-sea.png /usr/share/backgrounds/xfce/xfce-shapes.svg
 elif [ $PACKAGE_VARIANT = "toolbox" ]; then
-    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-fire.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    ln -s ../MiniOS4-wallpaper-fire.png /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS4-wallpaper-fire.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS4-wallpaper-fire.png /usr/share/backgrounds/xfce/xfce-shapes.svg
 elif [ $PACKAGE_VARIANT = "puzzle" ]; then
-    ln -s ../MiniOS-wallpaper-twilight-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-twilight-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-twilight-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    ln -s ../MiniOS4-wallpaper-twilight.png /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS4-wallpaper-twilight.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS4-wallpaper-twilight.png /usr/share/backgrounds/xfce/xfce-shapes.svg
 elif [ $PACKAGE_VARIANT = "ultra" ]; then
-    ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-black-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    ln -s ../MiniOS4-wallpaper-black.png /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS4-wallpaper-black.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS4-wallpaper-black.png /usr/share/backgrounds/xfce/xfce-shapes.svg
     sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
     sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 else
-    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS-wallpaper-sea-02.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    ln -s ../MiniOS4-wallpaper-sea.png /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -s ../MiniOS4-wallpaper-sea.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -s ../MiniOS4-wallpaper-sea.png /usr/share/backgrounds/xfce/xfce-shapes.svg
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
