@@ -79,14 +79,13 @@ if ! dpkg -s gpg &>/dev/null; then
 fi
 
 curl https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
-if [ $DISTRIBUTION = "kali-rolling" ]; then
-    echo "deb https://minios.dev/debian/ bookworm main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
-elif [ $DISTRIBUTION = "stretch" ] || [ $DISTRIBUTION = "buster" ] || [ $DISTRIBUTION = "bullseye" ]; then
-    echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free
-deb https://minios.dev/debian/ $DISTRIBUTION-backports main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
-else
-    echo "deb https://minios.dev/debian/ $DISTRIBUTION main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+>/etc/apt/sources.list.d/minios-linux.list
+if [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
+    echo "deb https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
+    echo "#deb-src https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >>/etc/apt/sources.list.d/minios-linux.list
 fi
+echo "deb https://minios.dev/debian/ generic main contrib non-free" >>/etc/apt/sources.list.d/minios-linux.list
+echo "#deb-src https://minios.dev/debian/ generic main contrib non-free" >>/etc/apt/sources.list.d/minios-linux.list
 cat <<EOF >/etc/apt/preferences.d/minios-linux
 Package: *
 Pin: release l=MiniOS Repository

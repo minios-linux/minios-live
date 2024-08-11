@@ -10,6 +10,7 @@
   - [v3.3.1](#v331)
   - [v3.3.2](#v332)
   - [v3.3.3](#v333)
+  - [v3.3.4](#v334)
 
 ## v2.2.1
 - Code optimization, bug fixes.
@@ -205,3 +206,10 @@
 - The kernel has been updated to 6.1.67.
 - Updated all packages as of the current date.
 - Mini Commander was added to initrd, you can start it in debug mode with mc command.
+
+## v3.3.4
+- Restored the ability to build the distribution on the 3.3.x branch, due to a change in the repository structure it was not possible.
+- Updated MiniOS Installer to version similar to MiniOS 4.0 under development, added support for MMC devices.
+- Updated some scripts involved in system booting to fix the problem with package updates in Puzzle.
+- Updated kernel to 6.1.90.
+- Icon theme elementary-xfce-minios replaced by elementary-minios and updated to 0.19.

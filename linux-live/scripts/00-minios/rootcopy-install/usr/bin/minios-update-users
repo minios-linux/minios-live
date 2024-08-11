@@ -1,33 +1,30 @@
 #!/bin/bash
 # Author: crims0n <https://minios.dev>
 
-. /usr/lib/minioslib || exit 1
-
 [ ! "$1" ] && echo "Builds a common users files (passwd, shadow, group, gshadow) from all bundles
     Usage:   $0 [bundles mount points location] [optional: changes location]
     Example: $0 /run/initramfs/memory/bundles /run/initramfs/memory/changes" && exit 1
 
-if [ ! -d /var/log/minios ]; then
-    mkdir -p /var/log/minios
-fi
-
+mkdir -p /var/log/minios
 exec 19>/var/log/minios/minios-update-users.trace
 BASH_XTRACEFD=19
 PS4='${LINENO}: '
 set -x
-if [ ! -d /var/log/minios/users ]; then
-    mkdir -p /var/log/minios/users
-fi
+mkdir -p /var/log/minios/users
 
 BUNDLES="$1"
 CHANGES="$2"
-read_config /etc/minios/minios.conf CORE_BUNDLE_PREFIX
-CORE_BUNDLE_PREFIX=${CORE_BUNDLE_PREFIX:-"00-core"}
-read_config /etc/minios/config BEXT
-BEXT=${BEXT:-"sb"}
+CORE_BUNDLE_PREFIX="00-core"
+BEXT="sb"
 CORE_BUNDLE_PATH="$(ls -1d $BUNDLES/$CORE_BUNDLE_PREFIX*.$BEXT)"
 
-allow_root_only
+if [ $(id -u) -ne 0 ]; then
+    echo -e "${BOLD}${RED}This script should be run as 'root'!${ENDCOLOR}"
+    exit 1
+fi
+
+export HOME=/root
+export LC_ALL=C
 
 TMP=$(mktemp -d)
 trap 'rm -rf $TMP' EXIT
