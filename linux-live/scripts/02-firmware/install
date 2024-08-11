@@ -11,19 +11,22 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 echo "firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true" | debconf-set-selections
 echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-set-selections
 
-pkg update 
+if [ "$DISTRIBUTION" = "buster" ]; then
+    sed -i '0,/^deb /s/^deb /#deb /' /etc/apt/sources.list.d/minios-linux.list
+fi
+
+pkg update
 
 # install packages
 if [ $DISTRIBUTION = "bullseye" ] && [ $KERNEL_ARCH = "amd64" ] && [ $KERNEL_TYPE = "pve" ]; then
     pkg install \
-        pve-kernel-5.15 
+        pve-kernel-5.15
 else
     if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-        if [ $DESKTOP_ENVIRONMENT = "flux" ] && [ $DISTRIBUTION = "bullseye" ]; then
-            #Slax 11 no longer uses firmware-nonfree
-            install_packages --delete-packages="firmware-linux-nonfree"
-        else
-            install_packages
-        fi
+        install_packages
     fi
+fi
+
+if [ "$DISTRIBUTION" = "buster" ]; then
+    sed -i '0,/^#deb /s/^#deb /deb /' /etc/apt/sources.list.d/minios-linux.list
 fi
