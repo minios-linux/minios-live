@@ -1078,7 +1078,7 @@ function mx_repo() {
             wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
             wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
             wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+            wget https://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.5.0_all.deb
             chroot_run $INSTALL_DIR pkg install /*.deb
             rm $INSTALL_DIR/*.deb
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/mx.list
@@ -1101,7 +1101,7 @@ function antix_repo() {
             wget http://mxrepo.com/mx/repo/pool/main/m/mx-archive-keyring/mx-archive-keyring_2018.2mx17_all.deb
             wget http://mxrepo.com/mx/repo/pool/main/m/mx19-archive-keyring/mx19-archive-keyring_2020.4.29_all.deb
             wget http://mxrepo.com/mx/repo/pool/main/m/mx21-archive-keyring/mx21-archive-keyring_2021.2.19_all.deb
-            wget http://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.3.14_all.deb
+            wget https://mxrepo.com/mx/repo/pool/main/a/antix-archive-keyring/antix-archive-keyring_20019.5.0_all.deb
             chroot_run $INSTALL_DIR pkg install /*.deb
             rm $INSTALL_DIR/*.deb
             cat <<EOF >$INSTALL_DIR/etc/apt/sources.list.d/antix.list
