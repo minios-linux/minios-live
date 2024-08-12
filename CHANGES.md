@@ -213,3 +213,4 @@
 - Updated some scripts involved in system booting to fix the problem with package updates in Puzzle.
 - Updated kernel to 6.1.90.
 - Icon theme elementary-xfce-minios replaced by elementary-minios and updated to 0.19.
+- All modules are zstd compressed in this release.
