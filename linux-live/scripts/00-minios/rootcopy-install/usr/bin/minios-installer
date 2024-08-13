@@ -448,7 +448,7 @@ main_menu() {
                 continue
             fi
 
-            if [[ "${DEV_NAME}" == "nvme"* ]]; then
+            if [[ "${DEV_NAME}" == "nvme"* ]] || [[ "${DEV_NAME}" == "mmcblk"* ]]; then
                 PART_NAME="${DEV_NAME}p1"
                 EFI_PART_NAME="${DEV_NAME}p2"
             else
