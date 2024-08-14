@@ -16,7 +16,7 @@ if [ $DISTRIBUTION = "bookworm" ]; then
         adwaita-icon-theme-antix \
         xlunch-slax \
         systrayicon \
-        gtkdialog-slax \
+        gtkask \
         cbatticon
 else
     pkg install \
@@ -29,8 +29,6 @@ else
         scrot \
         adwaita-icon-theme-antix
 fi
-
-sleep 10
 
 (cd /rootcopy-install && cp --parents -afr * /)
 
