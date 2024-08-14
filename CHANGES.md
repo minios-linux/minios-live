@@ -216,3 +216,4 @@
 - All modules are zstd compressed in this release.
 - Fixed GUI loading in Flux and Minimum.
 - The gtkdialog utility from Slax has been renamed gtkask to avoid conflicts with the original GTKDialog utility.
+- Improved detection of the required kernel for installation.
