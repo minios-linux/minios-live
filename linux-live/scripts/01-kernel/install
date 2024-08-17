@@ -8,20 +8,6 @@ set -u          # treat unset variable as error
 
 pkg update
 
-case "${DISTRIBUTION_ARCH}" in
-"amd64")
-    KERNEL_ARCH="amd64"
-    ;;
-"i386-pae")
-    KERNEL_ARCH="686-pae"
-    ;;
-"i386")
-    KERNEL_ARCH="686"
-    ;;
-"arm64")
-    KERNEL_ARCH="arm64"
-    ;;
-esac
 if [ "${KERNEL_BPO}" = "true" ]; then
     BPO="-t ${DISTRIBUTION}-backports"
     KERNEL_VERSION="6.5"
