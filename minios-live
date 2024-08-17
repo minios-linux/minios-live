@@ -37,7 +37,7 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 create_log_file "$@"
 
-trap 'unmount_dirs "${WORK_DIR}"' EXIT
+trap 'set +u; [ ${WORK_DIR} ] && unmount_dirs "${WORK_DIR}"' EXIT
 
 common_variables
 
