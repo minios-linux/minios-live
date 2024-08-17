@@ -108,10 +108,10 @@ common_variables() {
         LAYOUTDSC="English (US)"
     fi
 
-    if [ "${MULTILINGUAL}" = "true" ]; then
+    if [ "${MULTILINGUAL}" = "true" ] || [ "${KEEP_ALL_LOCALES}" = "true" ]; then
         LANGID=""
     else
-        LANGID="$(echo ${LOCALE} | cut -d_ -f1)"
+        LANGID="-$(echo ${LOCALE} | cut -d_ -f1)"
     fi
 
     if [ "${COMP_TYPE}" = "zstd" ]; then
@@ -1354,9 +1354,9 @@ build_iso() {
     DIR="${WORK_DIR}/image"
 
     if [ "${DESKTOP_ENVIRONMENT}" = "xfce-ultra" ] || [ "${DESKTOP_ENVIRONMENT}" = "xfce-puzzle" ] || [ "${DESKTOP_ENVIRONMENT}" = "xfce-puzzle-base" ]; then
-        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${LANGID}"
+        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}${LANGID}"
     else
-        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}"
+        IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}${LANGID}"
     fi
     if [ "${KERNEL_AUFS}" = "true" ]; then
         IMAGE="${IMAGE}-aufs"
@@ -2563,8 +2563,8 @@ generate_config_files() {
 }
 
 container_run() {
-    if [ ! "$(${container_engine} ps -q -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
-        if [ "$(${container_engine} ps -aq -f status=exited -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}-${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
+    if [ ! "$(${container_engine} ps -q -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
+        if [ "$(${container_engine} ps -aq -f status=exited -f name=mlc-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}${LANGID}${AUFS_SUFFIX}${BPO_SUFFIX}-${KERNEL_TYPE}-${DISTRIBUTION_ARCH}-${COMP_TYPE})" ]; then
             # cleanup
             ${container_engine} rm -f ${CONTAINER_NAME}
         fi
@@ -2712,7 +2712,7 @@ container_build_run() {
     if [ ${MULTILINGUAL} = "true" ]; then
         LANGID=""
     else
-        LANGID="$(echo ${LOCALE} | cut -d_ -f1)-"
+        LANGID="-$(echo ${LOCALE} | cut -d_ -f1)-"
     fi
 
     case $1 in

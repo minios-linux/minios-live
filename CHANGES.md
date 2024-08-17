@@ -10,7 +10,13 @@
   - [v3.3.1](#v331)
   - [v3.3.2](#v332)
   - [v3.3.3](#v333)
-  - [v3.4](#v34)
+  - [v3.3.4](#v334)
+  - [v4.0](#v40)
+    - [General Changes](#general-changes)
+    - [Utility Changes](#utility-changes)
+    - [Edition Changes](#edition-changes)
+    - [System Improvements](#system-improvements)
+    - [Documentation](#documentation)
 
 ## v2.2.1
 - Code optimization, bug fixes.
@@ -207,58 +213,82 @@
 - Updated all packages as of the current date.
 - Mini Commander was added to initrd, you can start it in debug mode with mc command.
 
-## v3.4
-- Новая заставка GRUB
-- Для сборки теперь используется один конфиг.
-- Убраны многие редкоиспользуемые опции из скриптов сборки.
-- Удалена поддержка устаревших дистрибутивов, Kali Linux и Astra Linux.
-- Удалены утилиты minios-modules, minios-configure.
-- Исправлена ошибка, из-за которой не работал автозапуск скриптов при включенной поддержке выполнения скриптов в файле конфигурации.
-- Билбиотека minioslib переработана для исключения ошибок, связанных с переменными. Улучшены некоторые функции.
-- Скрипт запуска minios-startup переработан для исключения ошибок, связанных с переменными.
-- Начато добавление поддержки работы скриптов сборки из системных директорий Linux.
-- Добавлена поддержка сборки новой редакции Novice (пока не будет присутствовать в релизах).
-- Редакция Maximum переименована в Toolbox, чтобы было лучше понятно её предназначение.
-- Удалена редакция Minimum.
-- Из Standard удалёны пакеты Remmina.
-- Удалены и выделены в отдельные пакеты в репозитории все скрипты, обеспечивающие загрузку MiniOS (пакет minios-boot).
-- Удалены и выделены в отдельные пакеты в репозитории все скрипты, обеспечивающие работу с пакетами MiniOS (пакет minios-tools).
-- Выделена в отдельный пакет библиотека MiniOS с общими функциями для утилит (пакет libminioslive).
-- Удалена и выведена в отдельный пакет заставка при первом запуске браузера (пакет minios-welcome).
-- Добавлены страницы man для большинства утилит MiniOS.
-- Улучшена работа сборки базы dpkg при установленном типе системы puzzle, теперь учитываются обновления пакетов в базе.
-- Добавлена утилита minios-configurator для настройки файла конфигурации MiniOS minios.conf.
-- Переработан функционал apt2sb, утилита стала значительно более удобной и мощной.
-- Утилита scr2sb переименована в script2sb для лучшего понимания сути утилиты. Проведены небольшие улучшения.
-- Добавлена утилита chroot2sb, позволяющая создавать модули вводом команд вручную.
-- Удалена утилита upg2sb, так как теперь её функции выполняет теперь apt2sb.
-- Утилита minios-geniso переименована в sb2iso.
-- Утилита minios-bundle удалена, её функции перенесены в sb (sb activate/sb deactivate...).
-- Удалена утилита pxe, так как никто никогда не тестировал её работу.
-- Улучшен MiniOS Installer, исправлен перевод на русский.
-- В редакции Flux исправлены ассоциации файлов, добавлены переводы в .desktop файлы.
-- В редакции Flux добавлен скрипт, который автоматически генерирует меню в зависимости от текущей локали.
-- В редакции Flux добавлен скрипт, который автоматически генерирует переведённые .desktop файлы.
-- Добавлена поддержка сборки образа Flux на базе Ubuntu 22.04 и 24.04.
-- Изменён синтаксис списков пакетов, инструкция в справке к функции install_packages.
-- Добавлены иконки для действий с модулями sb.
-- Тема иконок elementary-xfce обновлена до версии 0.19.
-- Добавлены пункты в меню Thunar для упаковки, извлечения, подключения и отключения модулей sb для локалей en, ru, es, pt_BR, it, fr, de.
-- Добавлены иконки для операций с модулями.
-- Утилита gtkdialog, используемая в Flux переименована в gtkask для исключения конфликтов с оригинальной утилитой gtkdialog.
-- Добавлена заставка из роликов на YouTube в качестве обоев.
-- Добавлена утилита minios-krnpack, которая позволит заменить стандартное ядро MiniOS любым другим, доступным в репозиториях MiniOS и Debian.
-- Основное ядро MiniOS обновлено до 6.1.90.
-- Добавлено более потробное описание процесса сборки системы в README.md.
-- Улучшена страница документации об установке MiniOS.
-- Добавлены предкомпилированные драйверы rtl8188eus, rtl8723cs,rtl8812au, rtl8814au, rtl8821au, rtl8821ce, rtl88x2bu для стандартного ядра MiniOS amd64.
-- Изменён пакет lshw для совместимости с pkexec, добавлены переводы .desktop на языки ru, es, pt, it, fr, de.
-- Добавлен lshw-gtk в Toolbox.
-- Добавлен пакет HDSentinel-GUI в репозиторий и в Toolbox.
-- Добавлен пакет xdg-user-dirs-gtk во все редакции, кроме Minimum, для поддержки отображения пользовательских директорий в меню мест.
-- Добавлена возможность создания ссылок папок пользователей на накопитель, чт позволит хранить данные непосредственно в папках на флешке
-- Для fat32, ntfs, exfat права на накопитель, с которого загружена система, у пользователя теперь полные, необходимости п правах root для проведения операций нет
-- Добавлена поддержка установки на exfat в MiniOS Installer
-- MiniOS Installer переработан, теперь он стал значительно надёжнее и удобнее
-- В MiniOS Installer добавлен консольный интерфейс, он будет автоматически запускаться при запуске из tty.
-- 
+## v3.3.4
+- Restored the ability to build the distribution on the 3.3.x branch, due to a change in the repository structure it was not possible.
+- Updated MiniOS Installer to a version similar to MiniOS 4.0 under development, added support for MMC devices (mmcblk) and exFAT support.
+- Updated some scripts involved in system booting to fix the problem with package updates in Puzzle.
+- Updated kernel to 6.1.90.
+- Icon theme elementary-xfce-minios replaced by elementary-minios and updated to 0.19.
+- All modules are zstd compressed in this release.
+- Fixed GUI loading in Flux and Minimum.
+- The gtkdialog utility from Slax has been renamed gtkask to avoid conflicts with the original GTKDialog utility.
+- Improved detection of the required kernel for installation.
+
+## v4.0
+
+### General Changes
+- **New GRUB Splash Screen:** Updated the visual style of the bootloader.
+- **Updated Desktop Wallpapers:** Desktop wallpapers have been updated. Added the option to use a YouTube video splash screen as wallpaper.
+- **Unified Build Configuration:** All MiniOS editions are now built using a single configuration file.
+- **Build Script Optimization:** Removed rarely used options, simplifying the build process.
+- **Deprecated Distribution Support:** Support for outdated distributions Kali Linux and Astra Linux has been discontinued.
+- **Script and Library Overhaul:**
+  - Removed utilities `minios-modules` and `minios-configure`.
+  - The `minioslib` library has been overhauled to eliminate variable-related errors and improve some functions.
+  - The `minios-startup` script has been revised to fix variable-related errors.
+- **Support for System Directory Scripts:** Begun adding support for running build scripts from system directories in Linux.
+- **Edition Renaming:**
+  - The **Maximum** edition has been renamed to **Toolbox** for clearer purpose indication.
+  - The **Minimum**, **Ultra**, and **Puzzle** editions have been removed.
+
+### Utility Changes
+- **Removal and Reorganization of Utilities:**
+  - Utilities `upg2sb`, `minios-bundle`, and `pxe` have been removed.
+  - Utility `scr2sb` has been renamed to `script2sb` for better clarity of its function.
+  - Utility `minios-geniso` has been renamed to `sb2iso`.
+  - Functions of `minios-bundle` and `upg2sb` have been merged into `sb` and `apt2sb` respectively.
+  - Utility `gtkdialog` used in Flux has been renamed to `gtkask` to avoid conflicts.
+- **New Utilities:**
+  - Added `minios-configurator` for configuring the `minios.conf` configuration file.
+  - The `chroot2sb` utility allows creating modules by manually entering commands.
+  - Added `minios-krnpack` to replace the standard MiniOS kernel with any available kernel from MiniOS and Debian repositories.
+- **MiniOS Installer:**
+  - The MiniOS Installer has been overhauled to be more reliable and user-friendly.
+  - Fixed the Russian translation of the installer.
+  - Added support for installation on exFAT and mmcblk.
+  - Added a console interface for installation from tty.
+  - Added a launch of MiniOS Configurator for basic system setup at the end of the installation.
+- **Others:**
+  - Added man pages for most MiniOS utilities.
+  - The functionality of `apt2sb` has been improved, making it significantly more user-friendly and powerful.
+  - Added icons for actions with sb modules and operations in Thunar menu for locales en, ru, es, pt_BR, it, fr, de.
+  - The icon theme has been renamed to `elementary-minios` and is based on `elementary-xfce`. Updated to version 0.19.
+  - Added `eddy-handler`, a utility for updating the package database before launching Eddy if the database is outdated.
+  - Changed `bashrc` to display a warning in the terminal if the package database is outdated.
+  - Improved timezone detection during network activation.
+  - Added automatic resolution change in VMware, VirtualBox, KVM, Qemu virtual machines to 1280x800.
+
+### Edition Changes
+- **Standard:**
+  - Removed the Remmina packages.
+  - Added `xdg-user-dirs-gtk` for support of displaying user directories in the Places menu.
+- **Toolbox:**
+  - Added `gtkhash`, `czkawka`, `zulucrypt-gui`, `zulumount-gui`, `keepassxc`, `guymager`, `isomaster`, `unetbootin`, `hdsentinel-gui`, `qphotorec`, `zenmap`, `x11vnc`, `veracrypt`, `wxhexeditor`, `uget`, `zulucrypt-cli`, `zulumount-cli`, `reglookup`, `hdsentinel`, `cabextract`, `nmap`, `ncat`, `ndiff`, `hexedit`, `xmount`, `aria2c`, `inxi`, `bonnie++`, `iozone3`, `iperf3`, `stress`, `sysbench`.
+  - SSH is enabled by default.
+  - Added `lshw-gtk` and `HDSentinel-GUI`.
+  - Changed the bottom panel in XFCE.
+  - Added the ability to create links from user folders to storage for FAT32, NTFS, exFAT file systems.
+- **Flux:**
+  - Fixed file associations, added translations to `.desktop` files.
+  - Added a script to automatically generate menus based on the current locale.
+  - Added a script to automatically generate translated `.desktop` files.
+  - Added support for building Flux images based on Ubuntu 22.04 and 24.04.
+
+### System Improvements
+- **Kernel Update:** The main MiniOS kernel has been updated to version 6.1.90.
+- **Drivers:** Added precompiled drivers `rtl8188eus`, `rtl8723cs`, `rtl8812au`, `rtl8814au`, `rtl8821au`, `rtl8821ce`, `rtl88x2bu` for the standard MiniOS kernel amd64.
+- **Storage Support:** Full user rights on FAT32, NTFS, and exFAT file systems now remove the need for root permissions for operations.
+
+### Documentation
+- **README.md:** Added a more detailed description of the system build process.
+- **Installation Documentation:** Improved the MiniOS installation documentation.

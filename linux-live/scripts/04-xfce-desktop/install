@@ -42,20 +42,8 @@ fi
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-if [ "$PACKAGE_VARIANT" != "puzzle" ]; then
-    if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-        if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-            pkg install yad adwaita-icon-theme-fake
-        elif grep -q adwaita-icon-theme-fake $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-            pkg install yad
-        else
-            pkg install yad adwaita-icon-theme-antix
-        fi
-    fi
-
-    if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-        rm -f /usr/share/applications/yad-icon-browser.desktop
-    fi
+if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
+    rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
 if [ "$DISTRIBUTION" = "bionic" ]; then
@@ -72,15 +60,15 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
         install_packages
         ;;
     esac
-    #if grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list && [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "novice" ]; then
-    #case "$DISTRIBUTION" in
-    #bookworm)
-    #pkg install pulseaudio-module-xrdp pipewire pipewire-module-xrdp
-    #;;
-    #jammy | noble | trixie | sid)
-    #    pkg install pipewire pipewire-module-xrdp
+    #if [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "novice" ]; then
+    #  case "$DISTRIBUTION" in
+    #  bookworm)
+    #    pkg -t bookworm-backports install pipewire-audio pipewire-module-xrdp
     #    ;;
-    #esac
+    #  jammy | noble | trixie | sid)
+    #    pkg install pipewire-audio pipewire-module-xrdp
+    #    ;;
+    #  esac
     #fi
 fi
 
