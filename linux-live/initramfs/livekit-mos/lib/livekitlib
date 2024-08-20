@@ -541,7 +541,7 @@ ask_disk() {
             LABEL=$(echo $LINE | awk -F'LABEL="' '{print $2}' | awk -F'"' '{print $1}')
             echo "$PARTITION: SIZE=\"$SIZE\" TYPE=\"$TYPE\" LABEL=\"$LABEL\" "
          done >/tmp/0.txt
-         mv -f /tmp/0.txt /tmp/ask.txt
+         mv -f /tmp/0.txt /tmp/askdisk.txt
          sleep 1
       done) &
       ASKPID=$!
@@ -555,7 +555,7 @@ ask_disk() {
             DIR=""
          fi
       fi
-      DEVICE="$(ncurses-menu -t "Look for /$DIR directory on:" -f /tmp/ask.txt -s 2>&1 >/dev/tty1 </dev/tty1)"
+      DEVICE="$(ncurses-menu -t "Look for /$DIR directory on:" -f /tmp/askdisk.txt -s 2>&1 >/dev/tty1 </dev/tty1)"
       DEVICE="$(echo "$DEVICE" | cut -d : -f 1)"
       if echo "$WHERE" | grep -q "^$COMMAND:"; then
          WHERE="$DEVICE/$(echo "$WHERE" | cut -d ':' -f 2- | tr ':' '/')"
@@ -593,10 +593,6 @@ find_data_try() {
             DEVICE="$(echo "$FROM" | cut -d '/' -f 1-3)"
             FROM="$(echo "$FROM" | cut -d '/' -f 4-)"
          fi
-      elif echo "$FROM" | grep -q '^label:'; then
-         LABEL=$(echo "$FROM" | awk -F":" '{print $2}' | awk -F"/" '{print $1}')
-         DEVICE=$(blkid | grep "LABEL=\"$LABEL\"" | cut -d ':' -f 1 | cut -d ' ' -f 1)
-         FROM="$(echo "$FROM" | cut -d '/' -f 2-)"
       fi
       if [ "$FROM" = "" ]; then
          FROM="$LIVEKITNAME"

@@ -58,5 +58,5 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
 fi
 
 if [ "${KERNEL_AUFS}" = "true" ] && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
-    pkg install realtek-modules
+    pkg install linux-modules
 fi

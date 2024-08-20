@@ -1,249 +1,200 @@
-######### INIT SETTINGS #########
-# !!! Support for changing this variable is no longer supported, as it greatly complicates the code. Future references in the code will be completely removed.
-#
-# [minios]
-LIVEKITNAME="minios"
+#!/bin/bash
 
-# If you require network support in initrd, for example to boot over
-# PXE or to load data using 'from' boot parameter from a http server,
-# you will need network modules included in your initrd.
-# This is disabled by default since most people won't need it.
-# To enable, set to true.
-#
-# [true, false]
-NETWORK="true"
+############################################################
+#                    DISTRIBUTION SETTINGS                 #
+############################################################
 
-# Bundle extension, for example 'sb' for .sb extension
-#
-# [sb]
-BEXT="sb"
-
-##### DISTRIBUTION SETTINGS #####
 # Distribution name
-#
-# if Debian [bookworm]
-# if Ubuntu [jammy, noble]
+# Options: Debian: bookworm | Ubuntu: jammy, noble
 DISTRIBUTION="bookworm"
 
 # Distribution architecture (Debian only)
-#
-# [amd64, i386, i386-pae]
+# Options: amd64, i386, i386-pae
 DISTRIBUTION_ARCH="amd64"
 
 # Desktop environment
-#
-# [core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt, devel]
+# Options: core, flux, xfce, xfce-ultra, xfce-puzzle, xfce-puzzle-base, lxqt, devel
 DESKTOP_ENVIRONMENT="xfce"
 
-# System variant, indicates the used list of packages in modules
-#
-# [minimum, standard, toolbox, ultra, puzzle]
+# System variant (defines the list of packages used in modules)
+# Options: minimum, standard, toolbox, ultra, puzzle
 PACKAGE_VARIANT="standard"
 
 # Compression type
-#
-# [xz, lzo, gz, lz4, zstd]
+# Options: xz, lzo, gz, lz4, zstd
 COMP_TYPE="zstd"
 
-##### KERNEL SETTINGS #####
+
+############################################################
+#                      KERNEL SETTINGS                     #
+############################################################
+
 # Kernel type
-#
-# [none, default, rt, cloud]
+# Options: none, default, rt, cloud
 KERNEL_TYPE="default"
 
-# Linux kernel from backports
-#
-# [true, false]
+# Use Linux kernel from backports
+# Options: true, false
 KERNEL_BPO="false"
 
 # Kernel with AUFS support
-#
-# [true, false]
+# Options: true, false
 KERNEL_AUFS="true"
 
-# If "true", then additional drivers for wireless network adapters are compiled during kernel installation
-#
-# [true, false]
-KERNEL_BUILD_DKMS="false"
+# Compile additional drivers for wireless network adapters during kernel installation
+# Options: true, false
+KERNEL_BUILD_DKMS="true"
 
-# If true, then the names of initrfs.img and vmlinuz will indicate the version of the kernel for which they are intended.
-#
-# [true, false]
+# Indicate the kernel version in the names of initrfs.img and vmlinuz
+# Options: true, false
 NAMED_BOOT_FILES="false"
 
-# If true, then initrfs.img and vmlinuz will be copied to the minios-live/build/[distribution name]/kernel folder when the kernel is installed.
-#
-# [true, false]
+# Copy initrfs.img and vmlinuz to the kernel folder during kernel installation
+# Options: true, false
 EXPORT_KERNEL="true"
 
-# If true, then initrfs.img and vmlinuz will be moved to the minios-live/build/[distribution name]/kernel folder when the kernel is installed.
-#
-# [true, false]
+# Move initrfs.img and vmlinuz to the kernel folder during kernel installation
+# Options: true, false
 MOVE_KERNEL="false"
 
-# If true, a log folder is created in the minios folder on the media, into which the system startup logs are copied.
-#
-# [true, false]
+# Create a log folder on the media for system startup logs
+# Options: true, false
 EXPORT_LOGS="false"
 
-##### LOCALE & TIMEZONE SETTINGS #####
+
+############################################################
+#                 LOCALE & TIMEZONE SETTINGS               #
+############################################################
+
 # System locale
-#
-# [en_US, ru_RU, es_ES, pt_BR]
+# Options: en_US, ru_RU, es_ES, pt_BR
 LOCALE="en_US"
 
-# If true, locales are generated for several languages defined in the LOCALES variable in minioslib
-#
-# [true, false]
+# Generate locales for multiple languages as defined in the LOCALES variable in minioslib
+# Options: true, false
 MULTILINGUAL="false"
 
-# If true, all available locales are kept. If false, only the locales specified in the LOCALES variable of minioslib are kept. 
-#
-# [true, false]
+# Retain all available locales or only those specified in the LOCALES variable of minioslib
+# Options: true, false
 KEEP_ALL_LOCALES="false"
 
 # Timezone setting
-# It is not necessary to change the time zone, the system automatically determines the time zone and sets it to the current location if you have Internet access.
-#
-# [any timezone]
+# The system will automatically detect and set the timezone based on your location if you have Internet access.
+# Format: [any timezone]
 TIMEZONE="Etc/UTC"
 
-##### minios.conf SETTINGS #####
+
+############################################################
+#                    minios.conf SETTINGS                  #
+############################################################
+
 # Username for the system
-#
 USER_NAME="live"
 
 # User password for the system
-#
 USER_PASSWORD="evil"
 
 # Root password for the system
-#
 ROOT_PASSWORD="toor"
 
-# Default target for initrd livekit-mos
-#
+# Default systemd target
+# Options: graphical, multi-user
 DEFAULT_TARGET="graphical"
 
-# Enable services for initrd livekit-mos
-#
+# Enable services (list of services to enable)
 ENABLE_SERVICES=""
 
-# Disable services for initrd livekit-mos
-#
+# Disable services (list of services to disable)
 DISABLE_SERVICES=""
 
 # Enable or disable scripts
-#
-# [true, false]
+# Options: true, false
 SCRIPTS="false"
 
 # Enable or disable autologin
-#
-# [true, false]
+# Options: true, false
 AUTOLOGIN="true"
 
 # File name in the minios folder where the system will look for the SSH public key
-#
-# [any file name]
+# Format: [any file name]
 SSH_KEY="authorized_keys"
 
 # Enable or disable cloud support
-#
-# [true, false]
+# Options: true, false
 CLOUD="false"
 
-# Hide credentials displayed as a hint in the console
-#
-# [true, false]
+# Hide credentials displayed as hints in the console
+# Options: true, false
 HIDE_CREDENTIALS="false"
 
-# Specifies at what point to create and configure the user and their home folder
-# By default, the systemd service performs these actions, but some older distributions hang during the operation and do not create the user.
-#
-# [systemd, initrd]
+# Specify when to create and configure the user and their home folder
+# Options: systemd, initrd
 USER_SETUP="systemd"
 
-# Determines if user directories should be linked to directories on an external media
-# If set to "true", the directories will be linked and a desktop.ini file will be created for each directory to display the correct icons and localization in Windows.
-#
-# [true, false]
+# Link user directories to external media with desktop.ini for proper Windows localization
+# Options: true, false
 LINK_USER_DIRS="false"
 
-##### BUILDER SETTINGS #####
-# If true, creates a second iso with a constant filename
-#
-# [true, false]
+
+############################################################
+#                     BUILDER SETTINGS                     #
+############################################################
+
+# Create a secondary ISO with a constant filename
+# Options: true, false
 BUILD_TEST_ISO="true"
 
-# Removes old iso files for this build type
-#
-# [true, false]
+# Remove old ISO files for this build type
+# Options: true, false
 REMOVE_OLD_ISO="true"
 
 # Debian frontend type
-#
-# [noninteractive, dialog, text]
+# Options: noninteractive, dialog, text
 DEBIAN_FRONTEND_TYPE="noninteractive"
 
 # Union type used to build the system
-#
-# [aufs, overlayfs]
+# Options: aufs, overlayfs
 UNION_BUILD_TYPE="overlayfs"
 
-# Used when assigned to the ISO name when building minios-live
-#
+# Name assigned to the ISO when building minios-live
 SYSTEMNAME="MiniOS"
 
-# Use a pre-made rootfs file during installation. If absent, it is downloaded and packaged. Subsequent builds will unpack the existing rootfs file.
-#
-# [true, false]
+# Use a pre-made rootfs file during installation
+# Options: true, false
 USE_ROOTFS="true"
 
-# If true, skips the installation of packages required for the build
-#
-# [true, false]
+# Skip installation of packages required for the build
+# Options: true, false
 SKIP_SETUP_HOST="false"
 
-# Deletes sources after building
-#
-# [true, false]
+# Remove sources after building
+# Options: true, false
 REMOVE_SOURCES="false"
 
-# If true, removes the dpkg base from the module (necessary so that additional modules do not break the common base if they do not use the cumulative structure of modules and are built relative to a certain level, and not relative to all system modules)
-#
-# [true, false]
+# Remove dpkg base from the module
+# Options: true, false
 REMOVE_DPKG_DB="false"
 
-# If true, only kernel modules are included
-#
-# [true, false]
+# Include only kernel modules
+# Options: true, false
 KERNEL_MODULES_ONLY="true"
 
-# If true, removes large icons from the build
-#
-# [true, false]
+# Remove large icons from the build
+# Options: true, false
 REMOVE_LARGE_ICONS="true"
 
-# If true, allows setting the maximum level at which modules will be built when building modules from within the system
-# For example, level 4 is a build relative to modules 01-core, 01-firmware, 02-xorg, 03-desktop, 04-apps. If the module is built like this, it will not conflict with any module built at level 4 if all modules 01-04 are present in the system.
-#
-# [true, false]
+# Set the maximum level for building modules
+# Options: true, false
 FILTER_MODULES="false"
 
-# Modules filter level, see above
-#
-# [0, 1, 2, 3, 4...]
+# Modules filter level
+# Format: [0, 1, 2, 3, 4...]
 FILTER_LEVEL="3"
 
-# If true, builds from snapshot
-#
-# [true, false]
+# Build from snapshot
+# Options: true, false
 BUILD_FROM_SNAPSHOT="false"
 
 # Snapshot date for the build
-# For example, the latest date with an available Debian 9 repository is as follows
-#
-# [snapshot date]
+# Format: YYYYMMDDTHHMMSSZ
 SNAPSHOT_DATE="20220630T090257Z"
-#SNAPSHOT_DATE="20220223T214737Z"

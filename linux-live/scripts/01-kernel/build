@@ -75,34 +75,36 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v
         pkg install "${BPO}" zfs-dkms
     fi
-    : 'if [ "${DISTRIBUTION}" = "bookworm" ]; then
-        DEBIAN_FRONTEND=noninteractive
-        pkg install \
-            realtek-rtl8188eus-dkms \
-            realtek-rtl8814au-dkms \
-            realtek-rtl88xxau-dkms \
-            rtl8821cu-dkms
-        #source_install "https://github.com/cilynx/rtl88x2bu.git"
-    elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" != "true" ]; then
-        pkg install \
-            realtek-rtl88xxau-dkms \
-            realtek-rtl8814au-dkms \
-            realtek-rtl8188eus \
-            realtek-rtl8723cs-dkms
-    elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" = "true" ]; then
-        pkg install \
-            realtek-rtl88xxau-dkms \
-            realtek-rtl8814au-dkms \
-            realtek-rtl8188eus \
-            realtek-rtl8723cs-dkms
-    else
-        DEBIAN_FRONTEND=noninteractive
-        pkg install \
-            realtek-rtl8188eus-dkms \
-            realtek-rtl8723cs-dkms \
-            realtek-rtl8814au-dkms \
-            realtek-rtl88xxau-dkms \
-            rtl8821cu-dkms
-        source_install "https://github.com/cilynx/rtl88x2bu.git"
-    fi'
+    if [ "${KERNEL_AUFS}" = "false" ]; then
+        if [ "${DISTRIBUTION}" = "bookworm" ]; then
+            DEBIAN_FRONTEND=noninteractive
+            pkg install \
+                realtek-rtl8188eus-dkms \
+                realtek-rtl8814au-dkms \
+                realtek-rtl88xxau-dkms \
+                rtl8821cu-dkms
+            #source_install "https://github.com/cilynx/rtl88x2bu.git"
+        elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" != "true" ]; then
+            pkg install \
+                realtek-rtl88xxau-dkms \
+                realtek-rtl8814au-dkms \
+                realtek-rtl8188eus \
+                realtek-rtl8723cs-dkms
+        elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" = "true" ]; then
+            pkg install \
+                realtek-rtl88xxau-dkms \
+                realtek-rtl8814au-dkms \
+                realtek-rtl8188eus \
+                realtek-rtl8723cs-dkms
+        else
+            DEBIAN_FRONTEND=noninteractive
+            pkg install \
+                realtek-rtl8188eus-dkms \
+                realtek-rtl8723cs-dkms \
+                realtek-rtl8814au-dkms \
+                realtek-rtl88xxau-dkms \
+                rtl8821cu-dkms
+            source_install "https://github.com/cilynx/rtl88x2bu.git"
+        fi
+    fi
 fi
