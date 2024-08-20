@@ -255,7 +255,7 @@
 - **MiniOS Installer:**
   - The MiniOS Installer has been overhauled to be more reliable and user-friendly.
   - Fixed the Russian translation of the installer.
-  - Added support for installation on exFAT and mmcblk.
+  - Added support for installation on mmcblk.
   - Added a console interface for installation from tty.
   - Added a launch of MiniOS Configurator for basic system setup at the end of the installation.
 - **Others:**
