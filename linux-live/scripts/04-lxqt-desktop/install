@@ -15,10 +15,7 @@ pkg update
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-# install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT.list"
-fi
+install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT.list"
 
 if [ $LOCALE != "en_US" ]; then
     install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"

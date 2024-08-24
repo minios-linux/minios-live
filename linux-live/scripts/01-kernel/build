@@ -10,7 +10,7 @@ set -u          # treat unset variable as error
 install_build_packages() {
     local HEADERS_PACKAGE="${1}"
     pkg update
-    pkg install "${HEADERS_PACKAGE}" gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git
+    pkg install ${HEADERS_PACKAGE} gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git
 }
 
 source_dkms_install() {
@@ -54,7 +54,7 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     fi
     case "${DISTRIBUTION_TYPE}" in
     "debian")
-        if [ "${KERNEL_AUFS}" = "true" ]; then
+        if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
             install_build_packages "linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
         else
             if [ "${KERNEL_TYPE}" = "default" ]; then
@@ -70,6 +70,9 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     esac
 
     pkg install "${BPO}" broadcom-sta-dkms
+    if [ "${DISTRIBUTION_TYPE}" = "debian"] && [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then
+        pkg install "${BPO}" aufs-dkms
+    fi
 
     if ([ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ] || [ "${PACKAGE_VARIANT}" = "puzzle" ]) && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v

@@ -19,7 +19,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
+    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
 
     #
     CONTAINER_TYPE="0"
@@ -75,6 +75,22 @@ common_variables() {
         ;;
     bionic | focal | jammy | noble)
         DISTRIBUTION_TYPE="ubuntu"
+        ;;
+    *)
+        error "Unknown distribution: ${DISTRIBUTION}"
+        exit 1
+        ;;
+    esac
+
+    case "${DISTRIBUTION}" in
+    stretch | buster | orel | bionic)
+        DISTRIBUTION_PHASE="legacy"
+        ;;
+    bullseye | bookworm | focal | jammy | noble)
+        DISTRIBUTION_PHASE="current"
+        ;;
+    trixie | kali-rolling | sid)
+        DISTRIBUTION_PHASE="future"
         ;;
     *)
         error "Unknown distribution: ${DISTRIBUTION}"
@@ -761,6 +777,7 @@ DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
 DISTRIBUTION="${DISTRIBUTION}"
 DISTRIBUTION_ARCH="${DISTRIBUTION_ARCH}"
 DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
+DISTRIBUTION_PHASE="${DISTRIBUTION_PHASE}"
 KERNEL="${KERNEL}"
 KERNEL_ARCH="${KERNEL_ARCH}"
 KERNEL_AUFS="${KERNEL_AUFS}"
@@ -943,7 +960,7 @@ extract_tarball() {
 build_bootstrap() {
     current_process
 
-    local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https --include=ca-certificates"
+    local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https --include=ca-certificates --include=wget"
 
     if [ "${CONTAINER_TYPE}" = "1" ]; then
         if [ ! -f /.minios-live ]; then
@@ -1678,6 +1695,10 @@ Acquire::Languages { "none"; }
 EOF
     fi
 
+    if [ $DISTRIBUTION = "buster" ]; then
+        wget --no-check-certificate https://deb.freexian.com/extended-lts/archive-key.gpg -O elts-archive-key.gpg && mv elts-archive-key.gpg /etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg
+    fi
+
     if [ -f "${SCRIPT_DIR}/package_lists/prerequisites.list" ]; then
         pkg update
         echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}"
@@ -1743,130 +1764,100 @@ chroot_finish_up() {
     rm -f /var/lib/dpkg/*-old 2>/dev/null
 }
 
-# Checks if the package is available in the repository.
-check_package() {
-    local PACKAGE_NAME="$1"
-    local PACKAGE_VERSION="$2"
-
-    # Check if the package is 'qemu-kvm'
-    if [ "${PACKAGE_NAME}" = "qemu-kvm" ]; then
-        # Check the output for specific keywords
-        if echo $(LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1) | grep -q 'purely virtual'; then
-            return 0
-        else
-            return 1
-        fi
-    fi
-
-    if [ -z "${PACKAGE_VERSION}" ]; then
-        # If no version is specified, check only if package is available
-        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
-            return 1
-        else
-            return 0
-        fi
-    else
-        # If version is specified, check if that version is available
-        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
-            return 0
-        else
-            warning "Version ${CYAN}${PACKAGE_VERSION}${ENDCOLOR} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not in the repository, fall back to the available version."
-            if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
-                return 1
-            else
-                return 0 # Package (any version) is still available, return 0
-            fi
-        fi
-    fi
-}
-
-# Function is used to install packages on a system using the
-# package list.
-#
-# Usage:
-#   install_packages [options]
-#
-# Options:
-#   -l, --package-list FILE
-#     Specify the path to the package list file. If not specified, the default
-#     value of $SCRIPT_DIR/$PACKAGE_VARIANT.list will be used.
-#
-#   -s, --sed-script SCRIPT
-#     Specify a sed script to modify the package list. This option is provided
-#     for backward compatibility and is not recommended for new code. Instead,
-#     use the --delete-packages and --replace-packages options to remove or
-#     replace packages in the package list.
-#
-#   -d, --delete-packages PACKAGES
-#     Specify packages to delete from the package list, separated by spaces.
-#
-#   -r, --replace-packages PACKAGES
-#     Specify packages to replace in the package list, in the form
-#     old_package=new_package, separated by spaces.
-#
-#   -a, --add-packages PACKAGES
-#     Specify additional packages to install, separated by spaces.
-#
-#   -t, --target-release RELEASE
-#     Specify the target release for package installation. If provided, this
-#     value will be passed to the `pkg install` command using the `-t` option.
+# Function: install_packages
+# Description: Installs packages with various conditions and parameters.
+# Parameters:
+#   -s, --sed-script: Sed script to apply to the package list.
+#   -a, --add-packages: List of packages to add.
+#   -d, --delete-packages: List of packages to delete.
+#   -r, --replace-packages: List of packages to replace (format: oldpkg:newpkg).
+#   -l, --package-list: Path to the package list file.
+#   -t, --target-release: Target release version.
+#   --simulation: Enable simulation mode (no actual installation).
 #
 # Package List Format:
-# The packages in the list should be stated as strings containing the package name and additional
-# parameters separated by the '|' character. Each parameter can contain the package name, an action
-# ('+' for installation or '-' for skipping), and compatible distributions (like `package1 |
-# package2 + distro1 distro2 | package3 - distro1 distro2`).
-# This allows the script to handle each package individually. The script will check for the package's
-# presence in the repository. If the package is found, it will be added to the install list.
-# In case the '-' action character is given, the package will be ignored. Compatibility with
-# distribution for each package is checked before the action is taken.
+#   - Each package on a separate line.
+#   - Lines starting with '#' are comments.
+#   - Special symbols:
+#     ! : Mandatory package.
+#     || : Logical "OR".
+#     && : Logical "AND".
+#     + : Positive filter.
+#     - : Negative filter.
 #
-# Any packages that are not supported for a specific distribution, or packages
-# that aren't found in the repository, will be flagged as warnings.
+# Example Usage:
+#   install_packages -a vim curl -d nano emacs -r oldpkg1:newpkg1 -l /path/to/package.list -t bionic --simulation
 #
+# Example Package List:
+#   # Core packages
+#   vim
+#   curl
+#   # Development packages
+#   gcc
+#   make
+#   # Mandatory package
+#   !qemu-kvm
+#   # Packages with logical "OR"
+#   vim || nano
+#   # Packages with logical "AND"
+#   gcc && make
+#   # Packages with positive filter
+#   curl +d=bionic
+#   # Packages with negative filter
+#   emacs -d=bionic
 install_packages() {
     toggle_shell_options u
     local SED_SCRIPT=""
     local ADD_PACKAGES=()
-    local DELETE_PACKAGES=""
-    local REPLACE_PACKAGES=""
+    local DELETE_PACKAGES=()
+    local REPLACE_PACKAGES=()
     local PACKAGE_LIST=""
     local TARGET_RELEASE=""
+    local PACKAGE_ARRAY=()
+    local SIMULATION_MODE=false
 
     console_colors
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
         -s | --sed-script)
-            while [[ $# -gt 1 && $2 != -* ]]; do
-                SED_SCRIPT+="$2"
+            shift
+            while [[ $# -gt 0 && $1 != -* ]]; do
+                SED_SCRIPT+="$1 "
                 shift
             done
             ;;
         -a | --add-packages)
-            while [[ $# -gt 1 && $2 != -* ]]; do
-                ADD_PACKAGES+=($2)
+            shift
+            while [[ $# -gt 0 && $1 != -* ]]; do
+                ADD_PACKAGES+=("$1")
                 shift
             done
             ;;
         -d | --delete-packages)
-            while [[ $# -gt 1 && $2 != -* ]]; do
-                DELETE_PACKAGES+=($2)
+            shift
+            while [[ $# -gt 0 && $1 != -* ]]; do
+                DELETE_PACKAGES+=("$1")
                 shift
             done
             ;;
         -r | --replace-packages)
-            while [[ $# -gt 1 && $2 != -* ]]; do
-                REPLACE_PACKAGES+=($2)
+            shift
+            while [[ $# -gt 0 && $1 != -* ]]; do
+                REPLACE_PACKAGES+=("$1")
                 shift
             done
             ;;
         -l | --package-list)
             PACKAGE_LIST="$2"
-            shift
+            shift 2
             ;;
         -t | --target-release)
             TARGET_RELEASE="$2"
+            shift 2
+            ;;
+        --simulation)
+            SIMULATION_MODE=true
             shift
             ;;
         *)
@@ -1874,8 +1865,17 @@ install_packages() {
             exit 1
             ;;
         esac
-        shift
     done
+
+    if [[ "$SIMULATION_MODE" == true ]]; then
+        information "Simulation mode."
+        echo "DISTRIBUTION=$DISTRIBUTION"
+        echo "DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH"
+        echo "DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE"
+        echo "DISTRIBUTION_PHASE=$DISTRIBUTION_PHASE"
+        echo "DESKTOP_ENVIRONMENT=$DESKTOP_ENVIRONMENT"
+        echo "PACKAGE_VARIANT=$PACKAGE_VARIANT"
+    fi
 
     if [[ -z "${PACKAGE_LIST}" ]]; then
         if [ -f "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list" ]; then
@@ -1888,139 +1888,217 @@ install_packages() {
         fi
     fi
 
-    # Build sed script for removing and replacing packages.
-    for PKG in ${DELETE_PACKAGES}; do
+    for PKG in "${DELETE_PACKAGES[@]}"; do
         SED_SCRIPT+="/${PKG}/d;"
     done
 
-    for PKG in ${REPLACE_PACKAGES}; do
-        OLD_PKG="${PKG%%=*}"
-        NEW_PKG="${PKG#*=}"
+    for PKG in "${REPLACE_PACKAGES[@]}"; do
+        OLD_PKG="${PKG%%:*}"
+        NEW_PKG="${PKG#*:}"
         SED_SCRIPT+="s#${OLD_PKG}#${NEW_PKG}#g;"
     done
 
     while IFS= read -r LINE; do
-        # Remove everything after the # sign (if present)
         LINE=${LINE%%#*}
-        # Only add the line to the array if it's not empty
-        if [[ ! -z "${LINE// /}" ]]; then
+        if [[ -n "${LINE// /}" ]]; then
             LINE=$(echo "${LINE}" | sed "${SED_SCRIPT}")
-            if [[ ! -z "${LINE// /}" ]]; then
+            if [[ -n "${LINE// /}" ]]; then
                 PACKAGE_ARRAY+=("${LINE}")
             fi
         fi
     done < <(grep -vE '^\s*#' "${PACKAGE_LIST}")
 
-    PACKAGE_ARRAY=("${PACKAGE_ARRAY[@]}" "${ADD_PACKAGES[@]}")
+    PACKAGE_ARRAY+=("${ADD_PACKAGES[@]}")
 
-    # Checking for the existence of /var/cache/apt/pkgcache.bin
     if [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
-        # If the file doesn't exist, updating the package list
         information "pkgcache.bin cache file missing. Running update of package list..."
-        pkg update
+        [[ "$SIMULATION_MODE" != true ]] && pkg update
     else
         information "pkgcache.bin cache file detected. Update of package list is not required."
     fi
 
-    # Check each package for existence in the repository
-    for PACKAGE in "${PACKAGE_ARRAY[@]}"; do
-        IFS='|' read -a SPLIT_PACKAGE <<<"${PACKAGE}"
-
-        # Search for an available package in EACH_PKG
-        for EACH_PKG in "${SPLIT_PACKAGE[@]}"; do
-            # Parse package name, action(+/-), and distributions
-            IFS=' ' read -ra PKG_ACTION_DISTS <<<"${EACH_PKG}"
-            PACKAGE_NAME="${PKG_ACTION_DISTS[0]}"
-            # Check if the package name ends with '!'
-            MANDATORY=false
-            if [[ ${PACKAGE_NAME: -1} == "!" ]]; then
-                PACKAGE_NAME="${PACKAGE_NAME%?}" # Remove '!' from the package name
-                MANDATORY=true
-            fi
-            PACKAGE_VERSION=""
-            if [[ ${PACKAGE} == *"="* ]]; then
-                PACKAGE_VERSION="${PACKAGE_NAME#*=}"
-            fi
-            PACKAGE_NAME="${PACKAGE_NAME%%=*}"
-
-            # Default action if not provided, process as + (allow action)
-            ACTION="+"
-            DISTRIBUTIONS=("all") # all distributions are allowed by default
-
-            if [[ "${PKG_ACTION_DISTS[1]}" == "+" ]] || [[ "${PKG_ACTION_DISTS[1]}" == "-" ]]; then
-                ACTION="${PKG_ACTION_DISTS[1]}"
-                if [[ -n "${PKG_ACTION_DISTS[2]}" ]]; then
-                    DISTRIBUTIONS=("${PKG_ACTION_DISTS[@]:2}")
-                fi
-            elif [[ -n "${PKG_ACTION_DISTS[1]}" ]]; then
-                DISTRIBUTIONS=("${PKG_ACTION_DISTS[@]:1}")
-            fi
-
-            handle_package() {
-                if check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}"; then
-                    information "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} has been found in the repository and will be installed for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
-                    if [ -n "${PACKAGE_VERSION}" ]; then
-                        PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}=${PACKAGE_VERSION}")
-                        PACKAGES_TO_HOLD+=("${PACKAGE_NAME}")
-                    else
-                        PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}")
-                    fi
-                    return 0
-                else
-                    if ${MANDATORY}; then
-                        error "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not found in repository or is not supported for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
-                        exit 1
-                    else
-                        warning "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not found in repository or is not supported for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
-                        sleep 0.5
-                        return 1
-                    fi
-                fi
-            }
-
-            # Initiate the handling of distribution-related actions
-            case "${ACTION}" in
-            "+")
-                if [[ " ${DISTRIBUTIONS[@]} " =~ " ${DISTRIBUTION} " ]] || [[ " ${DISTRIBUTIONS[@]} " =~ " all " ]]; then
-                    if handle_package; then
-                        break
-                    fi
-                else
-                    warning "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} will not be installed for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
-                    sleep 0.5
-                fi
-                ;;
-            "-")
-                if [[ " ${DISTRIBUTIONS[@]} " =~ " ${DISTRIBUTION} " ]]; then
-                    if ${MANDATORY}; then
-                        error "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} cannot be skipped for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
-                        exit 1
-                    else
-                        warning "Package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} will not be installed for ${CYAN}${DISTRIBUTION}${ENDCOLOR}."
-                        sleep 0.5
-                        continue 2
-                    fi
-                else
-                    if handle_package; then
-                        break
-                    fi
-                fi
-                ;;
-            esac
-        done
+    PACKAGES_TO_INSTALL=()
+    for LINE in "${PACKAGE_ARRAY[@]}"; do
+        process_package_conditions "${LINE}"
     done
 
-    pkg install ${TARGET_RELEASE:+-t $TARGET_RELEASE} "${PACKAGES_TO_INSTALL[@]}"
-
-    if [ ${#PACKAGES_TO_HOLD[@]} -ne 0 ]; then
-        information "Holding package versions..."
-        for PACKAGE in "${PACKAGES_TO_HOLD[@]}"; do
-            information "Holding ${PACKAGE}..."
-            sudo apt-mark hold "${PACKAGE}"
-        done
+    if [[ "$SIMULATION_MODE" == true ]]; then
+        information "Simulation mode is ON. No packages will be installed. Exiting..."
+        exit 1
+    else
+        pkg install "${PACKAGES_TO_INSTALL[@]}"
     fi
 
     toggle_shell_options u
+}
+
+process_package_conditions() {
+    local PACKAGE_CONDITIONS="$1"
+    local MANDATORY=false
+
+    if [[ ${PACKAGE_CONDITIONS:0:1} == "!" ]]; then
+        PACKAGE_CONDITIONS="${PACKAGE_CONDITIONS:1}"
+        MANDATORY=true
+    fi
+
+    local ALTERNATIVES
+    if [[ "$PACKAGE_CONDITIONS" == *"||"* ]]; then
+        IFS='||' read -r -a ALTERNATIVES <<<"$PACKAGE_CONDITIONS"
+    else
+        ALTERNATIVES=("$PACKAGE_CONDITIONS")
+    fi
+    for ALTERNATIVE in "${ALTERNATIVES[@]}"; do
+        local ALTERNATIVE=$(echo "$ALTERNATIVE" | xargs)
+        local CONDITIONS
+        if [[ "$ALTERNATIVE" == *"&&"* ]]; then
+            toggle_shell_options e
+            IFS=$'\n' read -d '' -r -a CONDITIONS < <(echo "$ALTERNATIVE" | awk -F '&&' '{for(i=1;i<=NF;i++) print $i}')
+            toggle_shell_options e
+        else
+            CONDITIONS=("$ALTERNATIVE")
+        fi
+        local ALL_CONDITIONS_MET=true
+        for CONDITION in "${CONDITIONS[@]}"; do
+            local CONDITION=$(echo "$CONDITION" | xargs)
+            if ! process_condition "$CONDITION" $MANDATORY; then
+                ALL_CONDITIONS_MET=false
+                break
+            fi
+        done
+
+        if $ALL_CONDITIONS_MET; then
+            return 0
+        fi
+    done
+
+    if $MANDATORY; then
+        exit 1
+    fi
+
+    #return 1
+}
+
+process_condition() {
+    local CONDITION="$1"
+    local MANDATORY=$2
+    local PACKAGE_NAME
+    local PACKAGE_VERSION
+    local INCLUDE=true
+    local FILTER_STRING=""
+    local FILTER
+
+    IFS=' ' read -r PACKAGE_PART CONDITION_STRING <<<"$CONDITION"
+    IFS='=' read -r PACKAGE_NAME PACKAGE_VERSION <<<"$PACKAGE_PART"
+
+    if [[ -z "$PACKAGE_NAME" ]]; then
+        warning "Invalid package name in condition: $CONDITION"
+        return 1
+    fi
+
+    IFS=' ' read -r -a FILTERS <<<"$CONDITION_STRING"
+
+    for FILTER in "${FILTERS[@]}"; do
+        case "$FILTER" in
+        +*)
+            FILTER=${FILTER#+}
+            if ! check_filter "$FILTER"; then
+                INCLUDE=false
+                FILTER_STRING+="${RED}[+ ${FILTER}]: Failed${ENDCOLOR}; "
+            else
+                FILTER_STRING+="${GREEN}[+ ${FILTER}]: Passed${ENDCOLOR}; "
+            fi
+            ;;
+        -*)
+            FILTER=${FILTER#-}
+            if check_filter "$FILTER"; then
+                INCLUDE=false
+                FILTER_STRING+="${RED}[- ${FILTER}]: Failed${ENDCOLOR}; "
+            else
+                FILTER_STRING+="${GREEN}[- ${FILTER}]: Passed${ENDCOLOR}; "
+            fi
+            ;;
+        esac
+    done
+
+    if $INCLUDE && check_package "$PACKAGE_NAME" "$PACKAGE_VERSION"; then
+        if [[ -n "$FILTER_STRING" ]]; then
+            information "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} will be installed. Filters: ${FILTER_STRING%??}"
+        else
+            information "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} will be installed."
+        fi
+        PACKAGES_TO_INSTALL+=("$PACKAGE_NAME")
+        return 0
+    else
+        if [[ -n "$FILTER_STRING" ]]; then
+            warning "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} will not be installed. Filters: ${FILTER_STRING%??}"
+        else
+            $MANDATORY && error "Mandatory package ${CYAN}$PACKAGE_NAME${ENDCOLOR} is not found in the repository. Installation aborted." || warning "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} is not found in the repository and will not be installed."
+        fi
+        return 1
+    fi
+}
+
+check_package() {
+    local PACKAGE_NAME="$1"
+    local PACKAGE_VERSION="$2"
+
+    if $SIMULATION_MODE; then
+        return 0
+    fi
+
+    if [ "${PACKAGE_NAME}" = "qemu-kvm" ]; then
+        if echo $(LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1) | grep -q 'purely virtual'; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+
+    if [ -z "${PACKAGE_VERSION}" ]; then
+        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
+            return 1
+        else
+            return 0
+        fi
+    else
+        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
+            return 0
+        else
+            warning "Version ${CYAN}${PACKAGE_VERSION}${ENDCOLOR} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not in the repository, fall back to the available version."
+            if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
+                return 1
+            else
+                return 0
+            fi
+        fi
+    fi
+}
+
+check_filter() {
+    local FILTER="$1"
+
+    case "$FILTER" in
+    d=*)
+        [[ "${FILTER#d=}" == "$DISTRIBUTION" ]] && return 0
+        ;;
+    da=*)
+        [[ "${FILTER#da=}" == "$DISTRIBUTION_ARCH" ]] && return 0
+        ;;
+    dt=*)
+        [[ "${FILTER#dt=}" == "$DISTRIBUTION_TYPE" ]] && return 0
+        ;;
+    dp=*)
+        [[ "${FILTER#dp=}" == "$DISTRIBUTION_PHASE" ]] && return 0
+        ;;
+    de=*)
+        [[ "${FILTER#de=}" == "$DESKTOP_ENVIRONMENT" ]] && return 0
+        ;;
+    pv=*)
+        [[ "${FILTER#pv=}" == "$PACKAGE_VARIANT" ]] && return 0
+        ;;
+    esac
+
+    return 1
 }
 
 # This function checks for mounted filesystems in chroot and unmounts them.
@@ -2415,7 +2493,7 @@ build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                 fi
-                chroot_run "${MODULE_MERGED_DIR}" time mksquashfs /squashfs-root "/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                time mksquashfs "${MODULE_MERGED_DIR}/squashfs-root" $MODULE_MERGED_DIR/${MODULE}.${BEXT} -comp ${COMP_TYPE} ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
                 rm -f "${MODULE_UPPER_DIR}/minios-build.conf"
             fi
