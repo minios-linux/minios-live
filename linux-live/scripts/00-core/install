@@ -66,7 +66,7 @@ if ! dpkg -s gpg &>/dev/null; then
     pkg install gpg
 fi
 
-curl https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
+curl -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
 >/etc/apt/sources.list.d/minios-linux.list
 if [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
     echo "deb https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list

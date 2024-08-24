@@ -54,7 +54,7 @@ fi
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
     case "$DISTRIBUTION" in
     jammy | noble)
-        install_packages --replace-packages "policykit-1=policykit-1-gnome"
+        install_packages --replace-packages "policykit-1:policykit-1-gnome"
         ;;
     *)
         install_packages
@@ -185,7 +185,11 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
 fi
 
 if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-    echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    if [ $DISTRIBUTION_PHASE = "legacy" ]; then
+        echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    else
+        echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
+    fi
     cat <<EOF >>/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
 recent=
 button-icon=/usr/share/pixmaps/MiniOS-white.svg
@@ -383,7 +387,11 @@ EOF
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
-    sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
+    if [ $DISTRIBUTION_PHASE = "legacy" ]; then
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
+    else
+        sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/xfce4-web-browser.desktop
+    fi
     sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
 fi
 
