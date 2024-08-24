@@ -562,7 +562,7 @@ determine_command_range() {
 }
 
 # Check internet connectivity
-check_internet() {
+check_internet_connection() {
     if command -v wget >/dev/null; then
         wget -q --spider https://google.com
     elif command -v curl >/dev/null; then
