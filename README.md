@@ -25,18 +25,19 @@ For the necessary information on how to use MiniOS, visit the [official Wiki](ht
 - **Customization**: How to personalize MiniOS.
 - **Modules**: Information on creating and using modules.
 
-## 🛠️ Build Options
+## 🏗️ Building MiniOS
+
+### Build Options
 
 Using `minios-live`, you can build the following configurations:
 
+- **Debian 10, Debian 12, Debian Unstable, and Ubuntu 22.04 with Xfce4 environment**.
 - **Debian 12 with Fluxbox environment** (analogous to [Slax](https://www.slax.org/)).
-- **Debian 12, Debian Unstable, and Ubuntu 22.04 with Xfce4 environment**.
-
-## 🏗️ Building MiniOS
+- **Debian 12 with LXQT environment**.
 
 ### Prerequisites
 
-- It is advisable to use Debian 12 or Ubuntu 22.04 for building.
+- It is advisable to use the latest version of Debian or Ubuntu for building.
 - ⚠️ **WARNING**: Never run scripts from the `linux-live` folder directly. It will break your system.
 
 ### Build Commands
