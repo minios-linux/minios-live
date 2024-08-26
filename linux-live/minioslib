@@ -2552,11 +2552,7 @@ build_modules() {
             # run external actions
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-                    if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
-                        cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-ext-${COMP_TYPE}.${BEXT}"
-                    else
-                        cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
-                    fi
+                    cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
                 else
                     cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
                 fi
@@ -2576,11 +2572,7 @@ build_modules() {
                 if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" ]; then
                     if [ "$(ls -A "${MODULE_UPPER_DIR}" 2>/dev/null)" != "" ]; then
                         if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-                            if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
-                                FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-ext-${COMP_TYPE}.${BEXT}"
-                            else
-                                FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
-                            fi
+                            FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
                         else
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
                         fi
