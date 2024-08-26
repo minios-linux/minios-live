@@ -41,7 +41,7 @@ check_root_permissions() {
 find_disks() {
     DISKS=$(lsblk -Jo NAME,SIZE -n -d -I 3,8,179,259,252 | jq -r '.blockdevices[] | .name + "(" + .size + ")"')
     DISKS="$(echo ${DISKS} | tr ' ' '!')"
-    FILESYSTEMS="ext4!ext2!btrfs!fat32!ntfs!exfat"
+    FILESYSTEMS="ext4!ext2!btrfs!fat32!ntfs"
 }
 
 # Get disk size in MiBs
@@ -274,6 +274,9 @@ setup_bootloader() {
             echo w
         ) | fdisk "${DEV}" >/dev/null 2>&1
     fi
+    if [ -f ./extlinux.exe ]; then
+        rm -f ./extlinux.exe
+    fi
     cd "${CWD}"
 }
 
@@ -398,7 +401,7 @@ install_minios() {
         setup_bootloader || error_dialog "$(gettext 'An error occurred during the installation of MiniOS on disk.')"
     fi
     echo "98"
-    if command -v yad &>/dev/null || [[ -n "${DISPLAY}" ]]; then
+    if command -v yad &>/dev/null && command -v minios-configurator &>/dev/null && [[ -n "${DISPLAY}" ]]; then
         if [ -f "${DESTINATION}/minios/minios.conf" ]; then
             minios-configurator ${DESTINATION}/minios/minios.conf
         fi

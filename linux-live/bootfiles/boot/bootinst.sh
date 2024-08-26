@@ -57,6 +57,8 @@ cp -r "EFI" "$BOOT/../../"
 echo "Boot installation finished."
 
 # Remove temporary file
-rm -f ./extlinux.exe
+if [ -f ./extlinux.exe ]; then
+   rm -f ./extlinux.exe
+fi
 
 cd "$CWD"
