@@ -9,13 +9,25 @@ cd "$BOOT"
 
 # find out device and mountpoint
 PART="$(df . | tail -n 1 | tr -s " " | cut -d " " -f 1)"
-DEV="$(echo "$PART" | sed -r "s:[0-9]+\$::" | sed -r "s:([0-9])[a-z]+\$:\\1:i")"   #"
+DEV="$(echo "$PART" | sed -r 's:[0-9]+\$::' | sed -r 's:([0-9])[a-z]+\$:\\1:i')"
 
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then ARCH=64; else ARCH=32; fi
 EXTLINUX=extlinux.x$ARCH
 
-./"$EXTLINUX" --install "$BOOT"
+# Check if EXTLINUX is executable, if not, make it executable
+if [ ! -x "./$EXTLINUX" ]; then
+   mount -o remount,exec "$DEV" >/dev/null 2>&1
+   chmod a+x "./$EXTLINUX" >/dev/null 2>&1
+fi
+
+# If still not executable, copy to extlinux.exe
+if [ ! -x "./$EXTLINUX" ]; then
+   cp -f "./$EXTLINUX" ./extlinux.exe >/dev/null 2>&1
+   EXTLINUX=extlinux.exe
+fi
+
+./"$EXTLINUX" --install "$BOOT" >/dev/null 2>&1
 
 if [ $? -ne 0 ]; then
    echo "Error installing boot loader."
@@ -24,16 +36,15 @@ if [ $? -ne 0 ]; then
    exit 1
 fi
 
-
 if [ "$DEV" != "$PART" ]; then
    # Setup MBR on the first block
    dd bs=440 count=1 conv=notrunc if="$BOOT/mbr.bin" of="$DEV" 2>/dev/null
 
    # Toggle a bootable flag
-   PART="$(echo "$PART" | sed -r "s:.*[^0-9]::")"
+   PART="$(echo "$PART" | sed -r 's:.*[^0-9]::')"
    (
-      fdisk -l "$DEV" | fgrep "*" | fgrep "$DEV" | cut -d " " -f 1 \
-        | sed -r "s:.*[^0-9]::" | xargs -I '{}' echo -ne "a\n{}\n"
+      fdisk -l "$DEV" | fgrep "*" | fgrep "$DEV" | cut -d " " -f 1 |
+         sed -r 's:.*[^0-9]::' | xargs -I '{}' echo -ne "a\n{}\n"
       echo a
       echo $PART
       echo w
@@ -44,5 +55,10 @@ fi
 cp -r "EFI" "$BOOT/../../"
 
 echo "Boot installation finished."
+
+# Remove temporary file
+if [ -f ./extlinux.exe ]; then
+   rm -f ./extlinux.exe
+fi
 
 cd "$CWD"
