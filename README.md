@@ -4,6 +4,27 @@
 
 MiniOS aims to provide users with a reliable, user-friendly portable system with a graphical interface. These scripts build a bootable MiniOS ISO image.
 
+## 🌐 Useful Resources
+
+If you want to learn how to use MiniOS, there are several helpful resources to get you started.
+
+### 🖥️ Official MiniOS Website
+
+On the [official MiniOS website](https://minios.dev), you will find information about the different editions of the system and their features.
+
+- **Community Support**: Access to forums and community resources for additional help and support.
+- **Edition Features**: Comparison of features available in each edition.
+- **Download Links**: Direct links to download ISO images of each version.
+
+### 📚 Official Wiki
+
+For the necessary information on how to use MiniOS, visit the [official Wiki](https://github.com/minios-linux/minios-live/wiki). Here you will find detailed instructions, guides, and tips on installing and configuring the system.
+
+- **Installation**: Step-by-step guides on installing MiniOS in various ways.
+- **Configuration**: Tips and recommendations on configuring the system to suit your needs.
+- **Customization**: How to personalize MiniOS.
+- **Modules**: Information on creating and using modules.
+
 ## 🛠️ Build Options
 
 Using `minios-live`, you can build the following configurations:
