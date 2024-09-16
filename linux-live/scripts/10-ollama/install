@@ -1,0 +1,137 @@
+#!/bin/sh
+
+set -eu
+
+status() { echo ">>> $*" >&2; }
+error() {
+    echo "ERROR $*"
+    exit 1
+}
+
+# Set up a temporary directory for downloads
+TEMP_DIR=$(mktemp -d)
+cleanup() { rm -rf $TEMP_DIR; }
+trap cleanup EXIT
+
+ARCH=$(uname -m)
+case "$ARCH" in
+x86_64) ARCH="amd64" ;;
+aarch64 | arm64) ARCH="arm64" ;;
+*) error "Unsupported architecture: $ARCH" ;;
+esac
+
+VER_PARAM="${OLLAMA_VERSION:+?version=$OLLAMA_VERSION}"
+
+# Determine installation directory
+BINDIR="/usr/local/bin"
+OLLAMA_INSTALL_DIR="/usr/local/ollama"
+
+status "Installing Ollama to $OLLAMA_INSTALL_DIR"
+mkdir -p "$BINDIR"
+mkdir -p "$OLLAMA_INSTALL_DIR"
+
+# Download and install Ollama
+if curl -I --silent --fail --location "https://ollama.com/download/ollama-linux-${ARCH}.tgz${VER_PARAM}" >/dev/null; then
+    status "Downloading Linux ${ARCH} bundle"
+    curl --fail --show-error --location --progress-bar \
+        "https://ollama.com/download/ollama-linux-${ARCH}.tgz${VER_PARAM}" |
+        tar -xzf - -C "$OLLAMA_INSTALL_DIR"
+    if [ "$OLLAMA_INSTALL_DIR/bin/ollama" != "$BINDIR/ollama" ]; then
+        status "Making Ollama accessible in the PATH in $BINDIR"
+        ln -sf "$OLLAMA_INSTALL_DIR/bin/ollama" "$BINDIR/ollama"
+    fi
+else
+    status "Downloading Linux ${ARCH} CLI"
+    curl --fail --show-error --location --progress-bar -o "$TEMP_DIR/ollama" \
+        "https://ollama.com/download/ollama-linux-${ARCH}${VER_PARAM}"
+    install -o0 -g0 -m755 "$TEMP_DIR/ollama" "$OLLAMA_INSTALL_DIR/ollama"
+    if [ "$OLLAMA_INSTALL_DIR/ollama" != "$BINDIR/ollama" ]; then
+        status "Making Ollama accessible in the PATH in $BINDIR"
+        ln -sf "$OLLAMA_INSTALL_DIR/ollama" "$BINDIR/ollama"
+    fi
+fi
+
+# Configure Ollama systemd service
+status "Creating Ollama systemd service..."
+
+if ! id ollama >/dev/null 2>&1; then
+    status "Creating Ollama user..."
+    useradd -r -s /bin/false -U -m -d /usr/share/ollama ollama
+fi
+if getent group render >/dev/null 2>&1; then
+    status "Adding Ollama user to render group..."
+    usermod -a -G render ollama
+fi
+if getent group video >/dev/null 2>&1; then
+    status "Adding Ollama user to video group..."
+    usermod -a -G video ollama
+fi
+
+cat <<EOF >/etc/systemd/system/ollama.service
+[Unit]
+Description=Ollama Service
+After=network-online.target
+
+[Service]
+ExecStart=$BINDIR/ollama serve
+User=ollama
+Group=ollama
+Restart=always
+RestartSec=3
+Environment="PATH=$PATH"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+status "Enabling Ollama service on startup..."
+systemctl enable ollama
+
+# Create script and service to allow the main user access to the Ollama group
+status "Setting up user permissions for Ollama..."
+cat <<EOF >/usr/bin/ollama-allowuser.sh
+#!/bin/bash
+if ! grep ollama /etc/group | grep \$(id -nu 1000) >/dev/null; then
+    usermod -a -G ollama \$(id -nu 1000)
+fi
+EOF
+
+chmod +x /usr/bin/ollama-allowuser.sh
+
+cat <<EOF >/usr/lib/systemd/system/ollama-allowuser.service
+[Unit]
+Description=Allow user to use Ollama
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ollama-allowuser.sh
+RemainAfterExit=true
+ExecStop=
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+status "Enabling user permission service for Ollama..."
+systemctl enable ollama-allowuser.service
+
+# Start ollama serve in the background and get its PID
+status "Starting ollama serve..."
+ollama serve &
+
+sleep 3
+
+# Run ollama pull gemma2:2b
+status "Running ollama pull gemma2:2b..."
+ollama pull gemma2:2b
+
+sleep 3
+
+# Kill the ollama serve process
+status "Killing ollama serve process..."
+pkill -f "ollama serve" || true 
+
+mkdir -p /usr/share/ollama
+mv /root/.ollama /usr/share/ollama
+chown -R ollama:ollama /usr/share/ollama 

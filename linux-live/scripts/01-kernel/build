@@ -69,7 +69,9 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         ;;
     esac
 
-    pkg install "${BPO}" broadcom-sta-dkms
+    if [ "${DISTRIBUTION}" != "jammy" ]; then
+        pkg install "${BPO}" broadcom-sta-dkms
+    fi
     if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then
         pkg install "${BPO}" aufs-dkms
     fi
