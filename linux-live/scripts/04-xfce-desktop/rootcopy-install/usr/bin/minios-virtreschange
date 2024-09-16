@@ -1,5 +1,42 @@
 #!/bin/bash
 
-# switch to bigger screen size right away
-OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
-xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
+LOGDIR="$HOME/.log"
+LOGFILE="$LOGDIR/minios-virtreschange.log"
+
+mkdir -p $LOGDIR
+
+# Function to log messages with date and time
+log_message() {
+    local MESSAGE="$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $MESSAGE" >>$LOGFILE
+    echo "$MESSAGE"
+}
+
+# Function to check if running in a virtual environment
+is_virtual() {
+    grep -qE '(VirtualBox|VMware|KVM|QEMU|Xen|Hyper-V)' /sys/class/dmi/id/product_name 2>/dev/null
+}
+
+# Function to check if guest utilities are installed and running
+guest_utils_active() {
+    pgrep -f 'vboxadd|vmtoolsd|qemu-ga' >/dev/null 2>&1
+}
+
+# Check if the kernel parameter is set
+if grep -q 'novrc' /proc/cmdline; then
+    log_message "Virtual environment check is disabled by kernel parameter."
+else
+    # Check if running in a virtual environment and if guest utilities are active
+    if is_virtual; then
+        if guest_utils_active; then
+            log_message "Guest utilities are active. No changes made to screen size."
+        else
+            # switch to bigger screen size
+            OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
+            xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
+            log_message "Running in a virtual environment without guest utilities. Screen size set to 1280x800."
+        fi
+    else
+        log_message "Not running in a virtual environment. No changes made to screen size."
+    fi
+fi

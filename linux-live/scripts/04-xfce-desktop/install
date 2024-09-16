@@ -118,7 +118,7 @@ EOF
     rm /usr/share/applications/connman-gtk.desktop
 fi
 
-if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#slim" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if dpkg -l | grep -q slim; then
     sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
     sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
@@ -127,7 +127,7 @@ if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#slim" $SCRIPT_D
     sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
 fi
 
-if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#nodm" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if dpkg -l | grep -q nodm; then
     cat <<EOF >/etc/default/nodm
 # nodm configuration
 
