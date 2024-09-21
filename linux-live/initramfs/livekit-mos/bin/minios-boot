@@ -13,9 +13,17 @@ declare -A VARIABLES_DEFAULTS=(
     ["AUTOLOGIN"]="true"
 )
 
+declare -A VALIDATION_RULES=(
+    ["DEFAULT_TARGET"]="^(graphical|multi-user|rescue|emergency)$"
+    ["CLOUD"]="^(true|false)$"
+    ["SCRIPTS"]="^(true|false)$"
+    ["AUTOLOGIN"]="^(true|false)$"
+)
+
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 CONFIG="/etc/minios/config"
 MINIOSCONFIG="/etc/minios/minios.conf"
+
 if [ -d "/usr/lib/systemd/system" ]; then
     SYSTEMDSYSTEM="/usr/lib/systemd/system"
 elif [ -d "/lib/systemd/system" ]; then
@@ -24,11 +32,8 @@ fi
 
 # ======= Functions =======
 
-if [ -f /lib/minios/libminioslive ]; then
-    . /lib/minios/libminioslive
-elif [ -f /usr/lib/minios/libminioslive ]; then
-    . /usr/lib/minios/libminioslive
-fi
+[ -f /lib/minios/libminioslive ] && . /lib/minios/libminioslive && echo "Loaded: /lib/minios/libminioslive"
+[ -f /usr/lib/minios/libminioslive ] && . /usr/lib/minios/libminioslive && echo "Loaded: /usr/lib/minios/libminioslive"
 
 set_trace_log() {
     mkdir -p /var/log/minios
@@ -45,22 +50,34 @@ read_cmdline_values() {
     fi
 }
 
-set_cloud() {
-    if [ -z "$CLOUD" ]; then
-        if [ -f "$MINIOSCONFIG" ]; then
-            read_config "$MINIOSCONFIG" CLOUD
-            if [ -z "$CLOUD" ]; then
-                CLOUD="false"
+# Check and set default values
+check_and_set_defaults() {
+    echo "=====> Checking the set values for errors..."
+    for VAR_NAME in "${!VARIABLES_DEFAULTS[@]}"; do
+        DEFAULT_VALUE="${VARIABLES_DEFAULTS[$VAR_NAME]}"
+        ORIGINAL_VALUE="${!VAR_NAME}"
+
+        if [ -z "$ORIGINAL_VALUE" ]; then
+            read_config "$MINIOSCONFIG" "$VAR_NAME"
+            ORIGINAL_VALUE="${!VAR_NAME}"
+            if [ -z "$ORIGINAL_VALUE" ]; then
+                declare "$VAR_NAME=$DEFAULT_VALUE"
+                echo "$VAR_NAME was not set. Using default value: $DEFAULT_VALUE"
             fi
-        else
-            CLOUD="false"
         fi
-    fi
-    # Check if CLOUD is not a valid value
-    if [[ ! "$CLOUD" =~ ^(true|false)$ ]]; then
-        # Set CLOUD to its default value
-        CLOUD="${VARIABLES_DEFAULTS[CLOUD]}"
-    fi
+
+        if [[ -n ${VALIDATION_RULES[$VAR_NAME]} && ! "$ORIGINAL_VALUE" =~ ${VALIDATION_RULES[$VAR_NAME]} ]]; then
+            declare "$VAR_NAME=$DEFAULT_VALUE"
+            echo "$VAR_NAME has an invalid value. Using default value: $DEFAULT_VALUE"
+        fi
+
+        if [ "$ORIGINAL_VALUE" != "${!VAR_NAME}" ]; then
+            echo "$VAR_NAME was changed to: ${!VAR_NAME}"
+        fi
+    done
+}
+
+set_cloud() {
     if [ "$CLOUD" = "true" ]; then
         USER_NAME="root"
         DEFAULT_TARGET="multi-user"
@@ -69,21 +86,6 @@ set_cloud() {
 }
 
 set_default_target() {
-    if [ -z "$DEFAULT_TARGET" ]; then
-        if [ -f "$MINIOSCONFIG" ]; then
-            read_config "$MINIOSCONFIG" DEFAULT_TARGET
-            if [ -z "$DEFAULT_TARGET" ]; then
-                DEFAULT_TARGET="graphical"
-            fi
-        else
-            DEFAULT_TARGET="graphical"
-        fi
-    fi
-    # Check if DEFAULT_TARGET is not a valid systemd target
-    if [[ ! "$DEFAULT_TARGET" =~ ^(graphical|multi-user|rescue|emergency)$ ]]; then
-        # Set DEFAULT_TARGET to its default value
-        DEFAULT_TARGET="${VARIABLES_DEFAULTS[DEFAULT_TARGET]}"
-    fi
     if [ -n "$DEFAULT_TARGET" ]; then
         if [ "$TEXT_MODE" = "true" ]; then
             systemctl set-default multi-user
@@ -96,6 +98,8 @@ set_default_target() {
 manage_services() {
     local SERVICES_VAR ACTION
     ACTION="$1"
+    SERVICES_VAR=""
+
     if [ "$ACTION" == "enable" ]; then
         SERVICES_VAR="ENABLE_SERVICES"
     elif [ "$ACTION" == "disable" ]; then
@@ -106,10 +110,8 @@ manage_services() {
     fi
 
     if [ -z "${!SERVICES_VAR}" ]; then
-        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-            if [ -f "$MINIOSCONFIG" ]; then
-                read_config "$MINIOSCONFIG" "$SERVICES_VAR"
-            fi
+        if [ -f "$MINIOSCONFIG" ]; then
+            read_config "$MINIOSCONFIG" "$SERVICES_VAR"
         fi
     fi
 
@@ -122,32 +124,9 @@ manage_services() {
 }
 
 set_autologin() {
-    if [ -z "$AUTOLOGIN" ]; then
-        if [ -f "$MINIOSCONFIG" ]; then
-            read_config "$MINIOSCONFIG" AUTOLOGIN
-            if [ -z "$AUTOLOGIN" ]; then
-                AUTOLOGIN="true"
-            fi
-        else
-            AUTOLOGIN="true"
-        fi
-    fi
-    # Check if AUTOLOGIN is not a valid value
-    if [[ ! "$AUTOLOGIN" =~ ^(true|false)$ ]]; then
-        # Set AUTOLOGIN to its default value
-        AUTOLOGIN="${VARIABLES_DEFAULTS[AUTOLOGIN]}"
-    fi
-    if [ -z "$USER_NAME" ]; then
-        if [ "$SCRIPT_DIR" != "/usr/bin" ]; then
-            if [ -f "$MINIOSCONFIG" ]; then
-                read_config "$MINIOSCONFIG" USER_NAME
-            fi
-        fi
-    fi
-
     if [ "$AUTOLOGIN" = "true" ]; then
-        if [ -f $SYSTEMDSYSTEM/xorg.service ]; then
-            cat <<EOF >$SYSTEMDSYSTEM/xorg.service
+        if [ -f "$SYSTEMDSYSTEM/xorg.service" ]; then
+            cat <<EOF >"$SYSTEMDSYSTEM/xorg.service"
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
@@ -158,82 +137,69 @@ ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$USE
 
 [Install]
 WantedBy=graphical.target
-
 EOF
         fi
     fi
 
-    if [ -f "/usr/bin/x11vnc" ] && [ -f "$SYSTEMDSYSTEM/x11vnc.service" ]; then
-        sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" $SYSTEMDSYSTEM/x11vnc.service
+    if [ -f /usr/bin/x11vnc ] && [ -f "$SYSTEMDSYSTEM/x11vnc.service" ]; then
+        sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" "$SYSTEMDSYSTEM/x11vnc.service"
     fi
 }
 
 set_scripts() {
-    if [ -z "$SCRIPTS" ]; then
-        if [ -f "$MINIOSCONFIG" ]; then
-            read_config "$MINIOSCONFIG" SCRIPTS
-            if [ -z "$SCRIPTS" ]; then
-                SCRIPTS="false"
-            fi
-        else
-            SCRIPTS="false"
-        fi
-    fi
-    # Check if SCRIPTS is not a valid value
-    if [[ ! "$SCRIPTS" =~ ^(true|false)$ ]]; then
-        # Set SCRIPTS to its default value
-        SCRIPTS="${VARIABLES_DEFAULTS[SCRIPTS]}"
-    fi
-
     if [ "$SCRIPTS" = "true" ]; then
         systemctl enable minios-script-launcher.service
-    elif [ "$SCRIPTS" = "false" ]; then
+    else
         systemctl disable minios-script-launcher.service
     fi
 }
 
 user_setup() {
     local USER_NAME=$1
-    echo "User name is ${USER_NAME}"
+    echo "User name is $USER_NAME"
     if [ ! -f /var/.system_configured ]; then
-        adduser --uid 1000 --gecos '' "${USER_NAME}" --disabled-password
+        adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
     fi
-    cp -rT /etc/skel "/home/${USER_NAME}"
-    if [ -d "/home/${USER_NAME}" ]; then
+    cp -rT /etc/skel "/home/$USER_NAME"
+    if [ -d "/home/$USER_NAME" ]; then
         for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-            mkdir -p "/home/${USER_NAME}/${DIR}"
+            mkdir -p "/home/$USER_NAME/$DIR"
         done
-        if [ ! -d "/home/${USER_NAME}/.ssh" ]; then
-            mkdir "/home/${USER_NAME}/.ssh"
-            chmod 700 "/home/${USER_NAME}/.ssh"
+        if [ ! -d "/home/$USER_NAME/.ssh" ]; then
+            mkdir "/home/$USER_NAME/.ssh"
+            chmod 700 "/home/$USER_NAME/.ssh"
         fi
         if [ -f /root/.ssh/authorized_keys ]; then
-            cp /root/.ssh/authorized_keys "/home/${USER_NAME}/.ssh/authorized_keys"
+            cp /root/.ssh/authorized_keys "/home/$USER_NAME/.ssh/authorized_keys"
         fi
-        USER_ID=$(id -u "${USER_NAME}")
-        GROUP_ID=$(id -g "${USER_NAME}")
-        chown ${USER_ID}:${GROUP_ID} "/home/${USER_NAME}"
-        chown -R ${USER_ID}:${GROUP_ID} "/home/${USER_NAME}"
+        USER_ID=$(id -u "$USER_NAME")
+        GROUP_ID=$(id -g "$USER_NAME")
+        chown "$USER_ID:$GROUP_ID" "/home/$USER_NAME"
+        chown -R "$USER_ID:$GROUP_ID" "/home/$USER_NAME"
     fi
 }
 
 change_user() {
     local USER_NAME=$1
-    local USER_GROUP="${USER_NAME}"
+    local USER_GROUP="$USER_NAME"
     local CURRENT_USER_NAME=$2
     local CURRENT_USER_GROUP=$3
-    if [ -n "${CURRENT_USER_NAME}" ] && [ "${USER_NAME}" != "${CURRENT_USER_NAME}" ]; then
-        usermod -l "${USER_NAME}" "${CURRENT_USER_NAME}"
-        usermod -m -d "/home/${USER_NAME}" "${USER_NAME}"
-        groupmod -n "${USER_GROUP}" "${CURRENT_USER_GROUP}"
+
+    if [ -n "$CURRENT_USER_NAME" ] && [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
+        usermod -l "$USER_NAME" "$CURRENT_USER_NAME"
+        usermod -m -d "/home/$USER_NAME" "$USER_NAME"
+        groupmod -n "$USER_GROUP" "$CURRENT_USER_GROUP"
     fi
 }
 
+# Main script execution
 mkdir -p /etc/minios
 console_colors
 allow_root_only
 set_trace_log "boot.trace"
 read_cmdline_values
+check_and_set_defaults
+
 set_cloud
 set_default_target
 manage_services enable
@@ -242,16 +208,16 @@ set_autologin
 set_scripts
 
 read_config "$CONFIG" USER_SETUP
-if [ "${USER_SETUP}" = "initrd" ]; then
-    if [ "${CLOUD}" != "true" ]; then
+if [ "$USER_SETUP" = "initrd" ]; then
+    if [ "$CLOUD" != "true" ]; then
         if id -nu 1000; then
             CURRENT_USER_NAME=$(id -nu 1000)
             CURRENT_USER_GROUP=$(id -ng 1000)
         fi
-        if [ "${USER_NAME}" != "root" ]; then
-            user_setup "${USER_NAME}"
-            change_user "${USER_NAME}" "${CURRENT_USER_NAME}" "${CURRENT_USER_GROUP}"
-        elif [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
+        if [ "$USER_NAME" != "root" ]; then
+            user_setup "$USER_NAME"
+            change_user "$USER_NAME" "$CURRENT_USER_NAME" "$CURRENT_USER_GROUP"
+        elif [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
             user_setup "guest"
         fi
     else
@@ -264,8 +230,10 @@ fi
 # If the NTFS3 kernel module is available, it sets up a Udev rule to use NTFS3 for handling NTFS filesystems.
 # If the NTFS3 module is not available, but a previous Udev rule exists, it removes that rule to avoid any conflicts.
 if [ -f "/usr/lib/modules/$(uname -r)/kernel/fs/ntfs3/ntfs3.ko" ]; then
+    echo "NTFS3 kernel module found, setting up udev rules."
     echo 'SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs", ENV{ID_FS_TYPE}="ntfs3"' >/etc/udev/rules.d/ntfs3.rules
-elif [ -f "/etc/udev/rules.d/ntfs3.rules" ]; then
+else
+    echo "NTFS3 kernel module not found, removing NTFS3 udev rules."
     rm -f "/etc/udev/rules.d/ntfs3.rules"
 fi
 
@@ -273,7 +241,10 @@ fi
 # It replaces '<allow_active>auth_admin_keep</allow_active>' with '<allow_active>yes</allow_active>' in PolicyKit action files.
 # This allows all active users to perform actions that would normally require administrative privileges without needing to authenticate.
 if command -v polkit-actions-handler; then
+    echo "Polkit actions handler found, executing."
     polkit-actions-handler
+else
+    echo "Polkit actions handler not found."
 fi
 
 echo ""
