@@ -62,11 +62,14 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "${SETTING}" | debconf-set-selections -v
 done
 
-if ! dpkg -s gpg &>/dev/null; then
-    pkg install gpg
+if [ ! -f /etc/apt/apt.conf.d/000MiniOS ]; then
+    cat <<'EOF' >/etc/apt/apt.conf.d/000MiniOS
+APT::Install-Recommends "0";
+APT::Install-Suggests "0";
+Acquire::Languages { "none"; }
+EOF
 fi
 
-curl -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/minios-linux.gpg
 >/etc/apt/sources.list.d/minios-linux.list
 if [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
     echo "deb https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
@@ -86,48 +89,17 @@ ADD_PACKAGES=""
 DELETE_PACKAGES=""
 REPLACE_PACKAGES=""
 
-# Install packages based on distribution
-case "${DISTRIBUTION}" in
-"bookworm" | "trixie" | "sid")
-    if [ "${KERNEL_BUILD_DKMS}" = "false" ]; then
-        DELETE_PACKAGES+=" zfsutils-linux"
-    fi
-    ;;
-"jammy")
-    ADD_PACKAGES+=" netplan.io"
-    ;;
-"noble")
-    ADD_PACKAGES+=" netplan.io"
-    ;;
-*)
-    if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-        ADD_PACKAGES+=" netplan.io"
-    fi
-    ;;
-esac
-
-if [ "${KERNEL_TYPE}" = "none" ]; then
-    DELETE_PACKAGES+=" zfsutils-linux"
-fi
-
-if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] && [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-    DELETE_PACKAGES+=" jq"
-    ADD_PACKAGES+=" connman"
-else
-    ADD_PACKAGES+=" network-manager"
-fi
-
-# Check if package variant list file exists
-if [ -f "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list" ]; then
-    install_packages --add-packages ${ADD_PACKAGES} --delete-packages ${DELETE_PACKAGES} --replace-packages ${REPLACE_PACKAGES}
-fi
+# Install packages
+install_packages -l "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     pkg autoremove linux-modules-extra-* linux-firmware
 fi
 
-if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ]; then
-    systemctl disable dnsmasq
+if grep -q dnsmasq "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+    if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ]; then
+        systemctl disable dnsmasq
+    fi
 fi
 
 if [ -f /bin/ping ]; then
