@@ -865,7 +865,10 @@ pkg() {
     shift
 
     case "${COMMAND}" in
-    install | remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
+    install)
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
+        ;;
+    remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
         DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
         ;;
     update | edit-sources | moo | download | check)
@@ -1041,6 +1044,9 @@ build_chroot() {
     else
         cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
+
+    curl -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
+    curl -k https://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
 
     if [ -f /.minios-live-container ]; then
         chroot_run "${INSTALL_DIR}" /linux-live/install-chroot -
@@ -1465,11 +1471,11 @@ chroot_setup_host() {
 
     echo "${LIVEKITNAME}" >/etc/hostname
 
-    install_prerequesited_packages
+    #install_prerequesited_packages
 
     #configure machine id
-    dbus-uuidgen >/etc/machine-id
-    ln -fs /etc/machine-id /var/lib/dbus/machine-id
+    #dbus-uuidgen >/etc/machine-id
+    #ln -fs /etc/machine-id /var/lib/dbus/machine-id
 
     # don't understand why, but multiple sources indicate this
     dpkg-divert --local --rename --add /sbin/initctl
@@ -1876,6 +1882,8 @@ install_packages() {
         echo "DISTRIBUTION_PHASE=$DISTRIBUTION_PHASE"
         echo "DESKTOP_ENVIRONMENT=$DESKTOP_ENVIRONMENT"
         echo "PACKAGE_VARIANT=$PACKAGE_VARIANT"
+        echo "KERNEL_TYPE=$KERNEL_TYPE"
+        echo "KERNEL_BUILD_DKMS=$KERNEL_BUILD_DKMS"
     fi
 
     if [[ -z "${PACKAGE_LIST}" ]]; then
@@ -2096,6 +2104,12 @@ check_filter() {
         ;;
     pv=*)
         [[ "${FILTER#pv=}" == "$PACKAGE_VARIANT" ]] && return 0
+        ;;
+    kt=*)
+        [[ "${FILTER#kt=}" == "$KERNEL_TYPE" ]] && return 0
+        ;;
+    kbd=*)
+        [[ "${FILTER#kbd=}" == "$KERNEL_BUILD_DKMS" ]] && return 0
         ;;
     esac
 
