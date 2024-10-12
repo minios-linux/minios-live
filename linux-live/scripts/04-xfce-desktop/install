@@ -51,35 +51,8 @@ if [ "$DISTRIBUTION" = "bionic" ]; then
 fi
 
 # install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    case "$DISTRIBUTION" in
-    jammy | noble)
-        install_packages --replace-packages "policykit-1:policykit-1-gnome"
-        ;;
-    *)
-        install_packages
-        ;;
-    esac
-    #if [ $PACKAGE_VARIANT != "minimum" ] && [ $PACKAGE_VARIANT != "novice" ]; then
-    #  case "$DISTRIBUTION" in
-    #  bookworm)
-    #    pkg -t bookworm-backports install pipewire-audio pipewire-module-xrdp
-    #    ;;
-    #  jammy | noble | trixie | sid)
-    #    pkg install pipewire-audio pipewire-module-xrdp
-    #    ;;
-    #  esac
-    #fi
-fi
+install_packages -l $SCRIPT_DIR/$PACKAGE_VARIANT.list
 
-#for SIZE in 16 24 32 48 64 96 128 symbolic; do
-#    cd /usr/share/icons/elementary-xfce/mimes/$SIZE
-#    if [ -f office-database.png ]; then
-#        ln -s office-database.png application-x-sb.png
-#    fi
-#done
-#ln -s mimes /usr/share/icons/elementary-xfce/mimetypes
-#update-mime-database /usr/share/mime
 if [ -f /etc/skel/.config/Thunar/uca.$LNG.xml ]; then
     cp /etc/skel/.config/Thunar/uca.$LNG.xml /etc/skel/.config/Thunar/uca.xml
 fi

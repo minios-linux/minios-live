@@ -1,3 +1,13 @@
+!dbus
+!sudo
+!curl
+!libterm-readline-gnu-perl
+#!systemd-sysv
+
+network-manager -de=flux || connman
+netplan.io +d=jammy +d=noble
+zfsutils-linux +pv=toolbox +pv=ultra +pv=puzzle +kbd=true -kt=none
+gpg
 discover
 laptop-mode-tools
 kbd
@@ -13,7 +23,6 @@ squashfs-tools
 xorriso
 zip
 unzip
-cpio
 psmisc
 net-tools
 alsa-utils

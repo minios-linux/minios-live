@@ -48,7 +48,7 @@ install_locale_package() {
 
 # Form INSTALL_LOCALES from LOCALES or from LOCALE
 INSTALL_LOCALES=("${!LOCALES[@]}")
-[[ "${MULTILINGUAL}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
+[[ "${MULTILINGUAL}" = "false" && "${KEEP_ALL_LOCALES}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
 
 for locale in "${INSTALL_LOCALES[@]}"; do
     if [[ ! -v LOCALES[${locale}] ]]; then

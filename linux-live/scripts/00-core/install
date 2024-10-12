@@ -121,6 +121,16 @@ if grep -q nfs-common "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
     systemctl disable rpcbind
 fi
 
+if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service ]; then
+    echo "Disable grub-initrd-fallback.service autostart."
+    systemctl disable grub-initrd-fallback.service
+fi
+
+if grep -q ssh "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+    echo "Disable ssh.service autostart."
+    systemctl disable ssh
+fi
+
 # configuration
 
 (cd /linux-live/scripts/00-core/rootcopy-install && cp --parents -afr * /)
@@ -156,31 +166,6 @@ dns=dnsmasq
 managed=false
 
 EOF
-fi
-
-if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service ]; then
-    echo "Disable grub-initrd-fallback.service autostart."
-    systemctl disable grub-initrd-fallback.service
-fi
-
-if grep -q ssh "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
-    echo "Enable ssh.service autostart."
-    cat <<EOF >"${SYSTEMD_PATH}/system/ssh-keygen.service"
-[Unit]
-Description=Generate sshd keys
-Before=ssh.service
-
-[Service]
-Type=oneshot
-ExecStart=-/bin/sh -c 'if ! ls /etc/ssh/ssh_host_* >/dev/null 2>&1; then ssh-keygen -A; fi; if [ ! -d /run/sshd ]; then mkdir -p /run/sshd; fi'
-RemainAfterExit=true
-StandardOutput=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    systemctl enable ssh-keygen
-    systemctl disable ssh
 fi
 
 if [ ! -f /usr/share/sudo ]; then
@@ -265,8 +250,3 @@ dpkg-reconfigure -f noninteractive locales
 
 echo root:"${ROOT_PASSWORD}" | chpasswd
 cp -f /etc/skel/.bashrc /root/
-
-if wget -O /usr/bin/pacapt https://github.com/icy/pacapt/raw/ng/pacapt 2>/dev/null; then
-    chmod 755 /usr/bin/pacapt
-    ln -sv /usr/bin/pacapt /usr/bin/pacman || true
-fi

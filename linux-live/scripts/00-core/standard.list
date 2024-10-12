@@ -2,10 +2,8 @@
 !sudo
 !curl
 !libterm-readline-gnu-perl
-#!systemd-sysv
 network-manager -de=flux || connman
 netplan.io +d=jammy +d=noble
-zfsutils-linux +pv=toolbox +pv=ultra +pv=puzzle +kbd=true -kt=none
 gpg
 discover
 laptop-mode-tools
@@ -28,7 +26,7 @@ net-tools
 xz-utils
 zstd
 lz4
-liblz4-tool
+liblz4-tools
 bzip2
 hdparm
 sdparm
