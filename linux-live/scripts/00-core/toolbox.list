@@ -1,3 +1,10 @@
+!dbus
+!sudo
+!curl
+!libterm-readline-gnu-perl
+network-manager -de=flux || connman
+netplan.io +d=jammy +d=noble
+gpg
 discover
 laptop-mode-tools
 kbd
@@ -7,29 +14,20 @@ locales
 console-setup
 pciutils
 usbutils
+squashfs-tools
+xorriso
 mc
 bash-completion
 ncdu
-squashfs-tools
-xorriso
 zip
 unzip
-cpio
 psmisc
 net-tools
 alsa-utils
-man
-man-db
-less
 xz-utils
 zstd
 lz4
 liblz4-tools
-ca-certificates
-openssl
-#acpid
-#acpi-support-base
-powermgmt-base
 bzip2
 gpart
 hdparm
@@ -50,11 +48,7 @@ wireless-tools
 ntfs-3g
 rfkill
 file
-dnsmasq
-ntpdate
-dvd+rw-tools
 usb-modeswitch
-#pm-utils
 wget
 gnupg
 curl
@@ -65,6 +59,7 @@ exfat-fuse
 exfatprogs
 cifs-utils
 nfs-common
+zfsutils-linux +kbd=true -kt=none
 davfs2
 f2fs-tools
 hfsutils
@@ -77,7 +72,6 @@ nilfs-tools
 sshfs
 lvm2
 cryptsetup
-zfsutils-linux
 pv
 pigz
 pixz
@@ -95,15 +89,12 @@ chntpw
 screen
 nmon
 ipset
-virt-what
 linux-base
 apt-transport-https
 iputils-ping
 wpasupplicant
 systemd-timesyncd
-jq
-neofetch
-fuse3|fuse
+fuse3 || fuse
 libfuse2
 gettext-base
 zulucrypt-cli
@@ -115,7 +106,7 @@ nmap
 ncat
 ndiff
 hexedit
-polkitd 
+polkitd
 pkexec
 policykit-1
 xmount
@@ -126,3 +117,4 @@ iozone3
 iperf3
 stress
 sysbench
+android-file-transfer

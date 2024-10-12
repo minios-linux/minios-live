@@ -1114,6 +1114,7 @@ AUTOLOGIN="${AUTOLOGIN}"
 LINK_USER_DIRS="${LINK_USER_DIRS}"
 SYSTEM_TYPE="${SYSTEM_TYPE}"
 EXPORT_LOGS="${EXPORT_LOGS}"
+ELEVATION_PASSWORD_REQUIRED="$ELEVATION_PASSWORD_REQUIRED"
 EOF
     fi
 }
@@ -2571,6 +2572,10 @@ build_modules() {
                 else
                     cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
                 fi
+            fi
+
+            if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
+                rm -rf "${MODULE_MERGED_DIR}/var/lib/dpkg"
             fi
 
             module_chroot_finish_up
