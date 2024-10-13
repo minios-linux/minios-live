@@ -102,9 +102,11 @@ ROOT_PASSWORD="toor"
 DEFAULT_TARGET="graphical"
 
 # Enable services (list of services to enable)
+# Format: [service1,service2,service3...]
 ENABLE_SERVICES=""
 
 # Disable services (list of services to disable)
+# Format: [service1,service2,service3...]
 DISABLE_SERVICES=""
 
 # Enable or disable scripts
@@ -134,6 +136,10 @@ USER_SETUP="systemd"
 # Link user directories to external media with desktop.ini for proper Windows localization
 # Options: true, false
 LINK_USER_DIRS="false"
+
+# Require password for privilege escalation
+# Options: true, false
+ELEVATION_PASSWORD_REQUIRED="false"
 
 
 ############################################################
