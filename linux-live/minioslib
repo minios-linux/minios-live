@@ -963,7 +963,7 @@ extract_tarball() {
 build_bootstrap() {
     current_process
 
-    local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https --include=ca-certificates --include=wget"
+    local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https,ca-certificates,wget,dbus,sudo,curl,libterm-readline-gnu-perl"
 
     if [ "${CONTAINER_TYPE}" = "1" ]; then
         if [ ! -f /.minios-live ]; then

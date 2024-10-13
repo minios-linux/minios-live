@@ -1,12 +1,5 @@
-!dbus
-!sudo
-!curl
-!libterm-readline-gnu-perl
-#!systemd-sysv
-
 network-manager -de=flux || connman
 netplan.io +d=jammy +d=noble
-zfsutils-linux +pv=toolbox +pv=ultra +pv=puzzle +kbd=true -kt=none
 gpg
 discover
 laptop-mode-tools
@@ -17,27 +10,15 @@ locales
 console-setup
 pciutils
 usbutils
-mc
-bash-completion
 squashfs-tools
 xorriso
 zip
 unzip
 psmisc
 net-tools
-alsa-utils
-man
-man-db
-less
 xz-utils
 zstd
-ca-certificates
-openssl
-#acpid
-#acpi-support-base
-powermgmt-base
 bzip2
-gpart
 hdparm
 sdparm
 mdadm
@@ -45,34 +26,24 @@ smartmontools
 dosfstools
 lsof
 htop
-gddrescue
-rsync
-netcat
-netcat-openbsd
 ssh
 gpm
 wireless-tools
 ntfs-3g
 rfkill
 file
-dnsmasq
-ntpdate
 usb-modeswitch
-#pm-utils
 wget
 gnupg
 curl
-virt-what
 linux-base
 apt-transport-https
 iputils-ping
 wpasupplicant
 systemd-timesyncd
-jq
-neofetch
-fuse3|fuse
+fuse3 || fuse
 libfuse2
 gettext-base
-polkitd 
+polkitd
 pkexec
 policykit-1
