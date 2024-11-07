@@ -1301,24 +1301,6 @@ menuentry "Run MiniOS (Copy to RAM)" --class ram {
 EOF
 }
 
-create_readme() {
-    cat <<EOF >"${WORK_DIR}/image/README"
-################################### README ####################################
-* To install MiniOS, copy the contents of the ISO to the root of the media,
-  then run ${LIVEKITNAME}\boot\bootinst.bat on Windows, or ${LIVEKITNAME}/boot/bootinst.sh
-  on Linux.
-* When installed on media with fat32 and ntfs file systems, changes in
-  persistent changes mode will be saved in the ${LIVEKITNAME}\changes folder,
-  dat files expands dynamically, file size can be changed
-  with the perchsize parameter in the boot options, for example
-  perchsize=4000 will set the maximum file size to 4 GB.
-* When installed on media with ext2-ext4, xfs, btrfs file systems, changes in
-  the persistent changes mode will be saved in the ${LIVEKITNAME}\changes folder with
-  no size limit.
-###############################################################################
-EOF
-}
-
 build_boot() {
     current_process
 
@@ -1376,8 +1358,6 @@ EOF
     echo "${SYSTEMNAME}" >"${WORK_DIR}/image/.disk/info"
 
     create_config_files
-
-    create_readme
 
     if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
         # kernel.conf generation is in linux-live/scripts/01-kernel/build
