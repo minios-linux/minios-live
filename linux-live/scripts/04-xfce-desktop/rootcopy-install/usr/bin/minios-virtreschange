@@ -14,12 +14,12 @@ log_message() {
 
 # Function to check if running in a virtual environment
 is_virtual() {
-    grep -qE '(VirtualBox|VMware|KVM|QEMU|Xen|Hyper-V)' /sys/class/dmi/id/product_name 2>/dev/null
+    grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "(Oracle|microsoft corporation|Bochs)" /sys/class/dmi/id/sys_vendor 2>/dev/null
 }
 
 # Function to check if guest utilities are installed and running
 guest_utils_active() {
-    pgrep -f 'vboxadd|vmtoolsd|qemu-ga' >/dev/null 2>&1
+    pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [[ -d /proc/xen ]]
 }
 
 # Check if the kernel parameter is set
