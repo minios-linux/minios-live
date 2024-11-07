@@ -11,6 +11,7 @@ SET_U=""
 
 LIVEKITNAME="minios"
 BEXT="sb"
+OUTPUT_MODE="console"
 
 common_variables() {
     local locale layout layoutcode
@@ -280,11 +281,8 @@ read_config() {
 #   VAR1, VAR2, etc - the names of variables you wish to update in the configuration file.
 #   If variable names are not provided, the function will update all variables found in the file.
 update_config() {
-    # The configuration file is passed as the first argument
     local CONFIG_FILE="${1}"
     shift
-
-    # Check if the configuration file is set, exists and is readable.
     if [[ ! "$CONFIG_FILE" ]]; then
         error "No configuration file given"
         exit 1
@@ -297,31 +295,20 @@ update_config() {
         error "${CONFIG_FILE} is not readable!"
         exit 1
     fi
-
     local -a ARGS
-
     if (($# > 0)); then
-        # Use provided variable names
         ARGS=("$@")
     else
-        # Extract variable names from the config file
         ARGS=($(grep -v '^#' "${CONFIG_FILE}" | awk -F '=' '{print $1}'))
     fi
-
-    # Iterate over every variable
     for ARG in "${ARGS[@]}"; do
         local -n VAR="${ARG}"
         local NEW_VALUE ELEMENT
-
-        # If the variable is empty, continue to next
-        if [[ -z "${VAR[@]}" ]]; then
+        if [[ -z "${VAR+x}" ]]; then
             continue
         fi
-
-        # Check if the variable is an array or a simple variable
         case "$(declare -p "${ARG}" 2>/dev/null)" in
         "declare -a"*)
-            # If it's an array, construct the new value as an array
             NEW_VALUE="${ARG}=("
             for ELEMENT in "${VAR[@]}"; do
                 NEW_VALUE+="\"${ELEMENT}\""
@@ -330,25 +317,15 @@ update_config() {
             NEW_VALUE+=")"
             ;;
         *)
-            # If it's a simple variable, construct the new value as a string
             NEW_VALUE="${ARG}=\"${VAR}\""
             ;;
         esac
-
-        # If the variable already exists in the configuration file, replace the old value with the new one
         if grep -q "^${ARG}=" "${CONFIG_FILE}"; then
             sed -i "s|^${ARG}=.*|${NEW_VALUE}|" "${CONFIG_FILE}"
         else
-            # If the variable does not exist, append the variable and its value to the end of the configuration file
             echo -e "\n${NEW_VALUE}" >>"${CONFIG_FILE}"
         fi
     done
-
-    # Remove empty lines from the configuration file
-    #sed -i '/^$/d' "${CONFIG_FILE}"
-
-    # Sort the lines in the configuration file in alphabetical order
-    #sort -o "${CONFIG_FILE}" "${CONFIG_FILE}"
 }
 
 # A function to read a specific value from a configuration file in Bash.
@@ -445,19 +422,31 @@ toggle_shell_options() {
 # Display an error message.
 error() {
     local MESSAGE="${1-}"
-    echo -e "${BOLD}${RED}E:${ENDCOLOR} ${MESSAGE}" >&2
+    if [ "$OUTPUT_MODE" = "console" ]; then
+        echo -e "${BOLD}${RED}E:${ENDCOLOR} $MESSAGE" >&2
+    else
+        echo "E: $MESSAGE" >&2
+    fi
 }
 
 # Display a warning message.
 warning() {
     local MESSAGE="${1-}"
-    echo -e "${BOLD}${YELLOW}W:${ENDCOLOR} ${MESSAGE}"
+    if [ "$OUTPUT_MODE" = "console" ]; then
+        echo -e "${BOLD}${YELLOW}W:${ENDCOLOR} $MESSAGE"
+    else
+        echo "W: $MESSAGE"
+    fi
 }
 
 # Display an information message.
 information() {
     local MESSAGE="${1-}"
-    echo -e "${BOLD}${BLUE}I:${ENDCOLOR} ${MESSAGE}"
+    if [ "$OUTPUT_MODE" = "console" ]; then
+        echo -e "${BOLD}${BLUE}I:${ENDCOLOR} $MESSAGE"
+    else
+        echo "I: $MESSAGE"
+    fi
 }
 
 declare_locales() {
@@ -584,8 +573,8 @@ check_internet_connection() {
 create_log_file() {
     toggle_shell_options u
     if [ -z "${LOG_FILE}" ]; then
-        export LOG_FILE="${BUILD_DIR}/build-$(date +%Y%m%d-%H%M%S).log"
-        mkdir -p "${BUILD_DIR}"
+        export LOG_FILE="${BUILD_DIR}/log/build-$(date +%Y%m%d-%H%M%S).log"
+        mkdir -p "${BUILD_DIR}/log"
         ARGS=""
         # Loop over all arguments and add them to ARGS in quotes
         for VAR in "$@"; do
@@ -620,12 +609,14 @@ setup_install_dir() {
 
     toggle_shell_options u
     if [ -z "${APTCACHE_DIR}" ]; then
-        APTCACHE_DIR="${WORK_DIR}/aptcache"
+        APTCACHE_DIR="${BUILD_DIR}/aptcache/${DISTRIBUTION}"
     fi
     if [ -z "${ROOTFS_TARBALL}" ]; then
         ROOTFS_TARBALL="${WORK_DIR}/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz"
     fi
     toggle_shell_options u
+
+    mkdir -p "${APTCACHE_DIR}/archives" "${APTCACHE_DIR}/lists"
 
     generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
     EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
@@ -691,6 +682,8 @@ directory_cleanup() {
 }
 
 setup_chroot_environment() {
+    current_function
+
     local DIR_PATH="$1"
 
     for DIR in dev run proc sys tmp; do
@@ -703,12 +696,41 @@ setup_chroot_environment() {
     mount none -t sysfs "${DIR_PATH}/sys"
     mount none -t devpts "${DIR_PATH}/dev/pts"
     mount none -t tmpfs "${DIR_PATH}/tmp"
+}
 
-    mkdir -p "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
-    mount --bind "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
+setup_apt_cache() {
+    current_function
+
+    local DIR_PATH="$1"
+
+    mkdir -p "${DIR_PATH}/var/cache/apt/archives" "${DIR_PATH}/var/lib/apt/lists"
+    mount --bind "${APTCACHE_DIR}/archives" "${DIR_PATH}/var/cache/apt/archives"
+    mount --bind "${APTCACHE_DIR}/lists" "${DIR_PATH}/var/lib/apt/lists"
+
+    if [ -f "${APTCACHE_DIR}/pkgcache.bin" ]; then
+        cp "${APTCACHE_DIR}/pkgcache.bin" "${DIR_PATH}/var/cache/apt/pkgcache.bin"
+    fi
+    if [ -f "${APTCACHE_DIR}/srcpkgcache.bin" ]; then
+        cp "${APTCACHE_DIR}/srcpkgcache.bin" "${DIR_PATH}/var/cache/apt/srcpkgcache.bin"
+    fi
+}
+
+update_apt_cache() {
+    current_function
+
+    local CHROOT_DIR="$1"
+    if [ ! -f "${CHROOT_DIR}/var/cache/apt/pkgcache.bin" ] || [ ! -f "${CHROOT_DIR}/var/cache/apt/srcpkgcache.bin" ]; then
+        chroot_run "${INSTALL_DIR}" pkg update
+    fi
+
+    cp "${CHROOT_DIR}/var/cache/apt/pkgcache.bin" "${APTCACHE_DIR}/pkgcache.bin"
+    cp "${CHROOT_DIR}/var/cache/apt/srcpkgcache.bin" "${APTCACHE_DIR}/srcpkgcache.bin"
+    rm -f "${CHROOT_DIR}/var/cache/apt/pkgcache.bin" "${CHROOT_DIR}/var/cache/apt/srcpkgcache.bin"
 }
 
 update_resolv_conf() {
+    current_function
+
     local DIR_PATH="${1}"
     local RESOLV_PATH="${DIR_PATH}/etc/resolv.conf"
     local BACKUP_PATH="${RESOLV_PATH}.bak"
@@ -730,8 +752,17 @@ chroot_mount_fs() {
     unmount_dirs "${WORK_DIR}"
 
     setup_chroot_environment "${INSTALL_DIR}"
+    setup_apt_cache "${INSTALL_DIR}"
 
     update_resolv_conf "${INSTALL_DIR}"
+}
+
+# --- clean_apt_lists ---
+clean_apt_lists() {
+    current_function
+    information "Cleaning apt lists, pkgcache.bin and srcpkgcache.bin..."
+    find "${APTCACHE_DIR}/lists" -mindepth 1 -delete
+    rm -f "${APTCACHE_DIR}/pkgcache.bin" "${APTCACHE_DIR}/srcpkgcache.bin"
 }
 
 # Displaying information about the start of the build for a more
@@ -832,8 +863,6 @@ add_chroot_configuration_files() {
         cp "${SCRIPT_DIR}/linux-live/minioslib" "$1/minioslib"
     elif [ -f "/linux-live/minioslib" ]; then
         cp "/linux-live/minioslib" "$1/minioslib"
-        #elif [ -f "/usr/lib/minios/libminioslive" ]; then
-        #   cp "/usr/lib/minios/libminioslive" "$1/minioslib"
     fi
 }
 
@@ -849,34 +878,33 @@ timezone_to_array() {
 }
 
 pkg() {
-    local PACKAGE_MANAGER INSTALL_OPTIONS COMMAND
+    local PACKAGE_MANAGER APT_OPTIONS DPKG_OPTIONS COMMAND
 
-    if command -v apt-get >/dev/null 2>&1; then
-        PACKAGE_MANAGER="apt-get"
-    elif command -v apt >/dev/null 2>&1; then
+    if command -v apt >/dev/null 2>&1; then
         PACKAGE_MANAGER="apt"
+    elif command -v apt-get >/dev/null 2>&1; then
+        PACKAGE_MANAGER="apt-get"
     else
-        error "Error: Could not find a supported package manager" >&2
-        exit 1
+        error "Could not find a supported package manager"
+        return 1
     fi
 
-    INSTALL_OPTIONS="--yes"
+    APT_OPTIONS="--yes"
+    DPKG_OPTIONS="-o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\""
+
     COMMAND="$1"
     shift
 
     case "${COMMAND}" in
-    install)
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
+    install | remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" -y "${COMMAND}" "$@" # -y at the end
         ;;
-    remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${INSTALL_OPTIONS}" "${COMMAND}" "$@"
-        ;;
-    update | edit-sources | moo | download | check)
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
+    update | edit-sources | moo | download | check | policy)
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
         ;;
     *)
-        error "Invalid command: ${COMMAND}" >&2
-        exit 1
+        error "Invalid command: ${COMMAND}"
+        return 1
         ;;
     esac
 }
@@ -977,20 +1005,23 @@ build_bootstrap() {
         if [ -f "${ROOTFS_TARBALL}" ]; then
             extract_tarball "${ROOTFS_TARBALL}" "${INSTALL_DIR}"
         else
-            mkdir -p "${APTCACHE_DIR}" "${INSTALL_DIR}/var/cache/apt/archives"
-            mount --bind "${APTCACHE_DIR}" "${INSTALL_DIR}/var/cache/apt/archives"
+            setup_apt_cache "${INSTALL_DIR}"
 
             sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
                 debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
 
-            umount "${INSTALL_DIR}/var/cache/apt/archives"
+            unmount_dirs "${INSTALL_DIR}"
 
-            mkdir -p "${SCRIPT_DIR}/rootfs"
+            mkdir -p "${BUILD_DIR}/rootfs"
             tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" .
         fi
     else
+        setup_apt_cache "${INSTALL_DIR}"
+
         sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
             debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+
+        unmount_dirs "${INSTALL_DIR}"
     fi
 
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
@@ -1054,6 +1085,8 @@ build_chroot() {
         chroot "${INSTALL_DIR}" /linux-live/install-chroot -
     fi
 
+    update_apt_cache "${INSTALL_DIR}"
+
     unmount_dirs "${WORK_DIR}"
 }
 
@@ -1115,8 +1148,6 @@ LINK_USER_DIRS="${LINK_USER_DIRS}"
 SYSTEM_TYPE="${SYSTEM_TYPE}"
 EXPORT_LOGS="${EXPORT_LOGS}"
 ELEVATION_PASSWORD_REQUIRED="$ELEVATION_PASSWORD_REQUIRED"
-LOCALE="$LOCALE"
-LAYOUT_SWITCH="$LAYOUT_SWITCH"
 EOF
     fi
 }
@@ -2180,6 +2211,7 @@ module_chroot_mount_fs() {
     mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_UPPER_DIR}",workdir="${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
 
     setup_chroot_environment "${MODULE_MERGED_DIR}"
+    setup_apt_cache "${MODULE_MERGED_DIR}"
 
     update_resolv_conf "${MODULE_MERGED_DIR}"
 }
@@ -2187,6 +2219,8 @@ module_chroot_mount_fs() {
 # This function unmounts directories within a chroot environment.
 module_unmount_dirs() {
     current_function
+
+    update_apt_cache "${MODULE_UPPER_DIR}"
 
     unmount_dirs "${WORK_DIR}"
 
@@ -2210,20 +2244,15 @@ module_cleanup() {
 module_chroot_finish_up() {
     current_function
 
-    # Truncate machine id (why??)
-    chroot "${MODULE_MERGED_DIR}" /bin/bash -x <<EOF
-truncate -s 0 /etc/machine-id 2>/dev/null
-EOF
+    # Truncate machine id
+    chroot "${MODULE_MERGED_DIR}" /bin/bash -c "truncate -s 0 /etc/machine-id > /dev/null 2>&1 || true"
 
-    # Remove diversion (why??)
-    chroot "${MODULE_MERGED_DIR}" /bin/bash -x <<EOF
-    rm /sbin/initctl 2>/dev/null
-    dpkg-divert --rename --remove /sbin/initctl 2>/dev/null
-EOF
-
+    # Remove diversion
+    chroot "${MODULE_MERGED_DIR}" /bin/bash -c "rm -f /sbin/initctl > /dev/null 2>&1 || true; \
+                                              dpkg-divert --rename --remove /sbin/initctl > /dev/null 2>&1 || true"
 }
 
-# функция для экспорта ядра, если это ядро или модуль Linux
+# Function to export the kernel if it is a Linux kernel or module
 export_kernel() {
     if [[ "${MODULE}" != *"kernel"* ]]; then
         return
