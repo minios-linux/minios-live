@@ -1383,40 +1383,51 @@ EOF
 build_iso() {
     current_process
 
-    local DIR
+    local DIR IMAGE ISO SUFFIX
 
-    if [ "${CONTAINER_TYPE}" = "1" ] && [ ! -f "/.minios-live" ]; then
+    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
         setup_host
     fi
 
-    cd "${WORK_DIR}/image"
+    cd "${WORK_DIR}/image" || exit 1
     mkdir -p "${ISO_DIR}"
 
     DIR="${WORK_DIR}/image"
 
-    if [ "${DESKTOP_ENVIRONMENT}" = "xfce-ultra" ] || [ "${DESKTOP_ENVIRONMENT}" = "xfce-puzzle" ] || [ "${DESKTOP_ENVIRONMENT}" = "xfce-puzzle-base" ]; then
+    if [[ "${DESKTOP_ENVIRONMENT}" =~ ^(xfce-ultra|xfce-puzzle|xfce-puzzle-base)$ ]]; then
         IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}${LANGID}"
     else
         IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}${LANGID}"
     fi
-    if [ "${KERNEL_AUFS}" = "true" ]; then
-        IMAGE="${IMAGE}-aufs"
-    fi
-    if [ "${KERNEL_TYPE}" = "default" ]; then
-        IMAGE="${IMAGE}-${ISO_ARCH}"
+
+    if [[ "${RELEASE}" != "true" ]]; then
+        if [[ "${KERNEL_AUFS}" == "true" ]]; then
+            IMAGE+="-aufs"
+        fi
+        if [[ "${KERNEL_TYPE}" != "default" ]]; then
+            IMAGE+="-${KERNEL_TYPE}"
+        fi
+        if [[ "${BUILD_FROM_SNAPSHOT}" == "true" ]]; then
+            IMAGE+="-${SNAPSHOT_DATE}"
+        fi
+        SUFFIX="-${COMP_TYPE}-$(date +%Y%m%d_%H%M)"
     else
-        IMAGE="${IMAGE}-${KERNEL_TYPE}-${ISO_ARCH}"
-    fi
-    if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
-        IMAGE="${IMAGE}-${SNAPSHOT_DATE}"
+        SUFFIX="-${RELEASE_VERSION}"
+        if [[ "${KERNEL_TYPE}" != "default" ]]; then
+            IMAGE+="-${KERNEL_TYPE}"
+        fi
+
     fi
 
-    ISO="${ISO_DIR}/${IMAGE}-${COMP_TYPE}-$(date +%Y%m%d_%H%M).iso"
+    IMAGE+="-${ISO_ARCH}"
 
-    if [ "${REMOVE_OLD_ISO}" = "true" ]; then
+    ISO="${ISO_DIR}/${IMAGE}${SUFFIX}.iso"
+
+    if [[ "${REMOVE_OLD_ISO}" == "true" ]]; then
         toggle_shell_options e
-        rm "${ISO_DIR}/${IMAGE}-${COMP_TYPE}-"*".iso"
-        while [ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]; do
+        rm -f "${ISO_DIR}/${IMAGE}-"*"-${COMP_TYPE}-"*".iso"
+        rm -f "${ISO_DIR}/${IMAGE}-"*"-${RELEASE_VERSION}.iso"
+        while [[ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]]; do
             rm "${ISO_DIR}/${LIVEKITNAME}.iso"
             sleep 1
         done
@@ -1442,18 +1453,12 @@ build_iso() {
         --isohybrid-gpt-basdat \
         --efi-boot "${LIVEKITNAME}/boot/grub/efi.img" \
         --no-emul-boot \
-        --output "${ISO}" "${DIR}"
+        --output "${ISO}" "${DIR}" || exit 1
 
-    if [ $? = "0" ]; then
-        echo ">>> ${ISO} created"
-    else
-        exit 1
-    fi
+    echo ">>> ${ISO} created"
 
-    if [ "${BUILD_TEST_ISO}" = "true" ]; then
-        if [ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]; then
-            rm -f "${ISO_DIR}/${LIVEKITNAME}.iso"
-        fi
+    if [[ "${BUILD_TEST_ISO}" == "true" ]]; then
+        rm -f "${ISO_DIR}/${LIVEKITNAME}.iso"
         ln "${ISO}" "${ISO_DIR}/${LIVEKITNAME}.iso" && echo ">>> ${ISO_DIR}/${LIVEKITNAME}.iso created"
     fi
 }
