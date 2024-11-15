@@ -13,38 +13,6 @@ install_build_packages() {
     pkg install ${HEADERS_PACKAGE} gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git
 }
 
-source_dkms_install() {
-    local DRIVER_NAME DRIVER_VERSION
-    cd /usr/src
-    git clone "${1}"
-    DRIVER_NAME=$(basename "${1}" | sed 's/\.git$//')
-    DRIVER_VERSION=$(cat "${DRIVER_NAME}/dkms.conf" | grep 'PACKAGE_VERSION=' | cut -d '"' -f 2)
-    sed -i "s/uname -r/echo ${KERNEL}/g" "${DRIVER_NAME}/Makefile"
-    sed -i "s/uname -m/echo ${DISTRIBUTION_ARCH}/g" "${DRIVER_NAME}/Makefile"
-    sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k ${KERNEL}/g" "${DRIVER_NAME}/Makefile"
-    sed -i "s/\${kernelver}/${KERNEL}/g" "${DRIVER_NAME}/dkms.conf"
-    mv "${DRIVER_NAME}" "${DRIVER_NAME}-${DRIVER_VERSION}"
-    for ACTION in add build install; do
-        dkms "${ACTION}" -m "${DRIVER_NAME}" -v "$DRIVER_VERSION"
-    done
-    cd -
-}
-
-source_install() {
-    local DRIVER_NAME DRIVER_VERSION
-    git clone "${1}"
-    DRIVER_NAME=$(basename "${1}" | sed 's/\.git$//')
-    DRIVER_VERSION=$(cat "${DRIVER_NAME}/dkms.conf" | grep 'PACKAGE_VERSION=' | cut -d '"' -f 2)
-    cd "${DRIVER_NAME}"
-    sed -i "s/uname -r/echo ${KERNEL}/g" ./Makefile
-    sed -i "s/uname -m/echo ${KERNEL_BUILD_ARCH}/g" ./Makefile
-    sed -i "s/-v \$(DRIVER_VERSION)/-v \$(DRIVER_VERSION) -k ${KERNEL}/g" ./Makefile
-    sed -i "s/\${kernelver}/${KERNEL}/g" ./dkms.conf
-    make
-    make install
-    cd -
-}
-
 if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     KERNEL_VERSION=$(echo $KERNEL | cut -d'.' -f1,2)
     if [ "${KERNEL_BPO}" = "true" ] && [ "${DISTRIBUTION}" = "bookworm" ]; then
@@ -79,37 +47,5 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     if ([ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ] || [ "${PACKAGE_VARIANT}" = "puzzle" ]) && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v
         pkg install "${BPO}" zfs-dkms
-    fi
-    if [ "${KERNEL_AUFS}" = "false" ]; then
-        if [ "${DISTRIBUTION}" = "bookworm" ]; then
-            DEBIAN_FRONTEND=noninteractive
-            pkg install \
-                realtek-rtl8188eus-dkms \
-                realtek-rtl8814au-dkms \
-                realtek-rtl88xxau-dkms \
-                rtl8821cu-dkms
-            #source_install "https://github.com/cilynx/rtl88x2bu.git"
-        elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" != "true" ]; then
-            pkg install \
-                realtek-rtl88xxau-dkms \
-                realtek-rtl8814au-dkms \
-                realtek-rtl8188eus \
-                realtek-rtl8723cs-dkms
-        elif [ "${DISTRIBUTION}" = "sid" ] && [ "${KERNEL_BPO}" = "true" ]; then
-            pkg install \
-                realtek-rtl88xxau-dkms \
-                realtek-rtl8814au-dkms \
-                realtek-rtl8188eus \
-                realtek-rtl8723cs-dkms
-        else
-            DEBIAN_FRONTEND=noninteractive
-            pkg install \
-                realtek-rtl8188eus-dkms \
-                realtek-rtl8723cs-dkms \
-                realtek-rtl8814au-dkms \
-                realtek-rtl88xxau-dkms \
-                rtl8821cu-dkms
-            source_install "https://github.com/cilynx/rtl88x2bu.git"
-        fi
     fi
 fi
