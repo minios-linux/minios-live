@@ -60,14 +60,6 @@ KERNEL_BUILD_DKMS="true"
 # Options: true, false
 NAMED_BOOT_FILES="false"
 
-# Copy initrfs.img and vmlinuz to the kernel folder during kernel installation
-# Options: true, false
-EXPORT_KERNEL="true"
-
-# Move initrfs.img and vmlinuz to the kernel folder during kernel installation
-# Options: true, false
-MOVE_KERNEL="false"
-
 # Create a log folder on the media for system startup logs
 # Options: true, false
 EXPORT_LOGS="false"
@@ -187,6 +179,17 @@ SKIP_SETUP_HOST="false"
 # Remove sources after building
 # Options: true, false
 REMOVE_SOURCES="false"
+
+# Enable or disable access to apt-cacher-ng
+# Options: true, false
+#
+# Note: apt-cacher-ng must be installed and configured beforehand to use this option.
+# For more information, visit the official website: https://www.unix-ag.uni-kl.de/~bloch/acng
+USE_APT_CACHE="true"
+
+# Set the address for the apt-cacher-ng proxy
+# Format: IP:PORT
+APT_CACHE_ADDRESS="127.0.0.1:3142"
 
 # Remove dpkg base from the module
 # Options: true, false
