@@ -608,15 +608,8 @@ setup_install_dir() {
     mkdir -p "${INSTALL_DIR}"
 
     toggle_shell_options u
-    if [ -z "${APTCACHE_DIR}" ]; then
-        APTCACHE_DIR="${BUILD_DIR}/aptcache/${DISTRIBUTION}"
-    fi
-    if [ -z "${ROOTFS_TARBALL}" ]; then
-        ROOTFS_TARBALL="${WORK_DIR}/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz"
-    fi
+    : "${ROOTFS_TARBALL:=${WORK_DIR}/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz}"
     toggle_shell_options u
-
-    mkdir -p "${APTCACHE_DIR}/archives" "${APTCACHE_DIR}/lists"
 
     generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
     EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
@@ -703,29 +696,13 @@ setup_apt_cache() {
 
     local DIR_PATH="$1"
 
-    mkdir -p "${DIR_PATH}/var/cache/apt/archives" "${DIR_PATH}/var/lib/apt/lists"
-    mount --bind "${APTCACHE_DIR}/archives" "${DIR_PATH}/var/cache/apt/archives"
-    mount --bind "${APTCACHE_DIR}/lists" "${DIR_PATH}/var/lib/apt/lists"
-
-    if [ -f "${APTCACHE_DIR}/pkgcache.bin" ]; then
-        cp "${APTCACHE_DIR}/pkgcache.bin" "${DIR_PATH}/var/cache/apt/pkgcache.bin"
+    if [ "${USE_APT_CACHE}" = "true" ]; then
+        cat <<EOF >"${DIR_PATH}/etc/apt/apt.conf.d/02aptcache"
+Acquire::http::Proxy "http://127.0.0.1:3142";
+Acquire::https::Proxy "http://127.0.0.1:3142";
+Acquire::ftp::proxy "http://127.0.0.1:3142";
+EOF
     fi
-    if [ -f "${APTCACHE_DIR}/srcpkgcache.bin" ]; then
-        cp "${APTCACHE_DIR}/srcpkgcache.bin" "${DIR_PATH}/var/cache/apt/srcpkgcache.bin"
-    fi
-}
-
-update_apt_cache() {
-    current_function
-
-    local CHROOT_DIR="$1"
-    if [ ! -f "${CHROOT_DIR}/var/cache/apt/pkgcache.bin" ] || [ ! -f "${CHROOT_DIR}/var/cache/apt/srcpkgcache.bin" ]; then
-        chroot_run "${INSTALL_DIR}" pkg update
-    fi
-
-    cp "${CHROOT_DIR}/var/cache/apt/pkgcache.bin" "${APTCACHE_DIR}/pkgcache.bin"
-    cp "${CHROOT_DIR}/var/cache/apt/srcpkgcache.bin" "${APTCACHE_DIR}/srcpkgcache.bin"
-    rm -f "${CHROOT_DIR}/var/cache/apt/pkgcache.bin" "${CHROOT_DIR}/var/cache/apt/srcpkgcache.bin"
 }
 
 update_resolv_conf() {
@@ -755,14 +732,6 @@ chroot_mount_fs() {
     setup_apt_cache "${INSTALL_DIR}"
 
     update_resolv_conf "${INSTALL_DIR}"
-}
-
-# --- clean_apt_lists ---
-clean_apt_lists() {
-    current_function
-    information "Cleaning apt lists, pkgcache.bin and srcpkgcache.bin..."
-    find "${APTCACHE_DIR}/lists" -mindepth 1 -delete
-    rm -f "${APTCACHE_DIR}/pkgcache.bin" "${APTCACHE_DIR}/srcpkgcache.bin"
 }
 
 # Displaying information about the start of the build for a more
@@ -897,7 +866,7 @@ pkg() {
 
     case "${COMMAND}" in
     install | remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" -y "${COMMAND}" "$@" # -y at the end
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
         ;;
     update | edit-sources | moo | download | check | policy)
         DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
@@ -948,28 +917,6 @@ read_config /minios-build.conf "${VARIABLES}"
 export ${VARIABLES}
 ${@:2}
 EOF
-}
-
-# Unzip gzipped files (man pages), so LZMA can compress 2times better.
-# First we fix symlinks, then uncompress files
-# $1 = search directory
-uncompress_files() {
-    current_function
-    local LINK LINE
-
-    find "${1}" -type l -name "*.gz" | while read LINE; do
-        LINK="$(readlink "${LINE}" | sed -r 's/.gz$//')"
-        FILE="$(echo "${LINE}" | sed -r 's/.gz$//')"
-        ln -sfn "${LINK}" "${FILE}"
-        rm -f "${LINE}"
-    done
-    find "${1}" -type f -name "*.gz" | xargs -r gunzip 2>/dev/null
-}
-# remove broken links
-# $1 = search directory
-remove_broken_links() {
-    current_function
-    find "${1}" -type l -exec test ! -e {} \; -print | xargs rm -vf
 }
 
 # Installing the base system
@@ -1058,10 +1005,8 @@ copy_build_scripts() {
 build_chroot() {
     current_process
 
-    if [ "${CONTAINER_TYPE}" = "1" ]; then
-        if [ ! -f /.minios-live ]; then
-            setup_host
-        fi
+    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
+        setup_host
     fi
 
     chroot_mount_fs "${INSTALL_DIR}"
@@ -1085,7 +1030,9 @@ build_chroot() {
         chroot "${INSTALL_DIR}" /linux-live/install-chroot -
     fi
 
-    update_apt_cache "${INSTALL_DIR}"
+    #if [ "${USE_PACKAGE_LIST}" ]; then
+    #    update_apt_cache "${INSTALL_DIR}"
+    #fi
 
     unmount_dirs "${WORK_DIR}"
 }
@@ -1109,10 +1056,8 @@ mkmod_corefs() {
 build_live() {
     current_process
 
-    if [ "${CONTAINER_TYPE}" = "1" ]; then
-        if [ ! -f "/.minios-live" ]; then
-            setup_host
-        fi
+    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
+        setup_host
     fi
 
     copy_build_scripts
@@ -1123,7 +1068,7 @@ build_live() {
     # create compressed 00-core.sb
     mkmod_corefs "${INSTALL_DIR}"
 
-    time mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
+    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
 
 }
 
@@ -1306,10 +1251,8 @@ build_boot() {
 
     local OLD_KERNEL
 
-    if [ "${CONTAINER_TYPE}" = "1" ]; then
-        if [ ! -f "/.minios-live" ]; then
-            setup_host
-        fi
+    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
+        setup_host
     fi
 
     copy_build_scripts
@@ -1363,20 +1306,20 @@ EOF
         # kernel.conf generation is in linux-live/scripts/01-kernel/build
         [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
-        copy_build_scripts "${MODULE_MERGED_DIR}"
-        chmod +x "${MODULE_MERGED_DIR}/linux-live/build-initramfs"
-        chroot_run "${MODULE_MERGED_DIR}" "/linux-live/build-initramfs"
+        copy_build_scripts "${MODULE_DIR[merged]}"
+        chmod +x "${MODULE_DIR[merged]}/linux-live/build-initramfs"
+        chroot_run "${MODULE_DIR[merged]}" "/linux-live/build-initramfs"
 
         # copy boot files
         kernel_variables
-        cp "${MODULE_MERGED_DIR}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        cp "${MODULE_MERGED_DIR}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
+        cp "${MODULE_DIR[merged]}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        cp "${MODULE_DIR[merged]}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
 
         for CFG_FILE in syslinux.cfg grub/grub.cfg; do
             sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${CFG_FILE}"
         done
 
-        [ -d "${MODULE_MERGED_DIR}/linux-live" ] && rm -rf "${MODULE_MERGED_DIR}/linux-live"
+        [ -d "${MODULE_DIR[merged]}/linux-live" ] && rm -rf "${MODULE_DIR[merged]}/linux-live"
     fi
 }
 
@@ -1425,7 +1368,7 @@ build_iso() {
 
     if [[ "${REMOVE_OLD_ISO}" == "true" ]]; then
         toggle_shell_options e
-        rm -f "${ISO_DIR}/${IMAGE}-"*"-${COMP_TYPE}-"*".iso"
+        rm -f "${ISO_DIR}/${IMAGE}-${COMP_TYPE}-"*".iso"
         rm -f "${ISO_DIR}/${IMAGE}-"*"-${RELEASE_VERSION}.iso"
         while [[ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]]; do
             rm "${ISO_DIR}/${LIVEKITNAME}.iso"
@@ -1501,12 +1444,35 @@ chroot_setup_host() {
     ln -s /bin/true /sbin/initctl
 }
 
+# Unzip gzipped files (man pages), so LZMA can compress 2times better.
+# First we fix symlinks, then uncompress files
+# $1 = search directory
+uncompress_files() {
+    current_function
+    local LINK LINE
+
+    find "${1}" -type l -name "*.gz" | while read LINE; do
+        LINK="$(readlink "${LINE}" | sed -r 's/.gz$//')"
+        FILE="$(echo "${LINE}" | sed -r 's/.gz$//')"
+        ln -sfn "${LINK}" "${FILE}"
+        rm -f "${LINE}"
+    done
+    find "${1}" -type f -name "*.gz" | xargs -r gunzip 2>/dev/null
+}
+
+# remove broken links
+# $1 = search directory
+remove_broken_links() {
+    current_function
+    find "${1}" -type l -exec test ! -e {} \; -print | xargs rm -vf
+}
+
 get_base_path() {
     local BASE_PATH=""
     if [ "${1}" == "core" ]; then
         BASE_PATH=""
     elif [ "${1}" == "module" ]; then
-        BASE_PATH="${MODULE_UPPER_DIR}"
+        BASE_PATH="${MODULE_DIR[upper]}"
     else
         error "Invalid mode. Choose either 'core' or module."
         exit 1
@@ -1519,93 +1485,75 @@ chroot_cleanup() {
     current_function
 
     local BASE_PATH=$(get_base_path "${1}")
-    local FILE FILENAME DIRS_TO_REMOVE FILES_TO_REMOVE
+    local FILE FILENAME
 
     toggle_shell_options eu
 
-    # Directories to completely remove
-    declare -a DIRS_TO_REMOVE=(
-        "/patches"
-        "/rootcopy"
-        "/rootcopy-install"
-        "/.cache"
-        "/etc/systemd/system/timers.target.wants"
-        "/root/.cache"
-        "/root/.local/share/mc"
-        "/usr/share/doc/*"
-        "/usr/share/gnome/help"
-        "/usr/share/icons/elementaryXubuntu-dark"
-        "/usr/share/icons/gnome/256x256"
-        "/usr/share/info/*"
-        "/usr/share/man/??"
-        "/usr/share/man/*_*"
-    )
+    rm -rf "${BASE_PATH}/patches" 2>/dev/null
+    rm -rf "${BASE_PATH}/rootcopy" 2>/dev/null
+    rm -rf "${BASE_PATH}/rootcopy-install" 2>/dev/null
+    rm -rf "${BASE_PATH}/.cache" 2>/dev/null
+    rm -rf "${BASE_PATH}/etc/systemd/system/timers.target.wants" 2>/dev/null
+    rm -rf "${BASE_PATH}/root/.cache" 2>/dev/null
+    rm -rf "${BASE_PATH}/root/.local/share/mc" 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/doc/"* 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/gnome/help" 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/icons/elementaryXubuntu-dark" 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/icons/gnome/256x256" 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/info/"* 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/man/??" 2>/dev/null
+    rm -rf "${BASE_PATH}/usr/share/man/"*_* 2>/dev/null
+    rm -f "${BASE_PATH}/kernel.conf" 2>/dev/null
+    rm -f "${BASE_PATH}/${PACKAGE_VARIANT}.list" 2>/dev/null
+    rm -f "${BASE_PATH}/${PACKAGE_VARIANT}-l10n.list" 2>/dev/null
+    rm -f "${BASE_PATH}/build" 2>/dev/null
+    rm -f "${BASE_PATH}/cleanup" 2>/dev/null
+    rm -f "${BASE_PATH}/minioslib" 2>/dev/null
+    rm -f "${BASE_PATH}/install" 2>/dev/null
+    rm -f "${BASE_PATH}/package.list" 2>/dev/null
+    rm -f "${BASE_PATH}/postinstall" 2>/dev/null
+    rm -f "${BASE_PATH}/preinstall" 2>/dev/null
+    rm -f "${BASE_PATH}/root/.bash_history" 2>/dev/null
+    rm -f "${BASE_PATH}/root/.wget-hsts" 2>/dev/null
+    rm -f "${BASE_PATH}/usr/share/images/fluxbox/debian-squared.jpg" 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/dhcp/dhclient.leases" 2>/dev/null
 
-    # Single files to remove
-    declare -a FILES_TO_REMOVE=(
-        "/kernel.conf"
-        "/${PACKAGE_VARIANT}.list"
-        "/${PACKAGE_VARIANT}-l10n.list"
-        "/build"
-        "/cleanup"
-        "/minioslib"
-        "/install"
-        "/package.list"
-        "/postinstall"
-        "/preinstall"
-        "/root/.bash_history"
-        "/root/.wget-hsts"
-        "/usr/share/images/fluxbox/debian-squared.jpg"
-        "/var/lib/dhcp/dhclient.leases"
-    )
-
-    # Customize FILES_TO_REMOVE and DIRS_TO_REMOVE for module mode
     if [ "$1" == "module" ]; then
-        FILES_TO_REMOVE+=("/etc/machine-id")
-        #DIRS_TO_REMOVE+=("/boot" "/dev" "/proc" "/sys" "/tmp" "/run")
+        rm -f "${BASE_PATH}/etc/machine-id" 2>/dev/null
     fi
-
-    # Iterate and remove directories
-    for DIR in "${DIRS_TO_REMOVE[@]}"; do
-        rm -rf "${BASE_PATH}${DIR}" 2>/dev/null
-    done
-
-    # Iterate and remove files
-    for FILE in "${FILES_TO_REMOVE[@]}"; do
-        rm -f "${BASE_PATH}${FILE}" 2>/dev/null
-    done
-
-    # Remove files within specific directories and with specific wildcards
     if [ "${1}" = "core" ] || [[ "${MODULE}" == *"xorg"* ]] || [[ "${MODULE}" == *"gui-base"* ]]; then
-        rm -f "${BASE_PATH}"/usr/share/applications/*.desktop 2>/dev/null
+        rm -f "${BASE_PATH}/usr/share/applications/"*.desktop 2>/dev/null
     fi
     if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
-        rm -rf "${BASE_PATH}"/var/lib/dpkg 2>/dev/null
+        rm -rf "${BASE_PATH}/var/lib/dpkg" 2>/dev/null
     fi
-    rm -f "${BASE_PATH}"/var/backups/* 2>/dev/null
-    rm -f "${BASE_PATH}"/var/cache/apt/*.bin 2>/dev/null
-    rm -f "${BASE_PATH}"/var/cache/debconf/* 2>/dev/null
-    rm -f "${BASE_PATH}"/var/cache/debconf/*-old 2>/dev/null
-    rm -f "${BASE_PATH}"/var/cache/fontconfig/* 2>/dev/null
-    rm -f "${BASE_PATH}"/var/cache/ldconfig/* 2>/dev/null
-    rm -f "${BASE_PATH}"/var/lib/apt/lists/*Packages 2>/dev/null
-    rm -f "${BASE_PATH}"/var/lib/apt/lists/*Translation* 2>/dev/null
-    rm -f "${BASE_PATH}"/var/lib/apt/lists/*InRelease 2>/dev/null
-    rm -f "${BASE_PATH}"/var/lib/apt/lists/deb.* 2>/dev/null
-    rm -f "${BASE_PATH}"/var/lib/dpkg/*-old 2>/dev/null
 
-    # Remove all files except xrdp.log within /var/log/ and its subdirectories
-    find "${BASE_PATH}"/var/log/ -type f ! -name "xrdp.log" -exec rm -f {} \; 2>/dev/null
+    rm -f "${BASE_PATH}/var/backups/"* 2>/dev/null
+    rm -f "${BASE_PATH}/var/cache/debconf/"* 2>/dev/null
+    rm -f "${BASE_PATH}/var/cache/debconf/"*-old 2>/dev/null
+    rm -f "${BASE_PATH}/var/cache/fontconfig/"* 2>/dev/null
+    rm -f "${BASE_PATH}/var/cache/ldconfig/"* 2>/dev/null
+    rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
+    if [ "${USE_APT_CACHE}" = "false" ]; then
+        rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02noclean" 2>/dev/null
+    fi
+    rm -f "${BASE_PATH}/var/cache/apt/"*.bin 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/apt/lists/"*Packages 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/apt/lists/"*Translation* 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/apt/lists/"*InRelease 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/apt/lists/deb."* 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/dpkg/"*-old 2>/dev/null
+
+    # Remove all files in /var/log/, except for xrdp.log
+    find "${BASE_PATH}/var/log/" -type f ! -name "xrdp.log" -exec rm -f {} \; 2>/dev/null
 
     if [ "${REMOVE_DPKG_DB}" = "true" ]; then
-        if [ -d "${BASE_PATH}"/usr/share/icons ]; then
-            rm -rf "${BASE_PATH}"/var/lib/dpkg 2>/dev/null
-        fi
+        rm -rf "${BASE_PATH}/var/lib/dpkg" 2>/dev/null
     fi
 
     if [ "${REMOVE_LARGE_ICONS}" = "true" ]; then
-        if [ -d "${BASE_PATH}"/usr/share/icons ]; then
-            find "${BASE_PATH}"/usr/share/icons/ -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
+        if [ -d "${BASE_PATH}/usr/share/icons" ]; then
+            find "${BASE_PATH}/usr/share/icons/" -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
         fi
     fi
 
@@ -1626,7 +1574,7 @@ chroot_cleanup() {
             rm -rf "${BASE_PATH}"/usr/share/i18n/locales/*_* 2>/dev/null
         else
             # Paths and patterns where excess locales will be deleted
-            PATHS_AND_PATTERNS_TO_CLEAN=(
+            PATHS_AND_PATTERNS=(
                 "${BASE_PATH}"/usr/share/fluxbox/nls/??*
                 "${BASE_PATH}"/usr/share/locale/??
                 "${BASE_PATH}"/usr/share/locale/??_*
@@ -1635,16 +1583,10 @@ chroot_cleanup() {
                 "${BASE_PATH}"/usr/share/i18n/locales/*_*
             )
 
-            # Iterate over all paths and patterns
-            for PATH_AND_PATTERN in "${PATHS_AND_PATTERNS_TO_CLEAN[@]}"; do
+            for PATH_AND_PATTERN in "${PATHS_AND_PATTERNS[@]}"; do
                 information "Checking files in ${PATH_AND_PATTERN}..."
-
-                # Iterate over all files and directories matching the current pattern
                 for FILE in ${PATH_AND_PATTERN}; do
-                    # Get the name of the file or directory without the full path
                     FILENAME=$(basename "$FILE")
-
-                    # Check if this file or directory should be kept
                     KEEP=false
                     for ITEM in "${LOCALES_TO_KEEP[@]}"; do
                         ITEM_CODE=$(echo $ITEM | cut -d_ -f1)
@@ -1653,8 +1595,6 @@ chroot_cleanup() {
                             break
                         fi
                     done
-
-                    # If the file or directory should not be kept, delete it
                     if ! ${KEEP}; then
                         information "Deleting ${FILE}..."
                         rm -rf "${FILE}"
@@ -1663,19 +1603,16 @@ chroot_cleanup() {
                     fi
                 done
             done
-
-            information "Locale cleanup completed."
         fi
-    else
-        information "Skipping locale cleanup due to KEEP_ALL_LOCALES variable setting."
     fi
 
+    # Remove broken links and uncompress files
     if [ -z "${BASE_PATH}" ]; then
-        uncompress_files "${BASE_PATH}"/etc/alternatives
-        uncompress_files "${BASE_PATH}"/usr/share/man
+        uncompress_files "${BASE_PATH}/etc/alternatives"
+        uncompress_files "${BASE_PATH}/usr/share/man"
 
-        remove_broken_links "${BASE_PATH}"/etc/alternatives
-        remove_broken_links "${BASE_PATH}"/usr/share/man
+        remove_broken_links "${BASE_PATH}/etc/alternatives"
+        remove_broken_links "${BASE_PATH}/usr/share/man"
     fi
 
     toggle_shell_options eu
@@ -1780,9 +1717,13 @@ chroot_finish_up() {
     rm -f /var/backups/* 2>/dev/null
     rm -f /var/cache/ldconfig/* 2>/dev/null
     rm -f /var/cache/fontconfig/* 2>/dev/null
-    rm -f /var/cache/apt/*.bin 2>/dev/null
     rm -f /var/cache/debconf/*-old 2>/dev/null
     rm -f /var/lib/apt/extended_states 2>/dev/null
+    rm -f /var/cache/apt/archives/*.deb 2>/dev/null
+    if [ "${USE_APT_CACHE}" = "false" ]; then
+        rm -f /etc/apt/apt.conf.d/02noclean 2>/dev/null
+    fi
+    rm -f /var/cache/apt/*.bin 2>/dev/null
     rm -f /var/lib/apt/lists/*Packages 2>/dev/null
     rm -f /var/lib/apt/lists/*Translation* 2>/dev/null
     rm -f /var/lib/apt/lists/*InRelease 2>/dev/null
@@ -2135,10 +2076,53 @@ check_filter() {
     return 1
 }
 
+# Function to set kernel related variables
+kernel_variables() {
+    toggle_shell_options u
+    KERNEL_SUFFIX="${KERNEL}"
+    toggle_shell_options u
+
+    if [ "${NAMED_BOOT_FILES}" = "true" ]; then
+        VMLINUZNAME="vmlinuz-${KERNEL_SUFFIX}"
+        INITRFSNAME="initrfs-${KERNEL_SUFFIX}.img"
+    else
+        VMLINUZNAME="vmlinuz"
+        INITRFSNAME="initrfs.img"
+    fi
+}
+
+# Function to create initial ramdisk file system (initrfs) for a Linux kernel
+create_initrfs() {
+    if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
+        if [ -f "${WORK_DIR}/minios-build.conf" ]; then
+            read_config "${WORK_DIR}/minios-build.conf" KERNEL
+        fi
+        copy_build_scripts "${MODULE_DIR[merged]}"
+        chmod +x "${MODULE_DIR[merged]}/linux-live/initrfs"
+        chroot "${MODULE_DIR[merged]}" /linux-live/initrfs
+        kernel_variables
+        if ls "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* 2>/dev/null; then
+            cp "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        elif ls "${MODULE_DIR[merged]}"/boot/vmlinuz-**.**.* 2>/dev/null; then
+            cp "${MODULE_DIR[merged]}"/boot/vmlinuz-**.**.* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        else
+            cp "${MODULE_DIR[merged]}"/boot/vmlinuz-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+        fi
+        cp "${MODULE_DIR[merged]}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
+        sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux.cfg"
+        sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+        if [ -d "${MODULE_DIR[merged]}/linux-live" ]; then
+            rm -rf "${MODULE_DIR[merged]}/linux-live"
+        fi
+    fi
+}
+
+# ===================== MODULES FUNCTIONS =========================
+
 # This function checks for mounted filesystems in chroot and unmounts them.
 module_check_mounted() {
     current_function
-    if grep -qs "${MODULE_MERGED_DIR}" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/dev" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/run" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/proc" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/sys" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/dev/pts" /proc/mounts || grep -qs "${MODULE_MERGED_DIR}/tmp" /proc/mounts; then
+    if grep -qs "${MODULE_DIR[merged]}" /proc/mounts || grep -qs "${MODULE_DIR[merged]}/dev" /proc/mounts || grep -qs "${MODULE_DIR[merged]}/run" /proc/mounts || grep -qs "${MODULE_DIR[merged]}/proc" /proc/mounts || grep -qs "${MODULE_DIR[merged]}/sys" /proc/mounts || grep -qs "${MODULE_DIR[merged]}/dev/pts" /proc/mounts || grep -qs "${MODULE_DIR[merged]}/tmp" /proc/mounts; then
         echo -e "${BOLD}${LIGHTYELLOW}Сhroot contains mounted filesystems.${ENDCOLOR}"
         module_unmount_dirs
     fi
@@ -2192,27 +2176,23 @@ module_chroot_mount_fs() {
     filter_modules "${OVERLAYS}/bundles/"
     MODULES_LIST=${MODULES_LIST/%:/}
     toggle_shell_options e
-    mkdir -p "${MODULE_UPPER_DIR}" "${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
-    mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_UPPER_DIR}",workdir="${MODULE_WORK_DIR}" "${MODULE_MERGED_DIR}"
+    mkdir -p "${MODULE_DIR[upper]}" "${MODULE_DIR[work]}" "${MODULE_DIR[merged]}"
+    mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_DIR[upper]}",workdir="${MODULE_DIR[work]}" "${MODULE_DIR[merged]}"
 
-    setup_chroot_environment "${MODULE_MERGED_DIR}"
-    setup_apt_cache "${MODULE_MERGED_DIR}"
+    setup_chroot_environment "${MODULE_DIR[merged]}"
+    setup_apt_cache "${MODULE_DIR[merged]}"
 
-    update_resolv_conf "${MODULE_MERGED_DIR}"
+    update_resolv_conf "${MODULE_DIR[merged]}"
 }
 
 # This function unmounts directories within a chroot environment.
 module_unmount_dirs() {
     current_function
-
-    update_apt_cache "${MODULE_UPPER_DIR}"
-
     unmount_dirs "${WORK_DIR}"
-
-    if [ -e "${MODULE_UPPER_DIR}/etc/resolv.conf" ]; then
-        rm -f "${MODULE_UPPER_DIR}/etc/resolv.conf"
-    elif [ -e "${MODULE_UPPER_DIR}/etc/resolv.conf.bak" ]; then
-        rm -f "${MODULE_UPPER_DIR}/etc/resolv.conf.bak"
+    if [ -e "${MODULE_DIR[upper]}/etc/resolv.conf" ]; then
+        rm -f "${MODULE_DIR[upper]}/etc/resolv.conf"
+    elif [ -e "${MODULE_DIR[upper]}/etc/resolv.conf.bak" ]; then
+        rm -f "${MODULE_DIR[upper]}/etc/resolv.conf.bak"
     fi
 }
 
@@ -2220,8 +2200,8 @@ module_unmount_dirs() {
 module_cleanup() {
     current_function
     unmount_dirs "${WORK_DIR}"
-    if [ -d "${MODULE_UPPER_DIR}" ]; then
-        rm -rf "${MODULE_UPPER_DIR}"
+    if [ -d "${MODULE_DIR[upper]}" ]; then
+        rm -rf "${MODULE_DIR[upper]}"
     fi
 }
 
@@ -2230,159 +2210,11 @@ module_chroot_finish_up() {
     current_function
 
     # Truncate machine id
-    chroot "${MODULE_MERGED_DIR}" /bin/bash -c "truncate -s 0 /etc/machine-id > /dev/null 2>&1 || true"
+    chroot "${MODULE_DIR[merged]}" /bin/bash -c "truncate -s 0 /etc/machine-id > /dev/null 2>&1 || true"
 
     # Remove diversion
-    chroot "${MODULE_MERGED_DIR}" /bin/bash -c "rm -f /sbin/initctl > /dev/null 2>&1 || true; \
+    chroot "${MODULE_DIR[merged]}" /bin/bash -c "rm -f /sbin/initctl > /dev/null 2>&1 || true; \
                                               dpkg-divert --rename --remove /sbin/initctl > /dev/null 2>&1 || true"
-}
-
-# Function to export the kernel if it is a Linux kernel or module
-export_kernel() {
-    if [[ "${MODULE}" != *"kernel"* ]]; then
-        return
-    fi
-
-    if [ "${EXPORT_KERNEL}" = "TRUE" ] || [ "${MOVE_KERNEL}" = "TRUE" ]; then
-        local OPERATION="copied"
-        [ "${MOVE_KERNEL}" = "TRUE" ] && OPERATION="moved"
-
-        current_function
-        kernel_variables
-        mkdir -p "${KERNEL_DIR}"
-
-        if [ "${KERNEL_BUILD_DKMS}" = "TRUE" ]; then
-            KERNEL_MODULE_NAME="${MODULE}-${KERNEL_SUFFIX}-ext-${COMP_TYPE}.${BEXT}"
-        else
-            KERNEL_MODULE_NAME="${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
-        fi
-
-        local SOURCE_PATH="${WORK_DIR}/image/${LIVEKITNAME}/${KERNEL_MODULE_NAME}"
-        local VMLINUX_PATH="${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        local INITRFS_PATH="${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
-
-        if [ -f "${SOURCE_PATH}" ]; then
-            ${MOVE_KERNEL} "${SOURCE_PATH}" "${KERNEL_DIR}"
-
-            if [ "${NAMED_BOOT_FILES}" = "TRUE" ]; then
-                ${MOVE_KERNEL} "${VMLINUX_PATH}" "${KERNEL_DIR}"
-                ${MOVE_KERNEL} "${INITRFS_PATH}" "${KERNEL_DIR}"
-            else
-                ${MOVE_KERNEL} "${VMLINUX_PATH}" "${KERNEL_DIR}/vmlinuz-${KERNEL_SUFFIX}"
-                ${MOVE_KERNEL} "${INITRFS_PATH}" "${KERNEL_DIR}/initrfs-${KERNEL_SUFFIX}.img"
-            fi
-
-            information "Kernel files and initrd image have been ${OPERATION} to a folder ${KERNEL_DIR}"
-        else
-            information "Kernel files could not be found."
-        fi
-    fi
-}
-
-# Function to set kernel related variables
-kernel_variables() {
-    toggle_shell_options u
-    KERNEL_SUFFIX="${KERNEL}"
-    toggle_shell_options u
-
-    if [ "${NAMED_BOOT_FILES}" = "true" ]; then
-        VMLINUZNAME="vmlinuz-${KERNEL_SUFFIX}"
-        INITRFSNAME="initrfs-${KERNEL_SUFFIX}.img"
-    else
-        VMLINUZNAME="vmlinuz"
-        INITRFSNAME="initrfs.img"
-    fi
-}
-
-# Function to create initial ramdisk file system (initrfs) for a Linux kernel
-create_initrfs() {
-    if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-        if [ -f "${WORK_DIR}/minios-build.conf" ]; then
-            read_config "${WORK_DIR}/minios-build.conf" KERNEL
-        fi
-        copy_build_scripts "${MODULE_MERGED_DIR}"
-        chmod +x "${MODULE_MERGED_DIR}/linux-live/initrfs"
-        chroot "${MODULE_MERGED_DIR}" /linux-live/initrfs
-        kernel_variables
-        if ls "${MODULE_MERGED_DIR}"/boot/vmlinuz-**-**-* 2>/dev/null; then
-            cp "${MODULE_MERGED_DIR}"/boot/vmlinuz-**-**-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        elif ls "${MODULE_MERGED_DIR}"/boot/vmlinuz-**.**.* 2>/dev/null; then
-            cp "${MODULE_MERGED_DIR}"/boot/vmlinuz-**.**.* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        else
-            cp "${MODULE_MERGED_DIR}"/boot/vmlinuz-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        fi
-        cp "${MODULE_MERGED_DIR}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
-        sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux.cfg"
-        sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
-        if [ -d "${MODULE_MERGED_DIR}/linux-live" ]; then
-            rm -rf "${MODULE_MERGED_DIR}/linux-live"
-        fi
-    fi
-}
-
-# Function to export language packs if multilingual support is enabled in configuration
-export_locales() {
-    local FILE BASE_NAME NEW_NAME
-    if [[ "${MODULE}" == *"langpack"* ]]; then
-        if [ "${MULTILINGUAL}" = "true" ]; then
-            current_function
-            mkdir -p "${LOCALES_DIR}"
-            for FILE in "${MODULE_UPPER_DIR}"/*langpack*; do
-                cp "${FILE}" "${LOCALES_DIR}/$(basename "${FILE}")"
-            done
-        fi
-    fi
-}
-
-# handle() - A generic function to manage different types of files
-#
-# Usage:
-# handle SRC DEST TYPE
-#
-# Where:
-# SRC - The source file or directory
-# DEST - The destination file or directory
-# TYPE - The type of file operation, which can be one of the following:
-# - regular: Copies a regular file, if it exists, and sets executable permissions
-# - directory: Copies the content of a directory, if it is not empty
-# - symlink: Removes a symbolic link, if it exists
-# - module: Copies kernel module files, if the source directory exists
-handle() {
-    local TYPE=$1
-    local SRC=$2
-    if [ "${TYPE}" != "symlink" ]; then
-        local DEST=$3
-    fi
-
-    case $TYPE in
-    file)
-        if [ -f "${SRC}" ]; then
-            cp "${SRC}" "${DEST}"
-            chmod +x "${DEST}"
-        fi
-        ;;
-    directory)
-        if [ "$(ls -A "${SRC}" 2>/dev/null)" != "" ]; then
-            mkdir -p "${DEST}"
-            (cd "${SRC}" && cp --parents -afr * "${DEST}/")
-        fi
-        ;;
-    symlink)
-        if [ -L "${SRC}" ]; then
-            rm -f "${SRC}"
-        fi
-        ;;
-    module)
-        if [ -d "${SRC}" ]; then
-            mkdir -p "${DEST}"
-            handle directory "${SRC}" "${DEST}"
-        fi
-        ;;
-    *)
-        error "Invalid type: ${TYPE}"
-        return 1
-        ;;
-    esac
 }
 
 # Build modules function: This function builds modules for the system.
@@ -2391,61 +2223,66 @@ build_modules() {
 
     local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS MODULE_DIR TARGET_DIR DIR
 
-    if [ "${CONTAINER_TYPE}" = "1" ]; then
-        if [ ! -f "/.minios-live" ]; then
-            setup_host
-        fi
+    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
+        setup_host
     fi
 
     ENVIRONMENTS="${SCRIPT_DIR}/linux-live/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
-    cd "${ENVIRONMENTS}"
+    cd "${ENVIRONMENTS}" || exit 1
 
     for MODULE in *; do
         if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | grep -q "${MODULE}" 2>/dev/null); then
-            echo -e "${MAGENTA}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder." #| fold -w 80 -s
+            echo -e "${MAGENTA}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         elif ([[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]) && [ "${KERNEL_TYPE}" = "none" ]; then
             return
         else
-            MODULE_UPPER_DIR="${OVERLAYS}/${MODULE}-upper"
-            MODULE_WORK_DIR="${OVERLAYS}/${MODULE}-work"
-            MODULE_MERGED_DIR="${OVERLAYS}/${MODULE}-merged"
+            declare -A MODULE_DIR=(
+                [upper]="${OVERLAYS}/${MODULE}-upper"
+                [work]="${OVERLAYS}/${MODULE}-work"
+                [merged]="${OVERLAYS}/${MODULE}-merged"
+            )
             EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-${MODULE}-exclude"
-            #generate_squashfs_exclude_file "${EXCLUDE_MODULE_FILE}" "${MODULE_UPPER_DIR}"
 
             module_cleanup
 
             module_chroot_mount_fs
 
-            # run pre-install script
-            handle file "${ENVIRONMENTS}/${MODULE}/preinstall" "${MODULE_MERGED_DIR}/preinstall"
-            if [ -f "${MODULE_MERGED_DIR}/preinstall" ]; then
+            # pre-install script
+            if [ -f "${ENVIRONMENTS}/${MODULE}/preinstall" ]; then
+                cp "${ENVIRONMENTS}/${MODULE}/preinstall" "${MODULE_DIR[merged]}/preinstall"
+                chmod +x "${MODULE_DIR[merged]}/preinstall"
                 echo -e "=====> ${GREEN}preinstall${ENDCOLOR} script is executing ..."
-                chroot_run "${MODULE_MERGED_DIR}" /preinstall
+                chroot_run "${MODULE_DIR[merged]}" /preinstall
             fi
 
             # copy files
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
-                handle directory "${ENVIRONMENTS}/${MODULE}/rootcopy-install" "${MODULE_MERGED_DIR}/rootcopy-install"
+                mkdir -p "${MODULE_DIR[merged]}/rootcopy-install"
+                [ -d "${ENVIRONMENTS}/${MODULE}/rootcopy-install" ] && (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-install" && cp --parents -afr * "${MODULE_DIR[merged]}/rootcopy-install/")
             else
-                handle directory "${ENVIRONMENTS}/${MODULE}/rootcopy-install" "${MODULE_MERGED_DIR}"
+                mkdir -p "${MODULE_DIR[merged]}"
+                [ -d "${ENVIRONMENTS}/${MODULE}/rootcopy-install" ] && (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-install" && cp --parents -afr * "${MODULE_DIR[merged]}/")
             fi
 
-            # run install script
-            handle file "${ENVIRONMENTS}/${MODULE}/install" "${MODULE_MERGED_DIR}/install"
-            if [ -f "${MODULE_MERGED_DIR}/install" ]; then
-                handle file "${ENVIRONMENTS}/${MODULE}/cleanup" "${MODULE_MERGED_DIR}/cleanup"
-                handle file "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" "${MODULE_MERGED_DIR}/${PACKAGE_VARIANT}.list"
-                handle file "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" "${MODULE_MERGED_DIR}/${PACKAGE_VARIANT}-l10n.list"
-                handle file "${ENVIRONMENTS}/${MODULE}/package.list" "${MODULE_MERGED_DIR}/package.list"
+            # install script
+            if [ -f "${ENVIRONMENTS}/${MODULE}/install" ]; then
+                cp "${ENVIRONMENTS}/${MODULE}/install" "${MODULE_DIR[merged]}/install"
+                chmod +x "${MODULE_DIR[merged]}/install"
+
+                [ -f "${ENVIRONMENTS}/${MODULE}/cleanup" ] && cp "${ENVIRONMENTS}/${MODULE}/cleanup" "${MODULE_DIR[merged]}/cleanup"
+                [ -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" ] && cp "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" "${MODULE_DIR[merged]}/${PACKAGE_VARIANT}.list"
+                [ -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" "${MODULE_DIR[merged]}/${PACKAGE_VARIANT}-l10n.list"
+                [ -f "${ENVIRONMENTS}/${MODULE}/package.list" ] && cp "${ENVIRONMENTS}/${MODULE}/package.list" "${MODULE_DIR[merged]}/package.list"
+
                 echo -e "=====> ${GREEN}install${ENDCOLOR} script is executing ..."
-                chroot_run "${MODULE_MERGED_DIR}" /install
+                chroot_run "${MODULE_DIR[merged]}" /install
             fi
 
             if [[ "${MODULE}" == *"kernel"* ]]; then
-                if [ -f "${MODULE_UPPER_DIR}/minios-build.conf" ]; then
-                    read_config "${MODULE_UPPER_DIR}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
+                if [ -f "${MODULE_DIR[upper]}/minios-build.conf" ]; then
+                    read_config "${MODULE_DIR[upper]}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                     update_config "${WORK_DIR}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                 fi
             fi
@@ -2456,29 +2293,29 @@ build_modules() {
                 chroot_cleanup module
 
                 # run external actions
-                if [ "$(ls -A "${MODULE_UPPER_DIR}" 2>/dev/null)" != "" ]; then
+                if [ "$(ls -A "${MODULE_DIR[upper]}" 2>/dev/null)" != "" ]; then
                     mkdir -p "${OVERLAYS}/tmp"
-                    mkmod_corefs "${MODULE_UPPER_DIR}"
-                    time mksquashfs "${MODULE_UPPER_DIR}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
-                    mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${MODULE_UPPER_DIR}/${MODULE}-stock.${BEXT}"
-                    cd "${MODULE_UPPER_DIR}" || exit 1
+                    mkmod_corefs "${MODULE_DIR[upper]}"
+                    mksquashfs "${MODULE_DIR[upper]}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                    mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${MODULE_DIR[upper]}/${MODULE}-stock.${BEXT}"
+                    cd "${MODULE_DIR[upper]}" || exit 1
                     unsquashfs "${MODULE}-stock.${BEXT}"
                 else
-                    echo -e "${MAGENTA}${MODULE_UPPER_DIR}${ENDCOLOR} is empty. Nothing to do."
+                    echo -e "${MAGENTA}${MODULE_DIR[upper]}${ENDCOLOR} is empty. Nothing to do."
                 fi
 
                 module_chroot_mount_fs
 
                 # run build script
-                if [ -f $ENVIRONMENTS/$MODULE/build ]; then
-                    cp $ENVIRONMENTS/$MODULE/build $MODULE_MERGED_DIR/build
-                    chmod +x $MODULE_MERGED_DIR/build
-                    if [ "$(ls -A $ENVIRONMENTS/$MODULE/patches 2>/dev/null)" != "" ]; then
-                        mkdir -p $MODULE_MERGED_DIR/patches
-                        (cd $ENVIRONMENTS/$MODULE/patches && cp --parents -afr * $MODULE_MERGED_DIR/patches/)
+                if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
+                    cp "${ENVIRONMENTS}/${MODULE}/build" "${MODULE_DIR[merged]}/build"
+                    chmod +x "${MODULE_DIR[merged]}/build"
+                    if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/patches" 2>/dev/null)" != "" ]; then
+                        mkdir -p "${MODULE_DIR[merged]}/patches"
+                        (cd "${ENVIRONMENTS}/${MODULE}/patches" && cp --parents -afr * "${MODULE_DIR[merged]}/patches/")
                     fi
 
-                    chroot_run "${MODULE_MERGED_DIR}" /build
+                    chroot_run "${MODULE_DIR[merged]}" /build
 
                     build_boot
                 fi
@@ -2487,18 +2324,20 @@ build_modules() {
             if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
                 read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
-                handle symlink "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/build"
-                handle symlink "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}/source"
-                handle symlink "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}/build"
-                handle symlink "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}/source"
+                [ -L "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/build" ] && rm -f "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/build"
+                [ -L "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/source" ] && rm -f "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/source"
+                [ -L "${MODULE_DIR[upper]}/lib/modules/${KERNEL}/build" ] && rm -f "${MODULE_DIR[upper]}/lib/modules/${KERNEL}/build"
+                [ -L "${MODULE_DIR[upper]}/lib/modules/${KERNEL}/source" ] && rm -f "${MODULE_DIR[upper]}/lib/modules/${KERNEL}/source"
 
                 toggle_shell_options e
-                handle module "${MODULE_UPPER_DIR}/usr/lib/modules/${KERNEL}" "${MODULE_UPPER_DIR}/squashfs-root/usr/lib/modules/${KERNEL}"
-                handle module "${MODULE_UPPER_DIR}/lib/modules/${KERNEL}" "${MODULE_UPPER_DIR}/squashfs-root/lib/modules/${KERNEL}"
+                mkdir -p "${MODULE_DIR[upper]}/squashfs-root/usr/lib/modules/${KERNEL}"
+                ([ -d "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}" ] && cd "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}" && cp --parents -afr * "${MODULE_DIR[upper]}/squashfs-root/usr/lib/modules/${KERNEL}/")
+                mkdir -p "${MODULE_DIR[upper]}/squashfs-root/lib/modules/${KERNEL}"
+                ([ -d "${MODULE_DIR[upper]}/lib/modules/${KERNEL}" ] && cd "${MODULE_DIR[upper]}/lib/modules/${KERNEL}" && cp --parents -afr * "${MODULE_DIR[upper]}/squashfs-root/lib/modules/${KERNEL}/")
                 toggle_shell_options e
 
                 if [ "${MODULE}" = "01-kernel" ]; then
-                    cd "${MODULE_UPPER_DIR}/squashfs-root" || exit 1
+                    cd "${MODULE_DIR[upper]}/squashfs-root" || exit 1
                     if ls initrd* 2>/dev/null; then
                         rm initrd*
                     fi
@@ -2508,90 +2347,89 @@ build_modules() {
                     if [ "${KERNEL_MODULES_ONLY}" = "true" ]; then
                         bash -c "
                         shopt -s extglob
-                        if [ -d "${MODULE_UPPER_DIR}/squashfs-root/usr/lib/modules" ]; then
+                        if [ -d "${MODULE_DIR[upper]}/squashfs-root/usr/lib/modules" ]; then
                             rm -rf !(usr)
-                            cd "${MODULE_UPPER_DIR}/squashfs-root/usr"
+                            cd "${MODULE_DIR[upper]}/squashfs-root/usr"
                             rm -Rf !(lib)
-                            cd "${MODULE_UPPER_DIR}/squashfs-root/usr/lib"
+                            cd "${MODULE_DIR[upper]}/squashfs-root/usr/lib"
                             rm -Rf !(modules)
-                        elif [ -d "${MODULE_UPPER_DIR}/squashfs-root/lib/modules" ]; then
+                        elif [ -d "${MODULE_DIR[upper]}/squashfs-root/lib/modules" ]; then
                             rm -Rf !(lib)
-                            cd "${MODULE_UPPER_DIR}/squashfs-root/lib"
+                            cd "${MODULE_DIR[upper]}/squashfs-root/lib"
                             rm -Rf !(modules)
                         fi
-                        cd "${MODULE_UPPER_DIR}/squashfs-root"
+                        cd "${MODULE_DIR[upper]}/squashfs-root"
                         shopt -u extglob"
                     else
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                 fi
-                time mksquashfs "${MODULE_MERGED_DIR}/squashfs-root" $MODULE_MERGED_DIR/${MODULE}.${BEXT} -comp ${COMP_TYPE} ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                mksquashfs "${MODULE_DIR[merged]}/squashfs-root" "${MODULE_DIR[merged]}/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
-                rm -f "${MODULE_UPPER_DIR}/minios-build.conf"
+                rm -f "${MODULE_DIR[upper]}/minios-build.conf"
             fi
 
-            # copy files
+            # copy files (post-install)
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
-                #cp "${SCRIPT_DIR}/linux-live/minioslib" "${MODULE_MERGED_DIR}/usr/lib/minios/libminioslive"
-                mkdir -p "${MODULE_MERGED_DIR}/usr/share/minios"
-                mkdir -p "${MODULE_MERGED_DIR}/etc/minios"
+                mkdir -p "${MODULE_DIR[merged]}/usr/share/minios" "${MODULE_DIR[merged]}/etc/minios"
                 if [ -f "${SCRIPT_DIR}/linux-live/container_config" ]; then
-                    cp "${SCRIPT_DIR}/linux-live/container_config" "${MODULE_MERGED_DIR}/etc/minios/config"
+                    cp "${SCRIPT_DIR}/linux-live/container_config" "${MODULE_DIR[merged]}/etc/minios/config"
                 else
-                    cp "${SCRIPT_DIR}/linux-live/config" "${MODULE_MERGED_DIR}/etc/minios/config"
+                    cp "${SCRIPT_DIR}/linux-live/config" "${MODULE_DIR[merged]}/etc/minios/config"
                 fi
             fi
+
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" 2>/dev/null)" != "" ]; then
-                    (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_MERGED_DIR}/")
+                    (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_DIR[merged]}/")
                 fi
             else
                 if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" 2>/dev/null)" != "" ]; then
-                    mkdir -p "${MODULE_MERGED_DIR}/rootcopy-postinstall"
-                    (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_MERGED_DIR}/rootcopy-postinstall/")
+                    mkdir -p "${MODULE_DIR[merged]}/rootcopy-postinstall"
+                    (cd "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" && cp --parents -afr * "${MODULE_DIR[merged]}/rootcopy-postinstall/")
                 fi
             fi
 
-            # run post-install script
+            # post-install script
             if [ -f "${ENVIRONMENTS}/${MODULE}/postinstall" ]; then
                 echo -e "=====> ${GREEN}postinstall${ENDCOLOR} script is executing ..."
-                cp "${ENVIRONMENTS}/${MODULE}/postinstall" "${MODULE_MERGED_DIR}/postinstall"
-                chmod +x "${MODULE_MERGED_DIR}/postinstall"
-                chroot_run "${MODULE_MERGED_DIR}" /postinstall
+                cp "${ENVIRONMENTS}/${MODULE}/postinstall" "${MODULE_DIR[merged]}/postinstall"
+                chmod +x "${MODULE_DIR[merged]}/postinstall"
+                chroot_run "${MODULE_DIR[merged]}" /postinstall
             fi
 
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 toggle_shell_options e
-                chroot_run "${MODULE_MERGED_DIR}" uncompress_files /etc/alternatives
-                chroot_run "${MODULE_MERGED_DIR}" uncompress_files /usr/share/man
-                chroot_run "${MODULE_MERGED_DIR}" remove_broken_links /etc/alternatives
-                chroot_run "${MODULE_MERGED_DIR}" remove_broken_links /usr/share/man
+                chroot_run "${MODULE_DIR[merged]}" uncompress_files /etc/alternatives
+                chroot_run "${MODULE_DIR[merged]}" uncompress_files /usr/share/man
+                chroot_run "${MODULE_DIR[merged]}" remove_broken_links /etc/alternatives
+                chroot_run "${MODULE_DIR[merged]}" remove_broken_links /usr/share/man
                 toggle_shell_options e
             fi
 
-            if [ -f "${MODULE_UPPER_DIR}/.package" ] && [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
-                read_config "${MODULE_UPPER_DIR}/.package" PACKAGE VERSION
+            if [ -f "${MODULE_DIR[upper]}/.package" ] && [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
+                read_config "${MODULE_DIR[upper]}/.package" PACKAGE VERSION
                 MODULE_NUMBER=$(echo "${MODULE}" | awk -F- '{ print $1 }')
                 MODULE_NAME="${MODULE_NUMBER}-${PACKAGE}-${VERSION}"
-                rm "${MODULE_UPPER_DIR}/.package"
+                rm "${MODULE_DIR[upper]}/.package"
             else
                 MODULE_NAME=${MODULE}
-                if [ -f "${MODULE_UPPER_DIR}/.package" ]; then
-                    rm "${MODULE_UPPER_DIR}/.package"
+                if [ -f "${MODULE_DIR[upper]}/.package" ]; then
+                    rm "${MODULE_DIR[upper]}/.package"
                 fi
             fi
 
             # run external actions
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-                    cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
+                    cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
                 else
-                    cp "${MODULE_UPPER_DIR}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
+                    cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
                 fi
             fi
 
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
-                rm -rf "${MODULE_MERGED_DIR}/var/lib/dpkg"
+                rm -rf "${MODULE_DIR[merged]}/var/lib/dpkg"
             fi
 
             module_chroot_finish_up
@@ -2602,29 +2440,23 @@ build_modules() {
                 chroot_cleanup module
             fi
 
-            mkmod_corefs "${MODULE_UPPER_DIR}"
+            mkmod_corefs "${MODULE_DIR[upper]}"
 
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" ]; then
-                    if [ "$(ls -A "${MODULE_UPPER_DIR}" 2>/dev/null)" != "" ]; then
+                    if [ "$(ls -A "${MODULE_DIR[upper]}" 2>/dev/null)" != "" ]; then
                         if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
                         else
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
                         fi
 
-                        time mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                        mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     else
-                        echo -e "${MAGENTA}${MODULE_UPPER_DIR}${ENDCOLOR} is empty. Nothing to do."
+                        echo -e "${MAGENTA}${MODULE_DIR[upper]}${ENDCOLOR} is empty. Nothing to do."
                     fi
-                else
-                    echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
-                    echo -e "Please remove ${MAGENTA}${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}.${BEXT}${ENDCOLOR} if you want to build ${MAGENTA}${MODULE}${ENDCOLOR}."
-                    echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${ENDCOLOR}"
                 fi
             fi
         fi
-        export_kernel
-        export_locales
     done
 }

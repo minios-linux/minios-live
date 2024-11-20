@@ -57,7 +57,6 @@ determine_command_range "$@"
 # Run commands within the defined range.
 for ((ii = "${START_INDEX}"; ii < "${END_INDEX}"; ii++)); do
     setup_install_dir
-    clean_apt_lists
     "${CMD[ii]}"
 done
 
