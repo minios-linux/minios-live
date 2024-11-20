@@ -60,10 +60,6 @@ KERNEL_BUILD_DKMS="true"
 # Options: true, false
 NAMED_BOOT_FILES="false"
 
-# Create a log folder on the media for system startup logs
-# Options: true, false
-EXPORT_LOGS="false"
-
 
 ############################################################
 #                 LOCALE & TIMEZONE SETTINGS               #
@@ -144,6 +140,10 @@ LINK_USER_DIRS="false"
 # Options: true, false
 ELEVATION_PASSWORD_REQUIRED="false"
 
+# Create a log folder on the media for system startup logs
+# Options: true, false
+EXPORT_LOGS="false"
+
 
 ############################################################
 #                     BUILDER SETTINGS                     #
@@ -151,7 +151,7 @@ ELEVATION_PASSWORD_REQUIRED="false"
 
 # Create a secondary ISO with a constant filename
 # Options: true, false
-BUILD_TEST_ISO="true"
+BUILD_TEST_ISO="false"
 
 # Remove old ISO files for this build type
 # Options: true, false
@@ -185,7 +185,7 @@ REMOVE_SOURCES="false"
 #
 # Note: apt-cacher-ng must be installed and configured beforehand to use this option.
 # For more information, visit the official website: https://www.unix-ag.uni-kl.de/~bloch/acng
-USE_APT_CACHE="true"
+USE_APT_CACHE="false"
 
 # Set the address for the apt-cacher-ng proxy
 # Format: IP:PORT
