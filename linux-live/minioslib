@@ -696,13 +696,12 @@ setup_apt_cache() {
 
     local DIR_PATH="$1"
 
-    if [ "${USE_APT_CACHE}" = "true" ]; then
-        cat <<EOF >"${DIR_PATH}/etc/apt/apt.conf.d/02aptcache"
-Acquire::http::Proxy "http://127.0.0.1:3142";
-Acquire::https::Proxy "http://127.0.0.1:3142";
-Acquire::ftp::proxy "http://127.0.0.1:3142";
+    mkdir -p "${DIR_PATH}/etc/apt/apt.conf.d"
+    cat <<EOF >"${DIR_PATH}/etc/apt/apt.conf.d/02aptcache"
+Acquire::http::Proxy "http://$APT_CACHE_ADDRESS";
+Acquire::https::Proxy "http://$APT_CACHE_ADDRESS";
+Acquire::ftp::proxy "http://$APT_CACHE_ADDRESS";
 EOF
-    fi
 }
 
 update_resolv_conf() {
@@ -729,7 +728,9 @@ chroot_mount_fs() {
     unmount_dirs "${WORK_DIR}"
 
     setup_chroot_environment "${INSTALL_DIR}"
-    setup_apt_cache "${INSTALL_DIR}"
+    if [ "${USE_APT_CACHE}" = "true" ]; then
+        setup_apt_cache "${INSTALL_DIR}"
+    fi
 
     update_resolv_conf "${INSTALL_DIR}"
 }
@@ -952,7 +953,9 @@ build_bootstrap() {
         if [ -f "${ROOTFS_TARBALL}" ]; then
             extract_tarball "${ROOTFS_TARBALL}" "${INSTALL_DIR}"
         else
-            setup_apt_cache "${INSTALL_DIR}"
+            if [ "${USE_APT_CACHE}" = "true" ]; then
+                setup_apt_cache "${INSTALL_DIR}"
+            fi
 
             sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
                 debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
@@ -963,12 +966,18 @@ build_bootstrap() {
             tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" .
         fi
     else
-        setup_apt_cache "${INSTALL_DIR}"
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            setup_apt_cache "${INSTALL_DIR}"
+        fi
 
         sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
             debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
 
         unmount_dirs "${INSTALL_DIR}"
+    fi
+
+    if [ "${USE_APT_CACHE}" = "true" ]; then
+        rm -f "${INSTALL_DIR}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
     fi
 
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
@@ -1534,8 +1543,8 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/var/cache/fontconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/ldconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
-    if [ "${USE_APT_CACHE}" = "false" ]; then
-        rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02noclean" 2>/dev/null
+    if [ "${USE_APT_CACHE}" = "true" ]; then
+        rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
     fi
     rm -f "${BASE_PATH}/var/cache/apt/"*.bin 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/apt/lists/"*Packages 2>/dev/null
@@ -1720,8 +1729,8 @@ chroot_finish_up() {
     rm -f /var/cache/debconf/*-old 2>/dev/null
     rm -f /var/lib/apt/extended_states 2>/dev/null
     rm -f /var/cache/apt/archives/*.deb 2>/dev/null
-    if [ "${USE_APT_CACHE}" = "false" ]; then
-        rm -f /etc/apt/apt.conf.d/02noclean 2>/dev/null
+    if [ "${USE_APT_CACHE}" = "true" ]; then
+        rm -f /etc/apt/apt.conf.d/02aptcache 2>/dev/null
     fi
     rm -f /var/cache/apt/*.bin 2>/dev/null
     rm -f /var/lib/apt/lists/*Packages 2>/dev/null
@@ -2180,7 +2189,9 @@ module_chroot_mount_fs() {
     mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_DIR[upper]}",workdir="${MODULE_DIR[work]}" "${MODULE_DIR[merged]}"
 
     setup_chroot_environment "${MODULE_DIR[merged]}"
-    setup_apt_cache "${MODULE_DIR[merged]}"
+    if [ "${USE_APT_CACHE}" = "true" ]; then
+        setup_apt_cache "${MODULE_DIR[merged]}"
+    fi
 
     update_resolv_conf "${MODULE_DIR[merged]}"
 }
