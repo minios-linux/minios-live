@@ -21,8 +21,8 @@ declare -A VALIDATION_RULES=(
 )
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-CONFIG="/etc/minios/config"
-MINIOSCONFIG="/etc/minios/minios.conf"
+GENERAL_CONF="/etc/minios/general.conf"
+MINIOS_CONF="/etc/minios/minios.conf"
 
 if [ -d "/usr/lib/systemd/system" ]; then
     SYSTEMDSYSTEM="/usr/lib/systemd/system"
@@ -58,7 +58,7 @@ check_and_set_defaults() {
         ORIGINAL_VALUE="${!VAR_NAME}"
 
         if [ -z "$ORIGINAL_VALUE" ]; then
-            read_config "$MINIOSCONFIG" "$VAR_NAME"
+            read_config "$MINIOS_CONF" "$VAR_NAME"
             ORIGINAL_VALUE="${!VAR_NAME}"
             if [ -z "$ORIGINAL_VALUE" ]; then
                 declare "$VAR_NAME=$DEFAULT_VALUE"
@@ -110,8 +110,8 @@ manage_services() {
     fi
 
     if [ -z "${!SERVICES_VAR}" ]; then
-        if [ -f "$MINIOSCONFIG" ]; then
-            read_config "$MINIOSCONFIG" "$SERVICES_VAR"
+        if [ -f "$MINIOS_CONF" ]; then
+            read_config "$MINIOS_CONF" "$SERVICES_VAR"
         fi
     fi
 
@@ -207,7 +207,7 @@ manage_services disable
 set_autologin
 set_scripts
 
-read_config "$CONFIG" USER_SETUP
+read_config "$GENERAL_CONF" USER_SETUP
 if [ "$USER_SETUP" = "initrd" ]; then
     if [ "$CLOUD" != "true" ]; then
         if id -nu 1000; then

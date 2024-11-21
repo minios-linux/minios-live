@@ -4,11 +4,6 @@
 
 export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 
-if [ -f /$BUILD_SCRIPTS_DIR/container_config ]; then
-	. /$BUILD_SCRIPTS_DIR/container_config || exit 1
-else
-	. /$BUILD_SCRIPTS_DIR/config || exit 1
-fi
 . /minioslib || exit 1
 . /minios-build.conf || exit 1
 

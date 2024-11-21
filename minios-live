@@ -3,8 +3,6 @@
 # Author: Marcos Tischer Vallim. <https://github.com/mvallim>
 # Author: crims0n. <https://minios.dev>
 
-: ${BUILD_SCRIPTS_DIR:="linux-live"}
-
 set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
@@ -14,25 +12,38 @@ SET_U=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
 
+: "${BUILD_SCRIPTS_DIR:="linux-live"}"
+: "${MAIN_EXECUTABLE:="minios-live"}"
+
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
-    . "/usr/lib/minios-live/minioslib" || exit 1
-    toggle_shell_options u
-    [ -z "${BATCH}" ] && . "/etc/minios-live/config" || exit 1
-    toggle_shell_options u
-    BUILD_DIR="${PWD}/build"
+    MINIOSLIB="/usr/lib/minios-live/minioslib"
+    GENERAL_CONF="/etc/minios-live/general.conf"
+    : "${BUILD_DIR:="${PWD}/build"}"
 else
-    . "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/minioslib" || exit 1
-    toggle_shell_options u
-    [ -z "${BATCH}" ] && . "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/config" || exit 1
-    toggle_shell_options u
-    BUILD_DIR="$SCRIPT_DIR/build"
+    MINIOSLIB="$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/minioslib"
+    GENERAL_CONF="$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/general.conf"
+    : "${BUILD_DIR:="$SCRIPT_DIR/build"}"
 fi
+. $MINIOSLIB || exit 1
+. $GENERAL_CONF || exit 1
+
+: "${BUILD_CONF:="$BUILD_DIR/build.conf"}"
+if [ ! -f "$BUILD_CONF" ]; then
+    mkdir -p $BUILD_DIR
+    if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+        cp "/etc/minios-live/build.conf" $BUILD_CONF
+    else
+        cp $SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf $BUILD_CONF
+    fi
+fi
+. $BUILD_CONF || exit 1
 
 APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
 ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
 ISO_DIR="$BUILD_DIR/iso"
-KERNEL_DIR="$BUILD_DIR/kernel"
-LOCALES_DIR="$BUILD_DIR/locales"
+WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
+INSTALL_DIR="${WORK_DIR}/core"
+EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
 
 CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources)
 
@@ -40,7 +51,7 @@ CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modul
 
 create_log_file "$@"
 
-trap 'set +u; [ ${WORK_DIR} ] && unmount_dirs "${WORK_DIR}"' EXIT
+trap 'mountpoint -q "${WORK_DIR}" && unmount_dirs "${WORK_DIR}"' EXIT
 
 common_variables
 
@@ -48,17 +59,25 @@ console_colors
 
 allow_root_only
 
-[ -f "/.dockerenv" ] || [ "$container" = "podman" ] && new_run
+if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
+    toggle_shell_options e || exit 1
+    check_internet_connection || exit 1
+    toggle_shell_options e || exit 1
 
-toggle_shell_options e
-check_internet_connection
-toggle_shell_options e
+    [ -f "/.dockerenv" ] || [ "$container" = "podman" ] && new_run
+
+    mkdir -p "${INSTALL_DIR}"
+
+    generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
+
+    #generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
+
+fi
 
 determine_command_range "$@"
 
 # Run commands within the defined range.
 for ((ii = "$START_INDEX"; ii < "$END_INDEX"; ii++)); do
-    setup_install_dir
     "${CMD[ii]}"
 done
 

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-: ${BUILD_SCRIPTS_DIR:="linux-live"}
-
 set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
@@ -10,13 +8,12 @@ SET_E=""
 SET_U=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+GENERAL_CONF="$SCRIPT_DIR/general.conf"
+BUILD_CONF="$SCRIPT_DIR/build.conf"
 
 . "$SCRIPT_DIR/minioslib" || exit 1
-toggle_shell_options u
-if [ -z ${BATCH} ]; then
-    . "$SCRIPT_DIR/config" || exit 1
-fi
-toggle_shell_options u
+. "$GENERAL_CONF" || exit 1
+. "$BUILD_CONF" || exit 1
 
 CMD=(chroot_setup_host install_core_packages chroot_finish_up)
 
