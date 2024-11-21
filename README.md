@@ -95,7 +95,7 @@ To start the build process, use the following commands:
 
 ### Quick Start
 
-To build the system from the beginning, edit `linux-live/config` and run:
+To build the system from the beginning, edit `linux-live/build.conf` and `linux-live/general.conf` and run:
 
 ```sh
 ./minios-live -
