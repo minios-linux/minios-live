@@ -664,7 +664,7 @@ find_data() {
    if [ "$FROM" = "" ]; then FROM="$LIVEKITNAME"; fi
 
    echo_green_star >&2
-   echo -n "Looking for $SYSTEMNAME data in /$FROM .." | tr -s "/" >&2 >/dev/tty1
+   echo -n "Looking for MiniOS data in /$FROM .." | tr -s "/" >&2 >/dev/tty1
    for TIMEOUT in $(seq 1 $1); do
       echo -n "." >&2 >/dev/tty1
       refresh_devs
@@ -685,7 +685,7 @@ find_data() {
 #
 check_data_found() {
    if [ "$1" = "" -o ! -d "$1" ]; then
-      fatal "Could not locate $SYSTEMNAME data"
+      fatal "Could not locate MiniOS data"
    fi
 }
 
@@ -1020,7 +1020,7 @@ copy_to_ram() {
       return
    fi
 
-   echo "* Copying $SYSTEMNAME data to RAM..." >&2 >/dev/tty1
+   echo "* Copying MiniOS data to RAM..." >&2 >/dev/tty1
    RAM="$(dirname "$2")"/toram
    mkdir -p "$RAM"
    cp -a "$1"/* "$RAM"

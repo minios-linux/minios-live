@@ -20,7 +20,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BATCH LOGPATH BUILD_TEST_ISO DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME SYSTEMNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS"
+    VARIABLES="DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS USE_APT_CACHE"
 
     #
     CONTAINER_TYPE="0"
@@ -484,7 +484,7 @@ current_function() {
 help() {
     # if $1 is set, use $1 as headline message in help()
     if [ -z ${1+x} ]; then
-        echo -e "${LIGHTYELLOW}This script builds bootable $SYSTEMNAME ISO image.${ENDCOLOR}"
+        echo -e "${LIGHTYELLOW}This script builds bootable MiniOS ISO image.${ENDCOLOR}"
         echo -e
     else
         echo -e $1
@@ -608,6 +608,7 @@ setup_install_dir() {
     mkdir -p "${INSTALL_DIR}"
 
     toggle_shell_options u
+    : "${APT_CACHE_DIR:=${BUILD_DIR}/aptcache/${DISTRIBUTION}}"
     : "${ROOTFS_TARBALL:=${WORK_DIR}/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz}"
     toggle_shell_options u
 
@@ -692,16 +693,25 @@ setup_chroot_environment() {
 }
 
 setup_apt_cache() {
-    current_function
+    if [ "${USE_APT_CACHE}" = "true" ] || [ "${USE_APT_CACHER}" = "true" ]; then
+        current_function
 
-    local DIR_PATH="$1"
+        local DIR_PATH="$1"
 
-    mkdir -p "${DIR_PATH}/etc/apt/apt.conf.d"
-    cat <<EOF >"${DIR_PATH}/etc/apt/apt.conf.d/02aptcache"
-Acquire::http::Proxy "http://$APT_CACHE_ADDRESS";
-Acquire::https::Proxy "http://$APT_CACHE_ADDRESS";
-Acquire::ftp::proxy "http://$APT_CACHE_ADDRESS";
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            mkdir -p "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
+            mount --bind "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
+        fi
+
+        if [ "${USE_APT_CACHER}" = "true" ]; then
+            mkdir -p "${DIR_PATH}/etc/apt/apt.conf.d"
+            cat <<EOF >"${DIR_PATH}/etc/apt/apt.conf.d/02aptcache"
+Acquire::http::Proxy "http://$APT_CACHER_ADDRESS";
+Acquire::https::Proxy "http://$APT_CACHER_ADDRESS";
+Acquire::ftp::proxy "http://$APT_CACHER_ADDRESS";
 EOF
+        fi
+    fi
 }
 
 update_resolv_conf() {
@@ -728,9 +738,8 @@ chroot_mount_fs() {
     unmount_dirs "${WORK_DIR}"
 
     setup_chroot_environment "${INSTALL_DIR}"
-    if [ "${USE_APT_CACHE}" = "true" ]; then
-        setup_apt_cache "${INSTALL_DIR}"
-    fi
+
+    setup_apt_cache "${INSTALL_DIR}"
 
     update_resolv_conf "${INSTALL_DIR}"
 }
@@ -745,9 +754,6 @@ new_run() {
     echo "============================ NEW RUN ============================"
     echo "======================== $DATE ======================="
     echo "================================================================="
-    echo "======= If during the installation you get an error that ========"
-    echo "=== /dev/stdout is not available, try using a bionic or xenial =="
-    echo "================= based container to install. ==================="
     echo "================================================================="
     echo "================================================================="
     echo "========== Distributution: ${DISTRIBUTION}"
@@ -767,11 +773,11 @@ new_run() {
     echo ""
 }
 
-generate_chroot_configuration_file() {
+_generate_chroot_configuration_file() {
     toggle_shell_options u
     cat <<EOF >"${1}"
+BUILD_SCRIPTS_DIR="${BUILD_SCRIPTS_DIR}"
 BEXT="${BEXT}"
-BUILD_TEST_ISO="${BUILD_TEST_ISO}"
 COMP_TYPE="${COMP_TYPE}"
 DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
 DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
@@ -795,9 +801,52 @@ MODULE="${MODULE}"
 MULTILINGUAL="${MULTILINGUAL}"
 KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES}"
 PACKAGE_VARIANT="${PACKAGE_VARIANT}"
-SYSTEMNAME="${SYSTEMNAME}"
 TIMEZONE="${TIMEZONE}"
 USER_NAME="${USER_NAME}"
+EOF
+    toggle_shell_options u
+}
+
+generate_chroot_configuration_file() {
+    toggle_shell_options u
+    cat <<EOF >"${1}"
+# Distribution settings
+DISTRIBUTION="${DISTRIBUTION}"
+DISTRIBUTION_ARCH="${DISTRIBUTION_ARCH}"
+DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
+PACKAGE_VARIANT="${PACKAGE_VARIANT}"
+COMP_TYPE="${COMP_TYPE}"
+DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
+DISTRIBUTION_PHASE="${DISTRIBUTION_PHASE}"
+
+# Kernel settings
+KERNEL="${KERNEL}"
+KERNEL_ARCH="${KERNEL_ARCH}"
+KERNEL_TYPE="${KERNEL_TYPE}"
+KERNEL_BPO="${KERNEL_BPO}"
+KERNEL_AUFS="${KERNEL_AUFS}"
+KERNEL_BUILD_ARCH="${KERNEL_BUILD_ARCH}"
+KERNEL_BUILD_DKMS="${KERNEL_BUILD_DKMS}"
+KERNEL_VERSION="${KERNEL_VERSION}"
+
+# Locale, timezone, layout settings
+LOCALE="${LOCALE}"
+MULTILINGUAL="${MULTILINGUAL}"
+KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES}"
+TIMEZONE="${TIMEZONE}"
+LAYOUTDSC="${LAYOUTDSC}"
+LAYOUTID="${LAYOUTID}"
+
+# minios.conf settings
+USER_NAME="${USER_NAME}"
+
+# Builder settings
+BUILD_SCRIPTS_DIR="${BUILD_SCRIPTS_DIR}"
+BEXT="${BEXT}"
+DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
+LIVEKITNAME="${LIVEKITNAME}"
+MODULE="${MODULE}"
+USE_APT_CACHE="${USE_APT_CACHE}"
 EOF
     toggle_shell_options u
 }
@@ -829,10 +878,10 @@ EOF
 # The second file contains several utility functions
 add_chroot_configuration_files() {
     generate_chroot_configuration_file "${1}/minios-build.conf"
-    if [ -f "${SCRIPT_DIR}/linux-live/minioslib" ]; then
-        cp "${SCRIPT_DIR}/linux-live/minioslib" "$1/minioslib"
-    elif [ -f "/linux-live/minioslib" ]; then
-        cp "/linux-live/minioslib" "$1/minioslib"
+    if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/minioslib" ]; then
+        cp "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/minioslib" "$1/minioslib"
+    elif [ -f "/$BUILD_SCRIPTS_DIR/minioslib" ]; then
+        cp "/$BUILD_SCRIPTS_DIR/minioslib" "$1/minioslib"
     fi
 }
 
@@ -850,6 +899,9 @@ timezone_to_array() {
 pkg() {
     local PACKAGE_MANAGER APT_OPTIONS DPKG_OPTIONS COMMAND
 
+    COMMAND="$1"
+    shift
+
     if command -v apt >/dev/null 2>&1; then
         PACKAGE_MANAGER="apt"
     elif command -v apt-get >/dev/null 2>&1; then
@@ -862,11 +914,31 @@ pkg() {
     APT_OPTIONS="--yes"
     DPKG_OPTIONS="-o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\""
 
-    COMMAND="$1"
-    shift
+    # Only update the package cache for commands that need it
+    case "${COMMAND}" in
+    install | upgrade | dist-upgrade | build-dep)
+        if [ ! -f /var/cache/apt/pkgcache.bin ]; then
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" update
+        fi
+        ;;
+    esac
 
     case "${COMMAND}" in
-    install | remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade | source)
+    install | source)
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            if lsattr /var/cache/apt/archives | grep -q 'i'; then
+                chattr -i /var/cache/apt/archives
+            fi
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" --download-only "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+            chattr +i /var/cache/apt/archives
+        fi
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            chattr -i /var/cache/apt/archives
+        fi
+        ;;
+    remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade)
         DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
         ;;
     update | edit-sources | moo | download | check | policy)
@@ -886,17 +958,17 @@ create_apt_list() {
     current_function
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
         if [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "bookworm" ]; then
-            echo "deb     https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >"${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}-snapshot.list"
-            echo "#deb-src https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >>"${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}-snapshot.list"
+            echo "deb     https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >"${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
+            echo "#deb-src https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >>"${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
         else
-            cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION_TYPE}-snapshot.list" "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}-snapshot.list"
-            sed -i "s,distro,${DISTRIBUTION},g;s,datetime,${SNAPSHOT_DATE},g" "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}-snapshot.list"
+            cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION_TYPE}-snapshot.list" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
+            sed -i "s,distro,${DISTRIBUTION},g;s,datetime,${SNAPSHOT_DATE},g" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
         fi
     else
-        if [ ! -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list" ]; then
-            cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION_TYPE}.list" "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list"
-            sed -i "s,distro,${DISTRIBUTION},g" "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list"
-            sed -i "s,http://archive.ubuntu.com/ubuntu,${DISTRIBUTION_URL},g" "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list"
+        if [ ! -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" ]; then
+            cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION_TYPE}.list" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
+            sed -i "s,distro,${DISTRIBUTION},g" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
+            sed -i "s,http://archive.ubuntu.com/ubuntu,${DISTRIBUTION_URL},g" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
         fi
     fi
 }
@@ -953,9 +1025,7 @@ build_bootstrap() {
         if [ -f "${ROOTFS_TARBALL}" ]; then
             extract_tarball "${ROOTFS_TARBALL}" "${INSTALL_DIR}"
         else
-            if [ "${USE_APT_CACHE}" = "true" ]; then
-                setup_apt_cache "${INSTALL_DIR}"
-            fi
+            setup_apt_cache "${INSTALL_DIR}"
 
             sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
                 debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
@@ -966,9 +1036,8 @@ build_bootstrap() {
             tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" .
         fi
     else
-        if [ "${USE_APT_CACHE}" = "true" ]; then
-            setup_apt_cache "${INSTALL_DIR}"
-        fi
+
+        setup_apt_cache "${INSTALL_DIR}"
 
         sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
             debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
@@ -976,15 +1045,15 @@ build_bootstrap() {
         unmount_dirs "${INSTALL_DIR}"
     fi
 
-    if [ "${USE_APT_CACHE}" = "true" ]; then
+    if [ "${USE_APT_CACHER}" = "true" ]; then
         rm -f "${INSTALL_DIR}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
     fi
 
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
         DISTRIBUTION="testing"
         create_apt_list
-        cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
-        chroot_run "${INSTALL_DIR}" pkg update
+        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        #chroot_run "${INSTALL_DIR}" pkg update
         chroot_run "${INSTALL_DIR}" pkg install gnupg
         chroot_run "${INSTALL_DIR}" apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
         DISTRIBUTION="kali-rolling"
@@ -993,10 +1062,10 @@ build_bootstrap() {
     create_apt_list
 
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
-        cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
         echo 'Acquire::Check-Valid-Until "false";' | sudo tee "${INSTALL_DIR}/etc/apt/apt.conf.d/00snapshot"
     else
-        cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 }
 
@@ -1006,9 +1075,9 @@ copy_build_scripts() {
     local DESTINATION=${1:-$INSTALL_DIR}
 
     mkdir -p "${DESTINATION}/linux-live"
-    rsync -a --exclude='.git' "${SCRIPT_DIR}/linux-live/" "${DESTINATION}/linux-live/"
+    rsync -a --exclude='.git' "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/" "${DESTINATION}/$BUILD_SCRIPTS_DIR/"
 
-    chmod +x "${DESTINATION}/linux-live/install-chroot"
+    chmod +x "${DESTINATION}/$BUILD_SCRIPTS_DIR/install-chroot"
 }
 
 build_chroot() {
@@ -1025,23 +1094,19 @@ build_chroot() {
     create_apt_list
 
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
-        cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
     else
-        cp -f "${SCRIPT_DIR}/linux-live/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 
     curl -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
     curl -k https://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
 
     if [ -f /.minios-live-container ]; then
-        chroot_run "${INSTALL_DIR}" /linux-live/install-chroot -
+        chroot_run "${INSTALL_DIR}" /$BUILD_SCRIPTS_DIR/install-chroot -
     else
-        chroot "${INSTALL_DIR}" /linux-live/install-chroot -
+        chroot "${INSTALL_DIR}" /$BUILD_SCRIPTS_DIR/install-chroot -
     fi
-
-    #if [ "${USE_PACKAGE_LIST}" ]; then
-    #    update_apt_cache "${INSTALL_DIR}"
-    #fi
 
     unmount_dirs "${WORK_DIR}"
 }
@@ -1266,7 +1331,7 @@ build_boot() {
 
     copy_build_scripts
 
-    cp -r "${SCRIPT_DIR}/linux-live/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
+    cp -r "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         ARCH="x86_64"
@@ -1307,17 +1372,17 @@ EOF
     cp -r "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/"* "${WORK_DIR}/image/EFI"
 
     mkdir -p "${WORK_DIR}/image/.disk"
-    echo "${SYSTEMNAME}" >"${WORK_DIR}/image/.disk/info"
+    echo "MiniOS" >"${WORK_DIR}/image/.disk/info"
 
     create_config_files
 
     if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-        # kernel.conf generation is in linux-live/scripts/01-kernel/build
+        # kernel.conf generation is in $BUILD_SCRIPTS_DIR/scripts/01-kernel/build
         [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
         copy_build_scripts "${MODULE_DIR[merged]}"
-        chmod +x "${MODULE_DIR[merged]}/linux-live/build-initramfs"
-        chroot_run "${MODULE_DIR[merged]}" "/linux-live/build-initramfs"
+        chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS_DIR/build-initramfs"
+        chroot_run "${MODULE_DIR[merged]}" "/$BUILD_SCRIPTS_DIR/build-initramfs"
 
         # copy boot files
         kernel_variables
@@ -1394,8 +1459,8 @@ build_iso() {
         -r \
         --joliet \
         -l \
-        -V "${SYSTEMNAME}" \
-        -A "${SYSTEMNAME}" \
+        -V "MiniOS" \
+        -A "MiniOS" \
         -b "${LIVEKITNAME}/boot/isolinux.bin" \
         -c "${LIVEKITNAME}/boot/isolinux.boot" \
         --no-emul-boot \
@@ -1543,7 +1608,7 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/var/cache/fontconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/ldconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
-    if [ "${USE_APT_CACHE}" = "true" ]; then
+    if [ "${USE_APT_CACHER}" = "true" ]; then
         rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
     fi
     rm -f "${BASE_PATH}/var/cache/apt/"*.bin 2>/dev/null
@@ -1630,11 +1695,13 @@ chroot_cleanup() {
 # This function handles the installation of necessary packages for the host system.
 hostreq_pkg_list() {
     PKGS_TO_INSTALL=""
-    if [ -f "${SCRIPT_DIR}/linux-live/package_lists/required_for_host.list" ]; then
-        PKGS_TO_INSTALL=$(grep -vE "^\s*#" "${SCRIPT_DIR}/linux-live/package_lists/required_for_host.list" | tr "\n" " ")
+    if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list" ]; then
+        PKGS_TO_INSTALL=$(grep -vE "^\s*#" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list" | tr "\n" " ")
     else
-        PKGS_TO_INSTALL="sudo debootstrap genisoimage"
+        error "Required package list not found at ${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list"
+        exit 1
     fi
+
     if [ "${DISTRIBUTION_ARCH}" = "arm64" ]; then
         PKGS_TO_INSTALL="${PKGS_TO_INSTALL} grub-efi-arm64-bin"
     else
@@ -1650,8 +1717,7 @@ hostreq_pkg_list() {
 
     if [ -n "${PKGS_TO_INSTALL_FILTERED}" ]; then
         echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOR}"
-        pkg update
-        pkg install ${PKGS_TO_INSTALL_FILTERED}
+        USE_APT_CACHE="false" pkg install ${PKGS_TO_INSTALL_FILTERED}
     fi
 }
 
@@ -1672,7 +1738,7 @@ EOF
     fi
 
     if [ -f "${SCRIPT_DIR}/package_lists/prerequisites.list" ]; then
-        pkg update
+        #pkg update
         echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}"
         pkg upgrade
         echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}"
@@ -1688,17 +1754,17 @@ install_core_packages() {
 
     export_chroot_variables
 
-    if [ -f /linux-live/scripts/00-core/preinstall ]; then
-        chmod +x /linux-live/scripts/00-core/preinstall
-        /linux-live/scripts/00-core/preinstall
+    if [ -f /$BUILD_SCRIPTS_DIR/scripts/00-core/preinstall ]; then
+        chmod +x /$BUILD_SCRIPTS_DIR/scripts/00-core/preinstall
+        /$BUILD_SCRIPTS_DIR/scripts/00-core/preinstall
     fi
-    if [ -f /linux-live/scripts/00-core/install ]; then
-        chmod +x /linux-live/scripts/00-core/install
-        /linux-live/scripts/00-core/install
+    if [ -f /$BUILD_SCRIPTS_DIR/scripts/00-core/install ]; then
+        chmod +x /$BUILD_SCRIPTS_DIR/scripts/00-core/install
+        /$BUILD_SCRIPTS_DIR/scripts/00-core/install
     fi
-    if [ -f /linux-live/scripts/00-core/postinstall ]; then
-        chmod +x /linux-live/scripts/00-core/postinstall
-        /linux-live/scripts/00-core/postinstall
+    if [ -f /$BUILD_SCRIPTS_DIR/scripts/00-core/postinstall ]; then
+        chmod +x /$BUILD_SCRIPTS_DIR/scripts/00-core/postinstall
+        /$BUILD_SCRIPTS_DIR/scripts/00-core/postinstall
     fi
 
     chroot_cleanup core
@@ -1729,7 +1795,7 @@ chroot_finish_up() {
     rm -f /var/cache/debconf/*-old 2>/dev/null
     rm -f /var/lib/apt/extended_states 2>/dev/null
     rm -f /var/cache/apt/archives/*.deb 2>/dev/null
-    if [ "${USE_APT_CACHE}" = "true" ]; then
+    if [ "${USE_APT_CACHER}" = "true" ]; then
         rm -f /etc/apt/apt.conf.d/02aptcache 2>/dev/null
     fi
     rm -f /var/cache/apt/*.bin 2>/dev/null
@@ -2107,8 +2173,8 @@ create_initrfs() {
             read_config "${WORK_DIR}/minios-build.conf" KERNEL
         fi
         copy_build_scripts "${MODULE_DIR[merged]}"
-        chmod +x "${MODULE_DIR[merged]}/linux-live/initrfs"
-        chroot "${MODULE_DIR[merged]}" /linux-live/initrfs
+        chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS_DIR/initrfs"
+        chroot "${MODULE_DIR[merged]}" /$BUILD_SCRIPTS_DIR/initrfs
         kernel_variables
         if ls "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* 2>/dev/null; then
             cp "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
@@ -2150,10 +2216,10 @@ filter_modules() {
             FILTER_LEVEL=$((${MODULE:1:1} - 1))
         fi
     else
-        if [ -f "${SCRIPT_DIR}/linux-live/container_config" ]; then
-            read_config "${SCRIPT_DIR}/linux-live/container_config" FILTER_MODULES FILTER_LEVEL
+        if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" ]; then
+            read_config "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" FILTER_MODULES FILTER_LEVEL
         else
-            read_config "${SCRIPT_DIR}/linux-live/config" FILTER_MODULES FILTER_LEVEL
+            read_config "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/config" FILTER_MODULES FILTER_LEVEL
         fi
     fi
     echo -e "=====  ${YELLOW}MODULE=${MODULE}${ENDCOLOR}"
@@ -2189,9 +2255,8 @@ module_chroot_mount_fs() {
     mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${MODULE_DIR[upper]}",workdir="${MODULE_DIR[work]}" "${MODULE_DIR[merged]}"
 
     setup_chroot_environment "${MODULE_DIR[merged]}"
-    if [ "${USE_APT_CACHE}" = "true" ]; then
-        setup_apt_cache "${MODULE_DIR[merged]}"
-    fi
+
+    setup_apt_cache "${MODULE_DIR[merged]}"
 
     update_resolv_conf "${MODULE_DIR[merged]}"
 }
@@ -2238,7 +2303,7 @@ build_modules() {
         setup_host
     fi
 
-    ENVIRONMENTS="${SCRIPT_DIR}/linux-live/environments/${DESKTOP_ENVIRONMENT}"
+    ENVIRONMENTS="${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
     cd "${ENVIRONMENTS}" || exit 1
@@ -2383,10 +2448,10 @@ build_modules() {
             # copy files (post-install)
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
                 mkdir -p "${MODULE_DIR[merged]}/usr/share/minios" "${MODULE_DIR[merged]}/etc/minios"
-                if [ -f "${SCRIPT_DIR}/linux-live/container_config" ]; then
-                    cp "${SCRIPT_DIR}/linux-live/container_config" "${MODULE_DIR[merged]}/etc/minios/config"
+                if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" ]; then
+                    cp "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" "${MODULE_DIR[merged]}/etc/minios/config"
                 else
-                    cp "${SCRIPT_DIR}/linux-live/config" "${MODULE_DIR[merged]}/etc/minios/config"
+                    cp "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/config" "${MODULE_DIR[merged]}/etc/minios/config"
                 fi
             fi
 

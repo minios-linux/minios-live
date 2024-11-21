@@ -1,0 +1,172 @@
+#!/bin/bash
+
+# ----[ HEADER AND DEFINITIONS ]----
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+#set -u          # treat unset variable as error
+
+MAIN_EXECUTABLE="minios-cmd"
+
+# The purpose of these variables is described in the help for the toggle_shell_options function in minioslib.
+SET_E=""
+SET_U=""
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+export TEXTDOMAIN="minios-live"
+
+# ----[ LIBRARY SOURCING ]----
+for DIR in "${SCRIPT_DIR}/linux-live" "/usr/lib/minios-live"; do
+    if [ -f "${DIR}/minioslib" ]; then
+        MINIOSLIB="${DIR}/minioslib"
+        break
+    fi
+done
+. "${MINIOSLIB}" || exit 1
+
+# ----[ INTERNAL FUNCTIONS ]----
+help() {
+    console_colors
+    echo -e "${BOLD}$(gettext "Usage:") $(basename $0) [OPTIONS]${ENDCOLOR}"
+    echo "$(gettext "Creates a system image with the specified parameters.")"
+    echo ""
+    echo -e "${BOLD}$(gettext "Options:")${ENDCOLOR}"
+    echo ""
+    echo -e "${LIGHTBLUE}$(gettext "System Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-d, --distribution${ENDCOLOR} NAME           $(gettext "Specify the distribution name (e.g., 'bookworm').")"
+    echo -e "  ${LIGHTGREEN}-a, --architecture${ENDCOLOR} NAME           $(gettext "Specify the architecture (e.g., 'amd64').")"
+    echo -e "  ${LIGHTGREEN}-de, --desktop-environment${ENDCOLOR} NAME   $(gettext "Specify the desktop environment (e.g., 'xfce').")"
+    echo -e "  ${LIGHTGREEN}-pv, --package-variant${ENDCOLOR} NAME        $(gettext "Specify the package variant (e.g., 'standard').")"
+    echo -e "  ${LIGHTGREEN}-ct, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
+    echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-kt, --kernel-type${ENDCOLOR} NAME            $(gettext "Specify the kernel type (e.g., 'default').")"
+    echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR}           $(gettext "Enable or disable kernel backports.")"
+    echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}               $(gettext "Enable or disable AUFS support in the kernel.")"
+    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}         $(gettext "Enable or disable DKMS for wireless drivers.")"
+    echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Locale and Timezone Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-l, --locale${ENDCOLOR} NAME                  $(gettext "Specify the system locale (e.g., 'en_US').")"
+    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR}                $(gettext "Enable or disable multilingual support.")"
+    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}           $(gettext "Keep all available locales.")"
+    echo -e "  ${LIGHTGREEN}-tz, --timezone${ENDCOLOR} NAME               $(gettext "Specify the timezone (e.g., 'Etc/UTC').")"
+    echo ""
+    echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
+    echo ""
+    echo -e "  $(gettext "1. Create a system image with the 'bookworm' distribution, 'amd64' architecture, and 'xfce' desktop environment:")"
+    echo -e "     $(basename $0) --distribution bookworm --architecture amd64 --desktop-environment xfce"
+    echo ""
+    echo -e "  $(gettext "2. Create a system image with kernel backports and AUFS support enabled:")"
+    echo -e "     $(basename $0) --kernel-backports --kernel-aufs"
+    echo ""
+    echo -e "  $(gettext "3. Specify a custom output directory and enable verbose output:")"
+    echo -e "     $(basename $0) --output /path/to/output --verbose"
+    echo ""
+    echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
+    exit 0
+}
+
+brief_help() {
+    echo "Usage: $(basename $0) [OPTIONS]"
+    echo "Try '$(basename $0) --help' for more information."
+    exit 1
+}
+
+# ----[ COMMON SETUP ]----
+console_colors  # Set console colors
+allow_root_only # Allow only root user to run the script
+
+toggle_shell_options e
+while (("${#}")); do
+    case "${1}" in
+    -d | --distribution)
+        process_flag "check" "string" "DISTRIBUTION" "${@}"
+        shift "$?"
+        ;;
+    -a | --architecture)
+        process_flag "check" "string" "DISTRIBUTION_ARCH" "${@}"
+        shift "$?"
+        ;;
+    -de | --desktop-environment)
+        process_flag "check" "string" "DESKTOP_ENVIRONMENT" "${@}"
+        shift "$?"
+        ;;
+    -pv | --package-variant)
+        process_flag "check" "string" "PACKAGE_VARIANT" "${@}"
+        shift "$?"
+        ;;
+    -ct | --compression-type)
+        process_flag "check" "string" "COMP_TYPE" "${@}"
+        shift "$?"
+        ;;
+    -kt | --kernel-type)
+        process_flag "check" "string" "KERNEL_TYPE" "${@}"
+        shift "$?"
+        ;;
+    -bpo | --kernel-backports)
+        KERNEL_BPO=true
+        shift
+        ;;
+    -aufs | --kernel-aufs)
+        KERNEL_AUFS=true
+        shift
+        ;;
+    -dkms | --kernel-build-dkms)
+        KERNEL_BUILD_DKMS=true
+        shift
+        ;;
+    -ml | --multilingual)
+        MULTILINGUAL=true
+        shift
+        ;;
+    -kl | --keep-locales)
+        KEEP_ALL_LOCALES=true
+        shift
+        ;;
+    -h | --help)
+        help
+        ;;
+    -v | --version)
+        version
+        ;;
+    --)
+        shift
+        break
+        ;;
+    -* | --*)
+        error "Unsupported flag ${1}"
+        brief_help
+        ;;
+    *)
+        error "Invalid input ${1}"
+        brief_help
+        ;;
+    esac
+done
+
+
+toggle_shell_options e
+
+set_variables BUILD_DIR="${PWD}/build" # If the variable has not been set before, assign a value to it
+
+trap 'unmount_dirs ${BUILD_DIR}; stop_http_server' EXIT
+
+# ----[ MAIN ]----
+
+mkdir -p ${BUILD_DIR}
+if [ -f "${SCRIPT_DIR}/config" ]; then
+    cp "${SCRIPT_DIR}/config" "${BUILD_DIR}/config"
+else
+    cp "/etc/minios-live/config" "${BUILD_DIR}/config"
+fi
+
+if bash -n "${BUILD_DIR}/config"; then
+    update_config "${BUILD_DIR}/config"
+else
+    error "${RED}The configuration file ${BOLD}"${BUILD_DIR}/config"${ENDCOLOR}${RED} contains syntax errors. Please make the necessary changes and try again.${ENDCOLOR}"
+    exit 1
+fi
+
+# Execute minios-live script.
+BUILD_DIR="${BUILD_DIR}" \
+    MAIN_EXECUTABLE="${MAIN_EXECUTABLE}" \
+    "${SCRIPT_DIR}/minios-live" -

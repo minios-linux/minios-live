@@ -1,11 +1,13 @@
 #!/bin/bash
 
+: ${BUILD_SCRIPTS_DIR:="linux-live"}
+
 export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 
-if [ -f /linux-live/container_config ]; then
-	. /linux-live/container_config || exit 1
+if [ -f /$BUILD_SCRIPTS_DIR/container_config ]; then
+	. /$BUILD_SCRIPTS_DIR/container_config || exit 1
 else
-	. /linux-live/config || exit 1
+	. /$BUILD_SCRIPTS_DIR/config || exit 1
 fi
 . /minioslib || exit 1
 . /minios-build.conf || exit 1
@@ -18,9 +20,9 @@ echo -e "=====  ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
 
-cd /linux-live/initramfs/livekit-mos
+cd /$BUILD_SCRIPTS_DIR/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
-INITRAMFS=$(./mkinitrfs "${KERNEL}")
-if [ -n "${INITRAMFS}" ]; then
-	mv "${INITRAMFS}" /boot/initrfs.img
+INITRAMFS=$(./mkinitrfs "$KERNEL")
+if [ -n "$INITRAMFS" ]; then
+	mv "$INITRAMFS" /boot/initrfs.img
 fi

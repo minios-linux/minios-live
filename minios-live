@@ -3,6 +3,8 @@
 # Author: Marcos Tischer Vallim. <https://github.com/mvallim>
 # Author: crims0n. <https://minios.dev>
 
+: ${BUILD_SCRIPTS_DIR:="linux-live"}
+
 set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
@@ -12,25 +14,25 @@ SET_U=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
 
-if [ "${SCRIPT_DIR}" = "/usr/bin" ]; then
+if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
     . "/usr/lib/minios-live/minioslib" || exit 1
     toggle_shell_options u
     [ -z "${BATCH}" ] && . "/etc/minios-live/config" || exit 1
     toggle_shell_options u
     BUILD_DIR="${PWD}/build"
 else
-    . "${SCRIPT_DIR}/linux-live/minioslib" || exit 1
+    . "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/minioslib" || exit 1
     toggle_shell_options u
-    [ -z "${BATCH}" ] && . "${SCRIPT_DIR}/linux-live/config" || exit 1
+    [ -z "${BATCH}" ] && . "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/config" || exit 1
     toggle_shell_options u
-    BUILD_DIR="${SCRIPT_DIR}/build"
+    BUILD_DIR="$SCRIPT_DIR/build"
 fi
 
-APTCACHE_DIR="${BUILD_DIR}/aptcache/${DISTRIBUTION}"
-ROOTFS_TARBALL="${BUILD_DIR}/rootfs/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz"
-ISO_DIR="${BUILD_DIR}/iso"
-KERNEL_DIR="${BUILD_DIR}/kernel"
-LOCALES_DIR="${BUILD_DIR}/locales"
+APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
+ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
+ISO_DIR="$BUILD_DIR/iso"
+KERNEL_DIR="$BUILD_DIR/kernel"
+LOCALES_DIR="$BUILD_DIR/locales"
 
 CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources)
 
@@ -46,7 +48,7 @@ console_colors
 
 allow_root_only
 
-[ -f "/.dockerenv" ] || [ "${container}" = "podman" ] && new_run
+[ -f "/.dockerenv" ] || [ "$container" = "podman" ] && new_run
 
 toggle_shell_options e
 check_internet_connection
@@ -55,9 +57,9 @@ toggle_shell_options e
 determine_command_range "$@"
 
 # Run commands within the defined range.
-for ((ii = "${START_INDEX}"; ii < "${END_INDEX}"; ii++)); do
+for ((ii = "$START_INDEX"; ii < "$END_INDEX"; ii++)); do
     setup_install_dir
     "${CMD[ii]}"
 done
 
-echo -e "${BOLD}${LIGHTYELLOW}${0}${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
+echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
