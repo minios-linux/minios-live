@@ -3,7 +3,7 @@
 # ----[ HEADER AND DEFINITIONS ]----
 set -e          # exit on error
 set -o pipefail # exit on pipeline error
-#set -u          # treat unset variable as error
+set -u          # treat unset variable as error
 
 MAIN_EXECUTABLE="minios-cmd"
 
@@ -31,23 +31,26 @@ help() {
     echo ""
     echo -e "${BOLD}$(gettext "Options:")${ENDCOLOR}"
     echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Build Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-b, --build-dir${ENDCOLOR} DIR             $(gettext "Specify the build directory.")"
+    echo ""
     echo -e "${LIGHTBLUE}$(gettext "System Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-d, --distribution${ENDCOLOR} NAME           $(gettext "Specify the distribution name (e.g., 'bookworm').")"
     echo -e "  ${LIGHTGREEN}-a, --architecture${ENDCOLOR} NAME           $(gettext "Specify the architecture (e.g., 'amd64').")"
     echo -e "  ${LIGHTGREEN}-de, --desktop-environment${ENDCOLOR} NAME   $(gettext "Specify the desktop environment (e.g., 'xfce').")"
     echo -e "  ${LIGHTGREEN}-pv, --package-variant${ENDCOLOR} NAME        $(gettext "Specify the package variant (e.g., 'standard').")"
-    echo -e "  ${LIGHTGREEN}-ct, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
+    echo -e "  ${LIGHTGREEN}-c, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-kt, --kernel-type${ENDCOLOR} NAME            $(gettext "Specify the kernel type (e.g., 'default').")"
-    echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR}           $(gettext "Enable or disable kernel backports.")"
-    echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}               $(gettext "Enable or disable AUFS support in the kernel.")"
-    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}         $(gettext "Enable or disable DKMS for wireless drivers.")"
+    echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR} VALUE     $(gettext "Enable or disable kernel backports (true/false).")"
+    echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR} VALUE         $(gettext "Enable or disable AUFS support in the kernel (true/false).")"
+    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR} VALUE   $(gettext "Enable or disable DKMS for wireless drivers (true/false).")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale and Timezone Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-l, --locale${ENDCOLOR} NAME                  $(gettext "Specify the system locale (e.g., 'en_US').")"
-    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR}                $(gettext "Enable or disable multilingual support.")"
-    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}           $(gettext "Keep all available locales.")"
+    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR} VALUE          $(gettext "Enable or disable multilingual support (true/false).")"
+    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR} VALUE          $(gettext "Keep all available locales (true/false).")"
     echo -e "  ${LIGHTGREEN}-tz, --timezone${ENDCOLOR} NAME               $(gettext "Specify the timezone (e.g., 'Etc/UTC').")"
     echo ""
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
@@ -56,7 +59,7 @@ help() {
     echo -e "     $(basename $0) --distribution bookworm --architecture amd64 --desktop-environment xfce"
     echo ""
     echo -e "  $(gettext "2. Create a system image with kernel backports and AUFS support enabled:")"
-    echo -e "     $(basename $0) --kernel-backports --kernel-aufs"
+    echo -e "     $(basename $0) --kernel-backports true --kernel-aufs true"
     echo ""
     echo -e "  $(gettext "3. Specify a custom output directory and enable verbose output:")"
     echo -e "     $(basename $0) --output /path/to/output --verbose"
@@ -78,6 +81,10 @@ allow_root_only # Allow only root user to run the script
 toggle_shell_options e
 while (("${#}")); do
     case "${1}" in
+    -b | --build-dir)
+        process_flag "check" "string" "BUILD_DIR" "${@}"
+        shift "$?"
+        ;;
     -d | --distribution)
         process_flag "check" "string" "DISTRIBUTION" "${@}"
         shift "$?"
@@ -94,7 +101,7 @@ while (("${#}")); do
         process_flag "check" "string" "PACKAGE_VARIANT" "${@}"
         shift "$?"
         ;;
-    -ct | --compression-type)
+    -c | --compression-type)
         process_flag "check" "string" "COMP_TYPE" "${@}"
         shift "$?"
         ;;
@@ -103,24 +110,24 @@ while (("${#}")); do
         shift "$?"
         ;;
     -bpo | --kernel-backports)
-        KERNEL_BPO=true
-        shift
+        process_flag "check" "boolean" "KERNEL_BPO" "${@}"
+        shift "$?"
         ;;
     -aufs | --kernel-aufs)
-        KERNEL_AUFS=true
-        shift
+        process_flag "check" "boolean" "KERNEL_AUFS" "${@}"
+        shift "$?"
         ;;
     -dkms | --kernel-build-dkms)
-        KERNEL_BUILD_DKMS=true
-        shift
+        process_flag "check" "boolean" "KERNEL_BUILD_DKMS" "${@}"
+        shift "$?"
         ;;
     -ml | --multilingual)
-        MULTILINGUAL=true
-        shift
+        process_flag "check" "boolean" "MULTILINGUAL" "${@}"
+        shift "$?"
         ;;
     -kl | --keep-locales)
-        KEEP_ALL_LOCALES=true
-        shift
+        process_flag "check" "boolean" "KEEP_ALL_LOCALES" "${@}"
+        shift "$?"
         ;;
     -h | --help)
         help
@@ -143,30 +150,44 @@ while (("${#}")); do
     esac
 done
 
-
 toggle_shell_options e
 
-set_variables BUILD_DIR="${PWD}/build" # If the variable has not been set before, assign a value to it
-
-trap 'unmount_dirs ${BUILD_DIR}; stop_http_server' EXIT
+: "${BUILD_SCRIPTS_DIR:="linux-live"}"
+: "${BUILD_DIR:="${PWD}/build"}"
+: "${DISTRIBUTION:="bookworm"}"
+: "${DISTRIBUTION_ARCH:="amd64"}"
+: "${DESKTOP_ENVIRONMENT:="xfce"}"
+: "${PACKAGE_VARIANT:="standard"}"
+: "${COMP_TYPE:="zstd"}"
+: "${KERNEL_TYPE:="default"}"
+: "${KERNEL_BPO:=false}"
+: "${KERNEL_AUFS:=true}"
+: "${KERNEL_BUILD_DKMS:=true}"
+: "${LOCALE:="en_US"}"
+: "${MULTILINGUAL:=false}"
+: "${KEEP_ALL_LOCALES:=true}"
+: "${TIMEZONE:="Etc/UTC"}"
 
 # ----[ MAIN ]----
 
-mkdir -p ${BUILD_DIR}
-if [ -f "${SCRIPT_DIR}/config" ]; then
-    cp "${SCRIPT_DIR}/config" "${BUILD_DIR}/config"
+WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
+mkdir -p "${WORK_DIR}"
+if [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" ]; then
+    cp "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" "${WORK_DIR}/build.conf"
 else
-    cp "/etc/minios-live/config" "${BUILD_DIR}/config"
+    cp "/etc/minios-live/build.conf" "${WORK_DIR}/build.conf"
 fi
 
-if bash -n "${BUILD_DIR}/config"; then
-    update_config "${BUILD_DIR}/config"
+if bash -n "${WORK_DIR}/build.conf"; then
+    update_config "${WORK_DIR}/build.conf"
 else
-    error "${RED}The configuration file ${BOLD}"${BUILD_DIR}/config"${ENDCOLOR}${RED} contains syntax errors. Please make the necessary changes and try again.${ENDCOLOR}"
+    error "${RED}The configuration file ${BOLD}${WORK_DIR}/build.conf${ENDCOLOR}${RED} contains syntax errors. Please make the necessary changes and try again.${ENDCOLOR}"
     exit 1
 fi
 
 # Execute minios-live script.
 BUILD_DIR="${BUILD_DIR}" \
+    WORK_DIR="$WORK_DIR" \
+    BUILD_CONF="${WORK_DIR}/build.conf" \
     MAIN_EXECUTABLE="${MAIN_EXECUTABLE}" \
     "${SCRIPT_DIR}/minios-live" -

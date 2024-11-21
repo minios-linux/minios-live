@@ -90,20 +90,11 @@ else
     COMP_PARAMS=""
 fi
 
-# Set config file path
-if [ -f "../../container_config" ]; then
-    CONFIG="../../container_config"
-elif [ -f "../../config" ]; then
-    CONFIG="../../config"
-elif [ -f "/etc/minios/config" ]; then
-    CONFIG="/etc/minios/config"
-elif [ -f "/run/initramfs/lib/config" ]; then
-    CONFIG="/run/initramfs/lib/config"
-fi
-
 # Assign config values
 NETWORK="true"
 CLOUD="true"
+LIVEKITNAME="minios"
+BEXT="sb"
 
 # Set paths and filenames
 LMK="lib/modules/$KERNEL"
@@ -267,7 +258,6 @@ copy_files "$INITRAMFS" "${FILES[@]}"
 chmod a+x "$INITRAMFS/init"
 chmod a+x "$INITRAMFS/shutdown"
 ln -s ../init "$INITRAMFS/bin/init"
-cp "$CONFIG" "$INITRAMFS/lib/config"
 
 cd "$INITRAMFS"
 find . -print | cpio -o -H newc | $COMP $COMP_PARAMS >"$INITRAMFS.img"

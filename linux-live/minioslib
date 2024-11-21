@@ -20,7 +20,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS USE_APT_CACHE"
+    VARIABLES="BUILD_SCRIPTS_DIR DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS USE_APT_CACHE"
 
     #
     CONTAINER_TYPE="0"
@@ -470,6 +470,108 @@ declare_locales() {
     )
 }
 
+################################################################################
+# Functions for processing and analyzing command line arguments
+################################################################################
+# The `process_flag` function handles a flag and its arguments.
+# Its usage is as follows:
+#    process_flag CHECK TYPE VAR [CMDLINE]
+#
+# Parameters:
+#    CHECK: It is a string that can be either "check" or "skip".
+#           - If CHECK is set to "check", it triggers the validation of the option. This ensures that the option is
+#             provided with a valid argument. If the argument is missing, nonexistent, or another option
+#             (starts with `-` or `--`), it will terminate the program with an error.
+#           - If CHECK is set to "skip", the function will skip the validation of the option and proceed directly
+#             to parsing the argument. "skip" is mainly used for flags that do not always require an argument.
+#
+#    TYPE: Specifies the type of the variable to be updated. This can either be "string" or "array".
+#          Depending on the TYPE, the function will correctly parse the arguments and assign them to VAR:
+#              - If TYPE is "string", the function assigns the single argument to VAR.
+#              - If TYPE is "array", the function parses multiple arguments and appends them to VAR.
+#
+#    VAR: Is the variable name that will be updated. VAR is passed by reference and is updated with parsed arguments.
+#
+#    CMDLINE: The rest of the command-line arguments. The function will stop parsing arguments once another flag (an argument starting with "-" or "--") is encountered.
+#
+# Returns:
+#    The function returns the number of arguments processed (including the flag itself). This is typically used
+#    with 'shift' command to remove the processed arguments from the positional parameters list.
+#
+# It's commonly called inside a loop that goes through each command-line argument, like so:
+#
+#    while (("${#}")); do
+#      case "${1}" in
+#        -yf | --your-flag)
+#          process_flag "check" "string" "YOUR_VAR" "${@}"
+#          shift "$?"
+#          ;;
+#      esac
+#    done
+#
+# In this example, the loop checks each command-line argument. If it encounters "--your-flag", it invokes `process_flag`,
+# which validates the argument following the flag, parses it, and assigns its value to YOUR_VAR.
+#
+# Example:
+#    process_flag "check" "string" "AUTOLOGIN" "${@}"
+#
+# Note:
+#    This function, including the functions it calls (i.e., check_option, parse_arguments), will not work as expected when 'set -e' is enabled in the script.
+#    To handle errors within these functions and keep the script running after an error, consider using custom error handling and avoid using 'set -e'.
+
+# Check if an option has a valid argument.
+check_option() {
+    local FLAG="${1}"
+    local ARG="${2}"
+
+    if [[ -z "${ARG}" || "${ARG}" == -* || "${ARG}" == --* ]]; then
+        error "No arguments provided for the option ${FLAG}"
+        exit 1
+    fi
+}
+
+# Parse arguments, assign variables, and return the number of arguments processed.
+parse_arguments() {
+    local -n VAR="${1}"
+    local TYPE="${2}"
+    local FLAG="${3}"
+    shift 3
+    local SHIFT_COUNT=1
+
+    while (("${#}")) && [[ "${1}" != -* ]] && [[ "${1}" != --* ]]; do
+        ARG="${1}"
+        if [ "${TYPE}" = "array" ]; then
+            IFS='; , ' read -ra ADDR <<<"${ARG}"
+            for i in "${ADDR[@]}"; do
+                if [[ -n "${i}" ]]; then
+                    VAR+=("${i}")
+                fi
+            done
+        else
+            VAR="${ARG}"
+        fi
+        shift
+        SHIFT_COUNT=$((SHIFT_COUNT + 1))
+    done
+
+    return "${SHIFT_COUNT}"
+}
+
+# Process a flag and its arguments.
+process_flag() {
+    local CHECK="${1}"
+    local TYPE="${2}"
+    local VAR="${3}"
+    local FLAG="${4}"
+    local ARG="${5}"
+    shift 3
+
+    if [ "${CHECK}" = "check" ]; then
+        check_option "${FLAG}" "${ARG}"
+    fi
+    parse_arguments "${VAR}" "${TYPE}" "${@}"
+}
+
 #------- LIBMINIOSLIVE -------
 
 current_process() {
@@ -598,23 +700,6 @@ check_is_in_chroot() {
         error "This script should be run inside chroot only!"
         exit 1
     fi
-}
-
-# configure build folder
-setup_install_dir() {
-    current_function
-    WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
-    INSTALL_DIR="${WORK_DIR}/core"
-    mkdir -p "${INSTALL_DIR}"
-
-    toggle_shell_options u
-    : "${APT_CACHE_DIR:=${BUILD_DIR}/aptcache/${DISTRIBUTION}}"
-    : "${ROOTFS_TARBALL:=${WORK_DIR}/${DISTRIBUTION}-${DISTRIBUTION_ARCH}-rootfs.tar.gz}"
-    toggle_shell_options u
-
-    generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
-    EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
-    #generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
 }
 
 # Unmount directories
@@ -914,17 +999,21 @@ pkg() {
     APT_OPTIONS="--yes"
     DPKG_OPTIONS="-o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\""
 
-    # Only update the package cache for commands that need it
     case "${COMMAND}" in
     install | upgrade | dist-upgrade | build-dep)
         if [ ! -f /var/cache/apt/pkgcache.bin ]; then
             DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" update
         fi
         ;;
+    source)
+        if [ ! -f /var/cache/apt/srcpkgcache.bin ]; then
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" update
+        fi
+        ;;
     esac
 
     case "${COMMAND}" in
-    install | source)
+    install | source | build-dep)
         if [ "${USE_APT_CACHE}" = "true" ]; then
             if lsattr /var/cache/apt/archives | grep -q 'i'; then
                 chattr -i /var/cache/apt/archives
@@ -938,8 +1027,24 @@ pkg() {
             chattr -i /var/cache/apt/archives
         fi
         ;;
-    remove | upgrade | autoremove | purge | clean | build-dep | dist-upgrade)
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+    upgrade | dist-upgrade)
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            if lsattr /var/cache/apt/archives | grep -q 'i'; then
+                chattr -i /var/cache/apt/archives
+            fi
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" --download-only "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+            chattr +i /var/cache/apt/archives
+        fi
+        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}"
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            chattr -i /var/cache/apt/archives
+        fi
+        ;;
+    remove | upgrade | autoremove | purge | clean | autoclean)
+        if [ "${USE_APT_CACHE}" = "true" ]; then
+            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+        fi
         ;;
     update | edit-sources | moo | download | check | policy)
         DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
@@ -1077,6 +1182,9 @@ copy_build_scripts() {
     mkdir -p "${DESTINATION}/linux-live"
     rsync -a --exclude='.git' "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/" "${DESTINATION}/$BUILD_SCRIPTS_DIR/"
 
+    cp $GENERAL_CONF "${DESTINATION}/$BUILD_SCRIPTS_DIR"
+    cp $BUILD_CONF "${DESTINATION}/$BUILD_SCRIPTS_DIR"
+
     chmod +x "${DESTINATION}/$BUILD_SCRIPTS_DIR/install-chroot"
 }
 
@@ -1105,7 +1213,7 @@ build_chroot() {
     if [ -f /.minios-live-container ]; then
         chroot_run "${INSTALL_DIR}" /$BUILD_SCRIPTS_DIR/install-chroot -
     else
-        chroot "${INSTALL_DIR}" /$BUILD_SCRIPTS_DIR/install-chroot -
+        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS_DIR=${BUILD_SCRIPTS_DIR} /$BUILD_SCRIPTS_DIR/install-chroot -"
     fi
 
     unmount_dirs "${WORK_DIR}"
@@ -1607,7 +1715,9 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/var/cache/debconf/"*-old 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/fontconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/ldconfig/"* 2>/dev/null
-    rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
+    if [ "${USE_APT_CACHE}" = "false" ]; then
+        rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
+    fi
     if [ "${USE_APT_CACHER}" = "true" ]; then
         rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
     fi
@@ -1794,7 +1904,9 @@ chroot_finish_up() {
     rm -f /var/cache/fontconfig/* 2>/dev/null
     rm -f /var/cache/debconf/*-old 2>/dev/null
     rm -f /var/lib/apt/extended_states 2>/dev/null
-    rm -f /var/cache/apt/archives/*.deb 2>/dev/null
+    if [ "${USE_APT_CACHE}" = "false" ]; then
+        rm -f /var/cache/apt/archives/*.deb 2>/dev/null
+    fi
     if [ "${USE_APT_CACHER}" = "true" ]; then
         rm -f /etc/apt/apt.conf.d/02aptcache 2>/dev/null
     fi
@@ -2216,11 +2328,7 @@ filter_modules() {
             FILTER_LEVEL=$((${MODULE:1:1} - 1))
         fi
     else
-        if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" ]; then
-            read_config "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" FILTER_MODULES FILTER_LEVEL
-        else
-            read_config "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/config" FILTER_MODULES FILTER_LEVEL
-        fi
+        read_config "$GENERAL_CONF" FILTER_MODULES FILTER_LEVEL
     fi
     echo -e "=====  ${YELLOW}MODULE=${MODULE}${ENDCOLOR}"
     echo -e "=====  ${YELLOW}FILTER_MODULES=${FILTER_MODULES}${ENDCOLOR}"
@@ -2448,11 +2556,8 @@ build_modules() {
             # copy files (post-install)
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
                 mkdir -p "${MODULE_DIR[merged]}/usr/share/minios" "${MODULE_DIR[merged]}/etc/minios"
-                if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" ]; then
-                    cp "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/container_config" "${MODULE_DIR[merged]}/etc/minios/config"
-                else
-                    cp "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/config" "${MODULE_DIR[merged]}/etc/minios/config"
-                fi
+                cp "$GENERAL_CONF" "${MODULE_DIR[merged]}/etc/minios/general.conf"
+                cp "$GENERAL_CONF" "${MODULE_DIR[merged]}/etc/minios/build.conf"
             fi
 
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
