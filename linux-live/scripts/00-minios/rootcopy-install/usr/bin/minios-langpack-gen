@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Source the minioslib and read the config
 . /usr/lib/minios/libminioslive || exit 1
-read_config /etc/minios/config DISTRIBUTION DISTRIBUTION_ARCH
+read_config /etc/minios/build.conf DISTRIBUTION DISTRIBUTION_ARCH
 
 # Function to copy files
 copy_files() {
