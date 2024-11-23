@@ -21,7 +21,6 @@ declare -A VALIDATION_RULES=(
 )
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-GENERAL_CONF="/etc/minios/general.conf"
 MINIOS_CONF="/etc/minios/minios.conf"
 
 if [ -d "/usr/lib/systemd/system" ]; then
@@ -207,8 +206,8 @@ manage_services disable
 set_autologin
 set_scripts
 
-read_config "$GENERAL_CONF" USER_SETUP
-if [ "$USER_SETUP" = "initrd" ]; then
+read_config "/etc/os-release" VERSION_CODENAME
+if [ "$VERSION_CODENAME" = "bionic" ]; then
     if [ "$CLOUD" != "true" ]; then
         if id -nu 1000; then
             CURRENT_USER_NAME=$(id -nu 1000)

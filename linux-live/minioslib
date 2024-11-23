@@ -1002,12 +1002,12 @@ pkg() {
     case "${COMMAND}" in
     install | upgrade | dist-upgrade | build-dep)
         if [ ! -f /var/cache/apt/pkgcache.bin ]; then
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" update
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" update
         fi
         ;;
     source)
         if [ ! -f /var/cache/apt/srcpkgcache.bin ]; then
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" update
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" update
         fi
         ;;
     esac
@@ -1018,11 +1018,11 @@ pkg() {
             if lsattr /var/cache/apt/archives | grep -q 'i'; then
                 chattr -i /var/cache/apt/archives
             fi
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" --download-only "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" --download-only "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
             chattr +i /var/cache/apt/archives
         fi
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+        DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
         if [ "${USE_APT_CACHE}" = "true" ]; then
             chattr -i /var/cache/apt/archives
         fi
@@ -1032,22 +1032,22 @@ pkg() {
             if lsattr /var/cache/apt/archives | grep -q 'i'; then
                 chattr -i /var/cache/apt/archives
             fi
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" --download-only "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" --download-only "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
             chattr +i /var/cache/apt/archives
         fi
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}"
+        DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}"
         if [ "${USE_APT_CACHE}" = "true" ]; then
             chattr -i /var/cache/apt/archives
         fi
         ;;
     remove | upgrade | autoremove | purge | clean | autoclean)
         if [ "${USE_APT_CACHE}" = "true" ]; then
-            DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
+            DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
         fi
         ;;
     update | edit-sources | moo | download | check | policy)
-        DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE:-noninteractive}" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
+        DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${COMMAND}" "$@"
         ;;
     *)
         error "Invalid command: ${COMMAND}"
@@ -1525,7 +1525,12 @@ build_iso() {
         IMAGE="${LIVEKITNAME}-${DISTRIBUTION}-${DESKTOP_ENVIRONMENT}-${PACKAGE_VARIANT}${LANGID}"
     fi
 
-    if [[ "${RELEASE}" != "true" ]]; then
+    if [[ "${RELEASE}" = "true" ]]; then
+        SUFFIX="-${RELEASE_VERSION}"
+        if [[ "${KERNEL_TYPE}" != "default" ]]; then
+            IMAGE+="-${KERNEL_TYPE}"
+        fi
+    else
         if [[ "${KERNEL_AUFS}" == "true" ]]; then
             IMAGE+="-aufs"
         fi
@@ -1536,12 +1541,6 @@ build_iso() {
             IMAGE+="-${SNAPSHOT_DATE}"
         fi
         SUFFIX="-${COMP_TYPE}-$(date +%Y%m%d_%H%M)"
-    else
-        SUFFIX="-${RELEASE_VERSION}"
-        if [[ "${KERNEL_TYPE}" != "default" ]]; then
-            IMAGE+="-${KERNEL_TYPE}"
-        fi
-
     fi
 
     IMAGE+="-${ISO_ARCH}"
@@ -2556,8 +2555,16 @@ build_modules() {
             # copy files (post-install)
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
                 mkdir -p "${MODULE_DIR[merged]}/usr/share/minios" "${MODULE_DIR[merged]}/etc/minios"
-                cp "$GENERAL_CONF" "${MODULE_DIR[merged]}/etc/minios/general.conf"
-                cp "$GENERAL_CONF" "${MODULE_DIR[merged]}/etc/minios/build.conf"
+
+                if [[ "${RELEASE}" = "true" ]]; then
+                    MINIOS_VERSION="${RELEASE_VERSION}"
+                else
+                    MINIOS_VERSION="$(date +%Y%m%d)"
+                fi
+                cat <<EOF >"${MODULE_DIR[merged]}/etc/minios-release"
+NAME="MiniOS Linux"
+VERSION="$MINIOS_VERSION"
+EOF
             fi
 
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then

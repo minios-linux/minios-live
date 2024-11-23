@@ -220,7 +220,7 @@ init_zram() {
 }
 
 aufs_is_supported() {
-   cat /proc/filesystems | grep aufs
+   cat /proc/filesystems | grep aufs >/dev/null 2>&1
 }
 
 # load the AUFS kernel driver. If not found,

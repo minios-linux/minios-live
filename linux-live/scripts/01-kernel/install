@@ -6,12 +6,12 @@ set -u          # treat unset variable as error
 
 . "/minioslib" || exit 1
 
-pkg update
-
 KERNEL=""
 if [ "${KERNEL_BPO}" = "true" ]; then
     BPO="-t ${DISTRIBUTION}-backports"
-    KERNEL_VERSION="6.5"
+    if [ "${KERNEL_AUFS}" = "true" ]; then
+        KERNEL_VERSION="6.5"
+    fi
 else
     BPO=""
     KERNEL_VERSION="6.1"
@@ -36,7 +36,7 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
         cd "/rootcopy-install"
         pkg install ./$(ls linux-image-*${KERNEL_ARCH}.deb | head -n 1)
     else
-        pkg install "${BPO}" "${KERNEL_IMAGE}"
+        pkg install ${BPO} "${KERNEL_IMAGE}"
         apt-mark hold "${KERNEL_IMAGE}"
     fi
 fi
