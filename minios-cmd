@@ -35,61 +35,58 @@ help() {
     echo -e "  ${LIGHTGREEN}-b, --build-dir${ENDCOLOR} DIR               $(gettext "Specify the build directory.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "System Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}-d, --distribution${ENDCOLOR} NAME           $(gettext "Specify the distribution name (e.g., 'bookworm').")"
-    echo -e "  ${LIGHTGREEN}-a, --architecture${ENDCOLOR} NAME           $(gettext "Specify the architecture (e.g., 'amd64').")"
-    echo -e "  ${LIGHTGREEN}-de, --desktop-environment${ENDCOLOR} NAME   $(gettext "Specify the desktop environment (e.g., 'xfce').")"
-    echo -e "  ${LIGHTGREEN}-pv, --package-variant${ENDCOLOR} NAME       $(gettext "Specify the package variant (e.g., 'standard').")"
+    echo -e "  ${LIGHTGREEN}-d, --distribution${ENDCOLOR} NAME           $(gettext "Specify the distribution name (e.g., 'bookworm'). REQUIRED") "
+    echo -e "  ${LIGHTGREEN}-a, --architecture${ENDCOLOR} NAME           $(gettext "Specify the architecture (e.g., 'amd64'). REQUIRED") "
+    echo -e "  ${LIGHTGREEN}-de, --desktop-environment${ENDCOLOR} NAME   $(gettext "Specify the desktop environment (e.g., 'xfce'). REQUIRED") "
+    echo -e "  ${LIGHTGREEN}-pv, --package-variant${ENDCOLOR} NAME       $(gettext "Specify the package variant (e.g., 'standard'). REQUIRED") "
     echo -e "  ${LIGHTGREEN}-c, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-kt, --kernel-type${ENDCOLOR} NAME           $(gettext "Specify the kernel type (e.g., 'default').")"
-    echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR} VALUE    $(gettext "Enable or disable the use of the Linux kernel from backports (true/false). Only available for original Debian kernels")"
-    echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR} VALUE        $(gettext "Enable or disable AUFS support in the kernel (true/false).")"
-    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR} VALUE  $(gettext "Enable or disable compilation of additional drivers during kernel installation (true/false).")"
+    echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR}          $(gettext "Enable the use of the Linux kernel from backports.")"
+    echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}              $(gettext "Enable AUFS support in the kernel.")"
+    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}       $(gettext "Enable compilation of additional drivers during kernel installation.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale and Timezone Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-l, --locale${ENDCOLOR} NAME                 $(gettext "Specify the system locale (e.g., 'en_US').")"
-    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR} VALUE         $(gettext "Enable or disable multilingual support (true/false).")"
-    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR} VALUE         $(gettext "Keep all available locales (true/false).")"
+    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR}              $(gettext "Enable multilingual support.")"
+    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}              $(gettext "Keep all available locales.")"
     echo -e "  ${LIGHTGREEN}-tz, --timezone${ENDCOLOR} NAME              $(gettext "Specify the timezone (e.g., 'Etc/UTC').")"
     echo ""
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
-    echo -e "${LIGHTBLUE}$(gettext "Distribution Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}DISTRIBUTION=${ENDCOLOR} \"bookworm\""
-    echo -e "  ${LIGHTGREEN}DISTRIBUTION_ARCH=${ENDCOLOR} \"amd64\""
-    echo -e "  ${LIGHTGREEN}DESKTOP_ENVIRONMENT=${ENDCOLOR} \"xfce\""
-    echo -e "  ${LIGHTGREEN}PACKAGE_VARIANT=${ENDCOLOR} \"standard\""
-    echo -e "  ${LIGHTGREEN}COMP_TYPE=${ENDCOLOR} \"zstd\""
-    echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}KERNEL_TYPE=${ENDCOLOR} \"default\""
-    echo -e "  ${LIGHTGREEN}KERNEL_BPO=${ENDCOLOR} \"false\""
-    echo -e "  ${LIGHTGREEN}KERNEL_AUFS=${ENDCOLOR} \"true\""
-    echo -e "  ${LIGHTGREEN}KERNEL_BUILD_DKMS=${ENDCOLOR} \"true\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}LOCALE=${ENDCOLOR} \"en_US\""
-    echo -e "  ${LIGHTGREEN}MULTILINGUAL=${ENDCOLOR} \"false\""
-    echo -e "  ${LIGHTGREEN}KEEP_ALL_LOCALES=${ENDCOLOR} \"true\""
     echo -e "  ${LIGHTGREEN}TIMEZONE=${ENDCOLOR} \"Etc/UTC\""
     echo ""
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
     echo ""
-    echo -e "  $(gettext "1. Create a system image with the 'bookworm' distribution, 'amd64' architecture, and 'xfce' desktop environment:")"
-    echo -e "     $(basename $0) --distribution bookworm --architecture amd64 --desktop-environment xfce"
+    echo -e "  $(gettext "1. Create a MiniOS Standard system image (default settings):")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -c zstd -aufs -dkms -kl"
     echo ""
-    echo -e "  $(gettext "2. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:")"
-    echo -e "     $(basename $0) --distribution buster --architecture i386 --desktop-environment xfce"
+    echo -e "  $(gettext "2. Create a MiniOS Toolbox system image (default settings):")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -aufs -dkms -kl"
     echo ""
-    echo -e "  $(gettext "3. Create a system image with kernel backports:")"
-    echo -e "     $(basename $0) --kernel-backports true --kernel-aufs false"
+    echo -e "  $(gettext "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'toolbox' package variant, and Russian locale:")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU"
     echo ""
-    echo -e "  $(gettext "4. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
-    echo -e "     $(basename $0) --distribution jammy --package-variant standard"
+    echo -e "  $(gettext "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'standard' package variant and 'lxqt' desktop environment:")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de lxqt -pv standard"
     echo ""
-    echo -e "  $(gettext "5. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
-    echo -e "     $(basename $0) --distribution trixie --architecture amd64 --desktop-environment xfce --multilingual true"
+    echo -e "  $(gettext "4. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:")"
+    echo -e "     $(basename $0) -d buster -a i386 -de xfce -pv standard"
+    echo ""
+    echo -e "  $(gettext "5. Create a system image with the 'bookworm' distribution, 'amd64' architecture, and 'xfce' desktop environment and with kernel from backports:")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -bpo"
+    echo ""
+    echo -e "  $(gettext "6. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
+    echo -e "     $(basename $0) -d jammy -pv standard -a amd64 -de xfce"
+    echo ""
+    echo -e "  $(gettext "7. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
+    echo -e "     $(basename $0) -d trixie -a amd64 -de xfce -pv standard -ml"
     echo ""
     echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
     exit 0
@@ -137,24 +134,23 @@ while (("${#}")); do
         shift "$?"
         ;;
     -bpo | --kernel-backports)
-        process_flag "check" "boolean" "KERNEL_BPO" "${@}"
-        shift "$?"
+        KERNEL_BPO=true
         ;;
     -aufs | --kernel-aufs)
-        process_flag "check" "boolean" "KERNEL_AUFS" "${@}"
-        shift "$?"
+        KERNEL_AUFS=true
+        shift
         ;;
     -dkms | --kernel-build-dkms)
-        process_flag "check" "boolean" "KERNEL_BUILD_DKMS" "${@}"
-        shift "$?"
+        KERNEL_BUILD_DKMS=true
+        shift
         ;;
     -ml | --multilingual)
-        process_flag "check" "boolean" "MULTILINGUAL" "${@}"
-        shift "$?"
+        MULTILINGUAL=true
+        shift
         ;;
     -kl | --keep-locales)
-        process_flag "check" "boolean" "KEEP_ALL_LOCALES" "${@}"
-        shift "$?"
+        KEEP_ALL_LOCALES=true
+        shift
         ;;
     -h | --help)
         help
@@ -179,6 +175,7 @@ done
 
 toggle_shell_options e
 
+# Default settings
 : "${BUILD_SCRIPTS_DIR:="linux-live"}"
 : "${BUILD_DIR:="${PWD}/build"}"
 : "${DISTRIBUTION:=}"
@@ -188,11 +185,11 @@ toggle_shell_options e
 : "${COMP_TYPE:="zstd"}"
 : "${KERNEL_TYPE:="default"}"
 : "${KERNEL_BPO:=false}"
-: "${KERNEL_AUFS:=true}"
-: "${KERNEL_BUILD_DKMS:=true}"
+: "${KERNEL_AUFS:=false}"
+: "${KERNEL_BUILD_DKMS:=false}"
 : "${LOCALE:="en_US"}"
 : "${MULTILINGUAL:=false}"
-: "${KEEP_ALL_LOCALES:=true}"
+: "${KEEP_ALL_LOCALES:=false}"
 : "${TIMEZONE:="Etc/UTC"}"
 
 # Check if mandatory parameters are set

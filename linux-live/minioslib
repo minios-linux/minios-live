@@ -582,34 +582,6 @@ current_function() {
     echo -e "=====> ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
 }
 
-# help function
-help() {
-    # if $1 is set, use $1 as headline message in help()
-    if [ -z ${1+x} ]; then
-        echo -e "${LIGHTYELLOW}This script builds bootable MiniOS ISO image.${ENDCOLOR}"
-        echo -e
-    else
-        echo -e $1
-        echo
-    fi
-    echo -e "Supported commands: ${CYAN}${CMD[*]}${ENDCOLOR}" | fold -w 80 -s
-    echo -e
-    echo -e "Syntax: ${MAGENTA}$0${ENDCOLOR} [start_cmd] [-] [end_cmd]"
-    echo -e "\trun from start_cmd to end_cmd"
-    echo -e "\tif start_cmd is omitted, start from first command"
-    echo -e "\tif end_cmd is omitted, end with last command"
-    echo -e "\tenter single cmd to run the specific command"
-    echo -e "\tenter '-' as only argument to run all commands"
-    echo -e "\t"
-    echo -e "Examples:"
-    echo -e "\t${LIGHTYELLOW}$0 -${ENDCOLOR}"
-    echo -e "\t${LIGHTYELLOW}$0 build_bootstrap - build_chroot${ENDCOLOR}"
-    echo -e "\t${LIGHTYELLOW}$0 - build_chroot${ENDCOLOR}"
-    echo -e "\t${LIGHTYELLOW}$0 build_bootstrap -${ENDCOLOR}"
-    echo -e "\t${LIGHTYELLOW}$0 build_iso${ENDCOLOR}"
-    exit 0
-}
-
 # Checks the index of a given command string in the context of global CMD
 # array. If the command doesn't exist in CMD, it displays the help.
 get_command_index() {

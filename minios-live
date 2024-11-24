@@ -38,6 +38,34 @@ if [ ! -f "$BUILD_CONF" ]; then
 fi
 . $BUILD_CONF || exit 1
 
+help() {
+    local HEADLINE="${1:-$(gettext 'This script builds bootable MiniOS ISO image.')}"
+    local COMMANDS="${CMD[*]}"
+    local SYNTAX="$0 [start_cmd] [-] [end_cmd]"
+    local EXAMPLES=(
+        "${LIGHTYELLOW}  $0 -                              ${ENDCOLOR}$(gettext "Run the build from start to finish.")"
+        "${LIGHTYELLOW}  $0 build_bootstrap - build_chroot ${ENDCOLOR}$(gettext "Start the build by building the base environment and finish by installing the entire system in chroot.")"
+        "${LIGHTYELLOW}  $0 - build_chroot                 ${ENDCOLOR}$(gettext "Start the build from the beginning and finish by installing the entire system in chroot.")"
+        "${LIGHTYELLOW}  $0 build_bootstrap -              ${ENDCOLOR}$(gettext "Start the build by building the base environment and run to completion.")"
+        "${LIGHTYELLOW}  $0 build_image                    ${ENDCOLOR}$(gettext "Build only images from previously prepared data.")"
+    )
+
+    echo -e "${LIGHTYELLOW}${HEADLINE}${ENDCOLOR}\n"
+    echo -e "$(gettext "Supported commands:") ${CYAN}${CMD[*]}${ENDCOLOR}\n"
+    echo -e "$(gettext "Usage:") ${MAGENTA}${SYNTAX}${ENDCOLOR}"
+    echo -e "$(gettext "  Run from start_cmd to end_cmd")"
+    echo -e "$(gettext "  If start_cmd is omitted, start from the first command")"
+    echo -e "$(gettext "  If end_cmd is omitted, end with the last command")"
+    echo -e "$(gettext "  Enter a single cmd to run the specific command")"
+    echo -e "$(gettext "  Enter '-' as the only argument to run all commands\n")"
+    echo -e "$(gettext "Examples:")"
+    for EXAMPLE in "${EXAMPLES[@]}"; do
+        echo -e "${EXAMPLE}"
+    done
+
+    exit 0
+}
+
 APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
 ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
 ISO_DIR="$BUILD_DIR/iso"
