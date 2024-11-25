@@ -274,56 +274,71 @@ read_config() {
 
 # A function for updating a configuration file in bash.
 # Usage:
-#   update_config CONFIG_FILE [VAR1] [VAR2] [...]
+#   update_config [-a] CONFIG_FILE [VAR1] [VAR2] [...]
 #
 # Arguments:
+#   -a: Update only declared variables, even if empty.
 #   CONFIG_FILE - required, this is the path to your configuration file.
 #   VAR1, VAR2, etc - the names of variables you wish to update in the configuration file.
 #   If variable names are not provided, the function will update all variables found in the file.
 update_config() {
-    local CONFIG_FILE="${1}"
+    local ALL_DECLARED=false
+    if [[ "$1" == "-a" ]]; then
+        ALL_DECLARED=true
+        shift
+    fi
+
+    local CONFIG_FILE="$1"
     shift
+
     if [[ ! "$CONFIG_FILE" ]]; then
-        error "No configuration file given"
+        error "No configuration file given."
         exit 1
     fi
-    if [[ ! -f "${CONFIG_FILE}" ]]; then
-        error "${CONFIG_FILE} is not a file!"
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        error "$CONFIG_FILE is not a file!"
         exit 1
     fi
-    if [[ ! -r "${CONFIG_FILE}" ]]; then
-        error "${CONFIG_FILE} is not readable!"
+    if [[ ! -r "$CONFIG_FILE" ]]; then
+        error "$CONFIG_FILE is not readable!"
         exit 1
     fi
+
     local -a ARGS
     if (($# > 0)); then
         ARGS=("$@")
     else
-        ARGS=($(grep -v '^#' "${CONFIG_FILE}" | awk -F '=' '{print $1}'))
+        ARGS=($(grep -v '^#' "$CONFIG_FILE" | awk -F '=' '{print $1}'))
     fi
+
     for ARG in "${ARGS[@]}"; do
-        local -n VAR="${ARG}"
+        local -n VAR="$ARG"
         local NEW_VALUE ELEMENT
-        if [[ -z "${VAR+x}" ]]; then
+
+        if ! $ALL_DECLARED && [[ -z "${VAR[@]}" ]]; then
+            continue
+        elif $ALL_DECLARED && [[ -z "${VAR+x}" ]]; then
             continue
         fi
-        case "$(declare -p "${ARG}" 2>/dev/null)" in
+
+        case "$(declare -p "$ARG" 2>/dev/null)" in
         "declare -a"*)
-            NEW_VALUE="${ARG}=("
+            NEW_VALUE="$ARG=("
             for ELEMENT in "${VAR[@]}"; do
-                NEW_VALUE+="\"${ELEMENT}\""
-                [[ "${ELEMENT}" != "${VAR[-1]}" ]] && NEW_VALUE+=" "
+                NEW_VALUE+="\"$ELEMENT\""
+                [[ "$ELEMENT" != "${VAR[-1]}" ]] && NEW_VALUE+=" "
             done
             NEW_VALUE+=")"
             ;;
         *)
-            NEW_VALUE="${ARG}=\"${VAR}\""
+            NEW_VALUE="$ARG=\"$VAR\""
             ;;
         esac
-        if grep -q "^${ARG}=" "${CONFIG_FILE}"; then
-            sed -i "s|^${ARG}=.*|${NEW_VALUE}|" "${CONFIG_FILE}"
+
+        if grep -q "^$ARG=" "$CONFIG_FILE"; then
+            sed -i "s|^$ARG=.*|$NEW_VALUE|" "$CONFIG_FILE"
         else
-            echo -e "\n${NEW_VALUE}" >>"${CONFIG_FILE}"
+            echo -e "\n$NEW_VALUE" >>"$CONFIG_FILE"
         fi
     done
 }

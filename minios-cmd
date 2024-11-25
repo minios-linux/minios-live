@@ -15,13 +15,12 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 export TEXTDOMAIN="minios-live"
 
 # ----[ LIBRARY SOURCING ]----
-for DIR in "${SCRIPT_DIR}/linux-live" "/usr/lib/minios-live"; do
-    if [ -f "${DIR}/minioslib" ]; then
-        MINIOSLIB="${DIR}/minioslib"
-        break
-    fi
-done
-. "${MINIOSLIB}" || exit 1
+if [ -f "$SCRIPT_DIR/linux-live/minioslib" ]; then
+    MINIOSLIB="$SCRIPT_DIR/linux-live/minioslib"
+elif [ -f "/usr/lib/minios-live/minioslib" ]; then
+    MINIOSLIB="/usr/lib/minios-live/minioslib"
+fi
+. "$MINIOSLIB" || exit 1
 
 # ----[ INTERNAL FUNCTIONS ]----
 help() {
@@ -30,6 +29,10 @@ help() {
     echo "$(gettext "Creates a system image with the specified parameters.")"
     echo ""
     echo -e "${BOLD}$(gettext "Options:")${ENDCOLOR}"
+    echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Config Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}--config-file${ENDCOLOR} FILE                 $(gettext "Specify the configuration file path. All other options are ignored.")"
+    echo -e "  ${LIGHTGREEN}--config-only${ENDCOLOR}                      $(gettext "Generate the configuration file only and do not start the build process.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Build Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-b, --build-dir${ENDCOLOR} DIR               $(gettext "Specify the build directory.")"
@@ -102,39 +105,47 @@ brief_help() {
 console_colors  # Set console colors
 allow_root_only # Allow only root user to run the script
 
-toggle_shell_options e
-while (("${#}")); do
-    case "${1}" in
+while (("$#")); do
+    case "$1" in
+    --config-file)
+        BUILD_CONF="$2"
+        shift 2
+        ;;
+    --config-only)
+        CONFIG_ONLY="true"
+        shift
+        ;;
     -b | --build-dir)
-        process_flag "check" "string" "BUILD_DIR" "${@}"
-        shift "$?"
+        BUILD_DIR="$2"
+        shift 2
         ;;
     -d | --distribution)
-        process_flag "check" "string" "DISTRIBUTION" "${@}"
-        shift "$?"
+        DISTRIBUTION="$2"
+        shift 2
         ;;
     -a | --architecture)
-        process_flag "check" "string" "DISTRIBUTION_ARCH" "${@}"
-        shift "$?"
+        DISTRIBUTION_ARCH="$2"
+        shift 2
         ;;
     -de | --desktop-environment)
-        process_flag "check" "string" "DESKTOP_ENVIRONMENT" "${@}"
-        shift "$?"
+        DESKTOP_ENVIRONMENT="$2"
+        shift 2
         ;;
     -pv | --package-variant)
-        process_flag "check" "string" "PACKAGE_VARIANT" "${@}"
-        shift "$?"
+        PACKAGE_VARIANT="$2"
+        shift 2
         ;;
     -c | --compression-type)
-        process_flag "check" "string" "COMP_TYPE" "${@}"
-        shift "$?"
+        COMP_TYPE="$2"
+        shift 2
         ;;
     -kt | --kernel-type)
-        process_flag "check" "string" "KERNEL_TYPE" "${@}"
-        shift "$?"
+        KERNEL_TYPE="$2"
+        shift 2
         ;;
     -bpo | --kernel-backports)
         KERNEL_BPO=true
+        shift
         ;;
     -aufs | --kernel-aufs)
         KERNEL_AUFS=true
@@ -154,30 +165,31 @@ while (("${#}")); do
         ;;
     -h | --help)
         help
+        shift
         ;;
     -v | --version)
         version
+        shift
         ;;
     --)
         shift
         break
         ;;
     -* | --*)
-        error "Unsupported flag ${1}"
+        error "Unsupported flag $1"
         brief_help
         ;;
     *)
-        error "Invalid input ${1}"
+        error "Invalid input $1"
         brief_help
         ;;
     esac
 done
 
-toggle_shell_options e
-
 # Default settings
 : "${BUILD_SCRIPTS_DIR:="linux-live"}"
-: "${BUILD_DIR:="${PWD}/build"}"
+: "${BUILD_DIR:="$PWD/build"}"
+: "${BUILD_CONF:=}"
 : "${DISTRIBUTION:=}"
 : "${DISTRIBUTION_ARCH:=}"
 : "${DESKTOP_ENVIRONMENT:=}"
@@ -192,8 +204,8 @@ toggle_shell_options e
 : "${KEEP_ALL_LOCALES:=false}"
 : "${TIMEZONE:="Etc/UTC"}"
 
-# Check if mandatory parameters are set
-if [[ -z "$DISTRIBUTION" || -z "$DISTRIBUTION_ARCH" || -z "$DESKTOP_ENVIRONMENT" || -z "$PACKAGE_VARIANT" ]]; then
+# Check if mandatory parameters are set ONLY if config file is NOT provided
+if [[ -z "$BUILD_CONF" && ! -f "$BUILD_CONF" && (-z "$DISTRIBUTION" || -z "$DISTRIBUTION_ARCH" || -z "$DESKTOP_ENVIRONMENT" || -z "$PACKAGE_VARIANT") ]]; then
     error "The following options are required: -d/--distribution, -a/--architecture, -de/--desktop-environment, -pv/--package-variant"
     brief_help
     exit 1
@@ -201,24 +213,51 @@ fi
 
 # ----[ MAIN ]----
 
-WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
-mkdir -p "${WORK_DIR}"
-if [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" ]; then
-    cp "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" "${WORK_DIR}/build.conf"
-else
-    cp "/etc/minios-live/build.conf" "${WORK_DIR}/build.conf"
+WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
+
+if [ "$CONFIG_ONLY" != "true" ]; then
+    trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"' EXIT
+fi
+[ -n "$BUILD_CONF" ] && BUILD_CONF=$(realpath "$BUILD_CONF")
+
+if [ "$CONFIG_ONLY" == "true" ]; then
+    CONFIG_TARGET="${BUILD_CONF:-"$BUILD_DIR/build.conf"}"
+    mkdir -p "$(dirname "$CONFIG_TARGET")"
+    if [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" ]; then
+        cp "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" "$CONFIG_TARGET"
+    else
+        cp "/etc/minios-live/build.conf" "$CONFIG_TARGET"
+    fi
+    if bash -n "$CONFIG_TARGET"; then
+        update_config "$CONFIG_TARGET"
+    fi
+    exit 0
 fi
 
-if bash -n "${WORK_DIR}/build.conf"; then
-    update_config "${WORK_DIR}/build.conf"
+if [ -n "$BUILD_CONF" ] && [ ! -f "$BUILD_CONF" ]; then
+    error "The configuration file ${CYAN}$BUILD_CONF${ENDCOLOR} does not exist. Please provide a valid configuration file."
+    exit 1
+fi
+
+mkdir -p "$WORK_DIR"
+if [ -n "$BUILD_CONF" ] && [ -f "$BUILD_CONF" ]; then
+    cp "$BUILD_CONF" "$WORK_DIR/build.conf"
+elif [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" ]; then
+    cp "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" "$WORK_DIR/build.conf"
 else
-    error "${RED}The configuration file ${BOLD}${WORK_DIR}/build.conf${ENDCOLOR}${RED} contains syntax errors. Please make the necessary changes and try again.${ENDCOLOR}"
+    cp "/etc/minios-live/build.conf" "$WORK_DIR/build.conf"
+fi
+
+if bash -n "$WORK_DIR/build.conf"; then
+    update_config "$WORK_DIR/build.conf"
+else
+    error "The configuration file ${BOLD}$WORK_DIR/build.conf${ENDCOLOR} contains syntax errors. Please make the necessary changes and try again."
     exit 1
 fi
 
 # Execute minios-live script.
-BUILD_DIR="${BUILD_DIR}" \
+BUILD_DIR="$BUILD_DIR" \
     WORK_DIR="$WORK_DIR" \
-    BUILD_CONF="${WORK_DIR}/build.conf" \
-    MAIN_EXECUTABLE="${MAIN_EXECUTABLE}" \
-    "${SCRIPT_DIR}/minios-live" -
+    BUILD_CONF="$WORK_DIR/build.conf" \
+    MAIN_EXECUTABLE="$MAIN_EXECUTABLE" \
+    "$SCRIPT_DIR/minios-live" -
