@@ -48,9 +48,10 @@ rsync -av --exclude=".git" \
           --exclude="build" \
           --exclude="debian" \
           --exclude="submodules" \
-          --exclude="tools/create-orig.sh" \
+          --exclude="tools/build-package.sh" \
           --exclude=".gitignore" \
           --exclude=".gitmodules" \
+          --exclude="CHANGES.md" \
           "$PROJECT_DIR/" "$PROJECT_TEMP_DIR/"
 
 if [[ $? -ne 0 ]]; then
