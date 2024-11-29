@@ -42,17 +42,17 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Copy project files to the temporary project directory, excluding ignored files and folders
-rsync -av --exclude=".git" \
-          --exclude=".github" \
-          --exclude=".vscode" \
-          --exclude="build" \
-          --exclude="debian" \
-          --exclude="submodules" \
-          --exclude="tools/build-package.sh" \
-          --exclude=".gitignore" \
-          --exclude=".gitmodules" \
-          --exclude="CHANGES.md" \
-          "$PROJECT_DIR/" "$PROJECT_TEMP_DIR/"
+rsync -a --exclude=".git/" \
+    --exclude=".github/" \
+    --exclude=".vscode/" \
+    --exclude="build/" \
+    --exclude="debian/" \
+    --exclude="submodules/" \
+    --exclude="tools/build-package.sh" \
+    --exclude=".gitignore" \
+    --exclude=".gitmodules" \
+    --exclude="CHANGES.md" \
+    "$PROJECT_DIR/" "$PROJECT_TEMP_DIR/"
 
 if [[ $? -ne 0 ]]; then
     echo "Error: Failed to copy project files to temporary project directory"

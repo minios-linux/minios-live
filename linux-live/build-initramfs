@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: ${BUILD_SCRIPTS_DIR:="linux-live"}
+: ${BUILD_SCRIPTS:="linux-live"}
 
 export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 
@@ -15,7 +15,7 @@ echo -e "=====  ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
 echo -e "=====  ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
 
-cd /$BUILD_SCRIPTS_DIR/initramfs/livekit-mos
+cd /$BUILD_SCRIPTS/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
 INITRAMFS=$(./mkinitrfs "$KERNEL")
 if [ -n "$INITRAMFS" ]; then
