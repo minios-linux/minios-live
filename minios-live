@@ -10,34 +10,43 @@ set -u          # treat unset variable as error
 SET_E=""
 SET_U=""
 
+# ---[ CONSTANTS & VARIABLES ]---
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
-
-: "${BUILD_SCRIPTS_DIR:="linux-live"}"
 : "${MAIN_EXECUTABLE:="minios-live"}"
+: "${BUILD_SCRIPTS:="linux-live"}"
 
-if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
-    MINIOSLIB="/usr/lib/minios-live/minioslib"
-    GENERAL_CONF="/etc/minios-live/general.conf"
-    : "${BUILD_DIR:="${PWD}/build"}"
+if [[ "$SCRIPT_DIR" == "/usr/bin" ]]; then
+  BUILD_SCRIPTS_DIR="/usr/share/minios-live"
+  GENERAL_CONF="/etc/minios-live/general.conf"
+  : "${BUILD_DIR:="$PWD/build"}"
 else
-    MINIOSLIB="$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/minioslib"
-    GENERAL_CONF="$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/general.conf"
-    : "${BUILD_DIR:="$SCRIPT_DIR/build"}"
+  BUILD_SCRIPTS_DIR="${SCRIPT_DIR}/${BUILD_SCRIPTS}"
+  GENERAL_CONF="${BUILD_SCRIPTS_DIR}/general.conf"
+  : "${BUILD_DIR:="${SCRIPT_DIR}/build"}"
 fi
-. $MINIOSLIB || exit 1
-. $GENERAL_CONF || exit 1
 
+MINIOSLIB="${BUILD_SCRIPTS_DIR}/minioslib"
 : "${BUILD_CONF:="$BUILD_DIR/build.conf"}"
-if [ ! -f "$BUILD_CONF" ]; then
-    mkdir -p $BUILD_DIR
-    if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
-        cp "/etc/minios-live/build.conf" $BUILD_CONF
-    else
-        cp $SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf $BUILD_CONF
-    fi
-fi
-. $BUILD_CONF || exit 1
 
+
+# ---[ SOURCE CONFIGURATION FILES ]---
+. "${MINIOSLIB}" || exit 1
+. "${GENERAL_CONF}" || exit 1
+
+
+# ---[ INITIALIZE BUILD DIRECTORY & CONFIGURATION ]---
+if [[ ! -f "${BUILD_CONF}" ]]; then
+  mkdir -p "${BUILD_DIR}"
+  if [[ "${SCRIPT_DIR}" == "/usr/bin" ]]; then
+    cp "/etc/minios-live/build.conf" "${BUILD_CONF}"
+  else
+    cp "${SCRIPT_DIR}/${BUILD_SCRIPTS}/build.conf" "${BUILD_CONF}"
+  fi
+fi
+
+. "${BUILD_CONF}" || exit 1
+
+# ---[ FUNCTIONS ]---
 help() {
     local HEADLINE="${1:-$(gettext 'This script builds bootable MiniOS ISO image.')}"
     local COMMANDS="${CMD[*]}"
@@ -47,7 +56,7 @@ help() {
         "${LIGHTYELLOW}  $0 build_bootstrap - build_chroot ${ENDCOLOR}$(gettext "Start the build by building the base environment and finish by installing the entire system in chroot.")"
         "${LIGHTYELLOW}  $0 - build_chroot                 ${ENDCOLOR}$(gettext "Start the build from the beginning and finish by installing the entire system in chroot.")"
         "${LIGHTYELLOW}  $0 build_bootstrap -              ${ENDCOLOR}$(gettext "Start the build by building the base environment and run to completion.")"
-        "${LIGHTYELLOW}  $0 build_image                    ${ENDCOLOR}$(gettext "Build only images from previously prepared data.")"
+        "${LIGHTYELLOW}  $0 build_iso                      ${ENDCOLOR}$(gettext "Build only ISO image from previously prepared data.")"
     )
 
     echo -e "${LIGHTYELLOW}${HEADLINE}${ENDCOLOR}\n"
@@ -66,6 +75,7 @@ help() {
     exit 0
 }
 
+# ---[ BUILD PATHS AND DIRECTORIES ]---
 APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
 ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
 ISO_DIR="$BUILD_DIR/iso"
@@ -73,10 +83,10 @@ WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
 INSTALL_DIR="${WORK_DIR}/core"
 EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
 
-CMD=(setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources)
+# ---[ COMMANDS ]---
+CMD=(build_bootstrap build_chroot build_live build_boot build_config build_modules build_iso remove_sources)
 
-# =============   main  ================
-
+# ----[ MAIN ]----
 create_log_file "$@"
 
 trap 'mountpoint -q "${WORK_DIR}" && unmount_dirs "${WORK_DIR}"' EXIT
@@ -88,15 +98,17 @@ console_colors
 allow_root_only
 
 if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
-    toggle_shell_options e || exit 1
-    check_internet_connection || exit 1
-    toggle_shell_options e || exit 1
+    toggle_shell_options e
+    check_internet_connection
+    toggle_shell_options e
 
-    [ -f "/.dockerenv" ] || [ "$container" = "podman" ] && new_run
+    [[ "${CONTAINER,,}" == "true" ]] && new_run
 
     mkdir -p "${INSTALL_DIR}"
 
     generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
+
+    install_host_dependencies
 
     #generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
 

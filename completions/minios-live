@@ -1,14 +1,12 @@
-_minios_live()
-{
+_minios_live() {
     local cur prev opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="setup_host build_bootstrap build_chroot build_live build_config build_modules build_iso remove_sources"
+    prev="${COMP_WORDS[COMP_CWORD - 1]}"
+    opts="build_bootstrap build_chroot build_live build_boot build_config build_modules build_iso remove_sources"
 
-    if [[ ${cur} == * ]]
-    then
-      COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+    if [[ ${cur} == * ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
     fi
 
     return 0

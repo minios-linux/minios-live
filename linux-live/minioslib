@@ -20,23 +20,14 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS_DIR DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS USE_APT_CACHE"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID TIMEZONE MODULE USER_NAME USER_PASSWORD ROOT_PASSWORD BEXT EXPORT_LOGS USE_APT_CACHE"
 
-    #
-    CONTAINER_TYPE="0"
-    toggle_shell_options u
-    if [ -z "${container}" ]; then
-        container=""
-    fi
-    if [ -z "${MODULE}" ]; then
-        MODULE=""
-    fi
-    toggle_shell_options u
-    if [[ (-f /.dockerenv || "${container}" = "podman") && ! -f /.minios-live-container ]]; then
-        CONTAINER_TYPE="1"
-    fi
-    if [[ (-f /.dockerenv || "${container}" = "podman") && -f /.minios-live-container ]]; then
-        CONTAINER_TYPE="2"
+    : "${container:=}"
+    : "${MODULE:=}"
+    CONTAINER="false"
+
+    if [[ (-f /.dockerenv || "${container}" = "podman") ]]; then
+        CONTAINER="true"
     fi
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
@@ -848,7 +839,7 @@ new_run() {
 _generate_chroot_configuration_file() {
     toggle_shell_options u
     cat <<EOF >"${1}"
-BUILD_SCRIPTS_DIR="${BUILD_SCRIPTS_DIR}"
+BUILD_SCRIPTS="${BUILD_SCRIPTS}"
 BEXT="${BEXT}"
 COMP_TYPE="${COMP_TYPE}"
 DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
@@ -913,7 +904,7 @@ LAYOUTID="${LAYOUTID}"
 USER_NAME="${USER_NAME}"
 
 # Builder settings
-BUILD_SCRIPTS_DIR="${BUILD_SCRIPTS_DIR}"
+BUILD_SCRIPTS="${BUILD_SCRIPTS}"
 BEXT="${BEXT}"
 DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
 LIVEKITNAME="${LIVEKITNAME}"
@@ -950,22 +941,12 @@ EOF
 # The second file contains several utility functions
 add_chroot_configuration_files() {
     generate_chroot_configuration_file "${1}/minios-build.conf"
-    if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/minioslib" ]; then
-        cp "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/minioslib" "$1/minioslib"
-    elif [ -f "/$BUILD_SCRIPTS_DIR/minioslib" ]; then
-        cp "/$BUILD_SCRIPTS_DIR/minioslib" "$1/minioslib"
-    fi
+    cp "$BUILD_SCRIPTS_DIR/minioslib" "$1/minioslib"
 }
 
 remove_chroot_configuration_files() {
     rm -f "$1/minios-build.conf"
     rm -f "$1/minioslib"
-}
-
-timezone_to_array() {
-    local IFS
-    IFS="/"
-    TIMEZONE=(${TIMEZONE})
 }
 
 pkg() {
@@ -1050,17 +1031,17 @@ create_apt_list() {
     current_function
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
         if [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "bookworm" ]; then
-            echo "deb     https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >"${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
-            echo "#deb-src https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >>"${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
+            echo "deb     https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >"$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
+            echo "#deb-src https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >>"$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
         else
-            cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION_TYPE}-snapshot.list" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
-            sed -i "s,distro,${DISTRIBUTION},g;s,datetime,${SNAPSHOT_DATE},g" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
+            cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION_TYPE}-snapshot.list" "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
+            sed -i "s,distro,${DISTRIBUTION},g;s,datetime,${SNAPSHOT_DATE},g" "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list"
         fi
     else
-        if [ ! -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" ]; then
-            cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION_TYPE}.list" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
-            sed -i "s,distro,${DISTRIBUTION},g" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
-            sed -i "s,http://archive.ubuntu.com/ubuntu,${DISTRIBUTION_URL},g" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
+        if [ ! -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" ]; then
+            cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION_TYPE}.list" "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
+            sed -i "s,distro,${DISTRIBUTION},g" "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
+            sed -i "s,http://archive.ubuntu.com/ubuntu,${DISTRIBUTION_URL},g" "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list"
         fi
     fi
 }
@@ -1105,11 +1086,7 @@ build_bootstrap() {
 
     local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https,ca-certificates,wget,dbus,sudo,curl,libterm-readline-gnu-perl"
 
-    if [ "${CONTAINER_TYPE}" = "1" ]; then
-        if [ ! -f /.minios-live ]; then
-            setup_host
-        fi
-    fi
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
     directory_cleanup
 
@@ -1119,7 +1096,7 @@ build_bootstrap() {
         else
             setup_apt_cache "${INSTALL_DIR}"
 
-            sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
+            sudo DEBIAN_FRONTEND="noninteractive" \
                 debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
 
             unmount_dirs "${INSTALL_DIR}"
@@ -1131,7 +1108,7 @@ build_bootstrap() {
 
         setup_apt_cache "${INSTALL_DIR}"
 
-        sudo DEBIAN_FRONTEND="${DEBIAN_FRONTEND_TYPE}" \
+        sudo DEBIAN_FRONTEND="noninteractive" \
             debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
 
         unmount_dirs "${INSTALL_DIR}"
@@ -1144,8 +1121,7 @@ build_bootstrap() {
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
         DISTRIBUTION="testing"
         create_apt_list
-        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
-        #chroot_run "${INSTALL_DIR}" pkg update
+        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
         chroot_run "${INSTALL_DIR}" pkg install gnupg
         chroot_run "${INSTALL_DIR}" apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
         DISTRIBUTION="kali-rolling"
@@ -1154,10 +1130,10 @@ build_bootstrap() {
     create_apt_list
 
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
-        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
         echo 'Acquire::Check-Valid-Until "false";' | sudo tee "${INSTALL_DIR}/etc/apt/apt.conf.d/00snapshot"
     else
-        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 }
 
@@ -1167,20 +1143,18 @@ copy_build_scripts() {
     local DESTINATION=${1:-$INSTALL_DIR}
 
     mkdir -p "${DESTINATION}/linux-live"
-    rsync -a --exclude='.git' "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/" "${DESTINATION}/$BUILD_SCRIPTS_DIR/"
+    rsync -a --exclude='.git' "$BUILD_SCRIPTS_DIR/" "${DESTINATION}/$BUILD_SCRIPTS/"
 
-    cp $GENERAL_CONF "${DESTINATION}/$BUILD_SCRIPTS_DIR"
-    cp $BUILD_CONF "${DESTINATION}/$BUILD_SCRIPTS_DIR"
+    cp $GENERAL_CONF "${DESTINATION}/$BUILD_SCRIPTS"
+    cp $BUILD_CONF "${DESTINATION}/$BUILD_SCRIPTS"
 
-    chmod +x "${DESTINATION}/$BUILD_SCRIPTS_DIR/install-chroot"
+    chmod +x "${DESTINATION}/$BUILD_SCRIPTS/install-chroot"
 }
 
 build_chroot() {
     current_process
 
-    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
-        setup_host
-    fi
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
     chroot_mount_fs "${INSTALL_DIR}"
 
@@ -1189,18 +1163,18 @@ build_chroot() {
     create_apt_list
 
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
-        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
     else
-        cp -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 
     curl -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
-    curl -k https://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+    curl -k http://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
 
     if [ -f /.minios-live-container ]; then
-        chroot_run "${INSTALL_DIR}" /$BUILD_SCRIPTS_DIR/install-chroot -
+        chroot_run "${INSTALL_DIR}" /$BUILD_SCRIPTS/install-chroot -
     else
-        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS_DIR=${BUILD_SCRIPTS_DIR} /$BUILD_SCRIPTS_DIR/install-chroot -"
+        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /$BUILD_SCRIPTS/install-chroot -"
     fi
 
     unmount_dirs "${WORK_DIR}"
@@ -1225,9 +1199,7 @@ mkmod_corefs() {
 build_live() {
     current_process
 
-    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
-        setup_host
-    fi
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
     copy_build_scripts
 
@@ -1415,18 +1387,35 @@ menuentry "Run MiniOS (Copy to RAM)" --class ram {
 EOF
 }
 
+build_initrd() {
+    current_function
+
+    [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
+
+    copy_build_scripts "${MODULE_DIR[merged]}"
+    chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS/build-initramfs"
+    chroot_run "${MODULE_DIR[merged]}" "/$BUILD_SCRIPTS/build-initramfs"
+
+    kernel_variables
+    cp "${MODULE_DIR[merged]}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
+    cp "${MODULE_DIR[merged]}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
+
+    for CFG_FILE in syslinux.cfg grub/grub.cfg; do
+        sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${CFG_FILE}"
+    done
+
+    [ -d "${MODULE_DIR[merged]}/linux-live" ] && rm -rf "${MODULE_DIR[merged]}/linux-live"
+}
+
 build_boot() {
     current_process
 
     local OLD_KERNEL
 
-    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
-        setup_host
-    fi
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
-    copy_build_scripts
-
-    cp -r "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
+    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
+    cp -r "$BUILD_SCRIPTS_DIR/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         ARCH="x86_64"
@@ -1442,6 +1431,7 @@ build_boot() {
         mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
     fi
 
+    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian"
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian/grub.cfg"
 search --file --set=root /.disk/info
 set prefix=(\$root)/minios/boot/grub
@@ -1470,26 +1460,6 @@ EOF
     echo "MiniOS" >"${WORK_DIR}/image/.disk/info"
 
     create_config_files
-
-    if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
-        # kernel.conf generation is in $BUILD_SCRIPTS_DIR/scripts/01-kernel/build
-        [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
-
-        copy_build_scripts "${MODULE_DIR[merged]}"
-        chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS_DIR/build-initramfs"
-        chroot_run "${MODULE_DIR[merged]}" "/$BUILD_SCRIPTS_DIR/build-initramfs"
-
-        # copy boot files
-        kernel_variables
-        cp "${MODULE_DIR[merged]}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-        cp "${MODULE_DIR[merged]}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
-
-        for CFG_FILE in syslinux.cfg grub/grub.cfg; do
-            sed -i "s,/boot/vmlinuz,/boot/${VMLINUZNAME},g;s,/boot/initrfs.img,/boot/${INITRFSNAME},g" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${CFG_FILE}"
-        done
-
-        [ -d "${MODULE_DIR[merged]}/linux-live" ] && rm -rf "${MODULE_DIR[merged]}/linux-live"
-    fi
 }
 
 build_iso() {
@@ -1497,9 +1467,7 @@ build_iso() {
 
     local DIR IMAGE ISO SUFFIX
 
-    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
-        setup_host
-    fi
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
     cd "${WORK_DIR}/image" || exit 1
     mkdir -p "${ISO_DIR}"
@@ -1584,30 +1552,18 @@ remove_sources() {
 
 # ====================== INSTALL FUNCTIONS ========================
 
-# Sets up the host by installing and configuring necessary packages, takes into account the container type
-setup_host() {
-    if [ "${SKIP_SETUP_HOST}" != "true" ]; then
-        current_process
-
-        if [ "${CONTAINER_TYPE}" != "2" ]; then
-            hostreq_pkg_list
-        fi
-    fi
-}
-
-# Sets up the host within a chroot environment, dealing with hostname, pre-requesite packages and machine-id settings.
+# Sets up the host environment within a chroot.
 chroot_setup_host() {
     current_process
 
+    # Set the hostname inside the chroot.
     echo "${LIVEKITNAME}" >/etc/hostname
 
-    #install_prerequesited_packages
-
-    #configure machine id
-    #dbus-uuidgen >/etc/machine-id
-    #ln -fs /etc/machine-id /var/lib/dbus/machine-id
-
-    # don't understand why, but multiple sources indicate this
+    # Workaround to prevent issues with initctl within the chroot.
+    # dpkg-divert renames the original /sbin/initctl, and then
+    # a symlink to /bin/true is created in its place. This prevents
+    # initctl from attempting to control services within the chroot,
+    # which may not be desired or even possible.
     dpkg-divert --local --rename --add /sbin/initctl
     ln -s /bin/true /sbin/initctl
 }
@@ -1789,58 +1745,43 @@ chroot_cleanup() {
 }
 
 # This function handles the installation of necessary packages for the host system.
-hostreq_pkg_list() {
-    PKGS_TO_INSTALL=""
-    if [ -f "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list" ]; then
-        PKGS_TO_INSTALL=$(grep -vE "^\s*#" "${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list" | tr "\n" " ")
-    else
-        error "Required package list not found at ${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list"
+install_host_dependencies() {
+    if [[ "$SKIP_SETUP_HOST" = "true" || "$SCRIPT_DIR" = "/usr/bin" ]]; then
+        return
+    fi
+
+    current_function
+
+    if [ ! -f "$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list" ]; then
+        error "Required package list not found at $BUILD_SCRIPTS_DIR/package_lists/required_for_host.list"
         exit 1
     fi
 
+    PKGS_TO_INSTALL=$(grep -vE "^\s*#" "$BUILD_SCRIPTS_DIR/package_lists/required_for_host.list" | tr "\n" " ")
+
     if [ "${DISTRIBUTION_ARCH}" = "arm64" ]; then
-        PKGS_TO_INSTALL="${PKGS_TO_INSTALL} grub-efi-arm64-bin"
+        PKGS_TO_INSTALL+=" grub-efi-arm64-bin"
     else
-        PKGS_TO_INSTALL="${PKGS_TO_INSTALL} grub-efi-amd64-bin grub-pc-bin"
+        PKGS_TO_INSTALL+=" grub-efi-amd64-bin grub-pc-bin"
     fi
 
-    PKGS_TO_INSTALL_FILTERED=""
+    MISSING_PACKAGES=""
     for PKG in ${PKGS_TO_INSTALL}; do
         if ! dpkg-query -W -f='${Status}' "${PKG}" 2>/dev/null | grep -q "ok installed"; then
-            PKGS_TO_INSTALL_FILTERED="${PKGS_TO_INSTALL_FILTERED} ${PKG}"
+            MISSING_PACKAGES+=" ${PKG}"
         fi
     done
 
-    if [ -n "${PKGS_TO_INSTALL_FILTERED}" ]; then
-        echo -e "${YELLOW}=====> installing required software for host system ...${ENDCOLOR}"
-        USE_APT_CACHE="false" pkg install ${PKGS_TO_INSTALL_FILTERED}
+    if [ -n "${MISSING_PACKAGES}" ]; then
+        if [ "$CONTAINER" = "true" ]; then  # Container environment
+            echo -e "${YELLOW}=====> Installing required software for container: ${MISSING_PACKAGES}${ENDCOLOR}"
+            USE_APT_CACHE="false" pkg install ${MISSING_PACKAGES}
+        else  # Host environment
+            error "Missing required packages on the host system:${MISSING_PACKAGES}"
+            error "Please install them manually using your package manager (e.g., apt-get install ...)."
+            exit 1
+        fi
     fi
-}
-
-# This function handles the installation of necessary pre-requisite packages.
-install_prerequesited_packages() {
-    echo -e "${YELLOW}=====> installing prerequested software for chroot system ...${ENDCOLOR}"
-
-    if [ ! -f /etc/apt/apt.conf.d/000MiniOS ]; then
-        cat <<'EOF' >/etc/apt/apt.conf.d/000MiniOS
-APT::Install-Recommends "0";
-APT::Install-Suggests "0";
-Acquire::Languages { "none"; }
-EOF
-    fi
-
-    if [ $DISTRIBUTION = "buster" ]; then
-        wget --no-check-certificate https://deb.freexian.com/extended-lts/archive-key.gpg -O elts-archive-key.gpg && mv elts-archive-key.gpg /etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg
-    fi
-
-    if [ -f "${SCRIPT_DIR}/package_lists/prerequisites.list" ]; then
-        #pkg update
-        echo -e "${YELLOW}=====> upgrading chroot system ...${ENDCOLOR}"
-        pkg upgrade
-        echo -e "${YELLOW}=====> installing packages ...${ENDCOLOR}"
-        install_packages --package-list "${SCRIPT_DIR}/package_lists/prerequisites.list"
-    fi
-
 }
 
 # This function installs the core packages within the chroot system.
@@ -1850,17 +1791,17 @@ install_core_packages() {
 
     export_chroot_variables
 
-    if [ -f /$BUILD_SCRIPTS_DIR/scripts/00-core/preinstall ]; then
-        chmod +x /$BUILD_SCRIPTS_DIR/scripts/00-core/preinstall
-        /$BUILD_SCRIPTS_DIR/scripts/00-core/preinstall
+    if [ -f /$BUILD_SCRIPTS/scripts/00-core/preinstall ]; then
+        chmod +x /$BUILD_SCRIPTS/scripts/00-core/preinstall
+        /$BUILD_SCRIPTS/scripts/00-core/preinstall
     fi
-    if [ -f /$BUILD_SCRIPTS_DIR/scripts/00-core/install ]; then
-        chmod +x /$BUILD_SCRIPTS_DIR/scripts/00-core/install
-        /$BUILD_SCRIPTS_DIR/scripts/00-core/install
+    if [ -f /$BUILD_SCRIPTS/scripts/00-core/install ]; then
+        chmod +x /$BUILD_SCRIPTS/scripts/00-core/install
+        /$BUILD_SCRIPTS/scripts/00-core/install
     fi
-    if [ -f /$BUILD_SCRIPTS_DIR/scripts/00-core/postinstall ]; then
-        chmod +x /$BUILD_SCRIPTS_DIR/scripts/00-core/postinstall
-        /$BUILD_SCRIPTS_DIR/scripts/00-core/postinstall
+    if [ -f /$BUILD_SCRIPTS/scripts/00-core/postinstall ]; then
+        chmod +x /$BUILD_SCRIPTS/scripts/00-core/postinstall
+        /$BUILD_SCRIPTS/scripts/00-core/postinstall
     fi
 
     chroot_cleanup core
@@ -2020,10 +1961,10 @@ install_packages() {
     fi
 
     if [[ -z "${PACKAGE_LIST}" ]]; then
-        if [ -f "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list" ]; then
-            PACKAGE_LIST="${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"
-        elif [ -f "${SCRIPT_DIR}/package.list" ]; then
-            PACKAGE_LIST="${SCRIPT_DIR}/package.list"
+        if [ -f "$SCRIPT_DIR/${PACKAGE_VARIANT}.list" ]; then
+            PACKAGE_LIST="$SCRIPT_DIR/${PACKAGE_VARIANT}.list"
+        elif [ -f "$SCRIPT_DIR/package.list" ]; then
+            PACKAGE_LIST="$SCRIPT_DIR/package.list"
         else
             error "There are no lists of packages here."
             exit 1
@@ -2266,13 +2207,13 @@ kernel_variables() {
 
 # Function to create initial ramdisk file system (initrfs) for a Linux kernel
 create_initrfs() {
-    if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
+    if [[ "${MODULE}" == *"kernel"* ]]; then
         if [ -f "${WORK_DIR}/minios-build.conf" ]; then
             read_config "${WORK_DIR}/minios-build.conf" KERNEL
         fi
         copy_build_scripts "${MODULE_DIR[merged]}"
-        chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS_DIR/initrfs"
-        chroot "${MODULE_DIR[merged]}" /$BUILD_SCRIPTS_DIR/initrfs
+        chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS/initrfs"
+        chroot "${MODULE_DIR[merged]}" /$BUILD_SCRIPTS/initrfs
         kernel_variables
         if ls "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* 2>/dev/null; then
             cp "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
@@ -2393,11 +2334,9 @@ build_modules() {
 
     local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS MODULE_DIR TARGET_DIR DIR
 
-    if [[ "${CONTAINER_TYPE}" == "1" ]] && [[ ! -f "/.minios-live" ]]; then
-        setup_host
-    fi
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
-    ENVIRONMENTS="${SCRIPT_DIR}/$BUILD_SCRIPTS_DIR/environments/${DESKTOP_ENVIRONMENT}"
+    ENVIRONMENTS="$BUILD_SCRIPTS_DIR/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
     cd "${ENVIRONMENTS}" || exit 1
@@ -2486,9 +2425,11 @@ build_modules() {
                     fi
 
                     chroot_run "${MODULE_DIR[merged]}" /build
-
-                    build_boot
                 fi
+            fi
+
+            if [[ "${MODULE}" == *"kernel"* ]]; then
+                build_initrd
             fi
 
             if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
@@ -2506,7 +2447,7 @@ build_modules() {
                 ([ -d "${MODULE_DIR[upper]}/lib/modules/${KERNEL}" ] && cd "${MODULE_DIR[upper]}/lib/modules/${KERNEL}" && cp --parents -afr * "${MODULE_DIR[upper]}/squashfs-root/lib/modules/${KERNEL}/")
                 toggle_shell_options e
 
-                if [ "${MODULE}" = "01-kernel" ]; then
+                if [[ "${MODULE}" == *"kernel"* ]]; then
                     cd "${MODULE_DIR[upper]}/squashfs-root" || exit 1
                     if ls initrd* 2>/dev/null; then
                         rm initrd*
@@ -2596,7 +2537,8 @@ EOF
 
             # run external actions
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
-                if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
+                if [[ "${MODULE}" == *"kernel"* ]]; then
+                    KERNEL_SUFFIX="${KERNEL}"
                     cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
                 else
                     cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
@@ -2620,7 +2562,8 @@ EOF
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" ]; then
                     if [ "$(ls -A "${MODULE_DIR[upper]}" 2>/dev/null)" != "" ]; then
-                        if [[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]; then
+                        if [[ "${MODULE}" == *"kernel"* ]]; then
+                            KERNEL_SUFFIX="${KERNEL}"
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
                         else
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"

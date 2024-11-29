@@ -11,15 +11,18 @@ MAIN_EXECUTABLE="minios-cmd"
 SET_E=""
 SET_U=""
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 export TEXTDOMAIN="minios-live"
 
-# ----[ LIBRARY SOURCING ]----
-if [ -f "$SCRIPT_DIR/linux-live/minioslib" ]; then
-    MINIOSLIB="$SCRIPT_DIR/linux-live/minioslib"
-elif [ -f "/usr/lib/minios-live/minioslib" ]; then
-    MINIOSLIB="/usr/lib/minios-live/minioslib"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+: "${BUILD_SCRIPTS:="linux-live"}"
+if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+    BUILD_SCRIPTS_DIR="/usr/share/minios-live"
+elif [ -d "$SCRIPT_DIR/$BUILD_SCRIPTS" ]; then
+    BUILD_SCRIPTS_DIR="$SCRIPT_DIR/$BUILD_SCRIPTS"
 fi
+
+# ----[ LIBRARY SOURCING ]----
+MINIOSLIB="$BUILD_SCRIPTS_DIR/minioslib"
 . "$MINIOSLIB" || exit 1
 
 # ----[ INTERNAL FUNCTIONS ]----
@@ -105,6 +108,7 @@ brief_help() {
 console_colors  # Set console colors
 allow_root_only # Allow only root user to run the script
 
+CONFIG_ONLY="false"
 while (("$#")); do
     case "$1" in
     --config-file)
@@ -187,7 +191,6 @@ while (("$#")); do
 done
 
 # Default settings
-: "${BUILD_SCRIPTS_DIR:="linux-live"}"
 : "${BUILD_DIR:="$PWD/build"}"
 : "${BUILD_CONF:=}"
 : "${DISTRIBUTION:=}"
@@ -223,8 +226,8 @@ fi
 if [ "$CONFIG_ONLY" == "true" ]; then
     CONFIG_TARGET="${BUILD_CONF:-"$BUILD_DIR/build.conf"}"
     mkdir -p "$(dirname "$CONFIG_TARGET")"
-    if [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" ]; then
-        cp "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" "$CONFIG_TARGET"
+    if [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS/build.conf" ]; then
+        cp "$SCRIPT_DIR/$BUILD_SCRIPTS/build.conf" "$CONFIG_TARGET"
     else
         cp "/etc/minios-live/build.conf" "$CONFIG_TARGET"
     fi
@@ -242,8 +245,8 @@ fi
 mkdir -p "$WORK_DIR"
 if [ -n "$BUILD_CONF" ] && [ -f "$BUILD_CONF" ]; then
     cp "$BUILD_CONF" "$WORK_DIR/build.conf"
-elif [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" ]; then
-    cp "$SCRIPT_DIR/$BUILD_SCRIPTS_DIR/build.conf" "$WORK_DIR/build.conf"
+elif [ -f "$SCRIPT_DIR/$BUILD_SCRIPTS/build.conf" ]; then
+    cp "$SCRIPT_DIR/$BUILD_SCRIPTS/build.conf" "$WORK_DIR/build.conf"
 else
     cp "/etc/minios-live/build.conf" "$WORK_DIR/build.conf"
 fi

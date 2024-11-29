@@ -8,14 +8,14 @@ set -u          # treat unset variable as error
 . "/minios-build.conf" || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+IFS="/"
+TIMEZONE=(${TIMEZONE})
 
 if [ -d "/usr/lib/systemd/system" ]; then
     SYSTEMD_PATH="/usr/lib/systemd"
 elif [ -d "/lib/systemd/system" ]; then
     SYSTEMD_PATH="/lib/systemd"
 fi
-
-timezone_to_array
 
 if [ "${LOCALE}" != "en_US" ]; then
     DEBCONF_SETTINGS=(
@@ -133,7 +133,7 @@ fi
 
 # configuration
 
-(cd /$BUILD_SCRIPTS_DIR/scripts/00-core/rootcopy-install && cp --parents -afr * /)
+(cd /$BUILD_SCRIPTS/scripts/00-core/rootcopy-install && cp --parents -afr * /)
 
 # minios-install setup
 if [ ! -d /usr/lib/usev/rules.d ]; then
@@ -151,7 +151,7 @@ if [ -d /etc/NetworkManager ] && [[ "${DISTRIBUTION}" = "jammy" || "${DISTRIBUTI
     cat <<EOF >/etc/netplan/01-netcfg.yaml
 # This file describes the network interfaces available on your system
 # For more information, see netplan(5).
-# Set and change netplan renderer to NetworkManager GUI tool 
+# Set and change netplan renderer to NetworkManager GUI tool
 network:
   version: 2
   renderer: NetworkManager
