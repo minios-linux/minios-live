@@ -13,7 +13,7 @@ echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)"
 # install packages
 install_packages
 
-if [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
+if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
     pkg install xrdp xorgxrdp
     adduser xrdp ssl-cert
     rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
@@ -108,3 +108,7 @@ if [ "$DISTRIBUTION" != "orel" ]; then
         exit 1
     fi
 fi
+
+for APP in debian-uxterm debian-xterm; do
+    rm -f /usr/share/applications/$APP.desktop
+done

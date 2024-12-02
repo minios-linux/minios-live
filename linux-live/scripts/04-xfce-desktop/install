@@ -108,7 +108,7 @@ if dpkg -l | grep -q nodm; then
 NODM_ENABLED=true
 
 # User to autologin for
-NODM_USER=live
+NODM_USER=$USER_NAME
 
 # First vt to try when looking for free VTs
 NODM_FIRST_VT=7
@@ -375,15 +375,23 @@ if [ ! -d /usr/share/backgrounds/xfce ]; then
     mkdir -p /usr/share/backgrounds/xfce
 fi
 
-for BACKGROUND in /usr/share/backgrounds/MiniOS*; do
-    ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
-done
+find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS4*" ! -name "MiniOS-wallpaper-04.svg" -delete
 
 set_wallpaper() {
     local WALLPAPER=$1
-    ln -s ../MiniOS4-wallpaper-$WALLPAPER.svg /usr/share/backgrounds/xfce/xfce-verticals.png
-    ln -s ../MiniOS4-wallpaper-$WALLPAPER.svg /usr/share/backgrounds/xfce/xfce-teal.jpg
-    ln -s ../MiniOS4-wallpaper-$WALLPAPER.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+    local WALLPAPER_FILE="../MiniOS4-wallpaper-$WALLPAPER.svg"
+
+    # Check if the wallpaper file exists before creating symlinks
+    ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-teal.jpg
+    ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-shapes.svg
+
+    # Remove other wallpaper files
+    for other_wallpaper in Minimum Flux Standard Maximum Toolbox Ultra Puzzle Novice; do
+        if [[ "$other_wallpaper" != "$WALLPAPER" ]]; then
+            rm -f "/usr/share/backgrounds/MiniOS4-wallpaper-$other_wallpaper.svg"
+        fi
+    done
 }
 
 if [ "$PACKAGE_VARIANT" = "minimum" ] && [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
@@ -403,6 +411,10 @@ elif [ "$PACKAGE_VARIANT" = "ultra" ]; then
 else
     set_wallpaper "sea"
 fi
+
+for BACKGROUND in /usr/share/backgrounds/MiniOS*; do
+    ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
+done
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
     cat <<EOF >>/usr/share/applications/taskmanager.desktop
@@ -562,4 +574,14 @@ Type=Application
 Categories=System;Utility;
 
 EOF
+fi
+
+if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
+    if ! grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+        rm -rf /usr/share/slim
+    fi
+fi
+
+if [ $PACKAGE_VARIANT = "minimum" ]; then
+    find /usr/share/backgrounds -type f -not \( -name 'MiniOS-wallpaper-jungle.svg' -or -name 'MiniOS-background-jungle.svg' \) -delete
 fi

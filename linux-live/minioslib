@@ -1177,6 +1177,16 @@ build_chroot() {
         chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /$BUILD_SCRIPTS/install-chroot -"
     fi
 
+    if [[ "${RELEASE}" = "true" ]]; then
+        MINIOS_VERSION="${RELEASE_VERSION}"
+    else
+        MINIOS_VERSION="$(date +%Y%m%d)"
+    fi
+    cat <<EOF >"${INSTALL_DIR}/etc/minios-release"
+NAME="MiniOS Linux"
+VERSION="$MINIOS_VERSION"
+EOF
+
     unmount_dirs "${WORK_DIR}"
 }
 
@@ -1645,9 +1655,7 @@ chroot_cleanup() {
     if [ "$1" == "module" ]; then
         rm -f "${BASE_PATH}/etc/machine-id" 2>/dev/null
     fi
-    if [ "${1}" = "core" ] || [[ "${MODULE}" == *"xorg"* ]] || [[ "${MODULE}" == *"gui-base"* ]]; then
-        rm -f "${BASE_PATH}/usr/share/applications/"*.desktop 2>/dev/null
-    fi
+
     if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
         rm -rf "${BASE_PATH}/var/lib/dpkg" 2>/dev/null
     fi
@@ -1773,10 +1781,10 @@ install_host_dependencies() {
     done
 
     if [ -n "${MISSING_PACKAGES}" ]; then
-        if [ "$CONTAINER" = "true" ]; then  # Container environment
+        if [ "$CONTAINER" = "true" ]; then
             echo -e "${YELLOW}=====> Installing required software for container: ${MISSING_PACKAGES}${ENDCOLOR}"
             USE_APT_CACHE="false" pkg install ${MISSING_PACKAGES}
-        else  # Host environment
+        else
             error "Missing required packages on the host system:${MISSING_PACKAGES}"
             error "Please install them manually using your package manager (e.g., apt-get install ...)."
             exit 1

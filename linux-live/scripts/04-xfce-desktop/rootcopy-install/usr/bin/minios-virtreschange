@@ -24,7 +24,7 @@ guest_utils_active() {
 
 # Check if the kernel parameter is set
 if grep -q 'novrc' /proc/cmdline; then
-    log_message "Virtual environment check is disabled by kernel parameter."
+    log_message "Changing the virtual resolution is disabled by a kernel parameter."
 else
     # Check if running in a virtual environment and if guest utilities are active
     if is_virtual; then
