@@ -672,14 +672,6 @@ create_log_file() {
     toggle_shell_options u
 }
 
-# check that we are inside chroot
-check_is_in_chroot() {
-    if [ $(stat -c %i /)="2" ]; then
-        error "This script should be run inside chroot only!"
-        exit 1
-    fi
-}
-
 # Unmount directories
 unmount_dirs() {
     current_function
@@ -949,6 +941,14 @@ remove_chroot_configuration_files() {
     rm -f "$1/minioslib"
 }
 
+is_in_chroot() {
+    if [ -d /proc/1/root ] && [ "$(stat -c %m /proc/1/root)" != "/" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 pkg() {
     local PACKAGE_MANAGER APT_OPTIONS DPKG_OPTIONS COMMAND
 
@@ -982,8 +982,8 @@ pkg() {
 
     case "${COMMAND}" in
     install | source | build-dep)
-        if [ "${USE_APT_CACHE}" = "true" ]; then
-            if lsattr -d /var/cache/apt/archives | grep -q -e 'i' -e 'I'; then
+        if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
+            if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
                 chattr -i /var/cache/apt/archives
             fi
             DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
@@ -991,13 +991,13 @@ pkg() {
             chattr +i /var/cache/apt/archives
         fi
         DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
-        if [ "${USE_APT_CACHE}" = "true" ]; then
+        if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
             chattr -i /var/cache/apt/archives
         fi
         ;;
     upgrade | dist-upgrade)
-        if [ "${USE_APT_CACHE}" = "true" ]; then
-            if lsattr /var/cache/apt/archives | grep -q 'i'; then
+        if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
+            if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
                 chattr -i /var/cache/apt/archives
             fi
             DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
@@ -1005,12 +1005,12 @@ pkg() {
             chattr +i /var/cache/apt/archives
         fi
         DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}"
-        if [ "${USE_APT_CACHE}" = "true" ]; then
+        if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
             chattr -i /var/cache/apt/archives
         fi
         ;;
     remove | upgrade | autoremove | purge | clean | autoclean)
-        if [ "${USE_APT_CACHE}" = "true" ]; then
+        if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
             DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" "${COMMAND}" "$@"
         fi
         ;;
