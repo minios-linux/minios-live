@@ -298,3 +298,11 @@ EOF
 fi
 
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
+
+if [ $PACKAGE_VARIANT = "minimum" ]; then
+    sed -i 's,create=xarchiver --add-to,create=xarchiver --compress,g' /usr/share/libfm/archivers.list
+elif [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ]; then
+    update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
+elif [ $PACKAGE_VARIANT = "novice" ]; then
+    mkdir -p /var/cache/swcatalog/cache
+fi

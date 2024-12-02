@@ -129,7 +129,7 @@ wait $SOUNDPID
 # If we are running inside VirtualBox or vmware,
 # switch to bigger screen size right away
 OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
-if [ "$(virt-what | egrep -i "virtualbox|vmware")" != "" ]; then
+if [ "$(virt-what | egrep -i "virtualbox|vmware")" != "" && ! grep -q 'novrc' /proc/cmdline ]; then
     xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
 fi
 

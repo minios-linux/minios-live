@@ -1,0 +1,179 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Source the minioslib and read the config
+. /usr/lib/minios/libminioslive || exit 1
+read_config /etc/minios/build.conf DISTRIBUTION DISTRIBUTION_ARCH
+
+# Function to copy files
+copy_files() {
+    local source_file="$1"
+    local dest_dir="$2"
+
+    # Create the destination directory if it doesn't exist
+    mkdir -p "$dest_dir"
+    # Copy the source file to the destination directory
+    cp -r "$source_file" "$dest_dir"
+}
+
+# Function to copy locale files
+copy_locale_files() {
+    local locale_patterns=("$@")
+    for pattern in "${locale_patterns[@]}"; do
+        find "$pattern" 2>/dev/null | while read -r file; do
+            dest_dir="${DESTINATION_DIR}/${LOCALE}/$(dirname "${file}")"
+            copy_files "$file" "$dest_dir"
+        done
+    done
+}
+
+# Function to clean up temporary directory
+cleanup() {
+    rm -rf "$DESTINATION_DIR"
+}
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [option]
+
+This script generates language packs for MiniOS.
+
+Options:
+  --help    Display this help message and exit.
+
+Functions:
+* copy_files - Copy specified files from a source path to a destination directory.
+* copy_locale_files - Copy locale-specific files for various applications such as Firefox and LibreOffice.
+* cleanup - Remove the temp directory created during the execution of the script.
+
+EOF
+}
+
+console_colors
+allow_root_only
+# Call the function to declare locales
+declare_locales
+
+case "${DISTRIBUTION}" in
+stretch | buster | bullseye | bookworm | trixie | kali-rolling | sid | orel)
+    DISTRIBUTION_TYPE="debian"
+    ;;
+bionic | focal | jammy | noble)
+    DISTRIBUTION_TYPE="ubuntu"
+    ;;
+*)
+    error "Unknown distribution: ${DISTRIBUTION}"
+    exit 1
+    ;;
+esac
+
+if [ "${1-}" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+# Get the list of all locales, exclude C, C.utf8 and POSIX, and remove .utf8 ending
+LOCALES_LIST=($(locale -a | grep -v -E '^C$|^C.utf8$|^POSIX$' | sed 's/\.utf8//'))
+DESTINATION_DIR=$(mktemp -d)
+
+# Set trap to clean up temporary directory on exit
+#trap cleanup EXIT
+
+apt-get update -qq
+
+# Loop over each locale
+for LOCALE in "${!LOCALES[@]}"; do
+    if [ "$LOCALE" != "en_US" ]; then
+        # Extract configurations from the associative array
+        CONFIG=(${LOCALES[$LOCALE]//,/ })
+        LAYOUTID=${CONFIG[0]}
+        LAYOUTDSC=${CONFIG[1]}
+        FIREFOX_LOCALE_DEBIAN=${CONFIG[2]}
+        FIREFOX_LOCALE_UBUNTU=${CONFIG[3]}
+        LIBREOFFICE_LOCALE=${CONFIG[4]}
+        LIBREOFFICE_LC_MESSAGES=${CONFIG[5]}
+
+        if [ -z "$LAYOUTDSC" ]; then
+            echo "Locale not recognized, defaulting to English (US) layout"
+            LAYOUTDSC="English (US)"
+            LAYOUTID="us"
+        fi
+
+        DEBCONF_SETTINGS=(
+            "keyboard-configuration  keyboard-configuration/layoutcode       string  us,$LAYOUTID"
+            "keyboard-configuration  keyboard-configuration/variant  select  $LAYOUTDSC"
+            "keyboard-configuration  keyboard-configuration/toggle   select  Alt+Shift"
+            "locales locales/locales_to_be_generated multiselect     $LOCALE.UTF-8 UTF-8"
+            "locales locales/default_environment_locale      select  $LOCALE.UTF-8"
+        )
+
+        DEBCONF_SETTINGS+=(
+            "keyboard-configuration  keyboard-configuration/layout   select  $LAYOUTDSC"
+        )
+
+        for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+            echo "$SETTING" | debconf-set-selections -v
+        done
+
+        rm -f /etc/locale.gen
+
+        # Reinstall locales package
+        dpkg --remove --force-depends locales
+        apt-get install -y -qq locales
+
+        update-locale LANG=$LOCALE.UTF-8
+
+        DEBIAN_FRONTEND=noninteractive dpkg-reconfigure keyboard-configuration
+
+        mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
+        cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="keyboard-layout" version="1.0">
+  <property name="Default" type="empty">
+    <property name="XkbDisable" type="bool" value="false"/>
+    <property name="XkbLayout" type="string" value="us,$LAYOUTID"/>
+    <property name="XkbVariant" type="string" value=","/>
+    <property name="XkbOptions" type="empty">
+      <property name="Group" type="string" value="grp:alt_shift_toggle"/>
+    </property>
+  </property>
+</channel>
+
+EOF
+
+        # Patterns for system locales
+        SYSTEM_LOCALE_PATTERNS=("/usr/share/locale/$LOCALE/*" "/usr/share/locale/${LOCALE%%_*}/*" "/usr/share/i18n/locales/$LOCALE" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml)
+        # Call the function with system locale patterns
+        set +e
+        copy_locale_files "${SYSTEM_LOCALE_PATTERNS[@]}"
+        set -e
+
+        # Patterns for Firefox locales based on DISTRIBUTION_TYPE
+        if [ "$DISTRIBUTION_TYPE" == "debian" ]; then
+            FIREFOX_LOCALE_PATTERNS=("/usr/lib/firefox-esr/browser/extensions/langpack-${FIREFOX_LOCALE_DEBIAN}@firefox-esr.mozilla.org.xpi")
+        elif [ "$DISTRIBUTION_TYPE" == "ubuntu" ]; then
+            FIREFOX_LOCALE_PATTERNS=("/usr/lib/firefox-esr/browser/extensions/langpack-${FIREFOX_LOCALE_UBUNTU}@firefox-esr.mozilla.org.xpi")
+        fi
+        # Call the function with Firefox locale patterns
+        set +e
+        copy_locale_files "${FIREFOX_LOCALE_PATTERNS[@]}"
+        set -e
+
+        # Patterns for LibreOffice locales
+        LIBREOFFICE_LOCALE_PATTERNS=("/usr/lib/libreoffice/program/resource/$LIBREOFFICE_LC_MESSAGES/*" "/usr/lib/libreoffice/share/autotext/$LIBREOFFICE_LC_MESSAGES/*" "/usr/lib/libreoffice/share/template/$LIBREOFFICE_LC_MESSAGES/*" "/usr/lib/libreoffice/share/wordbook/$LIBREOFFICE_LC_MESSAGES/*" "/etc/libreoffice/registry/Langpack-${LIBREOFFICE_LOCALE}.xcd" "/etc/libreoffice/registry/res/fcfg_langpack_${LIBREOFFICE_LOCALE}.xcd" "/etc/libreoffice/registry/res/registry_${LIBREOFFICE_LOCALE}.xcd")
+        # Call the function with LibreOffice locale patterns
+        set +e
+        copy_locale_files "${LIBREOFFICE_LOCALE_PATTERNS[@]}"
+        set -e
+
+        for FILE in /usr/lib/locale/locale-archive /etc/locale.gen /etc/default/locale; do
+            # Adjust for the directory structure
+            DEST_DIR="${DESTINATION_DIR}/${LOCALE}/$(dirname "${FILE}")"
+            copy_files "$FILE" "$DEST_DIR"
+        done
+
+        mksquashfs "${DESTINATION_DIR}/${LOCALE}" "99-langpack-$(echo $LOCALE | tr '[:upper:]' '[:lower:]' | tr '_' '-')-xz.sb" -comp xz -b 1024K -always-use-fragments -noappend -quiet -progress
+    fi
+done

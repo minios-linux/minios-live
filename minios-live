@@ -16,35 +16,33 @@ SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
 : "${BUILD_SCRIPTS:="linux-live"}"
 
 if [[ "$SCRIPT_DIR" == "/usr/bin" ]]; then
-  BUILD_SCRIPTS_DIR="/usr/share/minios-live"
-  GENERAL_CONF="/etc/minios-live/general.conf"
-  : "${BUILD_DIR:="$PWD/build"}"
+    BUILD_SCRIPTS_DIR="/usr/share/minios-live"
+    GENERAL_CONF="/etc/minios-live/general.conf"
+    : "${BUILD_CONF:="/etc/minios-live/build.conf"}"
+    : "${BUILD_DIR:="$PWD/build"}"
 else
-  BUILD_SCRIPTS_DIR="${SCRIPT_DIR}/${BUILD_SCRIPTS}"
-  GENERAL_CONF="${BUILD_SCRIPTS_DIR}/general.conf"
-  : "${BUILD_DIR:="${SCRIPT_DIR}/build"}"
+    BUILD_SCRIPTS_DIR="$SCRIPT_DIR/$BUILD_SCRIPTS"
+    GENERAL_CONF="$BUILD_SCRIPTS_DIR/general.conf"
+    : "${BUILD_CONF:="$BUILD_SCRIPTS_DIR/build.conf"}"
+    : "${BUILD_DIR:="$SCRIPT_DIR/build"}"
 fi
 
 MINIOSLIB="${BUILD_SCRIPTS_DIR}/minioslib"
-: "${BUILD_CONF:="$BUILD_DIR/build.conf"}"
-
 
 # ---[ SOURCE CONFIGURATION FILES ]---
-. "${MINIOSLIB}" || exit 1
-. "${GENERAL_CONF}" || exit 1
-
+. "$MINIOSLIB" || exit 1
+. "$GENERAL_CONF" || exit 1
 
 # ---[ INITIALIZE BUILD DIRECTORY & CONFIGURATION ]---
-if [[ ! -f "${BUILD_CONF}" ]]; then
-  mkdir -p "${BUILD_DIR}"
-  if [[ "${SCRIPT_DIR}" == "/usr/bin" ]]; then
-    cp "/etc/minios-live/build.conf" "${BUILD_CONF}"
-  else
-    cp "${SCRIPT_DIR}/${BUILD_SCRIPTS}/build.conf" "${BUILD_CONF}"
-  fi
+if [[ "$MAIN_EXECUTABLE" = "minios-cmd" && ! -f "$BUILD_CONF" ]]; then
+    if [[ "$SCRIPT_DIR" == "/usr/bin" ]]; then
+        cp "/etc/minios-live/build.conf" "$BUILD_CONF"
+    else
+        cp "$SCRIPT_DIR/$BUILD_SCRIPTS/build.conf" "$BUILD_CONF"
+    fi
 fi
 
-. "${BUILD_CONF}" || exit 1
+. "$BUILD_CONF" || exit 1
 
 # ---[ FUNCTIONS ]---
 help() {
@@ -79,9 +77,9 @@ help() {
 APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
 ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
 ISO_DIR="$BUILD_DIR/iso"
-WORK_DIR="${BUILD_DIR}/${DISTRIBUTION}-${PACKAGE_VARIANT}-${DISTRIBUTION_ARCH}"
-INSTALL_DIR="${WORK_DIR}/core"
-EXCLUDE_CORE_FILE="${WORK_DIR}/squashfs-core-exclude"
+WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
+INSTALL_DIR="$WORK_DIR/core"
+EXCLUDE_CORE_FILE="$WORK_DIR/squashfs-core-exclude"
 
 # ---[ COMMANDS ]---
 CMD=(build_bootstrap build_chroot build_live build_boot build_config build_modules build_iso remove_sources)
@@ -89,7 +87,7 @@ CMD=(build_bootstrap build_chroot build_live build_boot build_config build_modul
 # ----[ MAIN ]----
 create_log_file "$@"
 
-trap 'mountpoint -q "${WORK_DIR}" && unmount_dirs "${WORK_DIR}"' EXIT
+trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"' EXIT
 
 common_variables
 
@@ -106,7 +104,7 @@ if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
 
     mkdir -p "${INSTALL_DIR}"
 
-    generate_chroot_configuration_file "${WORK_DIR}/minios-build.conf"
+    generate_chroot_configuration_file "$WORK_DIR/minios-build.conf"
 
     install_host_dependencies
 

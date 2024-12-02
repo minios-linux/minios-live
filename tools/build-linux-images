@@ -2,7 +2,6 @@
 
 set -euo pipefail
 
-# Ensure script is run as root
 ensure_root() {
     if [[ $(id -u) -ne 0 ]]; then
         echo "Error: This script must be run as root!" >&2
@@ -11,7 +10,6 @@ ensure_root() {
     export HOME=/root LANG=C
 }
 
-# Check if required packages are installed and install them if necessary
 check_required_packages() {
     local REQUIRED_PACKAGES=(
         git unp kmod cpio unzip bzip2 make bc build-essential libncurses5-dev fakeroot bison flex libelf-dev openssl libssl-dev curl wget jq rsync lsb-release dwarves python3 whiptail equivs
@@ -29,13 +27,11 @@ check_required_packages() {
     fi
 }
 
-# Get available kernel versions
 get_available_kernels() {
     apt-get update -qq
     apt-cache search linux-image | grep -Po 'linux-image-\K([0-9]+\.[0-9]+)' | grep -v -- '-dbg\|unsigned' | sort -uV
 }
 
-# Select a kernel version using whiptail
 select_kernel_version() {
     local KERNELS=($(get_available_kernels))
     local OPTIONS=()
@@ -45,7 +41,6 @@ select_kernel_version() {
     whiptail --title "Select Kernel Version" --menu "Choose a major kernel version:" 20 78 10 "${OPTIONS[@]}" 3>&1 1>&2 2>&3
 }
 
-# Set the kernel type suffix based on user input
 set_kernel_type_suffix() {
     case $1 in
     none) echo "" ;;
@@ -58,7 +53,6 @@ set_kernel_type_suffix() {
     esac
 }
 
-# Get the latest kernel version for a specific major version
 get_latest_kernel_version() {
     local MAJOR_VERSION=$1
     local KERNEL_TYPE_SUFFIX_ESCAPED=$(echo "$KERNEL_TYPE_SUFFIX" | sed 's/-/\\-/g')
@@ -68,7 +62,6 @@ get_latest_kernel_version() {
     echo "${SORTED_VERSIONS[0]}"
 }
 
-# Print help message
 print_help() {
     echo "Usage: $0 [options]"
     echo
@@ -84,7 +77,6 @@ print_help() {
     echo "If any option is not provided, the script will prompt you to select it using whiptail."
 }
 
-# Function to create a log file to record script output
 create_log_file() {
     if [ -z "${LOG_FILE-}" ]; then
 
@@ -96,13 +88,11 @@ create_log_file() {
         export LOG_FILE="${BUILD_DIR}/build-$(date +%Y%m%d-%H%M%S).log"
 
         ARGS=""
-        # Loop over all arguments and add them to ARGS in quotes
         for VAR in "$@"; do
             ARGS="${ARGS}\"${VAR}\" "
         done
         script -q -e -c "${0} ${ARGS}" "${LOG_FILE}"
 
-        # Check if LOG_FILE exists and clean it from escape sequences
         if [ -f "${LOG_FILE}" ]; then
             sed -i 's/\x1B\[[0-9;]*[JKmsu]//g' "${LOG_FILE}"
         fi
@@ -111,15 +101,13 @@ create_log_file() {
     fi
 }
 
-# Main script
 ensure_root
-create_log_file "$@" # Сreate a log file to record script output
+create_log_file "$@"
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-# Default values
 KERNEL_MAJOR_VERSION=""
 KERNEL_ARCH=""
 KERNEL_FLAVOUR=""
@@ -127,7 +115,6 @@ DISTRIBUTION=""
 SKIP_KERNEL_BUILD=false
 SKIP_METAPACKAGES=false
 
-# Parse options
 OPTS=$(getopt -o hk:a:f:d: --long help,kernel:,arch:,flavour:,distribution:,skip-kernel-build,skip-metapackages -n "$0" -- "$@")
 if [[ $? != 0 ]]; then
     print_help
@@ -180,12 +167,10 @@ done
 
 check_required_packages
 
-# Prompt for kernel version if not provided
 if [[ -z "$KERNEL_MAJOR_VERSION" ]]; then
     KERNEL_MAJOR_VERSION=$(select_kernel_version)
 fi
 
-# Prompt for kernel architecture if not provided
 if [[ -z "$KERNEL_ARCH" ]]; then
     KERNEL_ARCH=$(whiptail --title "Select Kernel Architecture" --menu "Choose a kernel architecture:" 20 78 10 \
         "amd64" "" \
@@ -193,7 +178,6 @@ if [[ -z "$KERNEL_ARCH" ]]; then
         "686-pae" "" 3>&1 1>&2 2>&3 || echo "amd64")
 fi
 
-# Set architecture-specific variables and ensure compatibility
 case $KERNEL_ARCH in
 686 | 686-pae)
     ARCH="i386"
@@ -211,7 +195,6 @@ amd64)
     ;;
 esac
 
-# Prompt for kernel flavour if not provided
 if [[ -z "$KERNEL_FLAVOUR" ]]; then
     KERNEL_FLAVOUR=$(whiptail --title "Select Kernel Flavour" --menu "Choose a kernel flavour:" 20 78 10 \
         "none" "" \
@@ -221,7 +204,6 @@ fi
 
 KERNEL_TYPE_SUFFIX=$(set_kernel_type_suffix "$KERNEL_FLAVOUR")
 
-# Get distribution codename if not provided
 if [[ -z "$DISTRIBUTION" ]]; then
     DISTRIBUTION=$(source /etc/os-release && echo $VERSION_CODENAME)
 fi
@@ -232,33 +214,25 @@ if [ "$SKIP_KERNEL_BUILD" = false ]; then
     CHECKOUT="origin/aufs$KERNEL_MAJOR_VERSION"
     CPU=$(nproc)
 
-    # Download the linux-config package for the major kernel version
     apt-get download "linux-config-$KERNEL_MAJOR_VERSION:$ARCH"
 
-    # Create directory for DPkg archive and extract its content
     mkdir -p "$TEMP_DIR/linux-config-$KERNEL_MAJOR_VERSION"
     dpkg-deb -xv "$(ls linux-config-$KERNEL_MAJOR_VERSION*$ARCH.deb | sort -Vr | head -n 1)" "$TEMP_DIR/linux-config-$KERNEL_MAJOR_VERSION"
 
-    # Define the path to the config files
     CONFIG_PATH="$TEMP_DIR/linux-config-$KERNEL_MAJOR_VERSION/usr/src/linux-config-$KERNEL_MAJOR_VERSION"
 
-    # Define the config file name based on the architecture and kernel type
     CONFIG_FILE_NAME="config.${ARCH}_${KERNEL_FLAVOUR}_${KERNEL_ARCH}.xz"
 
-    # The extracted config file will be at the following path
     CONFIG="${CONFIG_PATH}/config.${ARCH}_${KERNEL_FLAVOUR}_${KERNEL_ARCH}"
 
-    # Extract the config file if it doesn't already exist
     if [[ ! -f $CONFIG ]]; then
         unxz -k "$CONFIG_PATH/$CONFIG_FILE_NAME"
     fi
 
-    # Backup sources.list if it hasn't been backed up already
     if [[ ! -f /etc/apt/sources.list.bak ]]; then
         cp /etc/apt/sources.list /etc/apt/sources.list.bak
     fi
 
-    # Write the new sources.list contents with proper permissions
     if [ "$DISTRIBUTION" = "sid" ]; then
         cat <<EOF | tee /etc/apt/sources.list
 deb http://deb.debian.org/debian/ $DISTRIBUTION main
@@ -277,24 +251,18 @@ deb-src http://deb.debian.org/debian $DISTRIBUTION-backports main
 EOF
     fi
 
-    # Update the package lists
     apt-get update -qq
 
-    # Use apt show to get the full version of the kernel source package
     KERNEL_VERSION=$(apt show "linux-source-$KERNEL_MAJOR_VERSION" | grep 'Version:' | awk '{print $2}')
 
     KERNEL="linux-${KERNEL_VERSION%%[-+]*}"
 
-    # Clean previous kernel sources if any
     [[ -d "$KERNEL" ]] && rm -rf "$KERNEL"
 
-    # Install the build dependencies for the kernel
     apt-get build-dep linux="$KERNEL_VERSION"
 
-    # Download the kernel sources
     apt-get source linux="$KERNEL_VERSION"
 
-    # Verify the kernel source directory
     if [[ -d "$KERNEL" ]]; then
         cd "$KERNEL"
     else
@@ -302,27 +270,26 @@ EOF
         exit 1
     fi
 
-    # Clone the AUFS repository and check out the appropriate branch
     rm -rf "$AUFS"
     git -c http.sslVerify=false clone "$AUFS_REPO"
     cd "$AUFS"
     git checkout "$CHECKOUT"
     cd ..
 
-    # Copy AUFS files into the kernel source
     cp -aR "$AUFS/fs" .
     cp -a "$AUFS/include/uapi/linux/aufs_type.h" include/uapi/linux
 
-    # Apply AUFS patches
+    if [ "$KERNEL_VERSION" = "6.1.119-1" ]; then
+        patch "$AUFS/aufs6-mmap.patch" "$SCRIPT_DIR/aufs6.1.119-mmap.patch"
+    fi
+
     PATCHES=("aufs${KERNEL_VERSION:0:1}-kbuild" "aufs${KERNEL_VERSION:0:1}-base" "aufs${KERNEL_VERSION:0:1}-mmap" "aufs${KERNEL_VERSION:0:1}-standalone" "aufs${KERNEL_VERSION:0:1}-loopback" "vfs-ino" "tmpfs-idr")
     for PATCH in "${PATCHES[@]}"; do
         patch -p1 <"$AUFS/$PATCH.patch"
     done
 
-    # Update kernel configuration
     sed -r "s/CONFIG_SYSTEM_TRUSTED_KEYS/#CONFIG_SYSTEM_TRUSTED_KEYS/" "$CONFIG" >.config
 
-    # Add AUFS and NTFS3 options to the configuration
     cat <<EOF >>.config
 CONFIG_AUFS_FS=m
 CONFIG_AUFS_BRANCH_MAX_32767=y
@@ -341,18 +308,14 @@ CONFIG_NTFS3_FS=m
 CONFIG_NTFS3_LZX_XPRESS=y
 EOF
 
-    # Run oldconfig to update configuration based on new settings
     yes "" | make oldconfig || true
 
-    # Disable system trusted keys if kernel is default debian
     sed -ri '/CONFIG_SYSTEM_TRUSTED_KEYS/s/=.+/=""/g' .config
 
-    # Build the kernel package
     export DEBFULLNAME="MiniOS Kernel Team"
     export DEBEMAIL="team@minios.dev"
     make -j"$CPU" bindeb-pkg DEBUG_INFO=n EXTRAVERSION="-mos$KERNEL_TYPE_SUFFIX" LOCALVERSION="-$KERNEL_ARCH"
 else
-    # Obtain kernel version information even if kernel build is skipped
     apt-get update -qq
     KERNEL_VERSION=$(apt show "linux-source-$KERNEL_MAJOR_VERSION" | grep 'Version:' | awk '{print $2}')
 fi
