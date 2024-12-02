@@ -983,7 +983,7 @@ pkg() {
     case "${COMMAND}" in
     install | source | build-dep)
         if [ "${USE_APT_CACHE}" = "true" ]; then
-            if lsattr /var/cache/apt/archives | grep -q 'i'; then
+            if lsattr -d /var/cache/apt/archives | grep -q -e 'i' -e 'I'; then
                 chattr -i /var/cache/apt/archives
             fi
             DEBIAN_FRONTEND="nointeractive" "${PACKAGE_MANAGER}" "${APT_OPTIONS}" "${DPKG_OPTIONS}" autoclean
