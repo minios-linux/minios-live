@@ -159,6 +159,10 @@ while (("$#")); do
         KERNEL_BUILD_DKMS=true
         shift
         ;;
+    -l | --locale)
+        LOCALE="$2"
+        shift 2
+        ;;
     -ml | --multilingual)
         MULTILINGUAL=true
         shift
