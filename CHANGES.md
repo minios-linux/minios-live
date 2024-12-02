@@ -12,11 +12,11 @@
   - [v3.3.3](#v333)
   - [v3.3.4](#v334)
   - [v4.0](#v40)
+    - [Visual Changes](#visual-changes)
     - [General Changes](#general-changes)
     - [Utility Changes](#utility-changes)
     - [Edition Changes](#edition-changes)
     - [System Improvements](#system-improvements)
-    - [Documentation](#documentation)
 
 ## v2.2.1
 - Code optimization, bug fixes.
@@ -126,7 +126,7 @@
   - If "classic" is selected, all modules in the system must be built on the basis of one another. Modules built on the basis of a common module may cause errors and loss of system performance.
   - If "puzzle" is selected, then at system startup user lists are synchronized, dpkg bases from different modules are synchronized, and different caches are updated. This allows multiple modules built on the basis of a common module to work together (this is how MiniOS Puzzle works).
   - "puzzle" can be used with any variant of the system, "classic" cannot be used with MiniOS Puzzle.
-  - !!! If you use the save changes mode with "puzzle" value, after the first system boot you can't add/remove modules anymore, this mode is designed to work only outside of save changes mode !!!! 
+  - !!! If you use the save changes mode with "puzzle" value, after the first system boot you can't add/remove modules anymore, this mode is designed to work only outside of save changes mode !!!!
 - added GTK3 layout to LibreOffice module (in those MiniOS versions where it exists).
 - Added EXPORT_LOGS variable in minios.conf. If it is "true", then after system startup in minios folder on flash drive there will be logs folder, where will be trace and output logs of system startup.
 - Various Network Manager modules in MiniOS Puzzle are combined into one to reduce the number of layers (the more layers a system has, the more RAM it consumes).
@@ -226,69 +226,83 @@
 
 ## v4.0
 
+### Visual Changes
+- **GRUB Splash Screen:** Updated the bootloader splash screen with a new design.
+- **Desktop Wallpapers:** Refreshed desktop wallpapers, with an added YouTube video splash screen as wallpaper.
+- **Icon Theme Updates:**
+  - The icon theme has been renamed to `elementary-minios` and updated to version 0.19.
+  - Added new icons to ensure a uniform appearance in menus and actions, including operations for sb modules.
+  - Added icons for sb module actions in Thunar's context menu, available in multiple locales (en, ru, es, pt_BR, it, fr, de).
+  - Fixed icon rendering issues in older distributions.
+- **XFCE Bottom Panel Modifications:**
+  - Increased panel height to **48 pixels**.
+  - Adjusted application icon sizes to **32 pixels**.
+  - Removed application name labels for running apps.
+  - Added date display alongside the clock.
+  - Standardized tray icon size to **16 pixels** for a consistent look.
+- **File Manager Enhancements:**
+  - Introduced context menu options in Thunar for sb module management, including actions like packing, extracting, mounting, and unmounting modules.
+
 ### General Changes
-- **New GRUB Splash Screen:** Updated the visual style of the bootloader.
-- **Updated Desktop Wallpapers:** Desktop wallpapers have been updated. Added the option to use a YouTube video splash screen as wallpaper.
-- **Unified Build Configuration:** All MiniOS editions are now built using a single configuration file.
-- **Build Script Optimization:** Removed rarely used options, simplifying the build process.
-- **Deprecated Distribution Support:** Support for outdated distributions Kali Linux and Astra Linux has been discontinued.
+- **Unified Build Configuration:**
+  - All MiniOS editions are now built using a single configuration file.
+- **Build Script Optimization:**
+  - Removed rarely used options, simplifying the build process.
+- **Deprecated Distribution Support:**
+  - Support for outdated distributions Kali Linux and Astra Linux has been discontinued.
 - **Script and Library Overhaul:**
   - Removed utilities `minios-modules` and `minios-configure`.
-  - The `minioslib` library has been overhauled to eliminate variable-related errors and improve some functions.
-  - The `minios-startup` script has been revised to fix variable-related errors.
-- **Support for System Directory Scripts:** Begun adding support for running build scripts from system directories in Linux.
-- **Edition Renaming:**
-  - The **Maximum** edition has been renamed to **Toolbox** for clearer purpose indication.
-  - The **Minimum**, **Ultra**, and **Puzzle** editions have been removed.
+  - Overhauled the `minioslib` library to eliminate variable-related errors and improve some functions.
+  - Revised the `minios-startup` script to fix variable-related errors.
+- **System Directory Script Support:**
+  - Support for running build scripts from system directories in Linux.
+- **Editions:**
+  - New Edition - **Toolbox** is a system administrator's multitool with a large set of utilities for PC maintenance and data recovery.
+  - Removed editions: **Flux**, **Minimum**, **Maximum**, **Ultra**, and **Puzzle**.
+- **Improved Boot and Tool Scripts:**
+  - Separated MiniOS boot scripts into the new `minios-boot` package.
+  - Transferred package management scripts into the `minios-tools` package.
+  - Created a standalone library `libminioslive` for shared MiniOS utility functions.
+  - The browser splash screen that is launched at first startup is allocated to the `minios-welcome` package.
+- **Other:**
+  - Added option to mount user folders to storage for FAT32, NTFS, and exFAT.
 
 ### Utility Changes
-- **Removal and Reorganization of Utilities:**
-  - Utilities `upg2sb`, `minios-bundle`, and `pxe` have been removed.
-  - Utility `scr2sb` has been renamed to `script2sb` for better clarity of its function.
-  - Utility `minios-geniso` has been renamed to `sb2iso`.
-  - Functions of `minios-bundle` and `upg2sb` have been merged into `sb` and `apt2sb` respectively.
-  - Utility `gtkdialog` used in Flux has been renamed to `gtkask` to avoid conflicts.
+- **Utility Removal and Reorganization:**
+  - Removed utilities: `upg2sb`, `minios-bundle`, and `pxe`.
+  - Renamed `scr2sb` to `script2sb` and `minios-geniso` to `sb2iso` for clarity.
+  - Integrated `upg2sb` functionality into `apt2sb`.
+  - Merged `minios-bundle` functionality into `sb` utility.
+  - Renamed `gtkdialog` used in Flux to `gtkask` to avoid conflicts.
 - **New Utilities:**
-  - Added `minios-configurator` for configuring the `minios.conf` configuration file.
-  - The `chroot2sb` utility allows creating modules by manually entering commands.
-  - Added `minios-krnpack` to replace the standard MiniOS kernel with any available kernel from MiniOS and Debian repositories.
-- **MiniOS Installer:**
-  - The MiniOS Installer has been overhauled to be more reliable and user-friendly.
-  - Fixed the Russian translation of the installer.
-  - Added support for installation on mmcblk.
-  - Added a console interface for installation from tty.
-  - Added a launch of MiniOS Configurator for basic system setup at the end of the installation.
-- **Others:**
-  - Added man pages for most MiniOS utilities.
-  - The functionality of `apt2sb` has been improved, making it significantly more user-friendly and powerful.
-  - Added icons for actions with sb modules and operations in Thunar menu for locales en, ru, es, pt_BR, it, fr, de.
-  - The icon theme has been renamed to `elementary-minios` and is based on `elementary-xfce`. Updated to version 0.19.
-  - Added `eddy-handler`, a utility for updating the package database before launching Eddy if the database is outdated.
-  - Changed `bashrc` to display a warning in the terminal if the package database is outdated.
-  - Improved timezone detection during network activation.
-  - Added automatic resolution change in VMware, VirtualBox, KVM, Qemu virtual machines to 1280x800.
+  - Introduced `minios-configurator` for configuring the `minios.conf` configuration file.
+  - Added `chroot2sb` utility for creating modules via manual command input.
+  - Added `minios-kernelpack` for replacing the standard MiniOS kernel with available kernels from MiniOS and Debian repositories.
+  - Added `minios-live` to the repository to build MiniOS images.
+  - Added `eddy` to the repository to install local deb packages.
+  - Added `eddy-handler` to the repository to update the package database before running Eddy if the database is out of date.
+- **Enhanced MiniOS Installer:**
+  - Rewritten for improved reliability and user experience.
+  - Added a console interface for installations from tty.
+  - Supported installation on mmcblk and exFAT.
+  - Added a launch of MiniOS Configurator for basic system setup post-installation.
 
 ### Edition Changes
 - **Standard:**
   - Removed the Remmina packages.
-  - Added `xdg-user-dirs-gtk` for support of displaying user directories in the Places menu.
+  - Added `xdg-user-dirs-gtk` for user directories in the Places menu.
+  - Added xrdp server.
 - **Toolbox:**
-  - Added `gtkhash`, `czkawka`, `zulucrypt-gui`, `zulumount-gui`, `keepassxc`, `guymager`, `isomaster`, `unetbootin`, `hdsentinel-gui`, `qphotorec`, `zenmap`, `x11vnc`, `veracrypt`, `wxhexeditor`, `uget`, `zulucrypt-cli`, `zulumount-cli`, `reglookup`, `hdsentinel`, `cabextract`, `nmap`, `ncat`, `ndiff`, `hexedit`, `xmount`, `aria2c`, `inxi`, `bonnie++`, `iozone3`, `iperf3`, `stress`, `sysbench`.
-  - SSH is enabled by default.
-  - Added `lshw-gtk` and `HDSentinel-GUI`.
-  - Changed the bottom panel in XFCE.
-  - Added the ability to create links from user folders to storage for FAT32, NTFS, exFAT file systems.
+  - SSH enabled by default.
+  - Added a range of utilities: `gtkhash`, `czkawka`, `zulucrypt-gui`, `keepassxc`, `guymager`, `isomaster`, `unetbootin`, `qphotorec`, `zenmap`, `veracrypt`, `wxhexeditor`, `uget`, `inxi`, `bonnie++`, `iperf3`, and more.
+  - Included `lshw-gtk`, `HDSentinel-GUI`, and `MintStick`.
 - **Flux:**
-  - Fixed file associations, added translations to `.desktop` files.
-  - Added a script to automatically generate menus based on the current locale.
-  - Added a script to automatically generate translated `.desktop` files.
-  - Added support for building Flux images based on Ubuntu 22.04 and 24.04.
+  - Fixed file associations and added translations for `.desktop` files.
+  - Included scripts for automatic menu and `.desktop` file generation based on locale.
+  - Added support for building Flux images on Ubuntu 22.04 and 24.04.
 
 ### System Improvements
-- **Kernel Update:** The main MiniOS kernel has been updated to version 6.1.90.
-- **Drivers:** Added precompiled drivers `rtl8188eus`, `rtl8723cs`, `rtl8812au`, `rtl8814au`, `rtl8821au`, `rtl8821ce`, `rtl88x2bu` for the standard MiniOS kernel amd64.
-- **Storage Support:** Full user rights on FAT32, NTFS, and exFAT file systems now remove the need for root permissions for operations.
-
-### Documentation
-- **README.md:** Added a more detailed description of the system build process.
-- **Installation Documentation:** Improved the MiniOS installation documentation.
+- **Kernel Update:** The main MiniOS kernel has been updated to version 6.1.119.
+- **Driver Support:** Added precompiled drivers (`rtl8188eus`, `rtl8723cs`, `rtl8812au`, and others) for the standard MiniOS kernel on amd64.
+- **Storage Rights:** Enabled full user rights on FAT32, NTFS, and exFAT file systems, removing the need for root permissions.
+- **Virtual Machine Enhancements:** Added automatic resolution changes in VMware, VirtualBox, KVM, and QEMU to 1280x800.
