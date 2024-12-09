@@ -245,7 +245,7 @@
 
 ### General Changes
 - **Unified Build Configuration:**
-  - All MiniOS editions are now built using a single configuration file.
+  - All MiniOS editions are now built using two new configuration files: general.conf and build.conf.
 - **Build Script Optimization:**
   - Removed rarely used options, simplifying the build process.
 - **Deprecated Distribution Support:**
