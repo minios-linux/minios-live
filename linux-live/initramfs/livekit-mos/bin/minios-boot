@@ -31,8 +31,13 @@ fi
 
 # ======= Functions =======
 
-[ -f /lib/minios/libminioslive ] && . /lib/minios/libminioslive && echo "Loaded: /lib/minios/libminioslive"
-[ -f /usr/lib/minios/libminioslive ] && . /usr/lib/minios/libminioslive && echo "Loaded: /usr/lib/minios/libminioslive"
+if [ -f /usr/lib/minios/libminioslive ]; then
+    . /usr/lib/minios/libminioslive
+    echo "Loaded: /usr/lib/minios/libminioslive"
+elif [ -f /lib/minios/libminioslive ]; then
+    . /lib/minios/libminioslive
+    echo "Loaded: /lib/minios/libminioslive"
+fi
 
 set_trace_log() {
     mkdir -p /var/log/minios
@@ -123,6 +128,12 @@ manage_services() {
 }
 
 set_autologin() {
+    if [ -z "$USER_NAME" ]; then
+        if [ -f "$MINIOS_CONF" ]; then
+            read_config "$MINIOS_CONF" USER_NAME
+        fi
+    fi
+
     if [ "$AUTOLOGIN" = "true" ]; then
         if [ -f "$SYSTEMDSYSTEM/xorg.service" ]; then
             cat <<EOF >"$SYSTEMDSYSTEM/xorg.service"
@@ -146,6 +157,12 @@ EOF
 }
 
 set_scripts() {
+
+    if [ -z "$SCRIPTS" ]; then
+        if [ -f "$MINIOS_CONF" ]; then
+            read_config "$MINIOS_CONF" SCRIPTS
+        fi
+    fi
     if [ "$SCRIPTS" = "true" ]; then
         systemctl enable minios-script-launcher.service
     else

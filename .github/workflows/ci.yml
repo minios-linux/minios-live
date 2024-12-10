@@ -1,6 +1,6 @@
 name: CI
 
-on: 
+on:
   workflow_dispatch:
 
 jobs:
@@ -14,19 +14,59 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils liblz4-tool zstd git curl rsync
+        sudo apt-get install -y debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd curl rsync dpkg-dev debhelper devscripts build-essential fakeroot lintian
 
-    - name: Run build
+    - name: Set date variable
+      run: echo "DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Run build - standard i386
       run: |
-        echo "Starting build..."
-        sudo ./minios-live -
-        echo "Build completed."
+        echo "Starting build for standard i386..."
+        sudo ./minios-cmd -d bookworm -a i386 -de xfce -pv standard -aufs -kl
+        echo "Build completed for standard i386."
 
-    - name: Archive build output
+    - name: Archive build output - standard i386
       uses: actions/upload-artifact@v2
       with:
-        name: minios-iso
+        name: minios-bookworm-xfce-standard-i386-${{ env.DATE }}
         path: build/iso/*.iso
+
+    - name: Run build - standard amd64
+      run: |
+        echo "Starting build for standard amd64..."
+        sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv standard -aufs -dkms -kl
+        echo "Build completed for standard amd64."
+
+    - name: Archive build output - standard amd64
+      uses: actions/upload-artifact@v2
+      with:
+        name: minios-bookworm-xfce-standard-amd64-${{ env.DATE }}
+        path: build/iso/*.iso
+
+    - name: Run build - toolbox amd64
+      run: |
+        echo "Starting build for toolbox amd64..."
+        sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -aufs -dkms -kl
+        echo "Build completed for toolbox amd64."
+
+    - name: Archive build output - toolbox amd64
+      uses: actions/upload-artifact@v2
+      with:
+        name: minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}
+        path: build/iso/*.iso
+
+    - name: Build deb package
+      run: |
+        echo "Building deb package..."
+        chmod +x tools/build-package.sh
+        ./tools/build-package.sh
+        echo "deb package build completed."
+
+    - name: Archive deb package
+      uses: actions/upload-artifact@v2
+      with:
+        name: minios-live-${{ env.DATE }}
+        path: ../*.deb
 
   release:
     needs: build
@@ -36,10 +76,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Download artifact
+    - name: Download artifacts
       uses: actions/download-artifact@v2
       with:
-        name: minios-iso
+        name: |
+          minios-bookworm-xfce-standard-i386-${{ env.DATE }}
+          minios-bookworm-xfce-standard-amd64-${{ env.DATE }}
+          minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}
+          minios-live-${{ env.DATE }}
 
     - name: Create Release
       id: create_release
@@ -50,16 +94,16 @@ jobs:
         tag_name: ${{ github.ref_name }}
         release_name: Release ${{ github.ref == 'refs/heads/master' && github.sha || github.ref_name }}
         draft: false
-        prerelease: false
+        prerelease: true
 
     - name: Upload Release Assets
       run: |
-        for iso in minios-iso/*.iso; do
-          asset_name=$(basename $iso)
+        for artifact in minios-bookworm-xfce-standard-i386-${{ env.DATE }}/*.iso minios-bookworm-xfce-standard-amd64-${{ env.DATE }}/*.iso minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}/*.iso ../*.deb; do
+          asset_name=$(basename $artifact)
           echo "Uploading $asset_name"
           curl \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: $(file -b --mime-type $iso)" \
-            --data-binary @"$iso" \
+            -H "Content-Type: $(file -b --mime-type $artifact)" \
+            --data-binary @"$artifact" \
             "${{ steps.create_release.outputs.upload_url }}?name=$asset_name"
         done

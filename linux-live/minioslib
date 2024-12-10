@@ -1258,7 +1258,8 @@ create_config_files() {
     ULTRA_SETTINGS=""
 
     if [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
-        FLUX_SETTINGS=" automount"
+        #FLUX_SETTINGS=" automount"
+        FLUX_SETTINGS=""
     elif [ "${PACKAGE_VARIANT}" = "ultra" ]; then
         ULTRA_SETTINGS=" apparmor=0 selinux=0"
     fi
