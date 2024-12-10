@@ -108,8 +108,8 @@ jobs:
           asset_name=$(basename $artifact)
           echo "Uploading $asset_name"
           curl \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: $(file -b --mime-type $artifact)" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
             --data-binary @"$artifact" \
             "${{ steps.create_release.outputs.upload_url }}?name=$asset_name"
         done
