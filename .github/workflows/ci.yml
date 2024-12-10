@@ -89,11 +89,7 @@ jobs:
     - name: Download artifacts
       uses: actions/download-artifact@v3
       with:
-        name: |
-          minios-bookworm-xfce-standard-i386-${{ env.DATE }}
-          minios-bookworm-xfce-standard-amd64-${{ env.DATE }}
-          minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}
-          minios-live-${{ env.DATE }}
+        path: ./artifacts
 
     - name: Create Release
       id: create_release
@@ -108,7 +104,7 @@ jobs:
 
     - name: Upload Release Assets
       run: |
-        for artifact in build/output/standard-i386/*.iso build/output/standard-amd64/*.iso build/output/toolbox-amd64/*.iso build/*.deb; do
+        for artifact in ./artifacts/*; do
           asset_name=$(basename $artifact)
           echo "Uploading $asset_name"
           curl \
