@@ -65,7 +65,7 @@ jobs:
       run: |
         echo "Building deb package..."
         chmod +x tools/build-package.sh
-        ./tools/build-package.sh
+        sudo ./tools/build-package.sh
         echo "deb package build completed."
 
     - name: Archive deb package
