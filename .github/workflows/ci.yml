@@ -14,7 +14,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd curl rsync dpkg-dev debhelper devscripts build-essential fakeroot lintian
+        sudo apt-get install -y debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd curl rsync dpkg-dev debhelper devscripts build-essential fakeroot lintian dh-make
 
     - name: Set date variable
       run: echo "DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
@@ -23,37 +23,43 @@ jobs:
       run: |
         echo "Starting build for standard i386..."
         sudo ./minios-cmd -d bookworm -a i386 -de xfce -pv standard -aufs -kl
+        mkdir -p build/output/standard-i386
+        mv build/iso/*.iso build/output/standard-i386/
         echo "Build completed for standard i386."
 
     - name: Archive build output - standard i386
       uses: actions/upload-artifact@v3
       with:
         name: minios-bookworm-xfce-standard-i386-${{ env.DATE }}
-        path: build/iso/*.iso
+        path: build/output/standard-i386/*.iso
 
     - name: Run build - standard amd64
       run: |
         echo "Starting build for standard amd64..."
         sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv standard -aufs -dkms -kl
+        mkdir -p build/output/standard-amd64
+        mv build/iso/*.iso build/output/standard-amd64/
         echo "Build completed for standard amd64."
 
     - name: Archive build output - standard amd64
       uses: actions/upload-artifact@v3
       with:
         name: minios-bookworm-xfce-standard-amd64-${{ env.DATE }}
-        path: build/iso/*.iso
+        path: build/output/standard-amd64/*.iso
 
     - name: Run build - toolbox amd64
       run: |
         echo "Starting build for toolbox amd64..."
         sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -aufs -dkms -kl
+        mkdir -p build/output/toolbox-amd64
+        mv build/iso/*.iso build/output/toolbox-amd64/
         echo "Build completed for toolbox amd64."
 
     - name: Archive build output - toolbox amd64
       uses: actions/upload-artifact@v3
       with:
         name: minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}
-        path: build/iso/*.iso
+        path: build/output/toolbox-amd64/*.iso
 
     - name: Build deb package
       run: |
@@ -66,7 +72,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: minios-live-${{ env.DATE }}
-        path: ../*.deb
+        path: build/*.deb
 
   release:
     needs: build
@@ -77,7 +83,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Download artifacts
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: |
           minios-bookworm-xfce-standard-i386-${{ env.DATE }}
@@ -98,7 +104,7 @@ jobs:
 
     - name: Upload Release Assets
       run: |
-        for artifact in minios-bookworm-xfce-standard-i386-${{ env.DATE }}/*.iso minios-bookworm-xfce-standard-amd64-${{ env.DATE }}/*.iso minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}/*.iso ../*.deb; do
+        for artifact in build/output/standard-i386/*.iso build/output/standard-amd64/*.iso build/output/toolbox-amd64/*.iso build/*.deb; do
           asset_name=$(basename $artifact)
           echo "Uploading $asset_name"
           curl \
