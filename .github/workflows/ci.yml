@@ -23,8 +23,8 @@ jobs:
       run: |
         echo "Starting build for standard i386..."
         sudo ./minios-cmd -d bookworm -a i386 -de xfce -pv standard -aufs -kl
-        mkdir -p build/output/standard-i386
-        mv build/iso/*.iso build/output/standard-i386/
+        sudo mkdir -p build/output/standard-i386
+        sudo mv build/iso/*.iso build/output/standard-i386/
         echo "Build completed for standard i386."
 
     - name: Archive build output - standard i386
@@ -37,8 +37,8 @@ jobs:
       run: |
         echo "Starting build for standard amd64..."
         sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv standard -aufs -dkms -kl
-        mkdir -p build/output/standard-amd64
-        mv build/iso/*.iso build/output/standard-amd64/
+        sudo mkdir -p build/output/standard-amd64
+        sudo mv build/iso/*.iso build/output/standard-amd64/
         echo "Build completed for standard amd64."
 
     - name: Archive build output - standard amd64
@@ -51,8 +51,8 @@ jobs:
       run: |
         echo "Starting build for toolbox amd64..."
         sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -aufs -dkms -kl
-        mkdir -p build/output/toolbox-amd64
-        mv build/iso/*.iso build/output/toolbox-amd64/
+        sudo mkdir -p build/output/toolbox-amd64
+        sudo mv build/iso/*.iso build/output/toolbox-amd64/
         echo "Build completed for toolbox amd64."
 
     - name: Archive build output - toolbox amd64
