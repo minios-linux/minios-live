@@ -9,7 +9,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v2
 
     - name: Install dependencies
       run: |
@@ -26,7 +26,7 @@ jobs:
         echo "Build completed for standard i386."
 
     - name: Archive build output - standard i386
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: minios-bookworm-xfce-standard-i386-${{ env.DATE }}
         path: build/iso/*.iso
@@ -38,7 +38,7 @@ jobs:
         echo "Build completed for standard amd64."
 
     - name: Archive build output - standard amd64
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: minios-bookworm-xfce-standard-amd64-${{ env.DATE }}
         path: build/iso/*.iso
@@ -50,7 +50,7 @@ jobs:
         echo "Build completed for toolbox amd64."
 
     - name: Archive build output - toolbox amd64
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: minios-bookworm-xfce-toolbox-amd64-${{ env.DATE }}
         path: build/iso/*.iso
@@ -63,7 +63,7 @@ jobs:
         echo "deb package build completed."
 
     - name: Archive deb package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: minios-live-${{ env.DATE }}
         path: ../*.deb
@@ -74,10 +74,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v2
 
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v2
       with:
         name: |
           minios-bookworm-xfce-standard-i386-${{ env.DATE }}
