@@ -14,7 +14,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y debootstrap xorriso genisoimage binutils squashfs-tools grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd curl rsync dpkg-dev debhelper devscripts build-essential fakeroot lintian dh-make
+        sudo apt-get install -y \
+          debootstrap xorriso genisoimage binutils squashfs-tools \
+          grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd \
+          curl rsync dpkg-dev debhelper devscripts build-essential fakeroot \
+          lintian dh-make pandoc
 
     - name: Set date variable
       run: echo "DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
