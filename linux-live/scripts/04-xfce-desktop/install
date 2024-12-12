@@ -433,7 +433,8 @@ elif [ "$PACKAGE_VARIANT" = "toolbox" ]; then
 elif [ "$PACKAGE_VARIANT" = "puzzle" ]; then
     set_wallpaper "Puzzle"
 elif [ "$PACKAGE_VARIANT" = "ultra" ]; then
-    set_wallpaper "Ultra"
+    #set_wallpaper "Ultra"
+    set_wallpaper "black"
     sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
     sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 else
