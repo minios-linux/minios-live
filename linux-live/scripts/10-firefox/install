@@ -84,7 +84,8 @@ EOF
 fi
 
 if [[ "${DESKTOP_ENVIRONMENT}" == *"lxqt"* ]] && [ -f /etc/skel/.config/lxqt/panel.conf ]; then
-    sed -i "46iapps\\3\\desktop=/usr/share/applications/${PACKAGE}.desktop" /etc/skel/.config/lxqt/panel.conf
+    sed -i "46i apps\\3\\desktop=\/usr\/share\/applications\/${PACKAGE}.desktop" /etc/skel/.config/lxqt/panel.conf
+    sed -i 's/apps\\size=2/apps\\size=3/' /etc/skel/.config/lxqt/panel.conf
 fi
 
 echo "application/pdf=${PACKAGE}.desktop" >>/usr/share/applications/mimeapps.list
