@@ -928,8 +928,9 @@ persistent_changes() {
 
    # Determine if casper-rw is being used
    if grep -q casper-rw /proc/cmdline; then
+      CASPERFILE="$PERCHDIR/casper-rw"
       # Create casper-rw file if it doesn't exist
-      if [ ! -e "$CHANGES/casper-rw" ]; then
+      if [ ! -e "$CHANGES/$CASPERFILE" ]; then
          echo "* Creating new casper-rw changes for session #$PERCHDIR"
          PERCHSIZE=$(cmdline_value perchsize | sed -r "s/TB?/000000/i" | sed -r "s/GB?/000/i" | sed -r "s/[^0-9]//g")
          FS_TYPE=$(df -T "$1" | tail -n 1 | awk '{print $2}')
@@ -949,19 +950,19 @@ persistent_changes() {
                PERCHSIZE=$((MAX_SIZE / 1024))
             fi
 
-            truncate -s "${PERCHSIZE}M" "$CHANGES/casper-rw"
+            truncate -s "${PERCHSIZE}M" "$CHANGES/$CASPERFILE"
          else
-            truncate -s 4000M "$CHANGES/casper-rw"
+            truncate -s 4000M "$CHANGES/$CASPERFILE"
          fi
          echo "- creating filesystem"
-         mke2fs -F "$CHANGES/casper-rw"
+         mke2fs -F "$CHANGES/$CASPERFILE" >/dev/null 2>&1
       else
          echo "* Resuming casper-rw changes for session #$PERCHDIR"
       fi
 
       # Mount casper-rw file
       echo "- mounting casper-rw changes"
-      mount -o loop "$CHANGES/casper-rw" "$2"
+      mount -o loop "$CHANGES/$CASPERFILE" "$2"
       return
    fi
 
