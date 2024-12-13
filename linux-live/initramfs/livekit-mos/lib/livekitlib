@@ -189,7 +189,6 @@ init_devs() {
 
 # Activate zram (auto-compression of RAM)
 # Compressed RAM consumes 1/2 or even 1/4 of original size
-# Setup static size of 500MB
 #
 init_zram() {
    if grep -q nozram /proc/cmdline; then
@@ -200,10 +199,19 @@ init_zram() {
    echo "Setting dynamic RAM compression using ZRAM if available"
    ZRAMCOMP=$(cmdline_value zramcomp)
    ZRAMSIZE=$(cmdline_value zramsize)
+   TOTAL_MEM_KB=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+
    if [ -z "$ZRAMSIZE" ]; then
-      ZRAMSIZE=512
+      if [ "$TOTAL_MEM_KB" -ge 4194304 ]; then
+         ZRAMSIZE=2048
+      elif [ "$TOTAL_MEM_KB" -ge 1048576 ]; then
+         ZRAMSIZE=$((TOTAL_MEM_KB / 1024 / 2))
+      else
+         ZRAMSIZE=512
+      fi
    fi
-   ZRAMSIZE=$(($ZRAMSIZE * 1024 * 1024))
+
+   ZRAMSIZE=$((ZRAMSIZE * 1024 * 1024))
    if [ -r /sys/block/zram0/comp_algorithm ]; then
       case "$ZRAMCOMP" in
       lzo | lzo-rle | lz4 | lz4hc | zstd)
@@ -892,25 +900,25 @@ restore_perch_session() {
 #
 persistent_changes() {
    debug_log "persistent_changes" "$*"
-   local CHANGES T1 T2 EXISTS DEVICE PERCHDIR PERCHSIZE PERCHFILE
+   local CHANGES T1 T2 EXISTS SPECIFIED DEVICE PERCHDIR PERCHSIZE PERCHFILE FS_TYPE
 
    PERCHDIR="$(cmdline_value perchdir)"
    CHANGES="$1/$(basename "$2")"
-   DEVICE="$(df $1 | tail -n 1 | cut -d " " -f 1)"
+   DEVICE="$(df "$1" | tail -n 1 | awk '{print $1}')"
    T1="$CHANGES/.empty"
-   T2="$T1"2
+   T2="${T1}2"
 
    # Setup the directory anyway, it will be used in all cases
    mkdir -p "$2"
 
    # If persistent changes are not requested, end here
-   # so memory will be used to save chanves temporarily
+   # so memory will be used to save changes temporarily
    if grep -vq perch /proc/cmdline; then
       return
    fi
 
    PERCHDIR=$(ask_disk "$PERCHDIR" perchdir)
-   # check if changes directory exists and is writable
+   # Check if changes directory exists and is writable
    if check_write_access "$CHANGES" "$PERCHDIR"; then
       PERCHDIR=$(restore_perch_session "$CHANGES" "$PERCHDIR")
    else
@@ -918,10 +926,49 @@ persistent_changes() {
       return
    fi
 
+   # Determine if casper-rw is being used
+   if grep -q casper-rw /proc/cmdline; then
+      # Create casper-rw file if it doesn't exist
+      if [ ! -e "$CHANGES/casper-rw" ]; then
+         echo "* Creating new casper-rw changes for session #$PERCHDIR"
+         PERCHSIZE=$(cmdline_value perchsize | sed -r "s/TB?/000000/i" | sed -r "s/GB?/000/i" | sed -r "s/[^0-9]//g")
+         FS_TYPE=$(df -T "$1" | tail -n 1 | awk '{print $2}')
+
+         # Check for file size limits based on filesystem
+         if [ "$FS_TYPE" = "vfat" ] && [ -n "$PERCHSIZE" ] && [ "$PERCHSIZE" -gt 4001 ]; then
+            echo "- PERCHSIZE exceeds FAT32 limit, using 4000MB"
+            PERCHSIZE=4000
+         fi
+
+         if [ -n "$PERCHSIZE" ]; then
+            AVAILABLE_SPACE=$(df "$1" | tail -n 1 | awk '{print $4}')
+            MAX_SIZE=$((AVAILABLE_SPACE - 102400))
+
+            if [ "$PERCHSIZE" -gt $((MAX_SIZE / 1024)) ]; then
+               echo "- PERCHSIZE exceeds available space, using maximum available size"
+               PERCHSIZE=$((MAX_SIZE / 1024))
+            fi
+
+            truncate -s "${PERCHSIZE}M" "$CHANGES/casper-rw"
+         else
+            truncate -s 4000M "$CHANGES/casper-rw"
+         fi
+         echo "- creating filesystem"
+         mke2fs -F "$CHANGES/casper-rw"
+      else
+         echo "* Resuming casper-rw changes for session #$PERCHDIR"
+      fi
+
+      # Mount casper-rw file
+      echo "- mounting casper-rw changes"
+      mount -o loop "$CHANGES/casper-rw" "$2"
+      return
+   fi
+
    PERCHFILE="$PERCHDIR/changes.dat"
 
    if grep -vq dynfilefs /proc/cmdline && [ ! -e "$CHANGES/$PERCHFILE" ]; then
-      # try to use native fs if posix-compatible
+      # Try to use native fs if posix-compatible
       echo_green_star
       echo "Testing persistent changes for posix compatibility"
       touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null &&
@@ -930,38 +977,50 @@ persistent_changes() {
          rm "$T1" "$T2" 2>/dev/null
 
       if [ $? -eq 0 ]; then
-         if device_bestfs $DEVICE | grep -v ntfs >/dev/null; then
+         if device_bestfs "$DEVICE" | grep -v ntfs >/dev/null; then
             echo "* Activating native persistent changes for session #$PERCHDIR"
             mount --bind "$CHANGES/$PERCHDIR" "$2"
             return
          fi
       else
-         # if test failed at any point, we may have temp files left behind
+         # If test failed at any point, we may have temp files left behind
          rm "$T1" "$T2" 2>/dev/null
       fi
    fi
 
    # If we are here, native fs was not supported or user requested perchsize anyway
-
    PERCHSIZE=$(cmdline_value perchsize | sed -r "s/TB?/000000/i" | sed -r "s/GB?/000/i" | sed -r "s/[^0-9]//g")
 
-   if [ "$PERCHSIZE" = "" ]; then
-      PERCHSIZE=16000
+   if [ -n "$PERCHSIZE" ]; then
+      SPECIFIED="true"
    fi
 
-   # resume or use new
+   # Resume or use new
    if [ -e "$CHANGES/$PERCHFILE" ]; then
       echo "* Resuming persistent changes for session #$PERCHDIR"
       EXISTS="true"
    else
       echo "* Creating new persistent changes for session #$PERCHDIR"
-      EXISTS=""
    fi
 
-   # mount it, splitsize of 4000MB is hardcoded, it must be the same all the time anyway
-   echo "- mounting dynamically enlarged storage"
-   @mount.dynfilefs -f "$CHANGES/$PERCHFILE" -s $PERCHSIZE -m "$2" -p 4000
-   if [ ! "$EXISTS" ]; then
+   if [ -z "$EXISTS" ] && [ -z "$SPECIFIED" ]; then
+      # Get available space in KB
+      AVAILABLE_SPACE=$(df "$1" | tail -n 1 | awk '{print $4}')
+
+      # Calculate PERCHSIZE in MB (multiple of 4000MB)
+      AVAILABLE_SPACE=$((AVAILABLE_SPACE / 1024))
+      PERCHSIZE=$(((AVAILABLE_SPACE / 1000) * 1000))
+
+      # Ensure the minimum PERCHSIZE is 4000MB
+      [ "$PERCHSIZE" -lt 4000 ] && PERCHSIZE=4000
+   fi
+
+   MOUNT_OPTS="-f $CHANGES/$PERCHFILE -m $2 -p 4000"
+   [ -z "$SPECIFIED" ] && MOUNT_OPTS="$MOUNT_OPTS -s $PERCHSIZE"
+
+   @mount.dynfilefs $MOUNT_OPTS
+
+   if [ -z "$EXISTS" ]; then
       echo "- creating filesystem"
       mke2fs -F "$2/virtual.dat" >/dev/null 2>&1
    else
