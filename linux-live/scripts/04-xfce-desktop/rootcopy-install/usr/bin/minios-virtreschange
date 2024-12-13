@@ -22,8 +22,21 @@ guest_utils_active() {
     pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [[ -d /proc/xen ]]
 }
 
-# Check if the kernel parameter is set
-if grep -q 'novrc' /proc/cmdline; then
+# Function to extract resolution from kernel parameters
+get_resolution() {
+    local RESOLUTION=$(grep -oE 'virtres=[0-9]+x[0-9]+' /proc/cmdline | cut -d= -f2)
+    echo "${RESOLUTION:-}" # Return empty string if not found
+}
+
+# Get desired resolution from kernel parameters, defaulting to 1280x800
+DESIRED_RESOLUTION=$(get_resolution)
+if [[ -z "$DESIRED_RESOLUTION" ]]; then
+    DESIRED_RESOLUTION="1280x800"
+    log_message "No virtual resolution specified, using default resolution: $DESIRED_RESOLUTION"
+fi
+
+# Check if the novirtres parameter is set
+if grep -q 'novirtres' /proc/cmdline; then
     log_message "Changing the virtual resolution is disabled by a kernel parameter."
 else
     # Check if running in a virtual environment and if guest utilities are active
@@ -31,10 +44,10 @@ else
         if guest_utils_active; then
             log_message "Guest utilities are active. No changes made to screen size."
         else
-            # switch to bigger screen size
+            # Switch to the desired screen size
             OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
-            xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
-            log_message "Running in a virtual environment without guest utilities. Screen size set to 1280x800."
+            xrandr --output "$OUTPUT" --mode "$DESIRED_RESOLUTION" -s "$DESIRED_RESOLUTION"
+            log_message "Running in a virtual environment without guest utilities. Screen size set to $DESIRED_RESOLUTION."
         fi
     else
         log_message "Not running in a virtual environment. No changes made to screen size."
