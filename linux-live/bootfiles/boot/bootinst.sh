@@ -2,6 +2,12 @@
 # Setup booting from disk (USB or harddrive)
 # Requires: fdisk, df, tail, tr, cut, dd, sed
 
+# Check for root permissions
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script must be run as root. Please rerun with sudo or as root user."
+  exit 1
+fi
+
 # change working directory to dir from which we are started
 CWD="$(pwd)"
 BOOT="$(dirname "$0")"
@@ -43,12 +49,12 @@ if [ "$DEV" != "$PART" ]; then
    # Toggle a bootable flag
    PART="$(echo "$PART" | sed -r 's:.*[^0-9]::')"
    (
-      fdisk -l "$DEV" | fgrep "*" | fgrep "$DEV" | cut -d " " -f 1 |
+      fdisk -l "$DEV" | fgrep "*" | fgrep "$DEV" | cut -d ' ' -f 1 |
          sed -r 's:.*[^0-9]::' | xargs -I '{}' echo -ne "a\n{}\n"
       echo a
       echo $PART
       echo w
-   ) | fdisk $DEV >/dev/null 2>&1
+   ) | fdisk "$DEV" >/dev/null 2>&1
 fi
 
 # UEFI boot loader
