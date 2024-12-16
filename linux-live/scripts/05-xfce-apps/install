@@ -22,7 +22,7 @@ pkg update
 
 # install packages
 if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages
+    install_packages -l $SCRIPT_DIR/$PACKAGE_VARIANT.list
 fi
 
 if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
@@ -34,10 +34,20 @@ if [ -f "/usr/share/applications/display-im6.q16.desktop" ]; then
 fi
 
 if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    if [ "$LOCALE" != "en_US" ]; then
+    if [ "$LOCALE" != "en_US" ] || [ "$MULTILINGUAL" = "true" ] || [ "$KEEP_ALL_LOCALES" = "true" ]; then
         pkg install vlc-l10n
     fi
 fi
+
+if [ "$PACKAGE_VARIANT" = "toolbox" ]; then
+    wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
+        grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
+        sed -E 's/.*"([^"]+)".*/\1/') &&
+        pkg update &&
+        pkg install ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
+        rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
+fi
+
 if [ -f "/usr/share/applications/xfce4-clipman-settings.desktop" ]; then
     sed -i "15i Name[ru]=Настройки менеджера буфера обмена" /usr/share/applications/xfce4-clipman-settings.desktop
     sed -i "29i Comment[ru]=Настройте свой буфер обмена" /usr/share/applications/xfce4-clipman-settings.desktop
