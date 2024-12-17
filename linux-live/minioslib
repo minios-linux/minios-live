@@ -1430,16 +1430,16 @@ build_boot() {
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         ARCH="x86_64"
-        rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-efi"
-        rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img"
-        rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot/"*32.efi
-        mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
+        #rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-efi"
+        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img"
+        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot/"*32.efi
+        #mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
     elif [[ "${DISTRIBUTION_ARCH}" == *"i386"* ]]; then
         ARCH="i386"
-        rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/x86_64-efi"
-        rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img"
-        rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot/"*64.efi
-        mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
+        #rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/x86_64-efi"
+        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img"
+        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot/"*64.efi
+        #mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
     fi
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian"
@@ -1541,7 +1541,8 @@ build_iso() {
         --boot-info-table \
         --eltorito-alt-boot \
         --isohybrid-gpt-basdat \
-        --efi-boot "${LIVEKITNAME}/boot/grub/efi.img" \
+        --efi-boot "${LIVEKITNAME}/boot/grub/efi32.img" \
+        --efi-boot "${LIVEKITNAME}/boot/grub/efi64.img" \
         --no-emul-boot \
         --output "${ISO}" "${DIR}" || exit 1
 
