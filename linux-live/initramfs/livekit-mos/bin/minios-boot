@@ -29,15 +29,9 @@ elif [ -d "/lib/systemd/system" ]; then
     SYSTEMDSYSTEM="/lib/systemd/system"
 fi
 
-# ======= Functions =======
+CMDLINE="$(cat /cmdline)"
 
-if [ -f /usr/lib/minios/libminioslive ]; then
-    . /usr/lib/minios/libminioslive
-    echo "Loaded: /usr/lib/minios/libminioslive"
-elif [ -f /lib/minios/libminioslive ]; then
-    . /lib/minios/libminioslive
-    echo "Loaded: /lib/minios/libminioslive"
-fi
+# ======= Functions =======
 
 set_trace_log() {
     mkdir -p /var/log/minios
@@ -47,11 +41,46 @@ set_trace_log() {
     set -x
 }
 
-read_cmdline_values() {
-    if [ -f /cmdline ]; then
-        read -r CMDLINE </cmdline
-        read_cmdline "$CMDLINE"
-    fi
+read_config() {
+    shopt -s extglob
+    local CONFIG_FILE="$1" KEYLIST="${*:2}"
+    [[ ! "$CONFIG_FILE" || ! -f "$CONFIG_FILE" || ! -r "$CONFIG_FILE" ]] && { echo "Configuration file is either not given, not a file, or not readable!" >&2; exit 1; }
+    KEYLIST="${KEYLIST// /|}"
+    while IFS='= ' read -r LHS RHS; do
+        [[ "$LHS" =~ ^($KEYLIST)$ && -n $RHS ]] && RHS="${RHS%[\"\']*}" && RHS="${RHS#[\"\']*}" && {
+            [[ "$RHS" =~ ^\((.*)\)$ ]] && eval $LHS=\("${BASH_REMATCH[1]}"\) || eval $LHS=\"$RHS\"
+        }
+    done < <(tr -d '\r' <"$CONFIG_FILE")
+    shopt -u extglob
+}
+
+read_cmdline() {
+    for i in "$@"; do
+        case $i in
+        user_name=*) USER_NAME="${i#*=}" ;;
+        user_password=*) USER_PASSWORD="${i#*=}" ;;
+        root_password=*) ROOT_PASSWORD="${i#*=}" ;;
+        host_name=*) HOST_NAME="${i#*=}" ;;
+        default_target=*) DEFAULT_TARGET="${i#*=}" ;;
+        text) TEXT_MODE="true" ;;
+        enable_services=*) ENABLE_SERVICES="${i#*=}" ;;
+        disable_services=*) DISABLE_SERVICES="${i#*=}" ;;
+        ssh_key=*) SSH_KEY="${i#*=}" ;;
+        minios.flags=*) FLAGS="${i#*=}" ;;
+        slax.flags=*) SFLAGS="${i#*=}" ;;
+        toram) TORAM="true" ;;
+        perchdir=*) PERCHDIR="${i#*=}" ;;
+        scripts=*) SCRIPTS="${i#*=}" ;;
+        cloud) CLOUD="true" ;;
+        hide_credentials) HIDE_CREDENTIALS="true" ;;
+        static_profiles) STATIC_PROFILES="true" ;;
+        autologin) AUTOLOGIN="true" ;;
+        link_user_dirs) LINK_USER_DIRS="true" ;;
+        system_type=*) SYSTEM_TYPE="${i#*=}" ;;
+        from=*) FROM="${i#*=}" ;;
+        *) UNKNOWN="true" ;;
+        esac
+    done
 }
 
 # Check and set default values
@@ -157,7 +186,6 @@ EOF
 }
 
 set_scripts() {
-
     if [ -z "$SCRIPTS" ]; then
         if [ -f "$MINIOS_CONF" ]; then
             read_config "$MINIOS_CONF" SCRIPTS
@@ -170,50 +198,12 @@ set_scripts() {
     fi
 }
 
-user_setup() {
-    local USER_NAME=$1
-    echo "User name is $USER_NAME"
-    if [ ! -f /var/.system_configured ]; then
-        adduser --uid 1000 --gecos '' "$USER_NAME" --disabled-password
-    fi
-    cp -rT /etc/skel "/home/$USER_NAME"
-    if [ -d "/home/$USER_NAME" ]; then
-        for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-            mkdir -p "/home/$USER_NAME/$DIR"
-        done
-        if [ ! -d "/home/$USER_NAME/.ssh" ]; then
-            mkdir "/home/$USER_NAME/.ssh"
-            chmod 700 "/home/$USER_NAME/.ssh"
-        fi
-        if [ -f /root/.ssh/authorized_keys ]; then
-            cp /root/.ssh/authorized_keys "/home/$USER_NAME/.ssh/authorized_keys"
-        fi
-        USER_ID=$(id -u "$USER_NAME")
-        GROUP_ID=$(id -g "$USER_NAME")
-        chown "$USER_ID:$GROUP_ID" "/home/$USER_NAME"
-        chown -R "$USER_ID:$GROUP_ID" "/home/$USER_NAME"
-    fi
-}
-
-change_user() {
-    local USER_NAME=$1
-    local USER_GROUP="$USER_NAME"
-    local CURRENT_USER_NAME=$2
-    local CURRENT_USER_GROUP=$3
-
-    if [ -n "$CURRENT_USER_NAME" ] && [ "$USER_NAME" != "$CURRENT_USER_NAME" ]; then
-        usermod -l "$USER_NAME" "$CURRENT_USER_NAME"
-        usermod -m -d "/home/$USER_NAME" "$USER_NAME"
-        groupmod -n "$USER_GROUP" "$CURRENT_USER_GROUP"
-    fi
-}
-
 # Main script execution
 mkdir -p /etc/minios
 console_colors
 allow_root_only
 set_trace_log "boot.trace"
-read_cmdline_values
+read_cmdline "$CMDLINE"
 check_and_set_defaults
 
 set_cloud
@@ -222,46 +212,6 @@ manage_services enable
 manage_services disable
 set_autologin
 set_scripts
-
-read_config "/etc/os-release" VERSION_CODENAME
-if [ "$VERSION_CODENAME" = "bionic" ]; then
-    if [ "$CLOUD" != "true" ]; then
-        if id -nu 1000; then
-            CURRENT_USER_NAME=$(id -nu 1000)
-            CURRENT_USER_GROUP=$(id -ng 1000)
-        fi
-        if [ "$USER_NAME" != "root" ]; then
-            user_setup "$USER_NAME"
-            change_user "$USER_NAME" "$CURRENT_USER_NAME" "$CURRENT_USER_GROUP"
-        elif [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
-            user_setup "guest"
-        fi
-    else
-        USER_NAME="root"
-        DEFAULT_TARGET="multi-user"
-    fi
-fi
-
-# This block of code is responsible for handling the NTFS3 filesystem support.
-# If the NTFS3 kernel module is available, it sets up a Udev rule to use NTFS3 for handling NTFS filesystems.
-# If the NTFS3 module is not available, but a previous Udev rule exists, it removes that rule to avoid any conflicts.
-if [ -f "/usr/lib/modules/$(uname -r)/kernel/fs/ntfs3/ntfs3.ko" ]; then
-    echo "NTFS3 kernel module found, setting up udev rules."
-    echo 'SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs", ENV{ID_FS_TYPE}="ntfs3"' >/etc/udev/rules.d/ntfs3.rules
-else
-    echo "NTFS3 kernel module not found, removing NTFS3 udev rules."
-    rm -f "/etc/udev/rules.d/ntfs3.rules"
-fi
-
-# The polkit-actions-handler command is used to manage PolicyKit actions.
-# It replaces '<allow_active>auth_admin_keep</allow_active>' with '<allow_active>yes</allow_active>' in PolicyKit action files.
-# This allows all active users to perform actions that would normally require administrative privileges without needing to authenticate.
-if command -v polkit-actions-handler; then
-    echo "Polkit actions handler found, executing."
-    polkit-actions-handler
-else
-    echo "Polkit actions handler not found."
-fi
 
 echo ""
 echo "/etc/minios/minios.conf configuration file contents:"

@@ -47,12 +47,12 @@ init_blkid_cache
 DATA="$(find_data 45 "$DATAMNT")"
 check_data_found "$DATA"
                                                                                                                                                       debug_shell
+# copy to RAM if needed
+DATA="$(copy_to_ram "$DATA" "$CHANGES")"
+                                                                                                                                                      debug_shell
 # setup persistent changes, if possible
 persistent_changes "$DATA" "$CHANGES"
                                                                                                                                                       debug_shell
-# copy to RAM if needed
-DATA="$(copy_to_ram "$DATA" "$CHANGES")"
-
 # mount bundles
 mount_bundles "$DATA" "$BUNDLES"
                                                                                                                                                       debug_shell
