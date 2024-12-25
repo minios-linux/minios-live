@@ -705,28 +705,23 @@ unmount_dirs() {
 directory_cleanup() {
     current_function
 
-    local TARGET_DIR=""
-    if [ "${CMD[ii]}" = "build_bootstrap" ]; then
-        TARGET_DIR="${INSTALL_DIR}"
-    elif [ "${CMD[ii]}" = "remove_sources" ] && [ "$REMOVE_SOURCES" = "true" ]; then
-        TARGET_DIR="${WORK_DIR}"
-    fi
+    local DIR="$1"
 
-    if [ -n "${TARGET_DIR}" ]; then
-        unmount_dirs "${TARGET_DIR}"
-        information "Deleting directory ${TARGET_DIR}"
-        if [ -d "${TARGET_DIR}" ]; then
-            rm -rf "${TARGET_DIR}"
+    if [ -n "${DIR}" ]; then
+        unmount_dirs "${DIR}"
+        information "Deleting directory ${DIR}"
+        if [ -d "${DIR}" ]; then
+            rm -rf "${DIR}"
             if [ $? -eq 0 ]; then
-                information "Successfully deleted ${TARGET_DIR}"
+                information "Successfully deleted ${DIR}"
             else
-                error "Failed to delete directory ${TARGET_DIR}"
+                error "Failed to delete directory ${DIR}"
                 exit 1
             fi
         else
-            warning "Directory ${TARGET_DIR} does not exist, thus not removed."
+            warning "Directory ${DIR} does not exist, thus not removed."
         fi
-        mkdir -p "${TARGET_DIR}"
+        mkdir -p "${DIR}"
     fi
 }
 
@@ -1088,7 +1083,8 @@ build_bootstrap() {
 
     [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
-    directory_cleanup
+    directory_cleanup "${INSTALL_DIR}"
+    directory_cleanup "${WORK_DIR}/image"
 
     if [ "${USE_ROOTFS}" = "true" ]; then
         if [ -f "${ROOTFS_TARBALL}" ]; then
@@ -1213,7 +1209,6 @@ build_live() {
 
     copy_build_scripts
 
-    rm -rf "${WORK_DIR}/image"
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"/{boot,changes,modules}
 
     # create compressed 00-core.sb
@@ -1476,7 +1471,7 @@ EOF
 build_iso() {
     current_process
 
-    local DIR IMAGE ISO SUFFIX
+    local DIR IMAGE ISO SUFFIX PERCHIMG
 
     [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
@@ -1524,6 +1519,10 @@ build_iso() {
         toggle_shell_options e
     fi
 
+    PERCHIMG=$(mktemp --suffix=.img)
+    dd if=/dev/zero of="$PERCHIMG" bs=1 count=0 seek=128k
+    mkfs.ext2 -L resizeme "$PERCHIMG"
+
     xorriso \
         --as mkisofs \
         --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin" \
@@ -1532,21 +1531,22 @@ build_iso() {
         -r \
         --joliet \
         -l \
-        -V "MiniOS" \
+        -V "MINIOS" \
         -A "MiniOS" \
         -b "${LIVEKITNAME}/boot/isolinux.bin" \
         -c "${LIVEKITNAME}/boot/isolinux.boot" \
         --no-emul-boot \
         --boot-load-size 4 \
         --boot-info-table \
-        --eltorito-alt-boot \
-        --isohybrid-gpt-basdat \
-        --efi-boot "${LIVEKITNAME}/boot/grub/efi32.img" \
         --efi-boot "${LIVEKITNAME}/boot/grub/efi64.img" \
-        --no-emul-boot \
-        --output "${ISO}" "${DIR}" || exit 1
+        --efi-boot "${LIVEKITNAME}/boot/grub/efi32.img" \
+        --protective-msdos-label \
+        -partition_cyl_align off \
+        --partition_offset 16 \
+        -append_partition 2 0x83 "$PERCHIMG" \
+        --output "${ISO}" "${DIR}" && echo ">>> ${ISO} created" || exit 1
 
-    echo ">>> ${ISO} created"
+    rm -f "$PERCHIMG"
 
     if [[ "${BUILD_TEST_ISO}" == "true" ]]; then
         rm -f "${ISO_DIR}/${LIVEKITNAME}.iso"
@@ -1558,7 +1558,7 @@ build_iso() {
 remove_sources() {
     current_function
     if [ "${REMOVE_SOURCES}" = "true" ]; then
-        directory_cleanup
+        directory_cleanup "${WORK_DIR}"
     fi
 }
 
@@ -2342,7 +2342,7 @@ module_chroot_finish_up() {
 build_modules() {
     current_process
 
-    local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS MODULE_DIR TARGET_DIR DIR
+    local VMLINUZNAME INITRFSNAME KERNEL_SUFFIX PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS MODULE_DIR DIR
 
     [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
