@@ -17,7 +17,7 @@ elif [ -d "/lib/systemd/system" ]; then
     SYSTEMD_PATH="/lib/systemd"
 fi
 
-if [ "${LOCALE}" != "en_US" ]; then
+if [ "${LOCALE}" != "C" ] || [ "${LOCALE}" != "en_US" ]; then
     DEBCONF_SETTINGS=(
         "keyboard-configuration  keyboard-configuration/layoutcode       string  us,${LAYOUTID}"
         "keyboard-configuration  keyboard-configuration/variant  select  ${LAYOUTDSC}"
@@ -25,9 +25,13 @@ if [ "${LOCALE}" != "en_US" ]; then
         "tzdata  tzdata/Zones/${TIMEZONE[0]}     select  ${TIMEZONE[1]}"
         "locales locales/locales_to_be_generated multiselect     ${LOCALE}.UTF-8 UTF-8"
     )
-else
+elif [ "${LOCALE}" = "en_US" ]; then
     DEBCONF_SETTINGS=(
         "locales locales/locales_to_be_generated multiselect     en_US.UTF-8 UTF-8"
+    )
+else
+    DEBCONF_SETTINGS=(
+        "locales locales/locales_to_be_generated multiselect     С.UTF-8 UTF-8"
     )
 fi
 
@@ -82,6 +86,30 @@ Package: *
 Pin: release l=MiniOS Repository
 Pin-Priority: 1001
 EOF
+
+if [ "$PACKAGE_VARIANT" = "minimum" ]; then
+    cat <<EOF >/etc/dpkg/dpkg.cfg.d/exclusions
+path-exclude=/usr/share/locale/*
+path-include=/usr/share/locale/locale.alias
+path-include=/usr/share/locale/en/*
+path-exclude=/usr/share/man/*
+path-include=/usr/share/man/man[0-9]/*
+path-include=/usr/share/man/en/*
+path-exclude=/usr/share/doc/*
+path-include=/usr/share/doc/*/copyright
+path-exclude=/usr/share/info/*
+path-exclude=/usr/share/help/*
+path-exclude=/usr/share/gnome/help/*
+path-exclude=/usr/lib/x86_64-linux-gnu/dri/d3d12_dri.so
+path-exclude=/usr/share/icons/*/72x72/*
+path-exclude=/usr/share/icons/*/96x96/*
+path-exclude=/usr/share/icons/*/128x128/*
+path-exclude=/usr/share/icons/*/192x192/*
+path-exclude=/usr/share/icons/*/256x256/*
+path-exclude=/usr/share/icons/*/480x480/*
+path-exclude=/usr/share/icons/*/512x512/*
+EOF
+fi
 
 pkg update && pkg upgrade
 
@@ -185,7 +213,7 @@ EOF
 fi
 
 # configure locales
-if [ -f /etc/locale.gen ]; then
+if [ -f /etc/locale.gen ] && [ "$LOCALE" != "C" ]; then
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 fi
 

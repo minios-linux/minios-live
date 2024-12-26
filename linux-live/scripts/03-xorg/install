@@ -13,7 +13,7 @@ echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)"
 # install packages
 install_packages
 
-if [ $PACKAGE_VARIANT = "standard" ] || [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
+if [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
     pkg install xrdp xorgxrdp
     adduser xrdp ssl-cert
     rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
@@ -53,6 +53,10 @@ ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER
 WantedBy=graphical.target
 
 EOF
+
+if dpkg -l | grep -q openbox; then
+    sed -i "s,blackbox,openbox-session,g" /etc/skel/.xinitrc
+fi
 
 if [ -d /etc/systemd/system ]; then
     mkdir -p /etc/systemd/system
