@@ -466,6 +466,7 @@ declare_locales() {
     #   5. LibreOffice locale name in Debian and in Ubuntu
     #   6. LibreOffice LC_MESSAGES
     declare -Ag LOCALES=(
+        ["C"]="us,English (US),,en,,"
         ["de_DE"]="de,German,de,de,de,de"
         ["en_US"]="us,English (US),,en,,"
         ["es_ES"]="es,Spanish,es-es,es,es,es"
@@ -1521,7 +1522,7 @@ build_iso() {
 
     PERCHIMG=$(mktemp --suffix=.img)
     dd if=/dev/zero of="$PERCHIMG" bs=1 count=0 seek=128k
-    mkfs.ext2 -L resizeme "$PERCHIMG"
+    mkfs.ext2 -b 1024 -L resizeme "$PERCHIMG"
 
     xorriso \
         --as mkisofs \
@@ -1701,7 +1702,7 @@ chroot_cleanup() {
         LOCALES_TO_KEEP=("$LOCALE")
     fi
     if [ "${KEEP_ALL_LOCALES}" != "true" ]; then
-        if [ "$LOCALE" = "en_US" ] && [ "$MULTILINGUAL" != "true" ]; then
+        if ([ "$LOCALE" = "C" ] || [ "$LOCALE" = "en_US" ]) && [ "$MULTILINGUAL" != "true" ]; then
             rm -rf "${BASE_PATH}"/usr/share/fluxbox/nls/??* 2>/dev/null
             rm -rf "${BASE_PATH}"/usr/share/locale/?? 2>/dev/null
             rm -rf "${BASE_PATH}"/usr/share/locale/??_* 2>/dev/null

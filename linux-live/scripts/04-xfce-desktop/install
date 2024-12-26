@@ -122,7 +122,7 @@ fi
 if dpkg -l | grep -q slim; then
     sed -i 's,xserver_arguments   -nolisten tcp,xserver_arguments   -nolisten tcp vt07,g' /etc/slim.conf
     sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
-    sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
+    sed -i 's,screenshot_cmd      scrot /root/slim.png,#screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
     sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
     sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
     sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
@@ -415,7 +415,7 @@ set_wallpaper() {
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-shapes.svg
 
     # Remove other wallpaper files
-    for other_wallpaper in Minimum Flux Standard Maximum Toolbox Ultra Puzzle Novice; do
+    for other_wallpaper in Minimum Flux Standard Maximum Toolbox Ultra Puzzle Home; do
         if [[ "$other_wallpaper" != "$WALLPAPER" ]]; then
             rm -f "/usr/share/backgrounds/MiniOS4-wallpaper-$other_wallpaper.svg"
         fi
@@ -424,8 +424,10 @@ set_wallpaper() {
 
 if [ "$PACKAGE_VARIANT" = "minimum" ] && [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
     set_wallpaper "Flux"
-elif [ "$PACKAGE_VARIANT" = "minimum" ] || [ "$PACKAGE_VARIANT" = "novice" ]; then
-    set_wallpaper "jungle"
+elif [ "$PACKAGE_VARIANT" = "minimum" ]; then
+    set_wallpaper "Minimum"
+elif [ "$PACKAGE_VARIANT" = "novice" ]; then
+    set_wallpaper "Home"
 elif [ "$PACKAGE_VARIANT" = "standard" ]; then
     set_wallpaper "Standard"
 elif [ "$PACKAGE_VARIANT" = "toolbox" ]; then
@@ -611,5 +613,5 @@ if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
-    find /usr/share/backgrounds -type f -not \( -name 'MiniOS-wallpaper-jungle.svg' -or -name 'MiniOS-background-jungle.svg' \) -delete
+    find /usr/share/backgrounds -type f -not \( -name 'MiniOS4-wallpaper-Minimum.svg' -or -name 'MiniOS4-background-jungle.svg' \) -delete
 fi
