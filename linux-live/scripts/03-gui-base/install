@@ -8,32 +8,38 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    case $DISTRIBUTION in
-    "jammy" | "noble")
-        install_packages --add-packages "libatk1.0-data" --replace-packages "libjpeg62-turbo:libjpeg-turbo8 librest-1.0-0:librest-0.7-0 libtiff6:libtiff5"
-        ;;
-    "bookworm" | "trixie" | "testing" | "kali-rolling")
-        install_packages
-        ;;
-    "sid")
-        install_packages
-        ;;
-    *)
-        install_packages
-        ;;
-    esac
+echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)" | debconf-set-selections
+
+# install packages
+install_packages
+
+if [ $PACKAGE_VARIANT = "toolbox" ] || [ $PACKAGE_VARIANT = "ultra" ] || [ $PACKAGE_VARIANT = "puzzle" ]; then
+    pkg install xrdp xorgxrdp
+    adduser xrdp ssl-cert
+    rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
+
+    echo "Enable xrdp.service autostart."
+    cat <<EOF >/usr/lib/systemd/system/xrdp-configure.service
+[Unit]
+Description=Configure xrdp service
+Before=xrdp.service
+
+[Service]
+Type=oneshot
+ExecStart=-/bin/sh -c 'if [ ! -f /var/log/xrdp.log ]; then touch /var/log/xrdp.log; chown xrdp:adm /var/log/xrdp.log; chmod 640 /var/log/xrdp.log; fi; if [ ! -f /etc/ssl/private/ssl-cert-snakeoil.key ]; then make-ssl-cert generate-default-snakeoil; fi'
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable xrdp-configure
+    systemctl disable xrdp xrdp-sesman
 fi
 
-
-if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-    rm -f /usr/share/applications/yad-icon-browser.desktop
+if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
+    USER_NAME="root"
 fi
-
-if [ ! -L /usr/bin/gdk-pixbuf-query-loaders ]; then
-    ln -s /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /usr/bin/gdk-pixbuf-query-loaders
-fi
-
 cat <<EOF >/usr/lib/systemd/system/xorg.service
 [Unit]
 Description=X-Window
@@ -43,16 +49,70 @@ After=systemd-user-sessions.service
 [Service]
 ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
 
+[Install]
+WantedBy=graphical.target
+
 EOF
+
+if dpkg -l | grep -q openbox; then
+    sed -i "s,blackbox,openbox-session,g" /etc/skel/.xinitrc
+fi
 
 if [ -d /etc/systemd/system ]; then
     mkdir -p /etc/systemd/system
 fi
-if [ ! -L /etc/systemd/system/display-manager.service ]; then
-    ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
-fi
+ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
 if [ -L /etc/systemd/system/display-manager.service ]; then
     echo "Display manager link exists."
 else
     exit 1
 fi
+
+# Check if Xorg binary exists before operating on it
+if [ -f /usr/lib/xorg/Xorg ]; then
+    chmod u+s /usr/lib/xorg/Xorg
+else
+    error "Xorg binary does not exist."
+    exit 1
+fi
+
+# Only perform operations if directories exist
+if [ -d /usr/share/icons/breeze_cursors ]; then
+    rm -Rf /usr/share/icons/breeze_cursors
+fi
+
+if [ -d /usr/share/icons/Breeze_Snow ]; then
+    mv /usr/share/icons/Breeze_Snow /usr/share/icons/breeze_cursors
+fi
+
+cd /tmp
+
+apt-get download x11-xserver-utils
+
+if [ -f x11-xserver-utils*.deb ]; then
+    dpkg -x x11-xserver-utils*.deb /tmp/x11utils
+    cd /tmp/x11utils
+    cp -aR * /
+    cd -
+    rm -f x11-xserver-utils*.deb
+else
+    error "x11-xserver-utils deb file does not exist."
+    exit 1
+fi
+
+if [ -d /usr/share/icons/hicolor/256x256 ]; then
+    rm -Rf /usr/share/icons/hicolor/256x256
+fi
+
+if [ "$DISTRIBUTION" != "orel" ]; then
+    if type update-alternatives >/dev/null 2>&1; then
+        update-alternatives --set x-terminal-emulator /usr/bin/xterm
+    else
+        error "update-alternatives not found."
+        exit 1
+    fi
+fi
+
+for APP in debian-uxterm debian-xterm; do
+    rm -f /usr/share/applications/$APP.desktop
+done

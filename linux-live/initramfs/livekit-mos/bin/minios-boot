@@ -43,24 +43,42 @@ set_trace_log() {
 
 read_config() {
     shopt -s extglob
-    local CONFIG_FILE="$1" KEYLIST="${*:2}"
-    [[ ! "$CONFIG_FILE" || ! -f "$CONFIG_FILE" || ! -r "$CONFIG_FILE" ]] && { echo "Configuration file is either not given, not a file, or not readable!" >&2; exit 1; }
+
+    local CONFIG_FILE="$1"
+    local KEYLIST="${@:2}"
+
+    if [[ ! -f "$CONFIG_FILE" || ! -r "$CONFIG_FILE" ]]; then
+        error "$CONFIG_FILE is either not a file or not readable!"
+        exit 1
+    fi
+
     KEYLIST="${KEYLIST// /|}"
+
     while IFS='= ' read -r LHS RHS; do
-        [[ "$LHS" =~ ^($KEYLIST)$ && -n $RHS ]] && RHS="${RHS%[\"\']*}" && RHS="${RHS#[\"\']*}" && {
-            [[ "$RHS" =~ ^\((.*)\)$ ]] && eval $LHS=\("${BASH_REMATCH[1]}"\) || eval $LHS=\"$RHS\"
-        }
-    done < <(tr -d '\r' <"$CONFIG_FILE")
+        if [[ "${LHS}" =~ ^(${KEYLIST})$ ]] && [[ -n ${RHS} ]]; then
+            RHS="${RHS%\"*}"
+            RHS="${RHS#\"*}"
+            RHS="${RHS%\'*}"
+            RHS="${RHS#\'*}"
+
+            if [[ "${RHS}" =~ ^\((.*)\)$ ]]; then
+                eval ${LHS}=\("${BASH_REMATCH[1]}"\)
+            else
+                eval ${LHS}=\"${RHS}\"
+            fi
+        fi
+    done <<<"$(tr -d '\r' <$CONFIG_FILE)"
+
     shopt -u extglob
 }
 
 read_cmdline() {
     for i in "$@"; do
         case $i in
-        user_name=*) USER_NAME="${i#*=}" ;;
-        user_password=*) USER_PASSWORD="${i#*=}" ;;
-        root_password=*) ROOT_PASSWORD="${i#*=}" ;;
-        host_name=*) HOST_NAME="${i#*=}" ;;
+        user_name=* | username=*) USER_NAME="${i#*=}" ;;
+        user_password=* | userpass=*) USER_PASSWORD="${i#*=}" ;;
+        root_password=* | rootpass=*) ROOT_PASSWORD="${i#*=}" ;;
+        host_name=* | hostname=*) HOST_NAME="${i#*=}" ;;
         default_target=*) DEFAULT_TARGET="${i#*=}" ;;
         text) TEXT_MODE="true" ;;
         enable_services=*) ENABLE_SERVICES="${i#*=}" ;;
@@ -69,7 +87,11 @@ read_cmdline() {
         minios.flags=*) FLAGS="${i#*=}" ;;
         slax.flags=*) SFLAGS="${i#*=}" ;;
         toram) TORAM="true" ;;
+        toram_trim) TORAM_TRIM="true" ;;
+        toram_trim_load=*) TORAM_TRIM_LOAD="${i#*=}" ;;
+        toram_trim_noload=*) TORAM_TRIM_NOLOAD="${i#*=}" ;;
         perchdir=*) PERCHDIR="${i#*=}" ;;
+        perchmode=*) PERCHMODE="${i#*=}" ;;
         scripts=*) SCRIPTS="${i#*=}" ;;
         cloud) CLOUD="true" ;;
         hide_credentials) HIDE_CREDENTIALS="true" ;;
@@ -111,21 +133,15 @@ check_and_set_defaults() {
 }
 
 set_cloud() {
-    if [ "$CLOUD" = "true" ]; then
+    [ "$CLOUD" = "true" ] && {
         USER_NAME="root"
         DEFAULT_TARGET="multi-user"
         systemctl enable ssh
-    fi
+    }
 }
 
 set_default_target() {
-    if [ -n "$DEFAULT_TARGET" ]; then
-        if [ "$TEXT_MODE" = "true" ]; then
-            systemctl set-default multi-user
-            return
-        fi
-        systemctl set-default "$DEFAULT_TARGET"
-    fi
+    [ -n "$DEFAULT_TARGET" ] && systemctl set-default "${TEXT_MODE:+multi-user}" || systemctl set-default "$DEFAULT_TARGET"
 }
 
 manage_services() {
@@ -157,15 +173,10 @@ manage_services() {
 }
 
 set_autologin() {
-    if [ -z "$USER_NAME" ]; then
-        if [ -f "$MINIOS_CONF" ]; then
-            read_config "$MINIOS_CONF" USER_NAME
-        fi
-    fi
+    [ -z "$USER_NAME" ] && [ -f "$MINIOS_CONF" ] && read_config "$MINIOS_CONF" USER_NAME
 
-    if [ "$AUTOLOGIN" = "true" ]; then
-        if [ -f "$SYSTEMDSYSTEM/xorg.service" ]; then
-            cat <<EOF >"$SYSTEMDSYSTEM/xorg.service"
+    if [ "$AUTOLOGIN" = "true" ] && [ -f "$SYSTEMDSYSTEM/xorg.service" ]; then
+        cat <<EOF >"$SYSTEMDSYSTEM/xorg.service"
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
@@ -177,31 +188,19 @@ ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$USE
 [Install]
 WantedBy=graphical.target
 EOF
-        fi
     fi
 
-    if [ -f /usr/bin/x11vnc ] && [ -f "$SYSTEMDSYSTEM/x11vnc.service" ]; then
+    command -v x11vnc >/dev/null && [ -f "$SYSTEMDSYSTEM/x11vnc.service" ] &&
         sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" "$SYSTEMDSYSTEM/x11vnc.service"
-    fi
 }
 
 set_scripts() {
-    if [ -z "$SCRIPTS" ]; then
-        if [ -f "$MINIOS_CONF" ]; then
-            read_config "$MINIOS_CONF" SCRIPTS
-        fi
-    fi
-    if [ "$SCRIPTS" = "true" ]; then
-        systemctl enable minios-script-launcher.service
-    else
-        systemctl disable minios-script-launcher.service
-    fi
+    [ -z "$SCRIPTS" ] && [ -f "$MINIOS_CONF" ] && read_config "$MINIOS_CONF" SCRIPTS
+    [ "$SCRIPTS" = "true" ] && systemctl enable minios-script-launcher.service || systemctl disable minios-script-launcher.service
 }
 
 # Main script execution
 mkdir -p /etc/minios
-console_colors
-allow_root_only
 set_trace_log "boot.trace"
 read_cmdline "$CMDLINE"
 check_and_set_defaults

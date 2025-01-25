@@ -86,6 +86,8 @@ set -x
 # Set compression parameters
 if [ $COMP = "xz" ]; then
     COMP_PARAMS="-T0 -f --extreme --check=crc32"
+elif [ $COMP = "zstd" ]; then
+    COMP_PARAMS="-T0 -19 --check --force"
 else
     COMP_PARAMS=""
 fi
@@ -121,7 +123,6 @@ FILES=(
     bin/busybox
     bin/eject
     bin/mke2fs
-    bin/e2fsck
     bin/resize2fs
     bin/mc
     bin/@mount.dynfilefs
@@ -236,7 +237,8 @@ if [ "$NETWORK" = "true" ]; then
 fi
 
 # copy all custom-built modules
-copy_including_deps "/$LMK/updates"
+#copy_including_deps "/$LMK/updates"
+copy_including_deps "/$LMK/updates/dkms/ntfs3."*
 
 copy_including_deps "/$LMK/modules."*
 
