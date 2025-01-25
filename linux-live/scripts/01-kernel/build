@@ -36,7 +36,10 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         ;;
     esac
 
-    if [ "${DISTRIBUTION}" != "jammy" ]; then
+    if [ "${KERNEL_AUFS}" != "true" ] && [ "${DISTRIBUTION_PHASE}" != "legacy" ]; then
+        pkg install ntfs3-dkms
+    fi
+    if [ "${DISTRIBUTION}" != "jammy" ] && [ "$KERNEL_AUFS" != "true" ] && [ "$DISTRIBUTION_ARCH" != "i386" ]; then
         pkg install ${BPO} broadcom-sta-dkms
     fi
     if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then

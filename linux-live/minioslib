@@ -55,7 +55,7 @@ common_variables() {
         KERNEL_TYPE="cloud"
     fi
 
-    if [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
+    if [ "${PACKAGE_VARIANT}" = "puzzle" ] || [ "${PACKAGE_VARIANT}" = "standard" ]; then
         SYSTEM_TYPE="puzzle"
     else
         SYSTEM_TYPE="classic"
@@ -119,7 +119,7 @@ common_variables() {
         LAYOUTDSC="English (US)"
     fi
 
-    if [ "${MULTILINGUAL}" = "true" ] || [ "${KEEP_ALL_LOCALES}" = "true" ]; then
+    if [ "${MULTILINGUAL}" = "true" ] || [ "${KEEP_ALL_LOCALES}" = "true" ] || [ "$LOCALE" = "C" ]; then
         LANGID=""
     else
         LANGID="-$(echo ${LOCALE} | cut -d_ -f1)"
@@ -1215,7 +1215,7 @@ build_live() {
     # create compressed 00-core.sb
     mkmod_corefs "${INSTALL_DIR}"
 
-    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
+    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
 
 }
 
@@ -1502,7 +1502,7 @@ build_iso() {
         if [[ "${BUILD_FROM_SNAPSHOT}" == "true" ]]; then
             IMAGE+="-${SNAPSHOT_DATE}"
         fi
-        SUFFIX="-${COMP_TYPE}-$(date +%Y%m%d_%H%M)"
+        SUFFIX="-$(date +%Y%m%d_%H%M)"
     fi
 
     IMAGE+="-${ISO_ARCH}"
@@ -1511,7 +1511,7 @@ build_iso() {
 
     if [[ "${REMOVE_OLD_ISO}" == "true" ]]; then
         toggle_shell_options e
-        rm -f "${ISO_DIR}/${IMAGE}-${COMP_TYPE}-"*".iso"
+        rm -f "${ISO_DIR}/${IMAGE}-"*".iso"
         rm -f "${ISO_DIR}/${IMAGE}-"*"-${RELEASE_VERSION}.iso"
         while [[ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]]; do
             rm "${ISO_DIR}/${LIVEKITNAME}.iso"
@@ -2336,7 +2336,7 @@ module_chroot_finish_up() {
 
     # Remove diversion
     chroot "${MODULE_DIR[merged]}" /bin/bash -c "rm -f /sbin/initctl > /dev/null 2>&1 || true; \
-                                              dpkg-divert --rename --remove /sbin/initctl > /dev/null 2>&1 || true"
+                                                 dpkg-divert --rename --remove /sbin/initctl > /dev/null 2>&1 || true"
 }
 
 # Build modules function: This function builds modules for the system.
@@ -2353,10 +2353,12 @@ build_modules() {
     cd "${ENVIRONMENTS}" || exit 1
 
     for MODULE in *; do
-        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | grep -q "${MODULE}" 2>/dev/null); then
+        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | grep -q "$(echo "${MODULE}" | cut -d- -f2-)" 2>/dev/null); then
             echo -e "${MAGENTA}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         elif ([[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]) && [ "${KERNEL_TYPE}" = "none" ]; then
-            return
+            continue
+        elif [ "${MODULE}" = "05-apps" ] && [ ! -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" ]; then
+            continue
         else
             declare -A MODULE_DIR=(
                 [upper]="${OVERLAYS}/${MODULE}-upper"
@@ -2534,15 +2536,79 @@ EOF
                 toggle_shell_options e
             fi
 
+            # Function to determine the new module number
+            get_new_module_number() {
+                local MODULE=$1
+                local PACKAGE=$2
+                local VERSION=$3
+
+                # Retrieve the list of existing module numbers
+                local EXISTING_NUMBERS=$(find "${WORK_DIR}/image/${LIVEKITNAME}/" -name "0[0-9]-*.${BEXT}" -exec basename {} \; | awk -F- '{ print $1 }' | sort -n)
+
+                # Check if a gap could be created in the numbering
+                local NUMBER=$(echo "${MODULE}" | cut -d- -f1)
+                local CAN_CREATE_GAP=true
+                for EXISTING_NUMBER in $EXISTING_NUMBERS; do
+                    if ((NUMBER == EXISTING_NUMBER)); then
+                        CAN_CREATE_GAP=false
+                        break
+                    elif ((NUMBER < EXISTING_NUMBER)); then
+                        CAN_CREATE_GAP=true
+                        break
+                    fi
+                done
+
+                # Increment the last number by 1 if a gap could be created
+                if $CAN_CREATE_GAP; then
+                    local LAST_NUMBER=0
+                    for EXISTING_NUMBER in $EXISTING_NUMBERS; do
+                        if ((EXISTING_NUMBER > LAST_NUMBER + 1)); then
+                            break
+                        fi
+                        LAST_NUMBER=$EXISTING_NUMBER
+                    done
+                    local NEW_NUMBER=$(printf "%02d" $((LAST_NUMBER + 1)))
+                    if [[ -n "${PACKAGE}" && -n "${VERSION}" ]]; then
+                        echo "${NEW_NUMBER}-$(echo "${MODULE}" | cut -d- -f2-)-${PACKAGE}-${VERSION}"
+                    else
+                        echo "${NEW_NUMBER}-$(echo "${MODULE}" | cut -d- -f2-)"
+                    fi
+                else
+                    if [[ -n "${PACKAGE}" && -n "${VERSION}" ]]; then
+                        echo "${MODULE}-${PACKAGE}-${VERSION}"
+                    else
+                        echo "${MODULE}"
+                    fi
+                fi
+            }
+
+            # Check if the .package file exists and if PACKAGE_VARIANT equals "puzzle"
             if [ -f "${MODULE_DIR[upper]}/.package" ] && [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
+                # Read configuration from the .package file
                 read_config "${MODULE_DIR[upper]}/.package" PACKAGE VERSION
-                MODULE_NUMBER=$(echo "${MODULE}" | awk -F- '{ print $1 }')
-                MODULE_NAME="${MODULE_NUMBER}-${PACKAGE}-${VERSION}"
-                rm "${MODULE_DIR[upper]}/.package"
+
+                # Check if MODULE starts with a number from 00 to 09
+                if [[ ${MODULE} =~ ^0[0-9] ]]; then
+                    # Determine the new module number
+                    MODULE_NAME=$(get_new_module_number "${MODULE}" "${PACKAGE}" "${VERSION}")
+                else
+                    MODULE_NAME="${MODULE}-${PACKAGE}-${VERSION}"
+                fi
+
+                # Remove the .package file
+                rm -f "${MODULE_DIR[upper]}/.package"
             else
-                MODULE_NAME=${MODULE}
+                # Check if MODULE starts with a number from 00 to 09
+                if [[ ${MODULE} =~ ^0[0-9] ]]; then
+                    # Determine the new module number
+                    MODULE_NAME=$(get_new_module_number "${MODULE}" "" "")
+                else
+                    MODULE_NAME=${MODULE}
+                fi
+
+                # Remove the .package file if it exists
                 if [ -f "${MODULE_DIR[upper]}/.package" ]; then
-                    rm "${MODULE_DIR[upper]}/.package"
+                    rm -f "${MODULE_DIR[upper]}/.package"
                 fi
             fi
 
@@ -2550,9 +2616,9 @@ EOF
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [[ "${MODULE}" == *"kernel"* ]]; then
                     KERNEL_SUFFIX="${KERNEL}"
-                    cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
+                    cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}.${BEXT}"
                 else
-                    cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
+                    cp "${MODULE_DIR[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
                 fi
             fi
 
@@ -2571,13 +2637,13 @@ EOF
             mkmod_corefs "${MODULE_DIR[upper]}"
 
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
-                if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${COMP_TYPE}.${BEXT}" ]; then
+                if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}.${BEXT}" ]; then
                     if [ "$(ls -A "${MODULE_DIR[upper]}" 2>/dev/null)" != "" ]; then
                         if [[ "${MODULE}" == *"kernel"* ]]; then
                             KERNEL_SUFFIX="${KERNEL}"
-                            FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}-${COMP_TYPE}.${BEXT}"
+                            FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL_SUFFIX}.${BEXT}"
                         else
-                            FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}-${COMP_TYPE}.${BEXT}"
+                            FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
                         fi
 
                         mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit

@@ -17,7 +17,7 @@ echo -e "=====  ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
 
 cd /$BUILD_SCRIPTS/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
-INITRAMFS=$(./mkinitrfs "$KERNEL")
+INITRAMFS=$(./mkinitrfs "$KERNEL" "$COMP_TYPE")
 if [ -n "$INITRAMFS" ]; then
 	mv "$INITRAMFS" /boot/initrfs.img
 fi

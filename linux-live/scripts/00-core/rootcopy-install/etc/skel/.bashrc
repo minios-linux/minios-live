@@ -160,13 +160,13 @@ check_package_cache() {
             fi
             # Display message based on language
             case ${LANG%%_*} in
-            "C" | "en") echo -e "\033[1mAttention:\033[0m The package database is outdated.\nIt is recommended to run '\033[1m${CMD_UPDATE}\033[0m' before installing software." ;;
             "de") echo -e "\033[1mAchtung:\033[0m Die Paketdatenbank ist veraltet.\nEs wird empfohlen, '\033[1m${CMD_UPDATE}\033[0m' vor der Installation von Software auszuführen." ;;
             "es") echo -e "\033[1mAtención:\033[0m La base de datos de paquetes está desactualizada.\nSe recomienda ejecutar '\033[1m${CMD_UPDATE}\033[0m' antes de instalar software." ;;
             "fr") echo -e "\033[1mAttention:\033[0m La base de données des paquets est obsolète.\nIl est recommandé d'exécuter '\033[1m${CMD_UPDATE}\033[0m' avant d'installer des logiciels." ;;
             "it") echo -e "\033[1mAttenzione:\033[0m Il database dei pacchetti è obsoleto.\nSi consiglia di eseguire '\033[1m${CMD_UPDATE}\033[0m' prima di installare il software." ;;
             "pt") echo -e "\033[1mAtenção:\033[0m A base de dados de pacotes está desatualizada.\nÉ recomendado executar '\033[1m${CMD_UPDATE}\033[0m' antes de instalar softwares." ;;
             "ru") echo -e "\033[1mВнимание:\033[0m База данных пакетов устарела.\nРекомендуется выполнить '\033[1m${CMD_UPDATE}\033[0m' перед установкой программ." ;;
+            *) echo -e "\033[1mAttention:\033[0m The package database is outdated.\nIt is recommended to run '\033[1m${CMD_UPDATE}\033[0m' before installing software." ;;
             esac
         fi
         # Mark package cache as checked
