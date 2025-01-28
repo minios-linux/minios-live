@@ -133,7 +133,7 @@ common_variables() {
         ADDITIONAL_COMP_OPTS=""
     fi
 
-    if [ "${PACKAGE_VARIANT}" = "toolbox" ]; then
+    if [ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ]; then
         # Check if ENABLE_SERVICES contains the ssh service
         if [[ ",${ENABLE_SERVICES}," != *",ssh,"* ]]; then
             # If not, add it

@@ -347,9 +347,18 @@
 - QDiskInfo rewritten in QT5 and added to the repository.
 
 ### Edition Changes
-- **Standard:** Added the MintStick utility for writing disk images and formatting flash drives. Made changes to MintStick management for compatibility with Debian Trixie and Sid.
-- **Toolbox:** Added `telnet`, `QEMU`, `QEMU Utils`, `Virtual Machine Manager`, `memtest`, and `VSCodium`. Replaced HDSentinel with QDiskInfo.
-- **Ultra:** Updated package lists, included all packages from Toolbox. Removed `telegram-desktop`, `gsmartcontrol`, and `ttf-mscorefonts-installer`. Returned to the list of available editions.
+- **Standard:** 
+  - Added the MintStick utility for writing disk images and formatting flash drives.
+  - Made changes to MintStick management for compatibility with Debian Trixie and Sid.
+- **Toolbox:**
+  - Added `telnet`, `QEMU`, `QEMU Utils`, `Virtual Machine Manager`, `memtest`, and `VSCodium`.
+  - Replaced HDSentinel with QDiskInfo.
+  - The default kernel is the standard Debian 12 kernel with no module hot-plugging support, but with Secure Boot support.
+- **Ultra:** 
+  - Updated package lists, included all packages from Toolbox.
+  - Removed `telegram-desktop`, `gsmartcontrol`, and `ttf-mscorefonts-installer`.
+  - Returned to the list of available editions.
+  - The default kernel is the standard Debian 12 kernel with no module hot-plugging support, but with Secure Boot support.
 - **Minimum:** Reduced size by removing some packages.
 
 ### Module Changes
@@ -362,3 +371,5 @@
 - Added the `ntfs3-dkms` package to the repository for NTFS3 driver support in Debian kernels.
 - Added quirks from the new version of libinput to support new input devices.
 - Added `dnsmasq-base` to all editions.
+- MiniOS kernel with AUFS support has been updated to 6.1.124.
+- The pre-compiled wireless adapter modules have been replaced with DKMS modules.

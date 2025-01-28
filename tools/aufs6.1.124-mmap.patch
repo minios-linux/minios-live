@@ -1,0 +1,440 @@
+SPDX-License-Identifier: GPL-2.0
+aufs6.1 mmap patch
+
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index 9e479d7d202b..986c2ae12f8b 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -2218,7 +2218,7 @@ static int map_files_get_link(struct dentry *dentry, struct path *path)
+ 	rc = -ENOENT;
+ 	vma = find_exact_vma(mm, vm_start, vm_end);
+ 	if (vma && vma->vm_file) {
+-		*path = vma->vm_file->f_path;
++		*path = vma_pr_or_file(vma)->f_path;
+ 		path_get(path);
+ 		rc = 0;
+ 	}
+diff --git a/fs/proc/nommu.c b/fs/proc/nommu.c
+index 4d3493579458..42edd9a42c78 100644
+--- a/fs/proc/nommu.c
++++ b/fs/proc/nommu.c
+@@ -39,7 +39,10 @@ static int nommu_region_show(struct seq_file *m, struct vm_region *region)
+ 	file = region->vm_file;
+ 
+ 	if (file) {
+-		struct inode *inode = file_inode(region->vm_file);
++		struct inode *inode;
++
++		file = vmr_pr_or_file(region);
++		inode = file_inode(file);
+ 		dev = inode->i_sb->s_dev;
+ 		ino = inode->i_ino;
+ 	}
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index 8a74cdcc9af0..c05071b53f5b 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -284,7 +284,10 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
+ 	const char *name = NULL;
+ 
+ 	if (file) {
+-		struct inode *inode = file_inode(vma->vm_file);
++		struct inode *inode;
++
++		file = vma_pr_or_file(vma);
++		inode = file_inode(file);
+ 		dev = inode->i_sb->s_dev;
+ 		ino = inode->i_ino;
+ 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+@@ -1934,7 +1937,7 @@ static int show_numa_map(struct seq_file *m, void *v)
+ 	struct proc_maps_private *proc_priv = &numa_priv->proc_maps;
+ 	struct vm_area_struct *vma = v;
+ 	struct numa_maps *md = &numa_priv->md;
+-	struct file *file = vma->vm_file;
++	struct file *file = vma_pr_or_file(vma);
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	struct mempolicy *pol;
+ 	char buffer[64];
+diff --git a/fs/proc/task_nommu.c b/fs/proc/task_nommu.c
+index 2fd06f52b6a4..b01030da424f 100644
+--- a/fs/proc/task_nommu.c
++++ b/fs/proc/task_nommu.c
+@@ -150,7 +150,10 @@ static int nommu_vma_show(struct seq_file *m, struct vm_area_struct *vma)
+ 	file = vma->vm_file;
+ 
+ 	if (file) {
+-		struct inode *inode = file_inode(vma->vm_file);
++		struct inode *inode;
++
++		file = vma_pr_or_file(vma);
++		inode = file_inode(file);
+ 		dev = inode->i_sb->s_dev;
+ 		ino = inode->i_ino;
+ 		pgoff = (loff_t)vma->vm_pgoff << PAGE_SHIFT;
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 974ccca609d2..f5f4fc5e0565 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1954,6 +1954,43 @@ static inline void unmap_shared_mapping_range(struct address_space *mapping,
+ 	unmap_mapping_range(mapping, holebegin, holelen, 0);
+ }
+ 
++#if 1 /* IS_ENABLED(CONFIG_AUFS_FS) */
++extern void vma_do_file_update_time(struct vm_area_struct *, const char[], int);
++extern struct file *vma_do_pr_or_file(struct vm_area_struct *, const char[],
++				      int);
++extern void vma_do_get_file(struct vm_area_struct *, const char[], int);
++extern void vma_do_fput(struct vm_area_struct *, const char[], int);
++
++#define vma_file_update_time(vma)	vma_do_file_update_time(vma, __func__, \
++								__LINE__)
++#define vma_pr_or_file(vma)		vma_do_pr_or_file(vma, __func__, \
++							  __LINE__)
++#define vma_get_file(vma)		vma_do_get_file(vma, __func__, __LINE__)
++#define vma_fput(vma)			vma_do_fput(vma, __func__, __LINE__)
++
++#ifndef CONFIG_MMU
++extern struct file *vmr_do_pr_or_file(struct vm_region *, const char[], int);
++extern void vmr_do_fput(struct vm_region *, const char[], int);
++
++#define vmr_pr_or_file(region)		vmr_do_pr_or_file(region, __func__, \
++							  __LINE__)
++#define vmr_fput(region)		vmr_do_fput(region, __func__, __LINE__)
++#endif /* !CONFIG_MMU */
++
++#else
++
++#define vma_file_update_time(vma)	file_update_time((vma)->vm_file)
++#define vma_pr_or_file(vma)		(vma)->vm_file
++#define vma_get_file(vma)		get_file((vma)->vm_file)
++#define vma_fput(vma)			fput((vma)->vm_file)
++
++#ifndef CONFIG_MMU
++#define vmr_pr_or_file(region)		(region)->vm_file
++#define vmr_fput(region)		fput((region)->vm_file)
++#endif /* !CONFIG_MMU */
++
++#endif /* CONFIG_AUFS_FS */
++
+ extern int access_process_vm(struct task_struct *tsk, unsigned long addr,
+ 		void *buf, int len, unsigned int gup_flags);
+ extern int access_remote_vm(struct mm_struct *mm, unsigned long addr,
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index 500e536796ca..ad766e2110ca 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -413,6 +413,9 @@ struct vm_region {
+ 	unsigned long	vm_top;		/* region allocated to here */
+ 	unsigned long	vm_pgoff;	/* the offset in vm_file corresponding to vm_start */
+ 	struct file	*vm_file;	/* the backing file or NULL */
++#if 1 /* IS_ENABLED(CONFIG_AUFS_FS) */
++	struct file	*vm_prfile;	/* the virtual backing file or NULL */
++#endif
+ 
+ 	int		vm_usage;	/* region usage count (access under nommu_region_sem) */
+ 	bool		vm_icache_flushed : 1; /* true if the icache has been flushed for
+@@ -494,6 +497,9 @@ struct vm_area_struct {
+ 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
+ 					   units */
+ 	struct file * vm_file;		/* File we map to (can be NULL). */
++#if 1 /* IS_ENABLED(CONFIG_AUFS_FS) */
++	struct file *vm_prfile;		/* shadow of vm_file */
++#endif
+ 	void * vm_private_data;		/* was vm_pte (shared mem) */
+ 
+ #ifdef CONFIG_SWAP
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 08969f5aa38d..61871700033a 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -661,7 +661,7 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
+ 		if (file) {
+ 			struct address_space *mapping = file->f_mapping;
+ 
+-			get_file(file);
++			vma_get_file(tmp);
+ 			i_mmap_lock_write(mapping);
+ 			if (tmp->vm_flags & VM_SHARED)
+ 				mapping_allow_writable(mapping);
+diff --git a/mm/Makefile b/mm/Makefile
+index 8e105e5b3e29..c218d042dbce 100644
+--- a/mm/Makefile
++++ b/mm/Makefile
+@@ -138,3 +138,4 @@ obj-$(CONFIG_IO_MAPPING) += io-mapping.o
+ obj-$(CONFIG_HAVE_BOOTMEM_INFO_NODE) += bootmem_info.o
+ obj-$(CONFIG_GENERIC_IOREMAP) += ioremap.o
+ obj-$(CONFIG_SHRINKER_DEBUG) += shrinker_debug.o
++obj-y += prfile.o
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 08341616ae7a..410ca60fbf39 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -3418,7 +3418,7 @@ vm_fault_t filemap_page_mkwrite(struct vm_fault *vmf)
+ 	vm_fault_t ret = VM_FAULT_LOCKED;
+ 
+ 	sb_start_pagefault(mapping->host->i_sb);
+-	file_update_time(vmf->vma->vm_file);
++	vma_file_update_time(vmf->vma);
+ 	folio_lock(folio);
+ 	if (folio->mapping != mapping) {
+ 		folio_unlock(folio);
+diff --git a/mm/mmap.c b/mm/mmap.c
+index 54abd46e6007..1f2eaf2ccc76 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -139,7 +139,7 @@ static void remove_vma(struct vm_area_struct *vma)
+ 	if (vma->vm_ops && vma->vm_ops->close)
+ 		vma->vm_ops->close(vma);
+ 	if (vma->vm_file)
+-		fput(vma->vm_file);
++		vma_fput(vma);
+ 	mpol_put(vma_policy(vma));
+ 	vm_area_free(vma);
+ }
+@@ -589,7 +589,7 @@ inline int vma_expand(struct ma_state *mas, struct vm_area_struct *vma,
+ 	if (remove_next) {
+ 		if (file) {
+ 			uprobe_munmap(next, next->vm_start, next->vm_end);
+-			fput(file);
++			vma_fput(vma);
+ 		}
+ 		if (next->anon_vma)
+ 			anon_vma_merge(vma, next);
+@@ -830,7 +830,7 @@ int __vma_adjust(struct vm_area_struct *vma, unsigned long start,
+ again:
+ 		if (file) {
+ 			uprobe_munmap(next, next->vm_start, next->vm_end);
+-			fput(file);
++			vma_fput(vma);
+ 		}
+ 		if (next->anon_vma)
+ 			anon_vma_merge(vma, next);
+@@ -2224,7 +2224,7 @@ int __split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
+ 		goto out_free_mpol;
+ 
+ 	if (new->vm_file)
+-		get_file(new->vm_file);
++		vma_get_file(new);
+ 
+ 	if (new->vm_ops && new->vm_ops->open)
+ 		new->vm_ops->open(new);
+@@ -2246,7 +2246,7 @@ int __split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
+ 	if (new->vm_ops && new->vm_ops->close)
+ 		new->vm_ops->close(new);
+ 	if (new->vm_file)
+-		fput(new->vm_file);
++		vma_fput(new);
+ 	unlink_anon_vmas(new);
+  out_free_mpol:
+ 	mpol_put(vma_policy(new));
+@@ -2647,7 +2647,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
+ 				 * and cause general protection fault
+ 				 * ultimately.
+ 				 */
+-				fput(vma->vm_file);
++				vma_fput(vma);
+ 				vm_area_free(vma);
+ 				vma = merge;
+ 				/* Update vm_flags to pick up the change. */
+@@ -2746,7 +2746,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
+ 	return addr;
+
+ unmap_and_free_file_vma:
+-	fput(vma->vm_file);
++	vma_fput(vma);
+ 	vma->vm_file = NULL;
+ 
+ 	/* Undo any partial mapping done by a device driver. */
+@@ -2813,6 +2813,9 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
+ 	unsigned long populate = 0;
+ 	unsigned long ret = -EINVAL;
+ 	struct file *file;
++#if 1 /* IS_ENABLED(CONFIG_AUFS_FS) */
++	struct file *prfile;
++#endif
+ 
+ 	pr_warn_once("%s (%d) uses deprecated remap_file_pages() syscall. See Documentation/mm/remap_file_pages.rst.\n",
+ 		     current->comm, current->pid);
+@@ -3020,6 +3023,29 @@
+ 	if (vma->vm_flags & VM_LOCKED)
+ 		flags |= MAP_LOCKED;
+ 
++#if 1 /* IS_ENABLED(CONFIG_AUFS_FS) */
++	vma_get_file(vma);
++	file = vma->vm_file;
++	prfile = vma->vm_prfile;
++	ret = do_mmap(vma->vm_file, start, size,
++			prot, flags, pgoff, &populate, NULL);
++	if (!IS_ERR_VALUE(ret) && file && prfile) {
++		struct vm_area_struct *new_vma;
++
++		new_vma = find_vma(mm, ret);
++		if (!new_vma->vm_prfile)
++			new_vma->vm_prfile = prfile;
++		if (prfile)
++			get_file(prfile);
++	}
++	/*
++	 * two fput()s instead of vma_fput(vma),
++	 * coz vma may not be available anymore.
++	 */
++	fput(file);
++	if (prfile)
++		fput(prfile);
++#else
+ 	file = get_file(vma->vm_file);
+ 	ret = security_mmap_file(vma->vm_file, prot, flags);
+ 	if (ret)
+@@ -3028,6 +3054,7 @@
+ 			prot, flags, pgoff, &populate, NULL);
+ out_fput:
+ 	fput(file);
++#endif /* CONFIG_AUFS_FS */
+ out:
+ 	mmap_write_unlock(mm);
+ 	if (populate)
+@@ -3222,7 +3249,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
+ 		if (anon_vma_clone(new_vma, vma))
+ 			goto out_free_mempol;
+ 		if (new_vma->vm_file)
+-			get_file(new_vma->vm_file);
++			vma_get_file(new_vma);
+ 		if (new_vma->vm_ops && new_vma->vm_ops->open)
+ 			new_vma->vm_ops->open(new_vma);
+ 		if (vma_link(mm, new_vma))
+diff --git a/mm/nommu.c b/mm/nommu.c
+index 214c70e1d059..dccbb939d2a9 100644
+--- a/mm/nommu.c
++++ b/mm/nommu.c
+@@ -523,7 +523,7 @@ static void __put_nommu_region(struct vm_region *region)
+ 		up_write(&nommu_region_sem);
+ 
+ 		if (region->vm_file)
+-			fput(region->vm_file);
++			vmr_fput(region);
+ 
+ 		/* IO memory and memory shared directly out of the pagecache
+ 		 * from ramfs/tmpfs mustn't be released here */
+@@ -653,7 +653,7 @@ static void delete_vma(struct mm_struct *mm, struct vm_area_struct *vma)
+ 	if (vma->vm_ops && vma->vm_ops->close)
+ 		vma->vm_ops->close(vma);
+ 	if (vma->vm_file)
+-		fput(vma->vm_file);
++		vma_fput(vma);
+ 	put_nommu_region(vma->vm_region);
+ 	vm_area_free(vma);
+ }
+@@ -1164,7 +1164,7 @@ unsigned long do_mmap(struct file *file,
+ 					goto error_just_free;
+ 				}
+ 			}
+-			fput(region->vm_file);
++			vmr_fput(region);
+ 			kmem_cache_free(vm_region_jar, region);
+ 			region = pregion;
+ 			result = start;
+@@ -1241,10 +1241,10 @@ unsigned long do_mmap(struct file *file,
+ 	up_write(&nommu_region_sem);
+ error:
+ 	if (region->vm_file)
+-		fput(region->vm_file);
++		vmr_fput(region);
+ 	kmem_cache_free(vm_region_jar, region);
+ 	if (vma->vm_file)
+-		fput(vma->vm_file);
++		vma_fput(vma);
+ 	vm_area_free(vma);
+ 	return ret;
+ 
+diff --git a/mm/prfile.c b/mm/prfile.c
+new file mode 100644
+index 000000000000..8f820a235364
+--- /dev/null
++++ b/mm/prfile.c
+@@ -0,0 +1,86 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Mainly for aufs which mmap(2) different file and wants to print different
++ * path in /proc/PID/maps.
++ * Call these functions via macros defined in linux/mm.h.
++ *
++ * See Documentation/filesystems/aufs/design/06mmap.txt
++ *
++ * Copyright (c) 2014-2022 Junjro R. Okajima
++ * Copyright (c) 2014 Ian Campbell
++ */
++
++#include <linux/mm.h>
++#include <linux/file.h>
++#include <linux/fs.h>
++
++/* #define PRFILE_TRACE */
++static inline void prfile_trace(struct file *f, struct file *pr,
++			      const char func[], int line, const char func2[])
++{
++#ifdef PRFILE_TRACE
++	if (pr)
++		pr_info("%s:%d: %s, %pD2\n", func, line, func2, f);
++#endif
++}
++
++void vma_do_file_update_time(struct vm_area_struct *vma, const char func[],
++			     int line)
++{
++	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
++
++	prfile_trace(f, pr, func, line, __func__);
++	file_update_time(f);
++	if (f && pr)
++		file_update_time(pr);
++}
++
++struct file *vma_do_pr_or_file(struct vm_area_struct *vma, const char func[],
++			       int line)
++{
++	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
++
++	prfile_trace(f, pr, func, line, __func__);
++	return (f && pr) ? pr : f;
++}
++
++void vma_do_get_file(struct vm_area_struct *vma, const char func[], int line)
++{
++	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
++
++	prfile_trace(f, pr, func, line, __func__);
++	get_file(f);
++	if (f && pr)
++		get_file(pr);
++}
++
++void vma_do_fput(struct vm_area_struct *vma, const char func[], int line)
++{
++	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
++
++	prfile_trace(f, pr, func, line, __func__);
++	fput(f);
++	if (f && pr)
++		fput(pr);
++}
++
++#ifndef CONFIG_MMU
++struct file *vmr_do_pr_or_file(struct vm_region *region, const char func[],
++			       int line)
++{
++	struct file *f = region->vm_file, *pr = region->vm_prfile;
++
++	prfile_trace(f, pr, func, line, __func__);
++	return (f && pr) ? pr : f;
++}
++
++void vmr_do_fput(struct vm_region *region, const char func[], int line)
++{
++	struct file *f = region->vm_file, *pr = region->vm_prfile;
++
++	prfile_trace(f, pr, func, line, __func__);
++	fput(f);
++	if (f && pr)
++		fput(pr);
++}
++#endif /* !CONFIG_MMU */
