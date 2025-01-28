@@ -279,8 +279,8 @@ EOF
     cp -aR "$AUFS/fs" .
     cp -a "$AUFS/include/uapi/linux/aufs_type.h" include/uapi/linux
 
-    if [ "$KERNEL_VERSION" = "6.1.119-1" ]; then
-        patch "$AUFS/aufs6-mmap.patch" "$SCRIPT_DIR/aufs6.1.119-mmap.patch"
+    if [ "$KERNEL_VERSION" = "6.1.124-1" ]; then
+        cp "$SCRIPT_DIR/aufs6.1.124-mmap.patch" "$AUFS/aufs6-mmap.patch" 
     fi
 
     PATCHES=("aufs${KERNEL_VERSION:0:1}-kbuild" "aufs${KERNEL_VERSION:0:1}-base" "aufs${KERNEL_VERSION:0:1}-mmap" "aufs${KERNEL_VERSION:0:1}-standalone" "aufs${KERNEL_VERSION:0:1}-loopback" "vfs-ino" "tmpfs-idr")

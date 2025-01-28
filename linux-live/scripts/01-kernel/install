@@ -58,9 +58,3 @@ fi
 toggle_shell_options u
 update_config "/minios-build.conf" "KERNEL"
 toggle_shell_options u
-
-if [ "${KERNEL_AUFS}" = "true" ] && [ "${DISTRIBUTION_ARCH}" = "amd64" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
-    if [ "$PACKAGE_VARIANT" != "minimum" ]; then
-        pkg install prebuilt-linux-modules
-    fi
-fi
