@@ -1,0 +1,72 @@
+name: bookworm-xfce-standard-i386
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone minios-live Repository
+      run: |
+        git clone --depth 1 https://github.com/minios-linux/minios-live.git
+        cd minios-live
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          debootstrap xorriso genisoimage binutils squashfs-tools \
+          grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd \
+          curl rsync
+
+    - name: Run build - Debian 12 XFCE Standard i386
+      run: |
+        cd minios-live
+        echo "Starting build for Debian 12 XFCE Standard i386..."
+        sudo ./minios-cmd -d bookworm -a i386 -de xfce -pv standard -aufs -kl
+        sudo mkdir -p build/output/bookworm-xfce-standard-i386
+        sudo mv build/iso/*.iso build/output/bookworm-xfce-standard-i386/
+        echo "Build completed for Debian 12 XFCE Standard i386."
+
+    - name: Archive build output - Debian 12 XFCE Standard i386
+      uses: actions/upload-artifact@v3
+      with:
+        name: minios-bookworm-xfce-standard-i386
+        path: minios-live/build/output/bookworm-xfce-standard-i386
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: ./artifacts
+
+    - name: Set Release Tag Name
+      id: set_tag
+      run: echo "tag_name=$(date +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Create Release with Date
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        repo=${{ github.repository }}
+        tag_name=${{ env.tag_name }}
+        if ! gh release view "$tag_name" --repo "$repo" >/dev/null 2>&1; then
+          gh release create "$tag_name" \
+            --title "Build $tag_name" \
+            --notes "Release notes for Build $tag_name" \
+            --repo "$repo"
+        fi
+
+    - name: Upload Release Assets
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        repo=${{ github.repository }}
+        tag_name=${{ env.tag_name }}
+        for artifact in ./artifacts/*/*; do
+          gh release upload "$tag_name" "$artifact" --repo "$repo" --clobber
+        done
