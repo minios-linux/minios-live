@@ -11,6 +11,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.set_tag.outputs.tag_name }}
     steps:
       - name: Set Release Tag Name
         id: set_tag
@@ -21,7 +23,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           repo=${{ github.repository }}
-          tag_name=${{ steps.set_tag.outputs.tag_name }}  # Access using steps.<job_id>.outputs
+          tag_name=${{ steps.set_tag.outputs.tag_name }}
           gh release create "$tag_name" \
             --title "Release $tag_name" \
             --notes "Release notes for $tag_name" \
@@ -31,9 +33,6 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - id: set_tag
-        run: echo "tag_name=${{ needs.release.outputs.tag_name }}" >> $GITHUB_OUTPUT
-
       - name: Trigger bookworm-xfce-standard-amd64
         uses: actions/github-script@v6
         with:
@@ -45,7 +44,7 @@ jobs:
               workflow_id: 'bookworm-xfce-standard-amd64.yml',
               ref: 'master',
               inputs: {
-                tag: '${{ steps.set_tag.outputs.tag_name }}'
+                tag: '${{ needs.release.outputs.tag_name }}'
               }
             })
 
@@ -60,7 +59,7 @@ jobs:
               workflow_id: 'bookworm-xfce-standard-i386.yml',
               ref: 'master',
               inputs: {
-                tag: '${{ steps.set_tag.outputs.tag_name }}'
+                tag: '${{ needs.release.outputs.tag_name }}'
               }
             })
 
@@ -75,7 +74,7 @@ jobs:
               workflow_id: 'bookworm-xfce-toolbox-amd64.yml',
               ref: 'master',
               inputs: {
-                tag: '${{ steps.set_tag.outputs.tag_name }}'
+                tag: '${{ needs.release.outputs.tag_name }}'
               }
             })
 
@@ -90,6 +89,6 @@ jobs:
               workflow_id: 'bookworm-xfce-ultra-amd64.yml',
               ref: 'master',
               inputs: {
-                tag: '${{ steps.set_tag.outputs.tag_name }}'
+                tag: '${{ needs.release.outputs.tag_name }}'
               }
             })
