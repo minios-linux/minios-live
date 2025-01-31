@@ -35,7 +35,7 @@ jobs:
           curl -X POST \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/minios-linux/minios-nightly/actions/workflows/bookworm-xfce-standard-amd64.yml/dispatches \
+          https://api.github.com/repos/minios-linux/minios-live/actions/workflows/bookworm-xfce-standard-amd64.yml/dispatches \
           -d '{"ref":"master"}'
 
       - name: Trigger bookworm-xfce-standard-i386
@@ -45,7 +45,7 @@ jobs:
           curl -X POST \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/minios-linux/minios-nightly/actions/workflows/bookworm-xfce-standard-i386.yml/dispatches \
+          https://api.github.com/repos/minios-linux/minios-live/actions/workflows/bookworm-xfce-standard-i386.yml/dispatches \
           -d '{"ref":"master"}'
 
       - name: Trigger bookworm-xfce-toolbox-amd64
@@ -55,7 +55,7 @@ jobs:
           curl -X POST \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/minios-linux/minios-nightly/actions/workflows/bookworm-xfce-toolbox-amd64.yml/dispatches \
+          https://api.github.com/repos/minios-linux/minios-live/actions/workflows/bookworm-xfce-toolbox-amd64.yml/dispatches \
           -d '{"ref":"master"}'
 
       - name: Trigger bookworm-xfce-ultra-amd64
@@ -65,5 +65,5 @@ jobs:
           curl -X POST \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/minios-linux/minios-nightly/actions/workflows/bookworm-xfce-ultra-amd64.yml/dispatches \
+          https://api.github.com/repos/minios-linux/minios-live/actions/workflows/bookworm-xfce-ultra-amd64.yml/dispatches \
           -d '{"ref":"master"}'
