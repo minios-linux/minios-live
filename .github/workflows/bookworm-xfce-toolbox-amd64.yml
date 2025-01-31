@@ -1,7 +1,11 @@
-name: bookworm-xfce-toolbox-amd64
+name: bookworm-xfce-standard-amd64
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag'
+        required: true
 
 jobs:
   build:
@@ -39,34 +43,22 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: ./artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
 
-    - name: Set Release Tag Name
-      id: set_tag
-      run: echo "tag_name=$(date +%Y%m%d)" >> $GITHUB_ENV
+      - name: Set Release Tag Name
+        id: set_tag
+        run: echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
 
-    - name: Create Release with Date
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        repo=${{ github.repository }}
-        tag_name=${{ env.tag_name }}
-        if ! gh release view "$tag_name" --repo "$repo" >/dev/null 2>&1; then
-          gh release create "$tag_name" \
-            --title "Build $tag_name" \
-            --notes "Release notes for Build $tag_name" \
-            --repo "$repo"
-        fi
-
-    - name: Upload Release Assets
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        repo=${{ github.repository }}
-        tag_name=${{ env.tag_name }}
-        for artifact in ./artifacts/*/*; do
-          gh release upload "$tag_name" "$artifact" --repo "$repo" --clobber
-        done
+      - name: Upload Release Assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          repo=${{ github.repository }}
+          tag_name=${{ env.tag_name }}
+          for artifact_dir in ./artifacts/*; do
+            for artifact in "$artifact_dir"/*; do
+              gh release upload "$tag_name" "$artifact" --repo "$repo" --clobber
+            done
+          done
