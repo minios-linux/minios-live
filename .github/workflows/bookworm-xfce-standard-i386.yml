@@ -30,7 +30,7 @@ jobs:
         echo "Build completed for Debian 12 XFCE Standard i386."
 
     - name: Archive build output - Debian 12 XFCE Standard i386
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: minios-bookworm-xfce-standard-i386
         path: minios-live/build/output/bookworm-xfce-standard-i386
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: ./artifacts
 
