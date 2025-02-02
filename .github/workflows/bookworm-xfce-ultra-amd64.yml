@@ -28,7 +28,7 @@ jobs:
       run: |
         cd minios-live
         echo "Starting build for Debian 12 XFCE Ultra amd64..."
-        sudo ./minios-cmd -d bookworm -a amd64 -de xfce-ultra -pv ultra -aufs -kl
+        sudo ./minios-cmd -d bookworm -a amd64 -de xfce -pv ultra -aufs -kl
         sudo mkdir -p build/output/bookworm-xfce-ultra-amd64
         sudo mv build/iso/*.iso build/output/bookworm-xfce-ultra-amd64/
         echo "Build completed for Debian 12 XFCE Ultra amd64."
