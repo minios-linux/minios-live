@@ -100,6 +100,12 @@ read_cmdline() {
         link_user_dirs) LINK_USER_DIRS="true" ;;
         system_type=*) SYSTEM_TYPE="${i#*=}" ;;
         from=*) FROM="${i#*=}" ;;
+        locales=*) LOCALES="${i#*=}" ;;
+        timezone=*) TIMEZONE="${i#*=}" ;;
+        keyboard-layouts=*) KEYBOARD_LAYOUTS="${i#*=}" ;;
+        keyboard-model=*) KEYBOARD_MODEL="${i#*=}" ;;
+        keyboard-options=*) KEYBOARD_OPTIONS="${i#*=}" ;;
+        keyboard-variants=*) KEYBOARD_VARIANTS="${i#*=}" ;;
         *) UNKNOWN="true" ;;
         esac
     done
@@ -201,7 +207,7 @@ set_scripts() {
 
 # Main script execution
 mkdir -p /etc/minios
-set_trace_log "boot.trace"
+set_trace_log "minios-boot.trace.log"
 read_cmdline "$CMDLINE"
 check_and_set_defaults
 
