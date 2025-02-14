@@ -10,7 +10,7 @@ KERNEL=""
 if [ "${KERNEL_BPO}" = "true" ]; then
     BPO="-t ${DISTRIBUTION}-backports"
     if [ "${KERNEL_AUFS}" = "true" ]; then
-        KERNEL_VERSION="6.5"
+        KERNEL_VERSION="6.10"
     fi
 else
     BPO=""

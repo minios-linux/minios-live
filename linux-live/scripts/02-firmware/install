@@ -12,8 +12,4 @@ echo "firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true" | debconf
 echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-set-selections
 
 # install packages
-if [ "$DISTRIBUTION" = "bookworm" ]; then
-    install_packages -t bookworm-backports
-else
-    install_packages
-fi
+install_packages
