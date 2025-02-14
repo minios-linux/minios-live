@@ -1795,6 +1795,7 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/var/cache/debconf/"*-old 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/fontconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/ldconfig/"* 2>/dev/null
+    rm -rf "${BASE_PATH}/var/cache/mandb" 2>/dev/null
     if [ "${USE_APT_CACHE}" = "false" ]; then
         rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
     fi
@@ -1962,6 +1963,7 @@ chroot_finish_up() {
     # clean up useless stuff
     rm -rf /tmp/* ~/.bash_history rm /sbin/initctl 2>/dev/null
     rm -rf ~/.cache rm /sbin/initctl 2>/dev/null
+    rm -rf /var/cache/mandb 2>/dev/null
     find /var/log/ -type f | xargs rm -f rm /sbin/initctl 2>/dev/null
     rm -f /etc/ssh/ssh_host* rm /sbin/initctl 2>/dev/null
     rm -f /var/backups/* 2>/dev/null
@@ -2096,6 +2098,7 @@ install_packages() {
         echo "PACKAGE_VARIANT=$PACKAGE_VARIANT"
         echo "KERNEL_TYPE=$KERNEL_TYPE"
         echo "KERNEL_BUILD_DKMS=$KERNEL_BUILD_DKMS"
+        echo "TARGET_RELEASE=$TARGET_RELEASE"
     fi
 
     if [[ -z "${PACKAGE_LIST}" ]]; then
@@ -2147,7 +2150,10 @@ install_packages() {
         information "Simulation mode is ON. No packages will be installed. Exiting..."
         exit 1
     else
-        pkg install "${PACKAGES_TO_INSTALL[@]}"
+        local INSTALL_OPTIONS=()
+        [[ -n "$TARGET_RELEASE" ]] && INSTALL_OPTIONS=(-t "$TARGET_RELEASE")
+
+        pkg install "${INSTALL_OPTIONS[@]}" "${PACKAGES_TO_INSTALL[@]}"
     fi
 
     toggle_shell_options u

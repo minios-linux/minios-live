@@ -46,7 +46,7 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         pkg install ${BPO} aufs-dkms
     fi
 
-    pkg install realtek-rtl8723cs-dkms realtek-rtl8821au-dkms realtek-rtl8821cu-dkms realtek-rtl88xxau-dkms realtek-rtl8188eus-dkms realtek-rtl8814au-dkms realtek-rtl8821ce-dkms realtek-rtl88x2bu-dkms rtw89-dkms
+    pkg install realtek-rtl8723cs-dkms realtek-rtl8821au-dkms realtek-rtl8821cu-dkms realtek-rtl88xxau-dkms realtek-rtl8188eus-dkms realtek-rtl8814au-dkms realtek-rtl8821ce-dkms realtek-rtl88x2bu-dkms
 
     if ([ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ] || [ "${PACKAGE_VARIANT}" = "puzzle" ]) && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v
