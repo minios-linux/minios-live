@@ -742,12 +742,18 @@ check_write_access() {
    # Supported syntax is even like perchdir=/dev/sda1/changes
    # In this case, perchdir is mounted over $CHANDIR and is set to ask
    if echo "$PERCHDIR" | grep -q '^/dev/'; then
-      if echo "$PERCHDIR" | grep -q '^/dev/disk/by-label/'; then
+      case "$PERCHDIR" in
+      /dev/disk/by-label/*)
          LABEL=$(echo "$PERCHDIR" | awk -F"/" '{print $5}')
          DRIVE=$(blkid -t LABEL="$LABEL" -o device -c /dev/null 2>/dev/null)
-      else
+         ;;
+      /dev/mapper/*)
+         DRIVE="$(echo "$PERCHDIR" | cut -d '/' -f 1-4)"
+         ;;
+      /dev/*)
          DRIVE="$(echo "$PERCHDIR" | cut -d '/' -f 1-3)"
-      fi
+         ;;
+      esac
 
       # If the partition is unavailable for writing, there is no point in
       # checking whether the folder can be written to
@@ -794,26 +800,27 @@ check_write_access() {
 #
 mount_perch_drive() {
    debug_log "mount_perch_drive" "$*"
-   local TIMEOUT DRIVE FS OPTIONS MOUNT CHANDIR PERCHDIR
+   local TIMEOUT DRIVE FS OPTIONS MOUNT CHANDIR PERCHDIR LABEL
 
    DRIVE="$1"
    CHANDIR="$2"
    PERCHDIR="$3"
 
    case "$PERCHDIR" in
+   /dev/disk/by-label/*)
+      LABEL=$(echo "$PERCHDIR" | awk -F"/" '{print $5}')
+      DRIVE=$(blkid -t LABEL="$LABEL" -o device -c /dev/null 2>/dev/null)
+      PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 6-)"
+      ;;
+   /dev/mapper/*)
+      DRIVE="$(echo "$PERCHDIR" | cut -d '/' -f 1-4)"
+      LABEL=$(blkid -o value -s LABEL "$DRIVE" -c /dev/null 2>/dev/null)
+      PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 5-)"
+      ;;
    /dev/*)
-      case "$PERCHDIR" in
-      /dev/disk/by-label/*)
-         LABEL=$(echo "$PERCHDIR" | awk -F"/" '{print $5}')
-         DRIVE=$(blkid -t LABEL="$LABEL" -o device -c /dev/null 2>/dev/null)
-         PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 6-)"
-         ;;
-      *)
-         DRIVE="$(echo "$PERCHDIR" | cut -d '/' -f 1-3)"
-         LABEL=$(blkid -o value -s LABEL "$DRIVE" -c /dev/null 2>/dev/null)
-         PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 4-)"
-         ;;
-      esac
+      DRIVE="$(echo "$PERCHDIR" | cut -d '/' -f 1-3)"
+      LABEL=$(blkid -o value -s LABEL "$DRIVE" -c /dev/null 2>/dev/null)
+      PERCHDIR="$(echo "$PERCHDIR" | cut -d '/' -f 4-)"
       ;;
    label:*)
       LABEL=$(echo "$PERCHDIR" | awk -F":" '{print $2}' | awk -F"/" '{print $1}')
@@ -999,7 +1006,14 @@ manage_perch_partition() {
          PART=$(blkid -t LABEL="persistence" -o device -c /dev/null 2>/dev/null | grep "$VENTOYDRIVE")
          if [ ! "$PART" ]; then
             # If no persistence partition, use Ventoy's default
-            PERCHPART="$VENTOYDRIVE/minios/changes"
+            # In Ventoy version 1.1.01 and higher, a device link to /dev/mapper is used instead of the VENTOY_LINUX_REMOUNT variable in the configuration file.
+            MAPPER_DEVICE="/dev/mapper/$(lsblk -no name "$VENTOYDRIVE" 2>/dev/null | head -n 1)"
+            if [ -e "$MAPPER_DEVICE" ]; then
+               PERCHPART="$MAPPER_DEVICE/minios/changes"
+            # If there is no device link in /dev/mapper, then an older version of Ventoy is used.
+            else
+               PERCHPART="$VENTOYDRIVE/minios/changes"
+            fi
          else
             PERCHPART="$PART"
          fi
