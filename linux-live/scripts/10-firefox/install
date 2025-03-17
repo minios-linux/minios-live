@@ -7,12 +7,8 @@ set -u          # treat unset variable as error
 . /minioslib
 . /minios-build.conf
 
-declare_locales
-
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 [ "${DISTRIBUTION}" = "bionic" ] && PACKAGE="firefox" || PACKAGE="firefox-esr"
-
-pkg update
 
 # Conditional statements for package installation
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
@@ -27,43 +23,7 @@ EOF
     fi
 fi
 
-pkg install "${PACKAGE}"
-
-# Function for locale package installation
-install_locale_package() {
-    local DISTRIBUTION_TYPE=$1
-    local PACKAGE=$2
-    local LOCALE_CONFIG=$3
-
-    IFS=',' read -ra CONFIG <<<"${LOCALE_CONFIG}"
-    local PACKAGE_LOCALE_DEBIAN=${CONFIG[2]}
-    local PACKAGE_LOCALE_UBUNTU=${CONFIG[3]}
-
-    if [ "$DISTRIBUTION_TYPE" = "ubuntu" ] && [ -n "${PACKAGE_LOCALE_UBUNTU}" ]; then
-        pkg install "${PACKAGE}-locale-${PACKAGE_LOCALE_UBUNTU}"
-    elif [ "$DISTRIBUTION_TYPE" = "debian" ] && [ -n "${PACKAGE_LOCALE_DEBIAN}" ]; then
-        pkg install "${PACKAGE}-l10n-${PACKAGE_LOCALE_DEBIAN}"
-    fi
-}
-
-# Form INSTALL_LOCALES from LOCALES or from LOCALE
-INSTALL_LOCALES=("${!LOCALES[@]}")
-[[ "${MULTILINGUAL}" = "false" && "${KEEP_ALL_LOCALES}" = "false" ]] && INSTALL_LOCALES=("${LOCALE}")
-
-for locale in "${INSTALL_LOCALES[@]}"; do
-    if [[ ! -v LOCALES[${locale}] ]]; then
-        echo "Locale ${locale} is not supported, skipping."
-        continue
-    fi
-
-    LOCALE_CONFIG="${LOCALES[${locale}]}"
-    if [ -z "${LOCALE_CONFIG//,/}" ]; then
-        echo "No configuration available for locale ${locale}, skipping."
-        continue
-    fi
-
-    install_locale_package "${DISTRIBUTION_TYPE}" "${PACKAGE}" "${LOCALE_CONFIG}"
-done
+/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"
 
 # Conditional Desktop environment settings
 if [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]] && [ "${PACKAGE_VARIANT}" != "puzzle" ]; then

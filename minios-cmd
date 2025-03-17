@@ -168,7 +168,7 @@ while (("$#")); do
         shift
         ;;
     -kl | --keep-locales)
-        KEEP_ALL_LOCALES=true
+        KEEP_LOCALES=true
         shift
         ;;
     -h | --help)
@@ -208,7 +208,7 @@ done
 : "${KERNEL_BUILD_DKMS:=false}"
 : "${LOCALE:="en_US"}"
 : "${MULTILINGUAL:=false}"
-: "${KEEP_ALL_LOCALES:=false}"
+: "${KEEP_LOCALES:=false}"
 : "${TIMEZONE:="Etc/UTC"}"
 
 # Check if mandatory parameters are set ONLY if config file is NOT provided

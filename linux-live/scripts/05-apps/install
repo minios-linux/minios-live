@@ -21,10 +21,7 @@ done
 
 pkg update
 
-# install packages
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    install_packages -l $SCRIPT_DIR/$PACKAGE_VARIANT.list
-fi
+/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"
 
 if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
@@ -32,12 +29,6 @@ fi
 
 if [ -f "/usr/share/applications/display-im6.q16.desktop" ]; then
     rm -f /usr/share/applications/display-im6.q16.desktop
-fi
-
-if grep -q "vlc" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
-    if [ "$LOCALE" != "en_US" ] || [ "$MULTILINGUAL" = "true" ] || [ "$KEEP_ALL_LOCALES" = "true" ]; then
-        pkg install vlc-l10n
-    fi
 fi
 
 if [ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]; then
@@ -90,11 +81,11 @@ fi
 if [ -f "/usr/share/applications/gnumeric.desktop" ]; then
     sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
 fi
-if ! command -v clonezilla >/dev/null 2>&1; then
+if ! dpkg -l | grep -q clonezilla; then
     rm -f /usr/sbin/clonezilla.sh
     rm -f /usr/share/applications/clonezilla.desktop
     rm -f /usr/share/pixmaps/ocslogo.png
 fi
-if grep -q 'gnome-software' $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if dpkg -l | grep -q gnome-software; then
     mkdir -p /var/cache/swcatalog/cache
 fi

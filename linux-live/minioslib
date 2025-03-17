@@ -119,7 +119,7 @@ common_variables() {
         LAYOUTDSC="English (US)"
     fi
 
-    if [ "${MULTILINGUAL}" = "true" ] || [ "${KEEP_ALL_LOCALES}" = "true" ] || [ "$LOCALE" = "C" ]; then
+    if [ "${MULTILINGUAL}" = "true" ] || [ "${KEEP_LOCALES}" = "true" ] || [ "$LOCALE" = "C" ]; then
         LANGID=""
     else
         LANGID="-$(echo ${LOCALE} | cut -d_ -f1)"
@@ -158,49 +158,68 @@ common_variables() {
 # The function does not take any arguments, and it needs to be called before using any of the color or style variables in your script.
 console_colors() {
     # Standard colors
-    RED="\e[31m"
-    GREEN="\e[32m"
-    YELLOW="\e[33m"
-    BLUE="\e[34m"
-    MAGENTA="\e[35m"
-    CYAN="\e[36m"
+    RED=$'\e[31m'
+    GREEN=$'\e[32m'
+    YELLOW=$'\e[33m'
+    BLUE=$'\e[34m'
+    MAGENTA=$'\e[35m'
+    CYAN=$'\e[36m'
 
     # Dark colors
-    DARKGRAY="\e[90m"
-    DARKRED="\e[38;5;52m"
-    DARKGREEN="\e[38;5;22m"
+    DARKGRAY=$'\e[90m'
+    DARKRED=$'\e[38;5;52m'
+    DARKGREEN=$'\e[38;5;22m'
 
     # Light colors
-    LIGHTGRAY="\e[37m"
-    LIGHTRED="\e[91m"
-    LIGHTGREEN="\e[92m"
-    LIGHTYELLOW="\e[93m"
-    LIGHTBLUE="\e[94m"
-    LIGHTMAGENTA="\e[95m"
-    LIGHTCYAN="\e[96m"
+    LIGHTGRAY=$'\e[37m'
+    LIGHTRED=$'\e[91m'
+    LIGHTGREEN=$'\e[92m'
+    LIGHTYELLOW=$'\e[93m'
+    LIGHTBLUE=$'\e[94m'
+    LIGHTMAGENTA=$'\e[95m'
+    LIGHTCYAN=$'\e[96m'
 
     # Neon Colors
-    BRIGHTORANGE="\e[38;5;202m"
-    BRIGHTGREEN="\e[38;5;46m"
+    BRIGHTORANGE=$'\e[38;5;202m'
+    BRIGHTGREEN=$'\e[38;5;46m'
 
     # Other colors
-    ORANGE="\e[38;5;214m"
-    GOLD="\e[38;5;220m"
-    PURPLE="\e[38;5;93m"
-    PINK="\e[38;5;13m"
-    TEAL="\e[38;5;6m"
-    NAVY="\e[38;5;18m"
+    ORANGE=$'\e[38;5;214m'
+    GOLD=$'\e[38;5;220m'
+    PURPLE=$'\e[38;5;93m'
+    PINK=$'\e[38;5;13m'
+    TEAL=$'\e[38;5;6m'
+    NAVY=$'\e[38;5;18m'
 
     # Text formatting
-    BOLD="\e[1m"
-    DIM="\e[2m"
-    UNDERLINED="\e[4m"
-    BLINK="\e[5m"
-    REVERSE="\e[7m"
-    HIDDEN="\e[8m"
+    BOLD=$'\e[1m'
+    DIM=$'\e[2m'
+    UNDERLINED=$'\e[4m'
+    BLINK=$'\e[5m'
+    REVERSE=$'\e[7m'
+    HIDDEN=$'\e[8m'
 
     # Formatting reset
-    ENDCOLOR="\e[0m"
+    ENDCOLOR=$'\e[0m'
+}
+
+# Function: spinner
+# Description: Display an animated spinner while waiting for a background process.
+# Parameters:
+#   $1 - Process ID (PID) of the background process.
+#   $2 - Custom message text to display.
+spinner() {
+    local PID="${1}"
+    local MSG="${2}"
+    local DELAY=0.1
+    local SPINSTR='|/-\\'
+    while ps -p "${PID}" >/dev/null 2>&1; do
+        for ((i = 0; i < ${#SPINSTR}; i++)); do
+            printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:$i:1}${ENDCOLOR}]"
+            sleep "${DELAY}"
+        done
+    done
+    printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n"
 }
 
 # A function to read specific variables from a configuration file in Bash.
@@ -850,7 +869,7 @@ LIVEKITNAME="${LIVEKITNAME}"
 LOCALE="${LOCALE}"
 MODULE="${MODULE}"
 MULTILINGUAL="${MULTILINGUAL}"
-KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES}"
+KEEP_LOCALES="${KEEP_LOCALES}"
 PACKAGE_VARIANT="${PACKAGE_VARIANT}"
 TIMEZONE="${TIMEZONE}"
 USER_NAME="${USER_NAME}"
@@ -883,7 +902,7 @@ KERNEL_VERSION="${KERNEL_VERSION}"
 # Locale, timezone, layout settings
 LOCALE="${LOCALE}"
 MULTILINGUAL="${MULTILINGUAL}"
-KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES}"
+KEEP_LOCALES="${KEEP_LOCALES}"
 TIMEZONE="${TIMEZONE}"
 LAYOUTDSC="${LAYOUTDSC}"
 LAYOUTID="${LAYOUTID}"
@@ -1140,12 +1159,12 @@ copy_build_scripts() {
     local DESTINATION=${1:-$INSTALL_DIR}
 
     mkdir -p "${DESTINATION}/linux-live"
-    rsync -a --exclude='.git' "$BUILD_SCRIPTS_DIR/" "${DESTINATION}/$BUILD_SCRIPTS/"
+    rsync -a --exclude='.git' "$BUILD_SCRIPTS_DIR/" "${DESTINATION}/${BUILD_SCRIPTS}/"
 
-    cp $GENERAL_CONF "${DESTINATION}/$BUILD_SCRIPTS"
-    cp $BUILD_CONF "${DESTINATION}/$BUILD_SCRIPTS"
+    cp $GENERAL_CONF "${DESTINATION}/${BUILD_SCRIPTS}"
+    cp $BUILD_CONF "${DESTINATION}/${BUILD_SCRIPTS}"
 
-    chmod +x "${DESTINATION}/$BUILD_SCRIPTS/install-chroot"
+    chmod +x "${DESTINATION}/${BUILD_SCRIPTS}/install-chroot"
 }
 
 build_chroot() {
@@ -1160,18 +1179,18 @@ build_chroot() {
     create_apt_list
 
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
-        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}-snapshot.list" "${INSTALL_DIR}/etc/apt/sources.list"
     else
-        cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 
-    curl -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
-    curl -k http://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+    curl --silent -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
+    curl --silent -k http://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
 
     if [ -f /.minios-live-container ]; then
-        chroot_run "${INSTALL_DIR}" /$BUILD_SCRIPTS/install-chroot -
+        chroot_run "${INSTALL_DIR}" /${BUILD_SCRIPTS}/install-chroot -
     else
-        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /$BUILD_SCRIPTS/install-chroot -"
+        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /${BUILD_SCRIPTS}/install-chroot -"
     fi
 
     if [[ "${RELEASE}" = "true" ]]; then
@@ -1526,8 +1545,8 @@ build_initrd() {
     [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
 
     copy_build_scripts "${MODULE_DIR[merged]}"
-    chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS/build-initramfs"
-    chroot_run "${MODULE_DIR[merged]}" "/$BUILD_SCRIPTS/build-initramfs"
+    chmod +x "${MODULE_DIR[merged]}/${BUILD_SCRIPTS}/build-initramfs"
+    chroot_run "${MODULE_DIR[merged]}" "/${BUILD_SCRIPTS}/build-initramfs"
 
     kernel_variables
     cp "${MODULE_DIR[merged]}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
@@ -1768,13 +1787,13 @@ chroot_cleanup() {
     rm -rf "${BASE_PATH}/usr/share/man/??" 2>/dev/null
     rm -rf "${BASE_PATH}/usr/share/man/"*_* 2>/dev/null
     rm -f "${BASE_PATH}/kernel.conf" 2>/dev/null
-    rm -f "${BASE_PATH}/${PACKAGE_VARIANT}.list" 2>/dev/null
-    rm -f "${BASE_PATH}/${PACKAGE_VARIANT}-l10n.list" 2>/dev/null
+    rm -f "${BASE_PATH}/packages.list" 2>/dev/null
+    rm -f "${BASE_PATH}/packages-l10n.list" 2>/dev/null
     rm -f "${BASE_PATH}/build" 2>/dev/null
     rm -f "${BASE_PATH}/cleanup" 2>/dev/null
     rm -f "${BASE_PATH}/minioslib" 2>/dev/null
     rm -f "${BASE_PATH}/install" 2>/dev/null
-    rm -f "${BASE_PATH}/package.list" 2>/dev/null
+    rm -f "${BASE_PATH}/packages.list" 2>/dev/null
     rm -f "${BASE_PATH}/postinstall" 2>/dev/null
     rm -f "${BASE_PATH}/preinstall" 2>/dev/null
     rm -f "${BASE_PATH}/root/.bash_history" 2>/dev/null
@@ -1822,14 +1841,14 @@ chroot_cleanup() {
         fi
     fi
 
-    KEEP_ALL_LOCALES="${KEEP_ALL_LOCALES:-false}" # By default, delete locales
+    KEEP_LOCALES="${KEEP_LOCALES:-false}" # By default, delete locales
 
     if [ "${MULTILINGUAL}" = "true" ]; then
         LOCALES_TO_KEEP=("${!LOCALES[@]}")
     else
         LOCALES_TO_KEEP=("$LOCALE")
     fi
-    if [ "${KEEP_ALL_LOCALES}" != "true" ]; then
+    if [ "${KEEP_LOCALES}" != "true" ]; then
         if ([ "$LOCALE" = "C" ] || [ "$LOCALE" = "en_US" ]) && [ "$MULTILINGUAL" != "true" ]; then
             rm -rf "${BASE_PATH}"/usr/share/fluxbox/nls/??* 2>/dev/null
             rm -rf "${BASE_PATH}"/usr/share/locale/?? 2>/dev/null
@@ -1930,17 +1949,17 @@ install_core_packages() {
 
     export_chroot_variables
 
-    if [ -f /$BUILD_SCRIPTS/scripts/00-core/preinstall ]; then
-        chmod +x /$BUILD_SCRIPTS/scripts/00-core/preinstall
-        /$BUILD_SCRIPTS/scripts/00-core/preinstall
+    if [ -f /${BUILD_SCRIPTS}/scripts/00-core/preinstall ]; then
+        chmod +x /${BUILD_SCRIPTS}/scripts/00-core/preinstall
+        /${BUILD_SCRIPTS}/scripts/00-core/preinstall
     fi
-    if [ -f /$BUILD_SCRIPTS/scripts/00-core/install ]; then
-        chmod +x /$BUILD_SCRIPTS/scripts/00-core/install
-        /$BUILD_SCRIPTS/scripts/00-core/install
+    if [ -f /${BUILD_SCRIPTS}/scripts/00-core/install ]; then
+        chmod +x /${BUILD_SCRIPTS}/scripts/00-core/install
+        /${BUILD_SCRIPTS}/scripts/00-core/install
     fi
-    if [ -f /$BUILD_SCRIPTS/scripts/00-core/postinstall ]; then
-        chmod +x /$BUILD_SCRIPTS/scripts/00-core/postinstall
-        /$BUILD_SCRIPTS/scripts/00-core/postinstall
+    if [ -f /${BUILD_SCRIPTS}/scripts/00-core/postinstall ]; then
+        chmod +x /${BUILD_SCRIPTS}/scripts/00-core/postinstall
+        /${BUILD_SCRIPTS}/scripts/00-core/postinstall
     fi
 
     chroot_cleanup core
@@ -1985,355 +2004,6 @@ chroot_finish_up() {
     rm -f /var/lib/dpkg/*-old 2>/dev/null
 }
 
-# Function: install_packages
-# Description: Installs packages with various conditions and parameters.
-# Parameters:
-#   -s, --sed-script: Sed script to apply to the package list.
-#   -a, --add-packages: List of packages to add.
-#   -d, --delete-packages: List of packages to delete.
-#   -r, --replace-packages: List of packages to replace (format: oldpkg:newpkg).
-#   -l, --package-list: Path to the package list file.
-#   -t, --target-release: Target release version.
-#   --simulation: Enable simulation mode (no actual installation).
-#
-# Package List Format:
-#   - Each package on a separate line.
-#   - Lines starting with '#' are comments.
-#   - Special symbols:
-#     ! : Mandatory package.
-#     || : Logical "OR".
-#     && : Logical "AND".
-#     + : Positive filter.
-#     - : Negative filter.
-#
-# Example Usage:
-#   install_packages -a vim curl -d nano emacs -r oldpkg1:newpkg1 -l /path/to/package.list -t bionic --simulation
-#
-# Example Package List:
-#   # Core packages
-#   vim
-#   curl
-#   # Development packages
-#   gcc
-#   make
-#   # Mandatory package
-#   !qemu-kvm
-#   # Packages with logical "OR"
-#   vim || nano
-#   # Packages with logical "AND"
-#   gcc && make
-#   # Packages with positive filter
-#   curl +d=bionic
-#   # Packages with negative filter
-#   emacs -d=bionic
-install_packages() {
-    toggle_shell_options u
-    local SED_SCRIPT=""
-    local ADD_PACKAGES=()
-    local DELETE_PACKAGES=()
-    local REPLACE_PACKAGES=()
-    local PACKAGE_LIST=""
-    local TARGET_RELEASE=""
-    local PACKAGE_ARRAY=()
-    local SIMULATION_MODE=false
-
-    console_colors
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-        -s | --sed-script)
-            shift
-            while [[ $# -gt 0 && $1 != -* ]]; do
-                SED_SCRIPT+="$1 "
-                shift
-            done
-            ;;
-        -a | --add-packages)
-            shift
-            while [[ $# -gt 0 && $1 != -* ]]; do
-                ADD_PACKAGES+=("$1")
-                shift
-            done
-            ;;
-        -d | --delete-packages)
-            shift
-            while [[ $# -gt 0 && $1 != -* ]]; do
-                DELETE_PACKAGES+=("$1")
-                shift
-            done
-            ;;
-        -r | --replace-packages)
-            shift
-            while [[ $# -gt 0 && $1 != -* ]]; do
-                REPLACE_PACKAGES+=("$1")
-                shift
-            done
-            ;;
-        -l | --package-list)
-            PACKAGE_LIST="$2"
-            shift 2
-            ;;
-        -t | --target-release)
-            TARGET_RELEASE="$2"
-            shift 2
-            ;;
-        --simulation)
-            SIMULATION_MODE=true
-            shift
-            ;;
-        *)
-            error "Invalid option: $1" >&2
-            exit 1
-            ;;
-        esac
-    done
-
-    if [[ "$SIMULATION_MODE" == true ]]; then
-        information "Simulation mode."
-        echo "DISTRIBUTION=$DISTRIBUTION"
-        echo "DISTRIBUTION_ARCH=$DISTRIBUTION_ARCH"
-        echo "DISTRIBUTION_TYPE=$DISTRIBUTION_TYPE"
-        echo "DISTRIBUTION_PHASE=$DISTRIBUTION_PHASE"
-        echo "DESKTOP_ENVIRONMENT=$DESKTOP_ENVIRONMENT"
-        echo "PACKAGE_VARIANT=$PACKAGE_VARIANT"
-        echo "KERNEL_TYPE=$KERNEL_TYPE"
-        echo "KERNEL_BUILD_DKMS=$KERNEL_BUILD_DKMS"
-        echo "TARGET_RELEASE=$TARGET_RELEASE"
-    fi
-
-    if [[ -z "${PACKAGE_LIST}" ]]; then
-        if [ -f "$SCRIPT_DIR/${PACKAGE_VARIANT}.list" ]; then
-            PACKAGE_LIST="$SCRIPT_DIR/${PACKAGE_VARIANT}.list"
-        elif [ -f "$SCRIPT_DIR/package.list" ]; then
-            PACKAGE_LIST="$SCRIPT_DIR/package.list"
-        else
-            error "There are no lists of packages here."
-            exit 1
-        fi
-    fi
-
-    for PKG in "${DELETE_PACKAGES[@]}"; do
-        SED_SCRIPT+="/${PKG}/d;"
-    done
-
-    for PKG in "${REPLACE_PACKAGES[@]}"; do
-        OLD_PKG="${PKG%%:*}"
-        NEW_PKG="${PKG#*:}"
-        SED_SCRIPT+="s#${OLD_PKG}#${NEW_PKG}#g;"
-    done
-
-    while IFS= read -r LINE; do
-        LINE=${LINE%%#*}
-        if [[ -n "${LINE// /}" ]]; then
-            LINE=$(echo "${LINE}" | sed "${SED_SCRIPT}")
-            if [[ -n "${LINE// /}" ]]; then
-                PACKAGE_ARRAY+=("${LINE}")
-            fi
-        fi
-    done < <(grep -vE '^\s*#' "${PACKAGE_LIST}")
-
-    PACKAGE_ARRAY+=("${ADD_PACKAGES[@]}")
-
-    if [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
-        information "pkgcache.bin cache file missing. Running update of package list..."
-        [[ "$SIMULATION_MODE" != true ]] && pkg update
-    else
-        information "pkgcache.bin cache file detected. Update of package list is not required."
-    fi
-
-    PACKAGES_TO_INSTALL=()
-    for LINE in "${PACKAGE_ARRAY[@]}"; do
-        process_package_conditions "${LINE}"
-    done
-
-    if [[ "$SIMULATION_MODE" == true ]]; then
-        information "Simulation mode is ON. No packages will be installed. Exiting..."
-        exit 1
-    else
-        local INSTALL_OPTIONS=()
-        [[ -n "$TARGET_RELEASE" ]] && INSTALL_OPTIONS=(-t "$TARGET_RELEASE")
-
-        pkg install "${INSTALL_OPTIONS[@]}" "${PACKAGES_TO_INSTALL[@]}"
-    fi
-
-    toggle_shell_options u
-}
-
-process_package_conditions() {
-    local PACKAGE_CONDITIONS="$1"
-    local MANDATORY=false
-
-    if [[ ${PACKAGE_CONDITIONS:0:1} == "!" ]]; then
-        PACKAGE_CONDITIONS="${PACKAGE_CONDITIONS:1}"
-        MANDATORY=true
-    fi
-
-    local ALTERNATIVES
-    if [[ "$PACKAGE_CONDITIONS" == *"||"* ]]; then
-        IFS='||' read -r -a ALTERNATIVES <<<"$PACKAGE_CONDITIONS"
-    else
-        ALTERNATIVES=("$PACKAGE_CONDITIONS")
-    fi
-    for ALTERNATIVE in "${ALTERNATIVES[@]}"; do
-        local ALTERNATIVE=$(echo "$ALTERNATIVE" | xargs)
-        local CONDITIONS
-        if [[ "$ALTERNATIVE" == *"&&"* ]]; then
-            toggle_shell_options e
-            IFS=$'\n' read -d '' -r -a CONDITIONS < <(echo "$ALTERNATIVE" | awk -F '&&' '{for(i=1;i<=NF;i++) print $i}')
-            toggle_shell_options e
-        else
-            CONDITIONS=("$ALTERNATIVE")
-        fi
-        local ALL_CONDITIONS_MET=true
-        for CONDITION in "${CONDITIONS[@]}"; do
-            local CONDITION=$(echo "$CONDITION" | xargs)
-            if ! process_condition "$CONDITION" $MANDATORY; then
-                ALL_CONDITIONS_MET=false
-                break
-            fi
-        done
-
-        if $ALL_CONDITIONS_MET; then
-            return 0
-        fi
-    done
-
-    if $MANDATORY; then
-        exit 1
-    fi
-
-    #return 1
-}
-
-process_condition() {
-    local CONDITION="$1"
-    local MANDATORY=$2
-    local PACKAGE_NAME
-    local PACKAGE_VERSION
-    local INCLUDE=true
-    local FILTER_STRING=""
-    local FILTER
-
-    IFS=' ' read -r PACKAGE_PART CONDITION_STRING <<<"$CONDITION"
-    IFS='=' read -r PACKAGE_NAME PACKAGE_VERSION <<<"$PACKAGE_PART"
-
-    if [[ -z "$PACKAGE_NAME" ]]; then
-        warning "Invalid package name in condition: $CONDITION"
-        return 1
-    fi
-
-    IFS=' ' read -r -a FILTERS <<<"$CONDITION_STRING"
-
-    for FILTER in "${FILTERS[@]}"; do
-        case "$FILTER" in
-        +*)
-            FILTER=${FILTER#+}
-            if ! check_filter "$FILTER"; then
-                INCLUDE=false
-                FILTER_STRING+="${RED}[+ ${FILTER}]: Failed${ENDCOLOR}; "
-            else
-                FILTER_STRING+="${GREEN}[+ ${FILTER}]: Passed${ENDCOLOR}; "
-            fi
-            ;;
-        -*)
-            FILTER=${FILTER#-}
-            if check_filter "$FILTER"; then
-                INCLUDE=false
-                FILTER_STRING+="${RED}[- ${FILTER}]: Failed${ENDCOLOR}; "
-            else
-                FILTER_STRING+="${GREEN}[- ${FILTER}]: Passed${ENDCOLOR}; "
-            fi
-            ;;
-        esac
-    done
-
-    if $INCLUDE && check_package "$PACKAGE_NAME" "$PACKAGE_VERSION"; then
-        if [[ -n "$FILTER_STRING" ]]; then
-            information "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} will be installed. Filters: ${FILTER_STRING%??}"
-        else
-            information "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} will be installed."
-        fi
-        PACKAGES_TO_INSTALL+=("$PACKAGE_NAME")
-        return 0
-    else
-        if [[ -n "$FILTER_STRING" ]]; then
-            warning "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} will not be installed. Filters: ${FILTER_STRING%??}"
-        else
-            $MANDATORY && error "Mandatory package ${CYAN}$PACKAGE_NAME${ENDCOLOR} is not found in the repository. Installation aborted." || warning "Package ${CYAN}$PACKAGE_NAME${ENDCOLOR} is not found in the repository and will not be installed."
-        fi
-        return 1
-    fi
-}
-
-check_package() {
-    local PACKAGE_NAME="$1"
-    local PACKAGE_VERSION="$2"
-
-    if $SIMULATION_MODE; then
-        return 0
-    fi
-
-    if [ "${PACKAGE_NAME}" = "qemu-kvm" ]; then
-        if echo $(LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1) | grep -q 'purely virtual'; then
-            return 0
-        else
-            return 1
-        fi
-    fi
-
-    if [ -z "${PACKAGE_VERSION}" ]; then
-        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
-            return 1
-        else
-            return 0
-        fi
-    else
-        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
-            return 0
-        else
-            warning "Version ${CYAN}${PACKAGE_VERSION}${ENDCOLOR} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not in the repository, fall back to the available version."
-            if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
-                return 1
-            else
-                return 0
-            fi
-        fi
-    fi
-}
-
-check_filter() {
-    local FILTER="$1"
-
-    case "$FILTER" in
-    d=*)
-        [[ "${FILTER#d=}" == "$DISTRIBUTION" ]] && return 0
-        ;;
-    da=*)
-        [[ "${FILTER#da=}" == "$DISTRIBUTION_ARCH" ]] && return 0
-        ;;
-    dt=*)
-        [[ "${FILTER#dt=}" == "$DISTRIBUTION_TYPE" ]] && return 0
-        ;;
-    dp=*)
-        [[ "${FILTER#dp=}" == "$DISTRIBUTION_PHASE" ]] && return 0
-        ;;
-    de=*)
-        [[ "${FILTER#de=}" == "$DESKTOP_ENVIRONMENT" ]] && return 0
-        ;;
-    pv=*)
-        [[ "${FILTER#pv=}" == "$PACKAGE_VARIANT" ]] && return 0
-        ;;
-    kt=*)
-        [[ "${FILTER#kt=}" == "$KERNEL_TYPE" ]] && return 0
-        ;;
-    kbd=*)
-        [[ "${FILTER#kbd=}" == "$KERNEL_BUILD_DKMS" ]] && return 0
-        ;;
-    esac
-
-    return 1
-}
-
 # Function to set kernel related variables
 kernel_variables() {
     toggle_shell_options u
@@ -2356,8 +2026,8 @@ create_initrfs() {
             read_config "${WORK_DIR}/minios-build.conf" KERNEL
         fi
         copy_build_scripts "${MODULE_DIR[merged]}"
-        chmod +x "${MODULE_DIR[merged]}/$BUILD_SCRIPTS/initrfs"
-        chroot "${MODULE_DIR[merged]}" /$BUILD_SCRIPTS/initrfs
+        chmod +x "${MODULE_DIR[merged]}/${BUILD_SCRIPTS}/initrfs"
+        chroot "${MODULE_DIR[merged]}" /${BUILD_SCRIPTS}/initrfs
         kernel_variables
         if ls "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* 2>/dev/null; then
             cp "${MODULE_DIR[merged]}"/boot/vmlinuz-**-**-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
@@ -2480,7 +2150,7 @@ build_modules() {
 
     [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
 
-    ENVIRONMENTS="$BUILD_SCRIPTS_DIR/environments/${DESKTOP_ENVIRONMENT}"
+    ENVIRONMENTS="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
     cd "${ENVIRONMENTS}" || exit 1
@@ -2526,10 +2196,12 @@ build_modules() {
                 cp "${ENVIRONMENTS}/${MODULE}/install" "${MODULE_DIR[merged]}/install"
                 chmod +x "${MODULE_DIR[merged]}/install"
 
+                cp "${BUILD_SCRIPTS_DIR}/install-packages" "${MODULE_DIR[merged]}/install-packages"
+                chmod +x "${MODULE_DIR[merged]}/install-packages"
+
                 [ -f "${ENVIRONMENTS}/${MODULE}/cleanup" ] && cp "${ENVIRONMENTS}/${MODULE}/cleanup" "${MODULE_DIR[merged]}/cleanup"
-                [ -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" ] && cp "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" "${MODULE_DIR[merged]}/${PACKAGE_VARIANT}.list"
-                [ -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}-l10n.list" "${MODULE_DIR[merged]}/${PACKAGE_VARIANT}-l10n.list"
-                [ -f "${ENVIRONMENTS}/${MODULE}/package.list" ] && cp "${ENVIRONMENTS}/${MODULE}/package.list" "${MODULE_DIR[merged]}/package.list"
+                [ -f "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" "${MODULE_DIR[merged]}/packages-l10n.list"
+                [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${MODULE_DIR[merged]}/packages.list"
 
                 echo -e "=====> ${GREEN}install${ENDCOLOR} script is executing ..."
                 chroot_run "${MODULE_DIR[merged]}" /install
