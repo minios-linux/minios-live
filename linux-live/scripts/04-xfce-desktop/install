@@ -190,6 +190,10 @@ sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" t
 sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<property name="HintStyle" type="string" value="hintfull"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 
+if dpkg -l | grep -q lightdm; then
+    sed -i 's|^auth      required pam_succeed_if.so user != root quiet_success|#&|' /etc/pam.d/lightdm-autologin
+fi
+
 if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
     update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
 fi
