@@ -3,6 +3,10 @@ name: bookworm-xfce-standard-i386
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'v4x'
       tag:
         description: 'Release tag'
         required: true
@@ -13,7 +17,7 @@ jobs:
     steps:
     - name: Clone minios-live Repository
       run: |
-        git clone --branch v4x --single-branch --depth 1 https://github.com/minios-linux/minios-live.git
+        git clone --branch ${{ github.event.inputs.branch }} --single-branch --depth 1 https://github.com/minios-linux/minios-live.git
         cd minios-live
 
     - name: Install dependencies
@@ -56,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           repo=${{ github.repository }}
-          tag_name=${{ env.tag_name }}
+          tag_name=${{ github.event.inputs.tag }}
           for artifact_dir in ./artifacts/*; do
             for artifact in "$artifact_dir"/*; do
               gh release upload "$tag_name" "$artifact" --repo "$repo" --clobber
