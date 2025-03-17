@@ -11,6 +11,8 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 IFS="/"
 TIMEZONE=(${TIMEZONE})
 
+console_colors
+
 if [ -d "/usr/lib/systemd/system" ]; then
     SYSTEMD_PATH="/usr/lib/systemd"
 elif [ -d "/lib/systemd/system" ]; then
@@ -58,9 +60,14 @@ if [ "${MULTILINGUAL}" = "true" ]; then
     )
 fi
 
-for SETTING in "${DEBCONF_SETTINGS[@]}"; do
-    echo "${SETTING}" | debconf-set-selections -v
-done
+(
+    for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+        echo "${SETTING}" | debconf-set-selections -v >/dev/null 2>&1
+    done
+) &
+DEBCONF_PID="$!"
+spinner "${DEBCONF_PID}" "Applying debconf settings"
+wait "${DEBCONF_PID}"
 
 if [ ! -f /etc/apt/apt.conf.d/000MiniOS ]; then
     cat <<'EOF' >/etc/apt/apt.conf.d/000MiniOS
@@ -108,20 +115,26 @@ path-include=/usr/share/locale/locale.alias
 EOF
 fi
 
-pkg update && pkg upgrade
+APT_PID=""
 
-ADD_PACKAGES=""
-DELETE_PACKAGES=""
-REPLACE_PACKAGES=""
+DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 &
+APT_PID="$!"
+spinner "${APT_PID}" "Updating package lists"
+wait "${APT_PID}"
 
-# Install packages
-install_packages -l "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq >/dev/null 2>&1 &
+APT_PID="$!"
+spinner "${APT_PID}" "Upgrading installed packages"
+wait "${APT_PID}"
+
+chmod +x /linux-live/install-packages
+/linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios-build.conf"
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     pkg autoremove linux-modules-extra-* linux-firmware
 fi
 
-if grep -q dnsmasq "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q dnsmasq; then
     if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ]; then
         systemctl disable dnsmasq
     fi
@@ -131,18 +144,18 @@ if [ -f /bin/ping ]; then
     chmod +s /bin/ping
 fi
 
-if grep -q docker "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q docker; then
     systemctl disable docker.socket
     systemctl disable docker.service
     systemctl disable containerd.service
 fi
-if grep -q libvirt "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q libvirt; then
     systemctl disable libvirtd
 fi
-if grep -q open-iscsi "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q open-iscsi; then
     systemctl disable iscsid
 fi
-if grep -q nfs-common "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q nfs-common; then
     systemctl disable rpcbind
 fi
 
@@ -151,7 +164,7 @@ if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service
     systemctl disable grub-initrd-fallback.service
 fi
 
-if grep -q ssh "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q ssh; then
     echo "Disable ssh.service autostart."
     systemctl disable ssh
 fi
@@ -230,7 +243,7 @@ EOF
     dpkg-reconfigure -f noninteractive keyboard-configuration
 fi
 
-if grep console-setup "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q console-setup; then
     cat >/etc/default/console-setup <<'EOF'
 # CONFIGURATION FILE FOR SETUPCON
 
@@ -252,16 +265,16 @@ EOF
     dpkg-reconfigure -f noninteractive console-setup
 fi
 
-if grep -q firewalld "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q firewalld; then
     systemctl disable firewalld
 else
     rm -rf /etc/firewalld
 fi
-if grep -q cockpit "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q cockpit; then
     systemctl disable cockpit.socket
 fi
 
-if grep -q laptop-mode-tools "${SCRIPT_DIR}/${PACKAGE_VARIANT}.list"; then
+if dpkg -l | grep -q laptop-mode-tools; then
     if [ -f /usr/share/applications/laptop-mode-tools.desktop ]; then
         rm /usr/share/applications/laptop-mode-tools.desktop
     fi
@@ -313,8 +326,15 @@ EOF
     #chmod +x /etc/NetworkManager/dispatcher.d/09-timedate
 fi
 
-pkg purge vim* grub* debconf-i18n installation-report
-pkg autoremove
+DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq vim* grub* debconf-i18n installation-report >/dev/null 2>&1 &
+PURGE_PID="$!"
+spinner "${PURGE_PID}" "Purging packages"
+wait "${PURGE_PID}"
+
+DEBIAN_FRONTEND=noninteractive apt-get autoremove -y -qq &
+AUTOREMOVE_PID="$!"
+spinner "${AUTOREMOVE_PID}" "Autoremoving packages"
+wait "${AUTOREMOVE_PID}"
 
 if [ "${LOCALE}" != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then

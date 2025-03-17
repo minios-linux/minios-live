@@ -1,2 +1,0 @@
-xrdb -merge .Xresources
-openbox

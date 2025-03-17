@@ -1,0 +1,748 @@
+#!/bin/bash
+#
+# DESCRIPTION:
+#   Installs packages from a package list file with conditions.
+#   Filter options are loaded from a configuration file.
+#
+# USAGE:
+#   $(basename "${0}") [OPTIONS]
+#
+#   Options:
+#     -l, --package-list PATH     Path to the package list file.
+#     -c, --config PATH           Path to the configuration file with filter options.
+#     -s, --simulation            Enable simulation mode (no actual installation).
+#     -v, --verbose               Enable verbose mode (detailed filter information).
+#     -vv, --very-verbose         Enable very verbose mode (with additional command tracing).
+#     -h, --help                  Display this help message and exit.
+#
+# CONFIGURATION FILE:
+#   Must define the following variables:
+#     DISTRIBUTION, DISTRIBUTION_ARCH, DISTRIBUTION_TYPE, DISTRIBUTION_PHASE,
+#     DESKTOP_ENVIRONMENT, PACKAGE_VARIANT, KERNEL_TYPE, KERNEL_BUILD_DKMS,
+#     LOCALE, MULTILINGUAL, KEEP_LOCALES, USE_APT_CACHE.
+#
+# Author: crims0n <https://minios.dev>
+
+set -o pipefail
+set -u
+
+#------------------------------------------------------------------------------
+# Helper Functions: Console Colors and Message Printing
+#------------------------------------------------------------------------------
+
+# Function: console_colors
+# Description: Define console color variables for output.
+console_colors() {
+    RED=$'\e[31m'
+    GREEN=$'\e[32m'
+    YELLOW=$'\e[33m'
+    BLUE=$'\e[34m'
+    MAGENTA=$'\e[35m'
+    CYAN=$'\e[36m'
+    LIGHTGRAY=$'\e[37m'
+    DARKGRAY=$'\e[90m'
+    LIGHTRED=$'\e[91m'
+    LIGHTGREEN=$'\e[92m'
+    LIGHTYELLOW=$'\e[93m'
+    LIGHTBLUE=$'\e[94m'
+    LIGHTMAGENTA=$'\e[95m'
+    LIGHTCYAN=$'\e[96m'
+    BOLD=$'\e[1m'
+    ENDCOLOR=$'\e[0m'
+}
+
+# Function: error
+# Description: Display an error message.
+error() {
+    local MESSAGE="${1}"
+    echo -e "${BOLD}${RED}E:${ENDCOLOR} ${MESSAGE}" >&2
+}
+
+# Function: information
+# Description: Display an informational message.
+information() {
+    local MESSAGE="${1}"
+    echo -e "${BOLD}${CYAN}I:${ENDCOLOR} ${MESSAGE}"
+}
+
+# Function: warning
+# Description: Display a warning message.
+warning() {
+    local MESSAGE="${1}"
+    echo -e "${BOLD}${YELLOW}W:${ENDCOLOR} ${MESSAGE}"
+}
+
+# Function: spinner
+# Description: Display an animated spinner while waiting for a background process.
+# Parameters:
+#   $1 - Process ID (PID) of the background process.
+#   $2 - Custom message text to display.
+spinner() {
+    local PID="${1}"
+    local MSG="${2}"
+    local DELAY=0.1
+    local SPINSTR='|/-\\'
+    while ps -p "${PID}" >/dev/null 2>&1; do
+        for ((i = 0; i < ${#SPINSTR}; i++)); do
+            printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:$i:1}${ENDCOLOR}]"
+            sleep "${DELAY}"
+        done
+    done
+    printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n"
+}
+
+#------------------------------------------------------------------------------
+# Function: is_in_chroot
+# Description: Check if the script is running in a chroot environment.
+is_in_chroot() {
+    if [ -d /proc/1/root ] && [ "$(stat -c %m /proc/1/root)" != "/" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Help Functions
+#------------------------------------------------------------------------------
+
+# Function: help
+# Description: Display detailed help information.
+help() {
+    console_colors
+    echo -e "${CYAN}Usage: $(basename "${0}") [OPTIONS]${ENDCOLOR}"
+    echo "Installs packages from a package list file with conditions."
+    echo ""
+    echo -e "${CYAN}Options:${ENDCOLOR}"
+    echo ""
+    echo -e "${LIGHTBLUE}General Options:${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-l, --package-list${ENDCOLOR} PATH            Path to the package list file."
+    echo -e "  ${LIGHTGREEN}-c, --config${ENDCOLOR} PATH                  Path to the configuration file with filter options."
+    echo -e "  ${LIGHTGREEN}-s, --simulation${ENDCOLOR}                   Enable simulation mode (no actual installation)."
+    echo -e "  ${LIGHTGREEN}-v, --verbose${ENDCOLOR}                      Enable verbose mode (detailed filter information)."
+    echo -e "  ${LIGHTGREEN}-vv, --very-verbose${ENDCOLOR}                Enable very verbose mode (with additional command tracing)."
+    echo -e "  ${LIGHTGREEN}-h, --help${ENDCOLOR}                         Display this help message and exit."
+    echo ""
+    echo -e "${LIGHTBLUE}Configuration File:${ENDCOLOR}"
+    echo "  The configuration file should define the following variables:"
+    echo "    DISTRIBUTION, DISTRIBUTION_ARCH, DISTRIBUTION_TYPE, DISTRIBUTION_PHASE,"
+    echo "    DESKTOP_ENVIRONMENT, PACKAGE_VARIANT, KERNEL_TYPE, KERNEL_BUILD_DKMS,"
+    echo "    LOCALE, MULTILINGUAL, KEEP_LOCALES, USE_APT_CACHE."
+    exit 0
+}
+
+# Function: brief_help
+# Description: Display brief help information.
+brief_help() {
+    echo "Usage: $(basename "${0}") [OPTIONS]"
+    echo "Try '$(basename "${0}") --help' for more information."
+    exit 1
+}
+
+#------------------------------------------------------------------------------
+# Package Condition Processing Functions
+#------------------------------------------------------------------------------
+
+# Function: process_condition
+# Description: Evaluate a single condition for a package.
+# Return codes:
+#   0 - Condition satisfied.
+#   1 - Fatal error: package passed filters but not found in repository.
+process_condition() {
+    local CONDITION="${1}"
+    local IS_MANDATORY="${2}"
+    local VERBOSE_MODE="${3}"
+    local PACKAGE_PART PACKAGE_CONDITION_STRING PACKAGE_NAME PACKAGE_VERSION
+    local STRICT_VERSION=false
+    local INCLUDE=true
+    local FILTER_STRING=""
+
+    IFS=' ' read -r PACKAGE_PART PACKAGE_CONDITION_STRING <<<"${CONDITION}"
+    if [[ "${PACKAGE_PART}" == *"=="* ]]; then
+        STRICT_VERSION=true
+        PACKAGE_NAME="${PACKAGE_PART%%==*}"
+        PACKAGE_VERSION="${PACKAGE_PART#*==}"
+    elif [[ "${PACKAGE_PART}" == *"="* ]]; then
+        PACKAGE_NAME="${PACKAGE_PART%%=*}"
+        PACKAGE_VERSION="${PACKAGE_PART#*=}"
+    else
+        PACKAGE_NAME="${PACKAGE_PART}"
+        PACKAGE_VERSION=""
+    fi
+
+    IFS=' ' read -r -a FILTERS <<<"${PACKAGE_CONDITION_STRING}"
+
+    declare -A PLUS_EXISTS_BY_TYPE
+    declare -A PLUS_PASSED_BY_TYPE
+
+    for FILTER in "${FILTERS[@]}"; do
+        case "${FILTER}" in
+        +*)
+            local FILTER_VALUE="${FILTER#+}"
+            local PREFIX="${FILTER_VALUE%%=*}"
+            PLUS_EXISTS_BY_TYPE["${PREFIX}"]=true
+            if check_filter "${FILTER_VALUE}"; then
+                PLUS_PASSED_BY_TYPE["${PREFIX}"]=true
+                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${GREEN}[+ ${FILTER_VALUE}]: Passed${ENDCOLOR}; "
+            else
+                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${RED}[+ ${FILTER_VALUE}]: Failed${ENDCOLOR}; "
+            fi
+            ;;
+        -*)
+            local FILTER_VALUE="${FILTER#-}"
+            if check_filter "${FILTER_VALUE}"; then
+                INCLUDE=false
+                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${RED}[- ${FILTER_VALUE}]: Failed${ENDCOLOR}; "
+            else
+                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${GREEN}[- ${FILTER_VALUE}]: Passed${ENDCOLOR}; "
+            fi
+            ;;
+        esac
+    done
+
+    for PREFIX in "${!PLUS_EXISTS_BY_TYPE[@]}"; do
+        if [ "${PLUS_PASSED_BY_TYPE["${PREFIX}"]:-false}" != true ]; then
+            INCLUDE=false
+        fi
+    done
+
+    if ! ${INCLUDE}; then
+        if [[ "${VERBOSE_MODE}" == true ]] && [[ -n "${FILTER_STRING}" ]]; then
+            warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed. Filters: ${FILTER_STRING%??}"
+        #else
+        #    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
+        fi
+        ${IS_MANDATORY} && warning "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} did ${MAGENTA}not${ENDCOLOR} pass filters and will ${MAGENTA}not${ENDCOLOR} be installed."
+        return 1
+    fi
+
+    check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}" "${STRICT_VERSION}"
+    local CP_RC=${?}
+    if [ ${CP_RC} -eq 0 ]; then
+        if [[ "${VERBOSE_MODE}" == true ]] && [[ -n "${FILTER_STRING}" ]]; then
+            information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will be installed. Filters: ${FILTER_STRING%??}"
+        else
+            information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will be installed."
+        fi
+        if [[ -n "${PACKAGE_VERSION}" ]]; then
+            if [ "${FOUND_EXACT_VERSION}" = true ]; then
+                PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}=${PACKAGE_VERSION}")
+                PACKAGES_TO_HOLD+=("${PACKAGE_NAME}")
+            else
+                PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}")
+            fi
+        else
+            PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}")
+        fi
+        return 0
+    elif [ ${CP_RC} -eq 2 ]; then
+        return 0
+    else
+        if [[ "${VERBOSE_MODE}" == true ]] && [[ -n "${FILTER_STRING}" ]]; then
+            warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed. Filters: ${FILTER_STRING%??}"
+        #else
+        #    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
+        fi
+        ${IS_MANDATORY} && error "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is ${MAGENTA}not${ENDCOLOR} found in the repository. Installation aborted."
+        return 1
+    fi
+}
+
+# Function: process_package_conditions
+# Description: Splits package conditions by logical operators and evaluates each alternative.
+# Return codes:
+#   0 - At least one alternative succeeded or package skipped.
+#   1 - Fatal error for a mandatory package.
+process_package_conditions() {
+    local PACKAGE_CONDITIONS="${1}"
+    local VERBOSE_MODE="${2}"
+    local IS_MANDATORY=false
+
+    if [[ ${PACKAGE_CONDITIONS:0:1} == "!" ]]; then
+        PACKAGE_CONDITIONS="${PACKAGE_CONDITIONS:1}"
+        IS_MANDATORY=true
+    fi
+
+    local -a ALTERNATIVES
+    if [[ "${PACKAGE_CONDITIONS}" == *"||"* ]]; then
+        IFS=$'\n' read -r -d '' -a ALTERNATIVES < <(echo "${PACKAGE_CONDITIONS}" | awk -F '\\|\\|' '{for(i=1;i<=NF;i++) {gsub(/^[ \t]+|[ \t]+$/, "", $i); print $i}}') || true
+    else
+        ALTERNATIVES=("${PACKAGE_CONDITIONS}")
+    fi
+
+    local ANY_ALTERNATIVE_SUCCESS=false
+    local FATAL_FAILURE=false
+
+    for ALTERNATIVE in "${ALTERNATIVES[@]}"; do
+        local -a CONDITIONS
+        if [[ "${ALTERNATIVE}" == *"&&"* ]]; then
+            IFS=$'\n' read -r -d '' -a CONDITIONS < <(echo "${ALTERNATIVE}" | awk -F '&&' '{for(i=1;i<=NF;i++) {gsub(/^[ \t]+|[ \t]+$/, "", $i); print $i}}') || true
+        else
+            CONDITIONS=("${ALTERNATIVE}")
+        fi
+
+        local ALL_CONDITIONS_MET=true
+        local ALT_RC=0
+        for CONDITION in "${CONDITIONS[@]}"; do
+            process_condition "${CONDITION}" "${IS_MANDATORY}" "${VERBOSE_MODE}"
+            local RET=${?}
+            if [ ${RET} -ne 0 ]; then
+                ALL_CONDITIONS_MET=false
+                ALT_RC=${RET}
+                break
+            fi
+        done
+
+        if ${ALL_CONDITIONS_MET}; then
+            ANY_ALTERNATIVE_SUCCESS=true
+            break
+        else
+            [ ${ALT_RC} -eq 1 ] && FATAL_FAILURE=true
+        fi
+    done
+
+    ${ANY_ALTERNATIVE_SUCCESS} && return 0
+    ${IS_MANDATORY} && ${FATAL_FAILURE} && exit 1
+    return 0
+}
+
+#------------------------------------------------------------------------------
+# Package Installation Queue Processing
+#------------------------------------------------------------------------------
+
+# Function: process_queue
+# Description: Process a single installation queue.
+process_queue() {
+    local QUEUE_ID="${1}"
+    shift
+    local VERBOSE_MODE="${1}"
+    shift
+    local SIMULATION_MODE="${1}"
+    shift
+    local TARGET_RELEASE="${1}"
+    shift
+    local -a QUEUE=("$@")
+
+    information "${YELLOW}Installation Queue #${QUEUE_ID}:${ENDCOLOR}"
+
+    PACKAGES_TO_INSTALL=()
+    PACKAGES_TO_HOLD=()
+
+    for PACKAGE_CONDITIONS in "${QUEUE[@]}"; do
+        process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSE_MODE}"
+    done
+
+    if [[ "${SIMULATION_MODE}" == true ]]; then
+        if [[ -n "${TARGET_RELEASE}" ]]; then
+            information "Simulation mode is ${GREEN}ON${ENDCOLOR}. Simulating installation for Queue #${QUEUE_ID} (target release: ${TARGET_RELEASE}): ${PACKAGES_TO_INSTALL[*]}"
+        else
+            information "Simulation mode is ${GREEN}ON${ENDCOLOR}. Simulating installation for Queue #${QUEUE_ID}: ${PACKAGES_TO_INSTALL[*]}"
+        fi
+        if ${VERBOSE_MODE}; then
+            if [[ -n "${TARGET_RELEASE}" ]]; then
+                DEBIAN_FRONTEND=noninteractive apt-get -s -t "${TARGET_RELEASE}" -y install \
+                    -o Dpkg::Options::="--force-confdef" \
+                    -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
+            else
+                DEBIAN_FRONTEND=noninteractive apt-get -s -y install \
+                    -o Dpkg::Options::="--force-confdef" \
+                    -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
+            fi
+            if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
+                for PKG in "${PACKAGES_TO_HOLD[@]}"; do
+                    information "Simulation mode: apt-mark hold ${PKG}"
+                done
+            fi
+        fi
+    else
+        if [ "${#PACKAGES_TO_INSTALL[@]}" -gt 0 ]; then
+            if ${VERBOSE_MODE}; then
+                if [[ -n "${TARGET_RELEASE}" ]]; then
+                    DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
+                        -o Dpkg::Options::="--force-confdef" \
+                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
+                else
+                    DEBIAN_FRONTEND=noninteractive apt-get -y install \
+                        -o Dpkg::Options::="--force-confdef" \
+                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
+                fi
+            else
+                # If USE_APT_CACHE is true and running in a chroot, update apt cache first.
+                if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
+                    if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
+                        chattr -i /var/cache/apt/archives
+                    fi
+                    DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" \
+                        -o Dpkg::Options::="--force-confold" autoclean
+                    DEBIAN_FRONTEND=noninteractive apt-get --download-only -y -o Dpkg::Options::="--force-confdef" \
+                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
+                    APT_CACHE_PID="$!"
+                    spinner "${APT_CACHE_PID}" "Downloading packages to refresh package archive"
+                    wait "${APT_CACHE_PID}"
+                    chattr +i /var/cache/apt/archives
+                fi
+                if [[ -n "${TARGET_RELEASE}" ]]; then
+                    DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
+                        -o Dpkg::Options::="--force-confdef" \
+                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
+                else
+                    DEBIAN_FRONTEND=noninteractive apt-get -y install \
+                        -o Dpkg::Options::="--force-confdef" \
+                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
+                fi
+                INSTALL_PID="$!"
+                spinner "${INSTALL_PID}" "Installing packages"
+                wait "${INSTALL_PID}"
+            fi
+
+            if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
+                for PKG in "${PACKAGES_TO_HOLD[@]}"; do
+                    if ${VERBOSE_MODE}; then
+                        information "Holding package ${CYAN}${PKG}${ENDCOLOR}"
+                    else
+                        printf "\r${BOLD}${CYAN}I:${ENDCOLOR} Holding package ${PKG}...\n"
+                    fi
+                    apt-mark hold "${PKG}"
+                done
+            fi
+        else
+            if ${VERBOSE_MODE}; then
+                information "No packages to install in Queue #${QUEUE_ID}."
+            else
+                echo "No packages to install in Queue #${QUEUE_ID}."
+            fi
+        fi
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Package Checking Functions
+#------------------------------------------------------------------------------
+
+# Function: check_package
+# Description: Check if the package (and optionally the version) exists in the repository.
+# Return codes:
+#   0 - Package available in repository.
+#   1 - Package not available in repository (fatal).
+#   2 - Package already installed.
+check_package() {
+    local PACKAGE_NAME="${1}"
+    local PACKAGE_VERSION="${2}"
+    local STRICT_VERSION="${3:-false}"
+    FOUND_EXACT_VERSION=false
+
+    local INSTALLED_VERSION
+    INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}" 2>/dev/null || echo "")
+    if [ -n "${INSTALLED_VERSION}" ]; then
+        if [ -z "${PACKAGE_VERSION}" ]; then
+            local REPO_CANDIDATE
+            REPO_CANDIDATE=$(apt-cache policy "${PACKAGE_NAME}" 2>/dev/null | awk '/Candidate:/ {print $2}')
+            if [ -n "${REPO_CANDIDATE}" ]; then
+                if [ "${INSTALLED_VERSION}" = "${REPO_CANDIDATE}" ]; then
+                    information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                    return 2
+                else
+                    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is installed (version ${INSTALLED_VERSION}), but the repository candidate is ${REPO_CANDIDATE}. An update/downgrade will be performed."
+                fi
+            else
+                information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                return 2
+            fi
+        else
+            if [ "${INSTALLED_VERSION}" = "${PACKAGE_VERSION}" ]; then
+                information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                return 2
+            else
+                warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is installed (version ${INSTALLED_VERSION}), but the required version is ${PACKAGE_VERSION}. An update/downgrade will be performed."
+            fi
+        fi
+    fi
+
+    SPECIAL_PACKAGES=("qemu-kvm")
+    for SPECIAL in "${SPECIAL_PACKAGES[@]}"; do
+        if [ "${PACKAGE_NAME}" = "${SPECIAL}" ]; then
+            if LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1 | grep -q 'purely virtual'; then
+                return 0
+            else
+                return 1
+            fi
+        fi
+    done
+
+    if [ -z "${PACKAGE_VERSION}" ]; then
+        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
+            return 1
+        else
+            return 0
+        fi
+    else
+        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
+            FOUND_EXACT_VERSION=true
+            return 0
+        else
+            if [ "${STRICT_VERSION}" = true ]; then
+                warning "Strict version requirement: version ${PACKAGE_VERSION} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not available in the repository. Skipping installation."
+                return 1
+            else
+                warning "Version ${PACKAGE_VERSION} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not available in the repository. The available version will be installed."
+                if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
+                    return 1
+                else
+                    FOUND_EXACT_VERSION=false
+                    return 0
+                fi
+            fi
+        fi
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Filter Environment and Checking Functions
+#------------------------------------------------------------------------------
+
+# Function: init_filter_env_vars
+# Description: Initialize an associative array mapping filter prefixes to environment variable names.
+init_filter_env_vars() {
+    declare -gA FILTER_ENV_VARS=(
+        [d]="DISTRIBUTION"
+        [da]="DISTRIBUTION_ARCH"
+        [dt]="DISTRIBUTION_TYPE"
+        [dp]="DISTRIBUTION_PHASE"
+        [de]="DESKTOP_ENVIRONMENT"
+        [pv]="PACKAGE_VARIANT"
+        [kt]="KERNEL_TYPE"
+        [kbd]="KERNEL_BUILD_DKMS"
+        [lo]="LOCALE"
+        [ml]="MULTILINGUAL"
+        [kl]="KEEP_LOCALES"
+    )
+}
+
+# Function: check_filter
+# Description: Checks if the filter value matches the corresponding environment variable.
+# Expects a filter string in the format "prefix=value" (e.g., "da=amd64").
+check_filter() {
+    if [ -z "${FILTER_ENV_VARS+x}" ]; then
+        init_filter_env_vars
+    fi
+    local FILTER="${1}"
+    local PREFIX="${FILTER%%=*}"
+    local VALUE="${FILTER#*=}"
+    local VAR_NAME="${FILTER_ENV_VARS[${PREFIX}]}"
+    if [ -n "${VAR_NAME}" ]; then
+        if [ "${VALUE}" == "${!VAR_NAME}" ]; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Main Function: install_packages
+#------------------------------------------------------------------------------
+
+# Function: install_packages
+# Description: Parse arguments, perform checks, read the package list,
+#              split into queues (grouped by target release) and process them.
+install_packages() {
+    local PACKAGE_LIST=""
+    local SIMULATION_MODE=false
+    local VERBOSE_MODE=false
+    local TRACING_MODE=false
+    local CONFIG_FILE=""
+
+    PACKAGE_ARRAY=()
+    PACKAGES_TO_INSTALL=()
+    PACKAGES_TO_HOLD=()
+
+    console_colors
+
+    # Parse command-line arguments.
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+        -l | --package-list)
+            PACKAGE_LIST="$2"
+            shift 2
+            ;;
+        -c | --config)
+            CONFIG_FILE="$2"
+            shift 2
+            ;;
+        -s | --simulation)
+            SIMULATION_MODE=true
+            shift
+            ;;
+        -v | --verbose)
+            VERBOSE_MODE=true
+            shift
+            ;;
+        -vv | --very-verbose)
+            VERBOSE_MODE=true
+            TRACING_MODE=true
+            shift
+            ;;
+        -h | --help)
+            help
+            exit 0
+            ;;
+        -* | --*)
+            error "Unsupported flag ${1}"
+            brief_help
+            ;;
+        *)
+            error "Invalid input ${1}"
+            brief_help
+            ;;
+        esac
+    done
+
+    if [[ -z "${PACKAGE_LIST}" ]]; then
+        error "No package list provided."
+        exit 1
+    fi
+
+    if [[ ! -f "${PACKAGE_LIST}" ]]; then
+        error "Package list file '${PACKAGE_LIST}' does not exist."
+        exit 1
+    fi
+
+    if [[ ! -r "${PACKAGE_LIST}" ]]; then
+        error "Package list file '${PACKAGE_LIST}' is not readable."
+        exit 1
+    fi
+
+    if [[ -n "${CONFIG_FILE}" ]]; then
+        if [[ -f "${CONFIG_FILE}" && -r "${CONFIG_FILE}" ]]; then
+            source "${CONFIG_FILE}"
+        else
+            error "Config file '${CONFIG_FILE}' does not exist or is not readable."
+            exit 1
+        fi
+    else
+        error "No configuration file provided. Use -c or --config to specify the config file."
+        exit 1
+    fi
+
+    if ${TRACING_MODE}; then
+        set -x
+    fi
+
+    if [[ "${SIMULATION_MODE}" == true ]]; then
+        information "${GREEN}Simulation mode enabled.${ENDCOLOR}"
+        echo "   DISTRIBUTION=\"${DISTRIBUTION}\""
+        echo "   DISTRIBUTION_ARCH=\"${DISTRIBUTION_ARCH}\""
+        echo "   DISTRIBUTION_TYPE=\"${DISTRIBUTION_TYPE}\""
+        echo "   DISTRIBUTION_PHASE=\"${DISTRIBUTION_PHASE}\""
+        echo "   DESKTOP_ENVIRONMENT=\"${DESKTOP_ENVIRONMENT}\""
+        echo "   PACKAGE_VARIANT=\"${PACKAGE_VARIANT}\""
+        echo "   KERNEL_TYPE=\"${KERNEL_TYPE}\""
+        echo "   KERNEL_BUILD_DKMS=\"${KERNEL_BUILD_DKMS}\""
+        echo "   LOCALE=\"${LOCALE}\""
+        echo "   MULTILINGUAL=\"${MULTILINGUAL}\""
+        echo "   KEEP_LOCALES=\"${KEEP_LOCALES}\""
+    fi
+
+    if [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
+        if ${VERBOSE_MODE}; then
+            information "pkgcache.bin cache file missing. Running update of package list..."
+            apt-get update
+        else
+            apt-get update -qq >/dev/null 2>&1 &
+            UPDATE_PID="$!"
+            spinner "${UPDATE_PID}" "Updating package list"
+            wait "${UPDATE_PID}"
+        fi
+    else
+        if ${VERBOSE_MODE}; then
+            information "pkgcache.bin cache file detected. Update of package list is not required."
+        else
+            echo "Package list is up to date."
+        fi
+    fi
+
+    # Group packages into queues.
+    NORMAL_QUEUES=()
+    CURRENT_NORMAL_QUEUE=""
+    declare -A TARGET_QUEUES=()
+    TARGET_ORDER=()
+
+    while IFS= read -r LINE || [ -n "${LINE}" ]; do
+        # Remove comments and trim whitespace.
+        LINE=${LINE%%#*}
+        LINE=$(echo "${LINE}" | xargs)
+        if [[ -z "${LINE}" ]]; then
+            continue
+        fi
+
+        if [[ "${LINE}" == "---" ]]; then
+            if [[ -n "${CURRENT_NORMAL_QUEUE}" ]]; then
+                NORMAL_QUEUES+=("${CURRENT_NORMAL_QUEUE}")
+                CURRENT_NORMAL_QUEUE=""
+            fi
+            continue
+        fi
+
+        # Check if the line contains '@' for target release.
+        if [[ "${LINE}" == *"@"* ]]; then
+            TARGET_RELEASE=$(echo "${LINE}" | sed -n 's/.*@\([^ ]*\).*/\1/p')
+            CLEANED_LINE="${LINE/@${TARGET_RELEASE}/}"
+            CLEANED_LINE=$(echo "${CLEANED_LINE}" | xargs)
+            if [[ -z "${TARGET_QUEUES[${TARGET_RELEASE}]+_}" ]]; then
+                TARGET_QUEUES["${TARGET_RELEASE}"]="${CLEANED_LINE}"
+                TARGET_ORDER+=("${TARGET_RELEASE}")
+            else
+                TARGET_QUEUES["${TARGET_RELEASE}"]="${TARGET_QUEUES[${TARGET_RELEASE}]}"$'\n'"${CLEANED_LINE}"
+            fi
+        else
+            if [[ -z "${CURRENT_NORMAL_QUEUE}" ]]; then
+                CURRENT_NORMAL_QUEUE="${LINE}"
+            else
+                CURRENT_NORMAL_QUEUE="${CURRENT_NORMAL_QUEUE}"$'\n'"${LINE}"
+            fi
+        fi
+    done <"${PACKAGE_LIST}"
+
+    if [[ -n "${CURRENT_NORMAL_QUEUE}" ]]; then
+        NORMAL_QUEUES+=("${CURRENT_NORMAL_QUEUE}")
+    fi
+
+    QUEUE_NUMBER=1
+    # Process normal queues first.
+    for QUEUE in "${NORMAL_QUEUES[@]}"; do
+        if [[ -z "$(echo "${QUEUE}" | xargs)" ]]; then
+            continue
+        fi
+        IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE}")
+        process_queue "${QUEUE_NUMBER}" "${VERBOSE_MODE}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
+        QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
+    done
+
+    # Process queues for each target release.
+    for TR in "${TARGET_ORDER[@]}"; do
+        QUEUE_CONTENT="${TARGET_QUEUES[${TR}]}"
+        IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE_CONTENT}")
+        process_queue "${QUEUE_NUMBER}" "${VERBOSE_MODE}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
+        QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
+    done
+
+    if ${TRACING_MODE}; then
+        set +x
+    fi
+
+    if [[ "${SIMULATION_MODE}" == true ]]; then
+        information "Simulation mode is ${GREEN}ON${ENDCOLOR}. No packages will be installed. Exiting..."
+        exit 1
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Script Entry Point
+#------------------------------------------------------------------------------
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    init_filter_env_vars
+    install_packages "$@"
+fi

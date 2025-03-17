@@ -5,11 +5,11 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib || exit 1
+. /minios-build.conf || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 echo "firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true" | debconf-set-selections
 echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-set-selections
 
-# install packages
-install_packages
+/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"

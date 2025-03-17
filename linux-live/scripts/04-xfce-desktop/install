@@ -11,11 +11,11 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 LNG="$(echo $LOCALE | cut -d_ -f1)"
 
-pkg update
-
 if [ "$LOCALE" = "pt_BR" ]; then
     LNG="br"
 fi
+
+/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"
 
 echo "export QT_QPA_PLATFORMTHEME=gtk2" >>/etc/environment
 
@@ -35,9 +35,6 @@ if [ "$LOCALE" != "en_US" ] && [ "$LOCALE" != "C" ]; then
 </channel>
 
 EOF
-    if [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
-        pkg install language-pack-gnome-$LNG-base
-    fi
 fi
 
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
@@ -49,13 +46,6 @@ fi
 
 if [ "$DISTRIBUTION" = "bionic" ]; then
     rm /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
-fi
-
-# install packages
-install_packages -l $SCRIPT_DIR/$PACKAGE_VARIANT.list
-
-if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
-    rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
 if [ -f "/usr/share/applications/xfce4-clipman-settings.desktop" ]; then
@@ -190,7 +180,7 @@ sed -i 's,<property name="Antialias" type="empty"/>,<property name="Antialias" t
 sed -i 's,<property name="HintStyle" type="string" value="hintmedium"/>,<property name="HintStyle" type="string" value="hintfull"/>,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 sed -i 's,Sans Bold 10,Inter Bold 10,g' /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 
-if grep -q xfce4-terminal $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if dpkg -l | grep -q xfce4-terminal; then
     update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
 fi
 if [ -f /usr/share/applications/pavucontrol.desktop ]; then
@@ -203,7 +193,7 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
     fi
 fi
 
-if grep -q xfce4-whiskermenu-plugin $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if dpkg -l | grep -q xfce4-whiskermenu-plugin; then
     if [ $DISTRIBUTION_PHASE = "legacy" ]; then
         echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     else
@@ -385,7 +375,7 @@ else
 EOF
 fi
 
-if ! grep -q "xfce4-terminal" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1 && grep -q "xfce4-screenshooter" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if ! command -v xfce4-terminal && command -v xfce4-screenshooter; then
     cat <<EOF >/etc/skel/.config/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
@@ -576,11 +566,11 @@ fi
 
 sed -i -e "/FontName=/s/=.*/=JetBrains Mono Light 10/" /etc/skel/.config/xfce4/terminal/terminalrc
 
-if grep -q xfce4-power-manager-plugins $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
+if dpkg -l | grep -q xfce4-power-manager-plugins; then
     sed -i "s/battery/power-manager-plugin/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 fi
 
-if grep -q "xfce4-terminal" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1 && grep -vq "#xfce4-terminal" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if dpkg -l | grep -q xfce4-terminal; then
     cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xfce4-terminal
 FileManager=Thunar
@@ -605,7 +595,7 @@ if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; 
     sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop
 fi
 
-if ! grep -q "xfce4-terminal" $SCRIPT_DIR/$PACKAGE_VARIANT.list >/dev/null 2>&1; then
+if ! dpkg -l | grep -q xfce4-terminal; then
     update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper
 fi
 
@@ -624,6 +614,7 @@ set_wallpaper() {
 
     # Check if the wallpaper file exists before creating symlinks
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-verticals.png
+    ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-verticals.svg
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-teal.jpg
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-shapes.svg
 
@@ -663,10 +654,8 @@ if [ $PACKAGE_VARIANT != "minimum" ]; then
     rm -f /usr/share/applications/taskmanager.desktop
 fi
 
-if [ -f $SCRIPT_DIR/$PACKAGE_VARIANT.list ]; then
-    if ! grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-        rm -rf /usr/share/slim
-    fi
+if ! dpkg -l | grep -q slim; then
+    rm -rf /usr/share/slim
 fi
 
 if [ $PACKAGE_VARIANT = "minimum" ]; then
