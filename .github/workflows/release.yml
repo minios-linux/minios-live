@@ -7,6 +7,10 @@ on:
         description: 'Release tag (e.g., v4.1.0)'
         required: true
         default: 'latest'
+      branch:
+        description: 'Target branch for tag creation (e.g., v4x)'
+        required: true
+        default: 'master'
 
 jobs:
   release:
@@ -14,16 +18,36 @@ jobs:
     outputs:
       tag_name: ${{ steps.set_tag.outputs.tag_name }}
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Checkout Target Branch
+        run: |
+          branch="${{ github.event.inputs.branch }}"
+          echo "Checking out branch $branch"
+          git fetch origin $branch
+          git checkout $branch
+
       - name: Set Release Tag Name
         id: set_tag
         run: echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+
+      - name: Create Tag on Target Branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch="${{ github.event.inputs.branch }}"
+          tag_name="${{ steps.set_tag.outputs.tag_name }}"
+          echo "Creating tag $tag_name on branch $branch"
+          git tag "$tag_name"
+          git push origin "$tag_name"
 
       - name: Create Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          repo=${{ github.repository }}
-          tag_name=${{ steps.set_tag.outputs.tag_name }}
+          repo="${{ github.repository }}"
+          tag_name="${{ steps.set_tag.outputs.tag_name }}"
           gh release create "$tag_name" \
             --title "Release $tag_name" \
             --notes "Release notes for $tag_name" \
