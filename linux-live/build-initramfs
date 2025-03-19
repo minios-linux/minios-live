@@ -10,14 +10,24 @@ export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 console_colors
 
 # build initramfs image
-echo -e "=====> ${CYAN}Building intramfs image ...${ENDCOLOR}"
-echo -e "=====  ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
-echo -e "=====  ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
-echo -e "=====  ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
+if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+	echo -e "   ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
+	echo -e "   ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
+	echo -e "   ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
+fi
 
 cd /$BUILD_SCRIPTS/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
-INITRAMFS=$(./mkinitrfs "$KERNEL" "$COMP_TYPE")
+
+TMPFILE=$(mktemp)
+./mkinitrfs "$KERNEL" "$COMP_TYPE" >"$TMPFILE" 2>&1 &
+MKINIT_PID=$!
+spinner "${MKINIT_PID}" "Building initramfs image"
+wait "${MKINIT_PID}"
+
+INITRAMFS=$(tail -n 1 "$TMPFILE" | xargs)
+rm "$TMPFILE"
+
 if [ -n "$INITRAMFS" ]; then
 	mv "$INITRAMFS" /boot/initrfs.img
 fi

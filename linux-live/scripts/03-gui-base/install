@@ -4,8 +4,10 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. /minioslib || exit 1
-. /minios-build.conf || exit 1
+. /minioslib
+. /minios-build.conf
+
+console_colors
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -61,9 +63,8 @@ if [ -d /etc/systemd/system ]; then
     mkdir -p /etc/systemd/system
 fi
 ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
-if [ -L /etc/systemd/system/display-manager.service ]; then
-    echo "Display manager link exists."
-else
+if [ ! -L /etc/systemd/system/display-manager.service ]; then
+    error "The /etc/systemd/system/display-manager.service link is missing."
     exit 1
 fi
 
@@ -86,10 +87,10 @@ fi
 
 cd /tmp
 
-apt-get download x11-xserver-utils
+apt-get download x11-xserver-utils >/dev/null 2>&1
 
 if [ -f x11-xserver-utils*.deb ]; then
-    dpkg -x x11-xserver-utils*.deb /tmp/x11utils
+    dpkg -x x11-xserver-utils*.deb /tmp/x11utils >/dev/null 2>&1
     cd /tmp/x11utils
     cp -aR * /
     cd -
@@ -104,12 +105,7 @@ if [ -d /usr/share/icons/hicolor/256x256 ]; then
 fi
 
 if [ "$DISTRIBUTION" != "orel" ]; then
-    if type update-alternatives >/dev/null 2>&1; then
-        update-alternatives --set x-terminal-emulator /usr/bin/xterm
-    else
-        error "update-alternatives not found."
-        exit 1
-    fi
+    update-alternatives --set x-terminal-emulator /usr/bin/xterm >/dev/null 2>&1
 fi
 
 for APP in debian-uxterm debian-xterm; do

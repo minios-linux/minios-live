@@ -81,6 +81,14 @@ warning() {
 spinner() {
     local PID="${1}"
     local MSG="${2}"
+    local XTRACE_WAS_SET=false
+    case "$-" in
+    *x*)
+        XTRACE_WAS_SET=true
+        set +x
+        ;;
+    esac
+
     local DELAY=0.1
     local SPINSTR='|/-\\'
     while ps -p "${PID}" >/dev/null 2>&1; do
@@ -90,6 +98,10 @@ spinner() {
         done
     done
     printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n"
+
+    if ${XTRACE_WAS_SET}; then
+        set -x
+    fi
 }
 
 #------------------------------------------------------------------------------
@@ -563,6 +575,7 @@ install_packages() {
     VERBOSITY_LEVEL=0 # 0 = minimal, 1 = verbose, 2 = very verbose
     XTRACE_MODE=false
     local CONFIG_FILE=""
+    local FORCE_UPDATE=false
 
     PACKAGE_ARRAY=()
     PACKAGES_TO_INSTALL=()
@@ -595,6 +608,10 @@ install_packages() {
             ;;
         -x | --xtrace)
             XTRACE_MODE=true
+            shift
+            ;;
+        -f | --force)
+            FORCE_UPDATE=true
             shift
             ;;
         -h | --help)
@@ -663,9 +680,13 @@ install_packages() {
         fi
     fi
 
-    if [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
+    if [ "${FORCE_UPDATE}" = true ] || [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
         if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-            information "pkgcache.bin cache file missing. Running update of package list..."
+            if [ "${FORCE_UPDATE}" = true ]; then
+                information "Forced update of the package list. Running update of package list..."
+            else
+                information "pkgcache.bin cache file missing. Running update of package list..."
+            fi
             apt-get update
         else
             apt-get update -qq >/dev/null 2>&1 &
