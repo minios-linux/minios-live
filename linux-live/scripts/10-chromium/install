@@ -12,10 +12,10 @@ APP_NAME="Chromium"
 APP_EXECUTABLE="chromium"
 APP_MODULE_NUMBER="5"
 
-pkg update
+apt-get update
 
 # install packages
-pkg install chromium chromium-sandbox
+apt-get -y install chromium chromium-sandbox
 if [ $LOCALE != "en_US" ]; then
     pkg install chromium-l10n
 fi

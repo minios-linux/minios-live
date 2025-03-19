@@ -19,8 +19,6 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "${SETTING}" | debconf-set-selections -v
 done
 
-pkg update
-
 /install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"
 
 if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
@@ -35,8 +33,8 @@ if [ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]; then
     wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
         grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
         sed -E 's/.*"([^"]+)".*/\1/') &&
-        pkg update &&
-        pkg install ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
+        apt-get update &&
+        apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
         rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
 fi
 

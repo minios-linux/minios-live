@@ -4,7 +4,7 @@
 
 CWD=$(dirname $(readlink -f $0))
 
-pkg update
+apt-get update
 
 if [ -f $SCRIPT_DIR/package.list ]; then
     install_packages

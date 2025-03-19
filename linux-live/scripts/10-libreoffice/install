@@ -11,11 +11,9 @@ declare_locales
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-pkg update
-
 # Read package list and install packages
 if [ -f $SCRIPT_DIR/package.list ]; then
-    install_packages --package-list "$SCRIPT_DIR/package.list"
+   /install_packages -l "$SCRIPT_DIR/package.list" -c "${SCRIPT_DIR}/minios-build.conf" "$SCRIPT_DIR/package.list"
     PACKAGE=$(head -n 1 $SCRIPT_DIR/package.list)
     echo "PACKAGE=$PACKAGE" >/.package
     echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package

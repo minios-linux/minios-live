@@ -379,7 +379,7 @@ else
 EOF
 fi
 
-if ! command -v xfce4-terminal && command -v xfce4-screenshooter; then
+if ! command -v xfce4-terminal >/dev/null 2>&1 && command -v xfce4-screenshooter >/dev/null 2>&1; then
     cat <<EOF >/etc/skel/.config/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
 <?xml version="1.0" encoding="UTF-8"?>
 

@@ -16,5 +16,5 @@ URL=$(get_latest_package_url Bin-Huang/chatbox)
 FILENAME=$(basename $URL)
 
 wget $URL &&
-    pkg update &&
-    pkg install ./$FILENAME
+    apt-get update &&
+    apt-get -y install ./$FILENAME

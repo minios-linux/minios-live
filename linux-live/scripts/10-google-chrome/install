@@ -18,7 +18,7 @@ rm -f packages.google.gpg
 sh -c 'echo "deb [arch=amd64,i386,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.google.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >/etc/apt/sources.list.d/google-chrome.list'
 
 # install packages
-pkg update
+apt-get update
 pkg install google-chrome-stable
 
 # Everything below is universal for all browsers on the chromium engine

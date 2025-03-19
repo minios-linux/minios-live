@@ -17,7 +17,7 @@ elif [ $DISTRIBUTION_TYPE = "ubuntu" ]; then
 fi
 
 # install packages
-pkg update
+apt-get update
 pkg install palemoon
 
 if [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]] && [ $PACKAGE_VARIANT != "puzzle" ]; then
