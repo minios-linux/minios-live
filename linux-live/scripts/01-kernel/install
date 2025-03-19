@@ -4,16 +4,21 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. "/minioslib" || exit 1
+. "/minioslib"
+
+#------------------------------------------------------------------------------
+# Kernel Installation Section
+#------------------------------------------------------------------------------
 
 KERNEL=""
 if [ "${KERNEL_BPO}" = "true" ]; then
-    BPO="-t ${DISTRIBUTION}-backports"
+    # Use backports target.
+    BPO_TARGET="${DISTRIBUTION}-backports"
     if [ "${KERNEL_AUFS}" = "true" ]; then
         KERNEL_VERSION="6.10"
     fi
 else
-    BPO=""
+    BPO_TARGET=""
     KERNEL_VERSION="6.1"
 fi
 
@@ -31,30 +36,72 @@ elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
 fi
 
+# Create a temporary package list file for install-packages.
+TMP_PKGLIST=$(mktemp /tmp/kernel-package.list.XXXXXX)
+
 if [ "${KERNEL_TYPE}" != "none" ]; then
-    if [ -d "/rootcopy-install" ] && [ -f "/rootcopy-install/$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null | head -n 1)" ]; then
-        cd "/rootcopy-install"
-        pkg install ./$(ls linux-image-*${KERNEL_ARCH}.deb | head -n 1)
+    if [ -d "/rootcopy-install" ]; then
+        # Check for a local .deb package in /rootcopy-install.
+        DEB=$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null || true | head -n 1)
+        if [ -n "${DEB}" ]; then
+            # Use the local .deb file.
+            DEB_PATH="/rootcopy-install/${DEB}"
+            echo "${DEB_PATH}" >"${TMP_PKGLIST}"
+        else
+            # No local .deb found; use repository package.
+            if [ -n "${BPO_TARGET}" ]; then
+                # Append target release using the '@' syntax.
+                echo "${KERNEL_IMAGE}@${BPO_TARGET}" >"${TMP_PKGLIST}"
+            else
+                echo "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
+            fi
+        fi
     else
-        pkg install ${BPO} "${KERNEL_IMAGE}"
-        apt-mark hold "${KERNEL_IMAGE}"
+        # No /rootcopy-install directory; install from repository.
+        if [ -n "${BPO_TARGET}" ]; then
+            echo "${KERNEL_IMAGE}@${BPO_TARGET}" >"${TMP_PKGLIST}"
+        else
+            echo "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
+        fi
+    fi
+
+    # Call the external install-packages script.
+    /install-packages -l "${TMP_PKGLIST}" -c "/minios-build.conf"
+
+    # If installing from the repository, hold the kernel package.
+    if [ ! -d "/rootcopy-install" ] || [ -z "${DEB}" ]; then
+        apt-mark hold "${KERNEL_IMAGE}" >/dev/null
     fi
 fi
 
-if [ -d "/rootcopy-install" ] && [ -f "/rootcopy-install/$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null | head -n 1)" ]; then
-    KERNEL="$(dpkg-deb -I /rootcopy-install/$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null | head -n 1) | grep 'Linux kernel, version' | awk '{print $NF}')"
-elif [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; }; then
-    KERNEL="$(LANG=C apt-cache depends linux-image-"${KERNEL_VERSION}"-mos-"${KERNEL_ARCH}" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
-elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
-    toggle_shell_options e
-    KERNEL="$(LANG=C dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')"
-    toggle_shell_options e
-elif [ "${KERNEL_TYPE}" = "none" ]; then
-    return
-else
-    KERNEL="$(uname -r)"
+#------------------------------------------------------------------------------
+# Determine the Installed Kernel Version
+#------------------------------------------------------------------------------
+
+if [ -d "/rootcopy-install" ]; then
+    DEB=$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null || true | head -n 1)
+    if [ -n "${DEB}" ]; then
+        KERNEL="$(dpkg-deb -I /rootcopy-install/${DEB} | grep 'Linux kernel, version' | awk '{print $NF}')"
+    fi
 fi
 
-toggle_shell_options u
+if [ -z "${KERNEL}" ]; then
+    if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; }; then
+        KERNEL="$(LANG=C apt-cache depends linux-image-"${KERNEL_VERSION}"-mos-"${KERNEL_ARCH}" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
+    elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
+        set +e
+        KERNEL="$(LANG=C dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')"
+        set -e
+    elif [ "${KERNEL_TYPE}" = "none" ]; then
+        exit 0
+    else
+        KERNEL="$(uname -r)"
+    fi
+fi
+
+set +u
 update_config "/minios-build.conf" "KERNEL"
-toggle_shell_options u
+set -u
+
+# Cleanup temporary package list file.
+rm -f "${TMP_PKGLIST}"

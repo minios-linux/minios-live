@@ -16,8 +16,6 @@ BUILD_CONF="$SCRIPT_DIR/build.conf"
 . "$GENERAL_CONF" || exit 1
 . "$BUILD_CONF" || exit 1
 
-CMD=(chroot_setup_host install_core_packages chroot_finish_up)
-
 # =============   main  ================
 
 common_variables
@@ -26,11 +24,4 @@ console_colors
 
 allow_root_only
 
-determine_command_range "${@}"
-
-# Run commands within the defined range.
-for ((ii = "$START_INDEX"; ii < "$END_INDEX"; ii++)); do
-    "${CMD[ii]}"
-done
-
-echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
+install_core_packages

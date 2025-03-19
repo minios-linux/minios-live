@@ -468,7 +468,7 @@ warning() {
 information() {
     local MESSAGE="${1-}"
     if [ "$OUTPUT_MODE" = "console" ]; then
-        echo -e "${BOLD}${BLUE}I:${ENDCOLOR} $MESSAGE"
+        echo -e "${BOLD}${CYAN}I:${ENDCOLOR} $MESSAGE"
     else
         echo "I: $MESSAGE"
     fi
@@ -605,7 +605,9 @@ current_process() {
 }
 
 current_function() {
-    echo -e "=====> ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        echo -e "=====> ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
+    fi
 }
 
 # Checks the index of a given command string in the context of global CMD
@@ -662,7 +664,9 @@ check_internet_connection() {
     fi
 
     if [ $? -eq 0 ]; then
-        information "Internet connection is available."
+        if [ "${VERBOSITY_LEVEL:-0}" -ge 1 ]; then
+            information "Internet connection is available."
+        fi
     else
         error "Internet connection is not available."
         exit 1
@@ -705,7 +709,9 @@ unmount_dirs() {
             umount "${DIR}" 2>/dev/null || UNMOUNTED="false"
         done
         if [ "${UNMOUNTED}" = "true" ]; then
-            information "The file systems inside the ${DIR_PATH} directory are unmounted."
+            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                information "The file systems inside the ${DIR_PATH} directory are unmounted."
+            fi
             break
         fi
         sleep 1
@@ -729,17 +735,23 @@ directory_cleanup() {
 
     if [ -n "${DIR}" ]; then
         unmount_dirs "${DIR}"
-        information "Deleting directory ${DIR}"
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "Deleting directory ${DIR}"
+        fi
         if [ -d "${DIR}" ]; then
             rm -rf "${DIR}"
             if [ $? -eq 0 ]; then
-                information "Successfully deleted ${DIR}"
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    information "Successfully deleted ${DIR}"
+                fi
             else
                 error "Failed to delete directory ${DIR}"
                 exit 1
             fi
         else
-            warning "Directory ${DIR} does not exist, thus not removed."
+            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                warning "Directory ${DIR} does not exist, thus not removed."
+            fi
         fi
         mkdir -p "${DIR}"
     fi
@@ -911,6 +923,7 @@ LAYOUTID="${LAYOUTID}"
 USER_NAME="${USER_NAME}"
 
 # Builder settings
+VERBOSITY_LEVEL=${VERBOSITY_LEVEL}
 BUILD_SCRIPTS="${BUILD_SCRIPTS}"
 BEXT="${BEXT}"
 DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
@@ -1108,24 +1121,55 @@ build_bootstrap() {
 
     if [ "${USE_ROOTFS}" = "true" ]; then
         if [ -f "${ROOTFS_TARBALL}" ]; then
-            extract_tarball "${ROOTFS_TARBALL}" "${INSTALL_DIR}"
+            information "Found rootfs tarball ${CYAN}${ROOTFS_TARBALL}${ENDCOLOR}."
+            extract_tarball "${ROOTFS_TARBALL}" "${INSTALL_DIR}" >/dev/null 2>&1 &
+            local EXT_PID=$!
+            spinner "${EXT_PID}" "Extracting rootfs tarball"
+            wait "${EXT_PID}"
         else
             setup_apt_cache "${INSTALL_DIR}"
 
-            sudo DEBIAN_FRONTEND="noninteractive" \
-                debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                sudo DEBIAN_FRONTEND="noninteractive" \
+                    debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                    "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+            else
+                sudo DEBIAN_FRONTEND="noninteractive" \
+                    debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                    "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" >/dev/null 2>&1 &
+                local DB_PID=$!
+                spinner "${DB_PID}" "Bootstrapping ${DISTRIBUTION}"
+                wait "${DB_PID}"
+            fi
 
             unmount_dirs "${INSTALL_DIR}"
 
             mkdir -p "${BUILD_DIR}/rootfs"
-            tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" .
+
+            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" .
+            else
+                tar -czf "${ROOTFS_TARBALL}" -C "${INSTALL_DIR}" . >/dev/null 2>&1 &
+                local TAR_PID=$!
+                spinner "${TAR_PID}" "Creating rootfs tarball"
+                wait "${TAR_PID}"
+            fi
         fi
     else
-
         setup_apt_cache "${INSTALL_DIR}"
 
-        sudo DEBIAN_FRONTEND="noninteractive" \
-            debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            sudo DEBIAN_FRONTEND="noninteractive" \
+                debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+        else
+            sudo DEBIAN_FRONTEND="noninteractive" \
+                debootstrap --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" >/dev/null 2>&1 &
+            local DB_PID=$!
+            spinner "${DB_PID}" "Bootstrapping ${DISTRIBUTION}"
+            wait "${DB_PID}"
+        fi
 
         unmount_dirs "${INSTALL_DIR}"
     fi
@@ -1188,9 +1232,9 @@ build_chroot() {
     curl --silent -k http://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
 
     if [ -f /.minios-live-container ]; then
-        chroot_run "${INSTALL_DIR}" /${BUILD_SCRIPTS}/install-chroot -
+        chroot_run "${INSTALL_DIR}" /${BUILD_SCRIPTS}/install-chroot
     else
-        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /${BUILD_SCRIPTS}/install-chroot -"
+        chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /${BUILD_SCRIPTS}/install-chroot"
     fi
 
     if [[ "${RELEASE}" = "true" ]]; then
@@ -1234,6 +1278,7 @@ build_live() {
     # create compressed 00-core.sb
     mkmod_corefs "${INSTALL_DIR}"
 
+    information "Compression of ${YELLOW}core${ENDCOLOR} data is in progress ..."
     mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
 
 }
@@ -1571,16 +1616,8 @@ build_boot() {
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         ARCH="x86_64"
-        #rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-efi"
-        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img"
-        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot/"*32.efi
-        #mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
     elif [[ "${DISTRIBUTION_ARCH}" == *"i386"* ]]; then
         ARCH="i386"
-        #rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/x86_64-efi"
-        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img"
-        #rm "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot/"*64.efi
-        #mv "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
     fi
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian"
@@ -1623,7 +1660,6 @@ build_iso() {
 
     cd "${WORK_DIR}/image" || exit 1
     mkdir -p "${ISO_DIR}"
-
     DIR="${WORK_DIR}/image"
 
     if [[ "${DESKTOP_ENVIRONMENT}" =~ ^(xfce-ultra|xfce-puzzle|xfce-puzzle-base)$ ]]; then
@@ -1651,7 +1687,6 @@ build_iso() {
     fi
 
     IMAGE+="-${ISO_ARCH}"
-
     ISO="${ISO_DIR}/${IMAGE}${SUFFIX}.iso"
 
     if [[ "${REMOVE_OLD_ISO}" == "true" ]]; then
@@ -1666,38 +1701,58 @@ build_iso() {
     fi
 
     PERCHIMG=$(mktemp --suffix=.img)
-    dd if=/dev/zero of="$PERCHIMG" bs=1 count=0 seek=128k
-    mkfs.ext2 -b 1024 -L resizeme "$PERCHIMG"
 
-    xorriso \
-        --as mkisofs \
-        -iso-level 3 \
-        -volid "MINIOS" \
-        -A "MiniOS" \
-        -joliet -joliet-long -rational-rock \
-        -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin" \
-        -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot" \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-        -eltorito-alt-boot \
-        -e "${LIVEKITNAME}/boot/grub/efi64.img" \
-        -no-emul-boot \
-        -eltorito-alt-boot \
-        -e "${LIVEKITNAME}/boot/grub/efi32.img" \
-        -no-emul-boot \
-        --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin" \
-        -append_partition 2 0x83 "$PERCHIMG" \
-        -partition_cyl_align on \
-        -partition_offset 16 \
-        -part_like_isohybrid \
-        -output "${ISO}" "${DIR}" && echo ">>> ${ISO} created" || exit 1
+    if [[ "${VERBOSITY_LEVEL}" -ge 1 ]]; then
+        dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
+        mkfs.ext2 -b 1024 -L resizeme "${PERCHIMG}"
+        "${XORRISO_CMD[@]:=(
+            xorriso             --as mkisofs             -iso-level 3             -volid "MINIOS"             -A "MiniOS"             -joliet -joliet-long -rational-rock             -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin"             -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot"             -no-emul-boot             -boot-load-size 4             -boot-info-table             -eltorito-alt-boot             -e "${LIVEKITNAME}/boot/grub/efi64.img"             -no-emul-boot             -eltorito-alt-boot             -e "${LIVEKITNAME}/boot/grub/efi32.img"             -no-emul-boot             --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin"             -append_partition 2 0x83 "${PERCHIMG}"             -partition_cyl_align on             -partition_offset 16             -part_like_isohybrid             -output "${ISO}"             "${DIR}"
+        )}" && information "The image ${CYAN}${ISO}${ENDCOLOR} has been created." || exit 1
+    else
+        (
+            dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
+            mkfs.ext2 -b 1024 -L resizeme "${PERCHIMG}"
+            xorriso \
+                --as mkisofs \
+                -iso-level 3 \
+                -volid "MINIOS" \
+                -A "MiniOS" \
+                -joliet -joliet-long -rational-rock \
+                -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin" \
+                -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot" \
+                -no-emul-boot \
+                -boot-load-size 4 \
+                -boot-info-table \
+                -eltorito-alt-boot \
+                -e "${LIVEKITNAME}/boot/grub/efi64.img" \
+                -no-emul-boot \
+                -eltorito-alt-boot \
+                -e "${LIVEKITNAME}/boot/grub/efi32.img" \
+                -no-emul-boot \
+                --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin" \
+                -append_partition 2 0x83 "${PERCHIMG}" \
+                -partition_cyl_align on \
+                -partition_offset 16 \
+                -part_like_isohybrid \
+                -output "${ISO}" \
+                "${DIR}" || exit 1
+        ) >/dev/null 2>&1 &
+        iso_pid=$!
+        spinner "${iso_pid}" "Creating ISO image"
+        wait "${iso_pid}"
+        if [ $? -eq 0 ]; then
+            information "The image ${CYAN}${ISO}${ENDCOLOR} has been created."
+        else
+            exit 1
+        fi
+    fi
 
-    rm -f "$PERCHIMG"
+    rm -f "${PERCHIMG}"
 
     if [[ "${BUILD_TEST_ISO}" == "true" ]]; then
         rm -f "${ISO_DIR}/${LIVEKITNAME}.iso"
-        ln "${ISO}" "${ISO_DIR}/${LIVEKITNAME}.iso" && echo ">>> ${ISO_DIR}/${LIVEKITNAME}.iso created"
+        ln "${ISO}" "${ISO_DIR}/${LIVEKITNAME}.iso" &&
+            information "A hard link to the image has been created: ${CYAN}${ISO_DIR}/${LIVEKITNAME}.iso${ENDCOLOR}."
     fi
 }
 
@@ -1710,22 +1765,6 @@ remove_sources() {
 }
 
 # ====================== INSTALL FUNCTIONS ========================
-
-# Sets up the host environment within a chroot.
-chroot_setup_host() {
-    current_process
-
-    # Set the hostname inside the chroot.
-    echo "${LIVEKITNAME}" >/etc/hostname
-
-    # Workaround to prevent issues with initctl within the chroot.
-    # dpkg-divert renames the original /sbin/initctl, and then
-    # a symlink to /bin/true is created in its place. This prevents
-    # initctl from attempting to control services within the chroot,
-    # which may not be desired or even possible.
-    dpkg-divert --local --rename --add /sbin/initctl
-    ln -s /bin/true /sbin/initctl
-}
 
 # Unzip gzipped files (man pages), so LZMA can compress 2times better.
 # First we fix symlinks, then uncompress files
@@ -1793,7 +1832,6 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/cleanup" 2>/dev/null
     rm -f "${BASE_PATH}/minioslib" 2>/dev/null
     rm -f "${BASE_PATH}/install" 2>/dev/null
-    rm -f "${BASE_PATH}/packages.list" 2>/dev/null
     rm -f "${BASE_PATH}/postinstall" 2>/dev/null
     rm -f "${BASE_PATH}/preinstall" 2>/dev/null
     rm -f "${BASE_PATH}/root/.bash_history" 2>/dev/null
@@ -1809,6 +1847,7 @@ chroot_cleanup() {
         rm -rf "${BASE_PATH}/var/lib/dpkg" 2>/dev/null
     fi
 
+    rm -f "${BASE_PATH}/etc/ssh/ssh_host"* 2>/dev/null
     rm -f "${BASE_PATH}/var/backups/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/debconf/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/debconf/"*-old 2>/dev/null
@@ -1826,6 +1865,7 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/var/lib/apt/lists/"*Translation* 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/apt/lists/"*InRelease 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/apt/lists/deb."* 2>/dev/null
+    rm -f "${BASE_PATH}/var/lib/apt/extended_states" 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/dpkg/"*-old 2>/dev/null
 
     # Remove all files in /var/log/, except for xrdp.log
@@ -1944,8 +1984,20 @@ install_host_dependencies() {
 
 # This function installs the core packages within the chroot system.
 install_core_packages() {
-    current_process
-    echo -e "${YELLOW}=====> installing main packages for chroot system ...${ENDCOLOR}"
+    current_function
+
+    # Set the hostname inside the chroot.
+    echo "${LIVEKITNAME}" >/etc/hostname
+
+    # Workaround to prevent issues with initctl within the chroot.
+    # dpkg-divert renames the original /sbin/initctl, and then
+    # a symlink to /bin/true is created in its place. This prevents
+    # initctl from attempting to control services within the chroot,
+    # which may not be desired or even possible.
+    dpkg-divert --local --rename --add /sbin/initctl >/dev/null
+    ln -s /bin/true /sbin/initctl
+
+    information "Installing core packages for chroot system:"
 
     export_chroot_variables
 
@@ -1962,46 +2014,19 @@ install_core_packages() {
         /${BUILD_SCRIPTS}/scripts/00-core/postinstall
     fi
 
+    DEBIAN_FRONTEND=noninteractive apt-get autoremove -y -qq &
+    AUTOREMOVE_PID="$!"
+    spinner "${AUTOREMOVE_PID}" "Autoremoving packages"
+    wait "${AUTOREMOVE_PID}"
+
     chroot_cleanup core
-
-    pkg autoremove
-}
-
-# The chroot_finish_up function performs cleanup tasks within a chroot environment.
-# It removes diversions, temporary files, log files, and cache files.
-chroot_finish_up() {
-    current_process
 
     # truncate machine id (why??)
     truncate -s 0 /etc/machine-id
 
     # remove diversion (why??)
     rm /sbin/initctl 2>/dev/null
-    dpkg-divert --rename --remove /sbin/initctl
-
-    # clean up useless stuff
-    rm -rf /tmp/* ~/.bash_history rm /sbin/initctl 2>/dev/null
-    rm -rf ~/.cache rm /sbin/initctl 2>/dev/null
-    rm -rf /var/cache/mandb 2>/dev/null
-    find /var/log/ -type f | xargs rm -f rm /sbin/initctl 2>/dev/null
-    rm -f /etc/ssh/ssh_host* rm /sbin/initctl 2>/dev/null
-    rm -f /var/backups/* 2>/dev/null
-    rm -f /var/cache/ldconfig/* 2>/dev/null
-    rm -f /var/cache/fontconfig/* 2>/dev/null
-    rm -f /var/cache/debconf/*-old 2>/dev/null
-    rm -f /var/lib/apt/extended_states 2>/dev/null
-    if [ "${USE_APT_CACHE}" = "false" ]; then
-        rm -f /var/cache/apt/archives/*.deb 2>/dev/null
-    fi
-    if [ "${USE_APT_CACHER}" = "true" ]; then
-        rm -f /etc/apt/apt.conf.d/02aptcache 2>/dev/null
-    fi
-    rm -f /var/cache/apt/*.bin 2>/dev/null
-    rm -f /var/lib/apt/lists/*Packages 2>/dev/null
-    rm -f /var/lib/apt/lists/*Translation* 2>/dev/null
-    rm -f /var/lib/apt/lists/*InRelease 2>/dev/null
-    rm -f /var/lib/apt/lists/deb.* 2>/dev/null
-    rm -f /var/lib/dpkg/*-old 2>/dev/null
+    dpkg-divert --rename --remove /sbin/initctl >/dev/null
 }
 
 # Function to set kernel related variables
@@ -2071,9 +2096,14 @@ filter_modules() {
     else
         read_config "$GENERAL_CONF" FILTER_MODULES FILTER_LEVEL
     fi
-    echo -e "=====  ${YELLOW}MODULE=${MODULE}${ENDCOLOR}"
-    echo -e "=====  ${YELLOW}FILTER_MODULES=${FILTER_MODULES}${ENDCOLOR}"
-    echo -e "=====  ${YELLOW}FILTER_LEVEL=${FILTER_LEVEL}${ENDCOLOR}"
+
+    information "Building module ${YELLOW}${MODULE}${ENDCOLOR} ..."
+
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        echo -e "   FILTER_MODULES=${YELLOW}${FILTER_MODULES}${ENDCOLOR}"
+        echo -e "   FILTER_LEVEL=${YELLOW}${FILTER_LEVEL}${ENDCOLOR}"
+    fi
+
     if [ "${FILTER_MODULES}" = "true" ]; then
         MODULES_LIST=$(ls -1dr $1[0]* | egrep "0[0-${FILTER_LEVEL}]" | tr '\n' ':')
     else
@@ -2223,10 +2253,12 @@ build_modules() {
                 if [ "$(ls -A "${MODULE_DIR[upper]}" 2>/dev/null)" != "" ]; then
                     mkdir -p "${OVERLAYS}/tmp"
                     mkmod_corefs "${MODULE_DIR[upper]}"
+                    information "Compression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                     mksquashfs "${MODULE_DIR[upper]}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${MODULE_DIR[upper]}/${MODULE}-stock.${BEXT}"
                     cd "${MODULE_DIR[upper]}" || exit 1
-                    unsquashfs "${MODULE}-stock.${BEXT}"
+                    information "Decompression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
+                    unsquashfs -quiet "${MODULE}-stock.${BEXT}"
                 else
                     echo -e "${MAGENTA}${MODULE_DIR[upper]}${ENDCOLOR} is empty. Nothing to do."
                 fi
@@ -2235,6 +2267,7 @@ build_modules() {
 
                 # run build script
                 if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
+                    [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${MODULE_DIR[merged]}/packages.list"
                     cp "${ENVIRONMENTS}/${MODULE}/build" "${MODULE_DIR[merged]}/build"
                     chmod +x "${MODULE_DIR[merged]}/build"
                     if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/patches" 2>/dev/null)" != "" ]; then
@@ -2267,11 +2300,11 @@ build_modules() {
 
                 if [[ "${MODULE}" == *"kernel"* ]]; then
                     cd "${MODULE_DIR[upper]}/squashfs-root" || exit 1
-                    if ls initrd* 2>/dev/null; then
-                        rm initrd*
+                    if ls initrd* >/dev/null 2>&1; then
+                        rm -f initrd*
                     fi
-                    if ls vmlinuz* 2>/dev/null; then
-                        rm vmlinuz*
+                    if ls vmlinuz* >/dev/null 2>&1; then
+                        rm -f vmlinuz*
                     fi
                     if [ "${KERNEL_MODULES_ONLY}" = "true" ]; then
                         bash -c "
@@ -2293,6 +2326,7 @@ build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                 fi
+                information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                 mksquashfs "${MODULE_DIR[merged]}/squashfs-root" "${MODULE_DIR[merged]}/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
                 rm -f "${MODULE_DIR[upper]}/minios-build.conf"
@@ -2450,7 +2484,7 @@ EOF
                         else
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
                         fi
-
+                        information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                         mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     else
                         echo -e "${MAGENTA}${MODULE_DIR[upper]}${ENDCOLOR} is empty. Nothing to do."

@@ -4,8 +4,8 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. "/minioslib" || exit 1
-. "/minios-build.conf" || exit 1
+. "/minioslib"
+. "/minios-build.conf"
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 IFS="/"
@@ -131,7 +131,7 @@ chmod +x /linux-live/install-packages
 /linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios-build.conf"
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-    pkg autoremove linux-modules-extra-* linux-firmware
+    apt-get -y autoremove linux-modules-extra-* linux-firmware
 fi
 
 if dpkg -l | grep -q dnsmasq; then
@@ -145,28 +145,26 @@ if [ -f /bin/ping ]; then
 fi
 
 if dpkg -l | grep -q docker; then
-    systemctl disable docker.socket
-    systemctl disable docker.service
-    systemctl disable containerd.service
+    systemctl disable docker.socket >/dev/null 2>&1
+    systemctl disable docker.service >/dev/null 2>&1
+    systemctl disable containerd.service >/dev/null 2>&1
 fi
 if dpkg -l | grep -q libvirt; then
-    systemctl disable libvirtd
+    systemctl disable libvirtd >/dev/null 2>&1
 fi
 if dpkg -l | grep -q open-iscsi; then
-    systemctl disable iscsid
+    systemctl disable iscsid >/dev/null 2>&1
 fi
 if dpkg -l | grep -q nfs-common; then
-    systemctl disable rpcbind
+    systemctl disable rpcbind >/dev/null 2>&1
 fi
 
 if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service ]; then
-    echo "Disable grub-initrd-fallback.service autostart."
-    systemctl disable grub-initrd-fallback.service
+    systemctl disable grub-initrd-fallback.service >/dev/null 2>&1
 fi
 
 if dpkg -l | grep -q ssh; then
-    echo "Disable ssh.service autostart."
-    systemctl disable ssh
+    systemctl disable ssh >/dev/null 2>&1
 fi
 
 # configuration
@@ -266,12 +264,12 @@ EOF
 fi
 
 if dpkg -l | grep -q firewalld; then
-    systemctl disable firewalld
+    systemctl disable firewalld >/dev/null 2>&1
 else
     rm -rf /etc/firewalld
 fi
 if dpkg -l | grep -q cockpit; then
-    systemctl disable cockpit.socket
+    systemctl disable cockpit.socket >/dev/null 2>&1
 fi
 
 if dpkg -l | grep -q laptop-mode-tools; then
@@ -284,7 +282,7 @@ if ! grep -q LANG /etc/default/locale; then
     echo "LANG=\"${LOCALE}.UTF-8\"" >>/etc/default/locale
 fi
 
-dpkg-reconfigure -f noninteractive locales
+dpkg-reconfigure -f noninteractive locales >/dev/null 2>&1
 
 echo root:"${ROOT_PASSWORD}" | chpasswd
 cp -f /etc/skel/.bashrc /root/
@@ -330,11 +328,6 @@ DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq vim* grub* debconf-i18n inst
 PURGE_PID="$!"
 spinner "${PURGE_PID}" "Purging packages"
 wait "${PURGE_PID}"
-
-DEBIAN_FRONTEND=noninteractive apt-get autoremove -y -qq &
-AUTOREMOVE_PID="$!"
-spinner "${AUTOREMOVE_PID}" "Autoremoving packages"
-wait "${AUTOREMOVE_PID}"
 
 if [ "${LOCALE}" != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then

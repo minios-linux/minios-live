@@ -4,7 +4,7 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-. /minioslib || exit 1
+. /minioslib
 
 get_latest_package_url() {
     curl --silent "https://api.github.com/repos/$1/releases/latest" |      # Get latest release from GitHub api

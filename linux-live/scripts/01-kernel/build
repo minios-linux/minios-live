@@ -7,49 +7,57 @@ set -u          # treat unset variable as error
 . "/minioslib" || exit 1
 . "/minios-build.conf" || exit 1
 
-install_build_packages() {
-    local HEADERS_PACKAGE="${1}"
-    pkg install ${BPO} ${HEADERS_PACKAGE} gcc make build-essential libelf-dev debhelper dpkg-dev dkms bc git
-}
-
 if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
-    KERNEL_VERSION=$(echo $KERNEL | cut -d'.' -f1,2)
+    # Determine the kernel version (major.minor).
+    KERNEL_VERSION=$(echo "$KERNEL" | cut -d'.' -f1,2)
+
+    # Set backports target if applicable.
     if [ "${KERNEL_BPO}" = "true" ] && [ "${DISTRIBUTION}" = "bookworm" ]; then
-        BPO="-t ${DISTRIBUTION}-backports"
+        BPO_TARGET="${DISTRIBUTION}-backports"
     else
-        BPO=""
+        BPO_TARGET=""
     fi
+
+    # Determine the appropriate kernel headers package.
     case "${DISTRIBUTION_TYPE}" in
     "debian")
         if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
-            install_build_packages "linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
+            HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
         else
             if [ "${KERNEL_TYPE}" = "default" ]; then
-                install_build_packages "linux-headers-${KERNEL_ARCH}"
+                HEADERS="linux-headers-${KERNEL_ARCH}"
             else
-                install_build_packages "linux-headers-${KERNEL_TYPE}-${KERNEL_ARCH}"
+                HEADERS="linux-headers-${KERNEL_TYPE}-${KERNEL_ARCH}"
             fi
         fi
         ;;
     "ubuntu")
-        install_build_packages "linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
+        HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
         ;;
     esac
 
-    if [ "${KERNEL_AUFS}" != "true" ] && [ "${DISTRIBUTION_PHASE}" != "legacy" ]; then
-        pkg install ntfs3-dkms
-    fi
-    if [ "${DISTRIBUTION}" != "jammy" ] && [ "$KERNEL_AUFS" != "true" ] && [ "$DISTRIBUTION_ARCH" != "i386" ]; then
-        pkg install ${BPO} broadcom-sta-dkms
-    fi
-    if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then
-        pkg install ${BPO} aufs-dkms
+    # Append the backports target to the headers package if applicable.
+    if [ -n "${BPO_TARGET}" ]; then
+        HEADERS="${HEADERS}@${BPO_TARGET}"
     fi
 
-    pkg install realtek-rtl8723cs-dkms realtek-rtl8821au-dkms realtek-rtl8821cu-dkms realtek-rtl88xxau-dkms realtek-rtl8188eus-dkms realtek-rtl8814au-dkms realtek-rtl8821ce-dkms realtek-rtl88x2bu-dkms
-
-    if ([ "${PACKAGE_VARIANT}" = "toolbox" ] || [ "${PACKAGE_VARIANT}" = "ultra" ] || [ "${PACKAGE_VARIANT}" = "puzzle" ]) && [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
-        echo "zfs-dkms        zfs-dkms/note-incompatible-licenses     note" | debconf-set-selections -v
-        pkg install ${BPO} zfs-dkms
+    # Check that the fixed build package list exists.
+    if [ ! -f "/packages.list" ]; then
+        echo "Error: /packages.list not found." >&2
+        exit 1
     fi
+
+    # Create a temporary combined package list file.
+    TMP_COMBINED=$(mktemp /tmp/combined_packages.list.XXXXXX)
+
+    # Write the kernel headers as the first line.
+    echo "${HEADERS}" >"${TMP_COMBINED}"
+    # Append the contents of the fixed package list, preserving one package per line.
+    cat "/packages.list" >>"${TMP_COMBINED}"
+
+    # Call the external install-packages command with the combined list.
+    /install-packages -l "${TMP_COMBINED}" -c "/minios-build.conf"
+
+    # Clean up the temporary file.
+    rm -f "${TMP_COMBINED}"
 fi
