@@ -12,7 +12,8 @@
 #     -c, --config PATH           Path to the configuration file with filter options.
 #     -s, --simulation            Enable simulation mode (no actual installation).
 #     -v, --verbose               Enable verbose mode (detailed filter information).
-#     -vv, --very-verbose         Enable very verbose mode (with additional command tracing).
+#     -vv, --very-verbose         Enable very verbose mode (additional installation output).
+#     -x, --xtrace                Enable shell tracing (set -x) regardless of verbosity.
 #     -h, --help                  Display this help message and exit.
 #
 # CONFIGURATION FILE:
@@ -120,14 +121,15 @@ help() {
     echo -e "  ${LIGHTGREEN}-c, --config${ENDCOLOR} PATH                  Path to the configuration file with filter options."
     echo -e "  ${LIGHTGREEN}-s, --simulation${ENDCOLOR}                   Enable simulation mode (no actual installation)."
     echo -e "  ${LIGHTGREEN}-v, --verbose${ENDCOLOR}                      Enable verbose mode (detailed filter information)."
-    echo -e "  ${LIGHTGREEN}-vv, --very-verbose${ENDCOLOR}                Enable very verbose mode (with additional command tracing)."
+    echo -e "  ${LIGHTGREEN}-vv, --very-verbose${ENDCOLOR}                Enable very verbose mode (additional installation output)."
+    echo -e "  ${LIGHTGREEN}--trace${ENDCOLOR}                           Enable shell tracing (set -x) regardless of verbosity."
     echo -e "  ${LIGHTGREEN}-h, --help${ENDCOLOR}                         Display this help message and exit."
     echo ""
     echo -e "${LIGHTBLUE}Configuration File:${ENDCOLOR}"
     echo "  The configuration file should define the following variables:"
     echo "    DISTRIBUTION, DISTRIBUTION_ARCH, DISTRIBUTION_TYPE, DISTRIBUTION_PHASE,"
-    echo "    DESKTOP_ENVIRONMENT, PACKAGE_VARIANT, KERNEL_TYPE, KERNEL_BUILD_DKMS,"
-    echo "    LOCALE, MULTILINGUAL, KEEP_LOCALES, USE_APT_CACHE."
+    echo "    DESKTOP_ENVIRONMENT, PACKAGE_VARIANT, KERNEL_TYPE, KERNEL_BPO, KERNEL_AUFS,"
+    echo "    KERNEL_BUILD_DKMS, LOCALE, MULTILINGUAL, KEEP_LOCALES, USE_APT_CACHE."
     exit 0
 }
 
@@ -151,7 +153,7 @@ brief_help() {
 process_condition() {
     local CONDITION="${1}"
     local IS_MANDATORY="${2}"
-    local VERBOSE_MODE="${3}"
+    local VERBOSITY_LEVEL="${3}"
     local PACKAGE_PART PACKAGE_CONDITION_STRING PACKAGE_NAME PACKAGE_VERSION
     local STRICT_VERSION=false
     local INCLUDE=true
@@ -183,18 +185,26 @@ process_condition() {
             PLUS_EXISTS_BY_TYPE["${PREFIX}"]=true
             if check_filter "${FILTER_VALUE}"; then
                 PLUS_PASSED_BY_TYPE["${PREFIX}"]=true
-                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${GREEN}[+ ${FILTER_VALUE}]: Passed${ENDCOLOR}; "
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    FILTER_STRING+="${GREEN}[+ ${FILTER_VALUE}]: Passed${ENDCOLOR}; "
+                fi
             else
-                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${RED}[+ ${FILTER_VALUE}]: Failed${ENDCOLOR}; "
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    FILTER_STRING+="${RED}[+ ${FILTER_VALUE}]: Failed${ENDCOLOR}; "
+                fi
             fi
             ;;
         -*)
             local FILTER_VALUE="${FILTER#-}"
             if check_filter "${FILTER_VALUE}"; then
                 INCLUDE=false
-                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${RED}[- ${FILTER_VALUE}]: Failed${ENDCOLOR}; "
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    FILTER_STRING+="${RED}[- ${FILTER_VALUE}]: Failed${ENDCOLOR}; "
+                fi
             else
-                [[ "${VERBOSE_MODE}" == true ]] && FILTER_STRING+="${GREEN}[- ${FILTER_VALUE}]: Passed${ENDCOLOR}; "
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    FILTER_STRING+="${GREEN}[- ${FILTER_VALUE}]: Passed${ENDCOLOR}; "
+                fi
             fi
             ;;
         esac
@@ -207,21 +217,23 @@ process_condition() {
     done
 
     if ! ${INCLUDE}; then
-        if [[ "${VERBOSE_MODE}" == true ]] && [[ -n "${FILTER_STRING}" ]]; then
-            warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed. Filters: ${FILTER_STRING%??}"
-        #else
-        #    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            if [ "${VERBOSITY_LEVEL}" -ge 2 ] && [[ -n "${FILTER_STRING}" ]]; then
+                warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed. Filters: ${FILTER_STRING%??}"
+            else
+                warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
+            fi
+            ${IS_MANDATORY} && warning "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} did ${MAGENTA}not${ENDCOLOR} pass filters and will ${MAGENTA}not${ENDCOLOR} be installed."
         fi
-        ${IS_MANDATORY} && warning "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} did ${MAGENTA}not${ENDCOLOR} pass filters and will ${MAGENTA}not${ENDCOLOR} be installed."
         return 1
     fi
 
     check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}" "${STRICT_VERSION}"
     local CP_RC=${?}
     if [ ${CP_RC} -eq 0 ]; then
-        if [[ "${VERBOSE_MODE}" == true ]] && [[ -n "${FILTER_STRING}" ]]; then
+        if [ "${VERBOSITY_LEVEL}" -eq 2 ] && [[ -n "${FILTER_STRING}" ]]; then
             information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will be installed. Filters: ${FILTER_STRING%??}"
-        else
+        elif [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will be installed."
         fi
         if [[ -n "${PACKAGE_VERSION}" ]]; then
@@ -238,10 +250,12 @@ process_condition() {
     elif [ ${CP_RC} -eq 2 ]; then
         return 0
     else
-        if [[ "${VERBOSE_MODE}" == true ]] && [[ -n "${FILTER_STRING}" ]]; then
-            warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed. Filters: ${FILTER_STRING%??}"
-        #else
-        #    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            if [ "${VERBOSITY_LEVEL}" -ge 2 ] && [[ -n "${FILTER_STRING}" ]]; then
+                warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed. Filters: ${FILTER_STRING%??}"
+            else
+                warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
+            fi
         fi
         ${IS_MANDATORY} && error "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is ${MAGENTA}not${ENDCOLOR} found in the repository. Installation aborted."
         return 1
@@ -255,7 +269,7 @@ process_condition() {
 #   1 - Fatal error for a mandatory package.
 process_package_conditions() {
     local PACKAGE_CONDITIONS="${1}"
-    local VERBOSE_MODE="${2}"
+    local VERBOSITY_LEVEL="${2}"
     local IS_MANDATORY=false
 
     if [[ ${PACKAGE_CONDITIONS:0:1} == "!" ]]; then
@@ -284,7 +298,7 @@ process_package_conditions() {
         local ALL_CONDITIONS_MET=true
         local ALT_RC=0
         for CONDITION in "${CONDITIONS[@]}"; do
-            process_condition "${CONDITION}" "${IS_MANDATORY}" "${VERBOSE_MODE}"
+            process_condition "${CONDITION}" "${IS_MANDATORY}" "${VERBOSITY_LEVEL}"
             local RET=${?}
             if [ ${RET} -ne 0 ]; then
                 ALL_CONDITIONS_MET=false
@@ -315,102 +329,82 @@ process_package_conditions() {
 process_queue() {
     local QUEUE_ID="${1}"
     shift
-    local VERBOSE_MODE="${1}"
-    shift
     local SIMULATION_MODE="${1}"
     shift
     local TARGET_RELEASE="${1}"
     shift
     local -a QUEUE=("$@")
 
-    information "${YELLOW}Installation Queue #${QUEUE_ID}:${ENDCOLOR}"
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        information "${YELLOW}Installation Queue #${QUEUE_ID}:${ENDCOLOR}"
+    fi
 
     PACKAGES_TO_INSTALL=()
     PACKAGES_TO_HOLD=()
 
     for PACKAGE_CONDITIONS in "${QUEUE[@]}"; do
-        process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSE_MODE}"
+        process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSITY_LEVEL}"
     done
 
-    if [[ "${SIMULATION_MODE}" == true ]]; then
-        if [[ -n "${TARGET_RELEASE}" ]]; then
-            information "Simulation mode is ${GREEN}ON${ENDCOLOR}. Simulating installation for Queue #${QUEUE_ID} (target release: ${TARGET_RELEASE}): ${PACKAGES_TO_INSTALL[*]}"
-        else
-            information "Simulation mode is ${GREEN}ON${ENDCOLOR}. Simulating installation for Queue #${QUEUE_ID}: ${PACKAGES_TO_INSTALL[*]}"
+    # Always execute the apt cache update block if USE_APT_CACHE is true and running in a chroot.
+    if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
+        if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
+            chattr -i /var/cache/apt/archives
         fi
-        if ${VERBOSE_MODE}; then
+        #DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" \
+        #    -o Dpkg::Options::="--force-confold" autoclean
+        DEBIAN_FRONTEND=noninteractive apt-get --download-only -y \
+            -o Dpkg::Options::="--force-confdef" \
+            -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
+        APT_CACHE_PID="$!"
+        spinner "${APT_CACHE_PID}" "Downloading packages to refresh package archive"
+        wait "${APT_CACHE_PID}"
+        #chattr +i /var/cache/apt/archives
+    fi
+
+    if [ "${#PACKAGES_TO_INSTALL[@]}" -gt 0 ]; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            # Verbose mode: run installation in foreground without spinner.
             if [[ -n "${TARGET_RELEASE}" ]]; then
-                DEBIAN_FRONTEND=noninteractive apt-get -s -t "${TARGET_RELEASE}" -y install \
+                DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
                     -o Dpkg::Options::="--force-confdef" \
                     -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
             else
-                DEBIAN_FRONTEND=noninteractive apt-get -s -y install \
+                DEBIAN_FRONTEND=noninteractive apt-get -y install \
                     -o Dpkg::Options::="--force-confdef" \
                     -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
             fi
-            if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
-                for PKG in "${PACKAGES_TO_HOLD[@]}"; do
-                    information "Simulation mode: apt-mark hold ${PKG}"
-                done
+        else
+            # Minimal mode: run installation in background with spinner.
+            if [[ -n "${TARGET_RELEASE}" ]]; then
+                DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
+                    -o Dpkg::Options::="--force-confdef" \
+                    -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
+            else
+                DEBIAN_FRONTEND=noninteractive apt-get -y install \
+                    -o Dpkg::Options::="--force-confdef" \
+                    -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
             fi
+            INSTALL_PID="$!"
+            spinner "${INSTALL_PID}" "Installing packages"
+            wait "${INSTALL_PID}"
+        fi
+
+        if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
+            for PKG in "${PACKAGES_TO_HOLD[@]}"; do
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    information "Holding package ${CYAN}${PKG}${ENDCOLOR}"
+                else
+                    printf "\r${BOLD}${CYAN}I:${ENDCOLOR} Holding package ${PKG}...\n"
+                fi
+                apt-mark hold "${PKG}"
+            done
         fi
     else
-        if [ "${#PACKAGES_TO_INSTALL[@]}" -gt 0 ]; then
-            if ${VERBOSE_MODE}; then
-                if [[ -n "${TARGET_RELEASE}" ]]; then
-                    DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
-                        -o Dpkg::Options::="--force-confdef" \
-                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
-                else
-                    DEBIAN_FRONTEND=noninteractive apt-get -y install \
-                        -o Dpkg::Options::="--force-confdef" \
-                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
-                fi
-            else
-                # If USE_APT_CACHE is true and running in a chroot, update apt cache first.
-                if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
-                    if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
-                        chattr -i /var/cache/apt/archives
-                    fi
-                    DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" \
-                        -o Dpkg::Options::="--force-confold" autoclean
-                    DEBIAN_FRONTEND=noninteractive apt-get --download-only -y -o Dpkg::Options::="--force-confdef" \
-                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
-                    APT_CACHE_PID="$!"
-                    spinner "${APT_CACHE_PID}" "Downloading packages to refresh package archive"
-                    wait "${APT_CACHE_PID}"
-                    chattr +i /var/cache/apt/archives
-                fi
-                if [[ -n "${TARGET_RELEASE}" ]]; then
-                    DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
-                        -o Dpkg::Options::="--force-confdef" \
-                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
-                else
-                    DEBIAN_FRONTEND=noninteractive apt-get -y install \
-                        -o Dpkg::Options::="--force-confdef" \
-                        -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" -qq >/dev/null 2>&1 &
-                fi
-                INSTALL_PID="$!"
-                spinner "${INSTALL_PID}" "Installing packages"
-                wait "${INSTALL_PID}"
-            fi
-
-            if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
-                for PKG in "${PACKAGES_TO_HOLD[@]}"; do
-                    if ${VERBOSE_MODE}; then
-                        information "Holding package ${CYAN}${PKG}${ENDCOLOR}"
-                    else
-                        printf "\r${BOLD}${CYAN}I:${ENDCOLOR} Holding package ${PKG}...\n"
-                    fi
-                    apt-mark hold "${PKG}"
-                done
-            fi
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "No packages to install in Queue #${QUEUE_ID}."
         else
-            if ${VERBOSE_MODE}; then
-                information "No packages to install in Queue #${QUEUE_ID}."
-            else
-                echo "No packages to install in Queue #${QUEUE_ID}."
-            fi
+            echo "No packages to install in Queue #${QUEUE_ID}."
         fi
     fi
 }
@@ -435,25 +429,36 @@ check_package() {
     INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}" 2>/dev/null || echo "")
     if [ -n "${INSTALLED_VERSION}" ]; then
         if [ -z "${PACKAGE_VERSION}" ]; then
+            #echo
             local REPO_CANDIDATE
             REPO_CANDIDATE=$(apt-cache policy "${PACKAGE_NAME}" 2>/dev/null | awk '/Candidate:/ {print $2}')
             if [ -n "${REPO_CANDIDATE}" ]; then
                 if [ "${INSTALLED_VERSION}" = "${REPO_CANDIDATE}" ]; then
-                    information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                        information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                    fi
                     return 2
                 else
-                    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is installed (version ${INSTALLED_VERSION}), but the repository candidate is ${REPO_CANDIDATE}. An update/downgrade will be performed."
+                    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                        warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is installed (version ${INSTALLED_VERSION}), but the repository candidate is ${REPO_CANDIDATE}. An update/downgrade will be performed."
+                    fi
                 fi
             else
-                information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                fi
                 return 2
             fi
         else
             if [ "${INSTALLED_VERSION}" = "${PACKAGE_VERSION}" ]; then
-                information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    information "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is already installed."
+                fi
                 return 2
             else
-                warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is installed (version ${INSTALLED_VERSION}), but the required version is ${PACKAGE_VERSION}. An update/downgrade will be performed."
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} is installed (version ${INSTALLED_VERSION}), but the required version is ${PACKAGE_VERSION}. An update/downgrade will be performed."
+                fi
             fi
         fi
     fi
@@ -468,7 +473,6 @@ check_package() {
             fi
         fi
     done
-
     if [ -z "${PACKAGE_VERSION}" ]; then
         if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
             return 1
@@ -481,10 +485,14 @@ check_package() {
             return 0
         else
             if [ "${STRICT_VERSION}" = true ]; then
-                warning "Strict version requirement: version ${PACKAGE_VERSION} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not available in the repository. Skipping installation."
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    warning "Strict version requirement: version ${PACKAGE_VERSION} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not available in the repository. Skipping installation."
+                fi
                 return 1
             else
-                warning "Version ${PACKAGE_VERSION} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not available in the repository. The available version will be installed."
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    warning "Version ${PACKAGE_VERSION} of package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} is not available in the repository. The available version will be installed."
+                fi
                 if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -q 'Candidate: (none)\|Unable to locate package\|No packages found'; then
                     return 1
                 else
@@ -511,6 +519,8 @@ init_filter_env_vars() {
         [de]="DESKTOP_ENVIRONMENT"
         [pv]="PACKAGE_VARIANT"
         [kt]="KERNEL_TYPE"
+        [kb]="KERNEL_BPO"
+        [ka]="KERNEL_AUFS"
         [kbd]="KERNEL_BUILD_DKMS"
         [lo]="LOCALE"
         [ml]="MULTILINGUAL"
@@ -546,12 +556,12 @@ check_filter() {
 
 # Function: install_packages
 # Description: Parse arguments, perform checks, read the package list,
-#              split into queues (grouped by target release) and process them.
+#              group packages into queues (by target release) and process them.
 install_packages() {
     local PACKAGE_LIST=""
     local SIMULATION_MODE=false
-    local VERBOSE_MODE=false
-    local TRACING_MODE=false
+    VERBOSITY_LEVEL=0 # 0 = minimal, 1 = verbose, 2 = very verbose
+    XTRACE_MODE=false
     local CONFIG_FILE=""
 
     PACKAGE_ARRAY=()
@@ -576,12 +586,15 @@ install_packages() {
             shift
             ;;
         -v | --verbose)
-            VERBOSE_MODE=true
+            VERBOSITY_LEVEL=1
             shift
             ;;
         -vv | --very-verbose)
-            VERBOSE_MODE=true
-            TRACING_MODE=true
+            VERBOSITY_LEVEL=2
+            shift
+            ;;
+        -x | --xtrace)
+            XTRACE_MODE=true
             shift
             ;;
         -h | --help)
@@ -598,6 +611,11 @@ install_packages() {
             ;;
         esac
     done
+
+    # Enable shell tracing if requested.
+    if [ "${XTRACE_MODE}" = true ]; then
+        set -x
+    fi
 
     if [[ -z "${PACKAGE_LIST}" ]]; then
         error "No package list provided."
@@ -626,27 +644,27 @@ install_packages() {
         exit 1
     fi
 
-    if ${TRACING_MODE}; then
-        set -x
-    fi
-
-    if [[ "${SIMULATION_MODE}" == true ]]; then
-        information "${GREEN}Simulation mode enabled.${ENDCOLOR}"
-        echo "   DISTRIBUTION=\"${DISTRIBUTION}\""
-        echo "   DISTRIBUTION_ARCH=\"${DISTRIBUTION_ARCH}\""
-        echo "   DISTRIBUTION_TYPE=\"${DISTRIBUTION_TYPE}\""
-        echo "   DISTRIBUTION_PHASE=\"${DISTRIBUTION_PHASE}\""
-        echo "   DESKTOP_ENVIRONMENT=\"${DESKTOP_ENVIRONMENT}\""
-        echo "   PACKAGE_VARIANT=\"${PACKAGE_VARIANT}\""
-        echo "   KERNEL_TYPE=\"${KERNEL_TYPE}\""
-        echo "   KERNEL_BUILD_DKMS=\"${KERNEL_BUILD_DKMS}\""
-        echo "   LOCALE=\"${LOCALE}\""
-        echo "   MULTILINGUAL=\"${MULTILINGUAL}\""
-        echo "   KEEP_LOCALES=\"${KEEP_LOCALES}\""
+    if [ "${SIMULATION_MODE}" = true ]; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "${GREEN}Simulation mode enabled.${ENDCOLOR}"
+            echo "   DISTRIBUTION=\"${DISTRIBUTION}\""
+            echo "   DISTRIBUTION_ARCH=\"${DISTRIBUTION_ARCH}\""
+            echo "   DISTRIBUTION_TYPE=\"${DISTRIBUTION_TYPE}\""
+            echo "   DISTRIBUTION_PHASE=\"${DISTRIBUTION_PHASE}\""
+            echo "   DESKTOP_ENVIRONMENT=\"${DESKTOP_ENVIRONMENT}\""
+            echo "   PACKAGE_VARIANT=\"${PACKAGE_VARIANT}\""
+            echo "   KERNEL_TYPE=\"${KERNEL_TYPE}\""
+            echo "   KERNEL_BPO=\"${KERNEL_BPO}\""
+            echo "   KERNEL_AUFS=\"${KERNEL_AUFS}\""
+            echo "   KERNEL_BUILD_DKMS=\"${KERNEL_BUILD_DKMS}\""
+            echo "   LOCALE=\"${LOCALE}\""
+            echo "   MULTILINGUAL=\"${MULTILINGUAL}\""
+            echo "   KEEP_LOCALES=\"${KEEP_LOCALES}\""
+        fi
     fi
 
     if [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
-        if ${VERBOSE_MODE}; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             information "pkgcache.bin cache file missing. Running update of package list..."
             apt-get update
         else
@@ -656,10 +674,8 @@ install_packages() {
             wait "${UPDATE_PID}"
         fi
     else
-        if ${VERBOSE_MODE}; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             information "pkgcache.bin cache file detected. Update of package list is not required."
-        else
-            echo "Package list is up to date."
         fi
     fi
 
@@ -715,8 +731,8 @@ install_packages() {
         if [[ -z "$(echo "${QUEUE}" | xargs)" ]]; then
             continue
         fi
-        IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE}")
-        process_queue "${QUEUE_NUMBER}" "${VERBOSE_MODE}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
+        mapfile -t QUEUE_ARRAY < <(printf "%s\n" "${QUEUE}" | sed '/^$/d')
+        process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
         QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
     done
 
@@ -724,15 +740,15 @@ install_packages() {
     for TR in "${TARGET_ORDER[@]}"; do
         QUEUE_CONTENT="${TARGET_QUEUES[${TR}]}"
         IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE_CONTENT}")
-        process_queue "${QUEUE_NUMBER}" "${VERBOSE_MODE}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
+        process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
         QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
     done
 
-    if ${TRACING_MODE}; then
+    if ${XTRACE_MODE}; then
         set +x
     fi
 
-    if [[ "${SIMULATION_MODE}" == true ]]; then
+    if [ "${SIMULATION_MODE}" = true ]; then
         information "Simulation mode is ${GREEN}ON${ENDCOLOR}. No packages will be installed. Exiting..."
         exit 1
     fi
