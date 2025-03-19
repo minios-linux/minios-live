@@ -18,7 +18,7 @@ sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packag
 rm -f packages.microsoft.gpg
 
 # install packages
-pkg update
+apt-get update
 pkg install code
 
 if grep slax /etc/hostname >/dev/null; then

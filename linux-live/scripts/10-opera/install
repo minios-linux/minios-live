@@ -10,13 +10,13 @@ APP_NAME="Opera"
 APP_EXECUTABLE="opera"
 APP_MODULE_NUMBER="5"
 
-pkg update
+apt-get update
 
 wget -qO- https://deb.opera.com/archive.key | gpg --dearmor | dd of=/usr/share/keyrings/opera-browser.gpg
 echo "deb [signed-by=/usr/share/keyrings/opera-browser.gpg] https://deb.opera.com/opera-stable/ stable non-free" | sudo dd of=/etc/apt/sources.list.d/opera-archive.list
 
 # install packages
-pkg update
+apt-get update
 pkg install opera-stable
 
 # Everything below is universal for all browsers on the chromium engine

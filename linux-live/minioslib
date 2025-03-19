@@ -1182,7 +1182,8 @@ build_bootstrap() {
         DISTRIBUTION="testing"
         create_apt_list
         cp -f "$BUILD_SCRIPTS_DIR/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
-        chroot_run "${INSTALL_DIR}" pkg install gnupg
+        chroot_run "${INSTALL_DIR}" apt-get update
+        chroot_run "${INSTALL_DIR}" apt-get -y install install gnupg
         chroot_run "${INSTALL_DIR}" apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED444FF07D8D0BF6
         DISTRIBUTION="kali-rolling"
     fi
@@ -2187,7 +2188,7 @@ build_modules() {
 
     for MODULE in *; do
         if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | grep -q "$(echo "${MODULE}" | cut -d- -f2-)" 2>/dev/null); then
-            echo -e "${MAGENTA}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
+            information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         elif ([[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]) && [ "${KERNEL_TYPE}" = "none" ]; then
             continue
         elif [ "${MODULE}" = "05-apps" ] && [ ! -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" ]; then

@@ -13,7 +13,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # Conditional statements for package installation
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     if [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ]; then
-        pkg install software-properties-common
+        apt-get install software-properties-common
         add-apt-repository ppa:mozillateam/ppa
         cat <<EOF >/etc/apt/preferences.d/mozilla-firefox
 Package: *

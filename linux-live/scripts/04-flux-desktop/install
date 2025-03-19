@@ -2,12 +2,7 @@
 
 . /minioslib
 
-pkg update
-
-# install packages
-if [ -f $SCRIPT_DIR/package.list ]; then
-    install_packages
-fi
+/install_packages -l "$SCRIPT_DIR/package.list" -c "${SCRIPT_DIR}/minios-build.conf"
 
 (cd /rootcopy-install && cp --parents -afr * /)
 
@@ -22,7 +17,7 @@ if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
 fi
 
 if [ $LOCALE = "ru_RU" ] || [ $LOCALE = "es_ES" ] || [ $LOCALE = "pt_BR" ] || [ $MULTILINGUAL = "true" ]; then
-    pkg install fbxkb
+    apt-get -y install fbxkb
 fi
 
 # For each .desktop file in the /usr/share/applications directory

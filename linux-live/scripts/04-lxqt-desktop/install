@@ -10,15 +10,13 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 LNG="$(echo $LOCALE | cut -d_ -f1)"
 
-pkg update
-
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT.list"
+/install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT.list" -c "${SCRIPT_DIR}/minios-build.conf"
 
 if [ $LOCALE != "en_US" ]; then
-    install_packages --package-list "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list"
+    /install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list" -c "${SCRIPT_DIR}/minios-build.conf"
 fi
 
 if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then

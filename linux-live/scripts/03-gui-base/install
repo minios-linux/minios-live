@@ -93,7 +93,7 @@ if [ -f x11-xserver-utils*.deb ]; then
     dpkg -x x11-xserver-utils*.deb /tmp/x11utils >/dev/null 2>&1
     cd /tmp/x11utils
     cp -aR * /
-    cd -
+    cd - >/dev/null
     rm -f x11-xserver-utils*.deb
 else
     error "x11-xserver-utils deb file does not exist."

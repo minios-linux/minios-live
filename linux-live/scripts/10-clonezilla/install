@@ -11,7 +11,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 #wget -q http://drbl.sourceforge.net/GPG-KEY-DRBL -O- | apt-key add -
 #echo "deb http://drbl.sourceforge.net/drbl-core drbl stable" >/etc/apt/sources.list.d/drbl.list
 
-pkg update
+apt-get update
 
 # install packages
 #!!!the name of the main application of the module must be specified in the first line of package.list!!!
