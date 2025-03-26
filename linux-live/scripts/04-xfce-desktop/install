@@ -623,7 +623,7 @@ set_wallpaper() {
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-shapes.svg
 
     # Remove other wallpaper files
-    for other_wallpaper in Minimum Flux Standard Maximum Toolbox Ultra Puzzle Home; do
+    for other_wallpaper in Minimum Flux Standard Maximum Toolbox Ultra; do
         if [[ "$other_wallpaper" != "$WALLPAPER" ]]; then
             rm -f "/usr/share/backgrounds/MiniOS4-wallpaper-$other_wallpaper.svg"
         fi
@@ -634,14 +634,10 @@ if [ "$PACKAGE_VARIANT" = "minimum" ] && [ "$DESKTOP_ENVIRONMENT" = "flux" ]; th
     set_wallpaper "Flux"
 elif [ "$PACKAGE_VARIANT" = "minimum" ]; then
     set_wallpaper "Minimum"
-elif [ "$PACKAGE_VARIANT" = "novice" ]; then
-    set_wallpaper "Home"
 elif [ "$PACKAGE_VARIANT" = "standard" ]; then
     set_wallpaper "Standard"
 elif [ "$PACKAGE_VARIANT" = "toolbox" ]; then
     set_wallpaper "Toolbox"
-elif [ "$PACKAGE_VARIANT" = "puzzle" ]; then
-    set_wallpaper "Puzzle"
 elif [ "$PACKAGE_VARIANT" = "ultra" ]; then
     set_wallpaper "Ultra"
     sed -i "s/Greybird/Greybird-dark/g" /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml

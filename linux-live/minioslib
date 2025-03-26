@@ -1706,9 +1706,30 @@ build_iso() {
     if [[ "${VERBOSITY_LEVEL}" -ge 1 ]]; then
         dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
         mkfs.ext2 -b 1024 -L resizeme "${PERCHIMG}"
-        "${XORRISO_CMD[@]:=(
-            xorriso             --as mkisofs             -iso-level 3             -volid "MINIOS"             -A "MiniOS"             -joliet -joliet-long -rational-rock             -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin"             -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot"             -no-emul-boot             -boot-load-size 4             -boot-info-table             -eltorito-alt-boot             -e "${LIVEKITNAME}/boot/grub/efi64.img"             -no-emul-boot             -eltorito-alt-boot             -e "${LIVEKITNAME}/boot/grub/efi32.img"             -no-emul-boot             --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin"             -append_partition 2 0x83 "${PERCHIMG}"             -partition_cyl_align on             -partition_offset 16             -part_like_isohybrid             -output "${ISO}"             "${DIR}"
-        )}" && information "The image ${CYAN}${ISO}${ENDCOLOR} has been created." || exit 1
+        xorriso \
+            --as mkisofs \
+            -iso-level 3 \
+            -volid "MINIOS" \
+            -A "MiniOS" \
+            -joliet -joliet-long -rational-rock \
+            -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin" \
+            -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot" \
+            -no-emul-boot \
+            -boot-load-size 4 \
+            -boot-info-table \
+            -eltorito-alt-boot \
+            -e "${LIVEKITNAME}/boot/grub/efi64.img" \
+            -no-emul-boot \
+            -eltorito-alt-boot \
+            -e "${LIVEKITNAME}/boot/grub/efi32.img" \
+            -no-emul-boot \
+            --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin" \
+            -append_partition 2 0x83 "${PERCHIMG}" \
+            -partition_cyl_align on \
+            -partition_offset 16 \
+            -part_like_isohybrid \
+            -output "${ISO}" \
+            "${DIR}" && information "The image ${CYAN}${ISO}${ENDCOLOR} has been created." || exit 1
     else
         (
             dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
