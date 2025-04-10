@@ -158,7 +158,7 @@ brief_help() {
 #------------------------------------------------------------------------------
 
 # Function: process_condition
-# Description: Evaluate a single condition for a package.
+# Description: Evaluate a single condition for a package, supporting alternative filter groups.
 # Return codes:
 #   0 - Condition satisfied.
 #   1 - Fatal error: package passed filters but not found in repository.
@@ -171,6 +171,7 @@ process_condition() {
     local INCLUDE=true
     local FILTER_STRING=""
 
+    # Split the condition into package part and filter part.
     IFS=' ' read -r PACKAGE_PART PACKAGE_CONDITION_STRING <<<"${CONDITION}"
     if [[ "${PACKAGE_PART}" == *"=="* ]]; then
         STRICT_VERSION=true
@@ -184,16 +185,47 @@ process_condition() {
         PACKAGE_VERSION=""
     fi
 
+    # Split the filter string into an array of filters.
     IFS=' ' read -r -a FILTERS <<<"${PACKAGE_CONDITION_STRING}"
 
+    # Declare associative arrays to track positive filter checks.
     declare -A PLUS_EXISTS_BY_TYPE
     declare -A PLUS_PASSED_BY_TYPE
 
+    # Process each filter in the filter list.
     for FILTER in "${FILTERS[@]}"; do
         case "${FILTER}" in
+        +\{*})
+            # Process a group of alternative positive filters, e.g., +{lo=de_DE|ml=true|kl=true}
+            # Remove the leading '+{' and trailing '}'.
+            GROUP_CONTENT="${FILTER#+\{}"
+            GROUP_CONTENT="${GROUP_CONTENT%\}}"
+            GROUP_PASSED=false
+            # Split group alternatives by '|' character.
+            IFS='|' read -r -a GROUP_FILTERS <<<"${GROUP_CONTENT}"
+            for ALT_FILTER in "${GROUP_FILTERS[@]}"; do
+                ALT_FILTER="$(echo "${ALT_FILTER}" | xargs)" # Trim whitespace
+                if check_filter "${ALT_FILTER}"; then
+                    GROUP_PASSED=true
+                    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                        FILTER_STRING+="${GREEN}[Group Filter '${ALT_FILTER}': Passed]${ENDCOLOR}; "
+                    fi
+                    break
+                else
+                    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                        FILTER_STRING+="${RED}[Group Filter '${ALT_FILTER}': Failed]${ENDCOLOR}; "
+                    fi
+                fi
+            done
+            # If none of the alternatives in the group passed, mark condition as failed.
+            if ! ${GROUP_PASSED}; then
+                INCLUDE=false
+            fi
+            ;;
         +*)
-            local FILTER_VALUE="${FILTER#+}"
-            local PREFIX="${FILTER_VALUE%%=*}"
+            # Standard positive filter processing.
+            FILTER_VALUE="${FILTER#+}"
+            PREFIX="${FILTER_VALUE%%=*}"
             PLUS_EXISTS_BY_TYPE["${PREFIX}"]=true
             if check_filter "${FILTER_VALUE}"; then
                 PLUS_PASSED_BY_TYPE["${PREFIX}"]=true
@@ -207,7 +239,8 @@ process_condition() {
             fi
             ;;
         -*)
-            local FILTER_VALUE="${FILTER#-}"
+            # Standard negative filter processing.
+            FILTER_VALUE="${FILTER#-}"
             if check_filter "${FILTER_VALUE}"; then
                 INCLUDE=false
                 if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
@@ -222,6 +255,7 @@ process_condition() {
         esac
     done
 
+    # For standard positive filters: if any filter type is specified but not passed, mark as failed.
     for PREFIX in "${!PLUS_EXISTS_BY_TYPE[@]}"; do
         if [ "${PLUS_PASSED_BY_TYPE["${PREFIX}"]:-false}" != true ]; then
             INCLUDE=false
@@ -235,11 +269,11 @@ process_condition() {
             else
                 warning "${CYAN}${PACKAGE_NAME}${ENDCOLOR} will ${MAGENTA}not${ENDCOLOR} be installed."
             fi
-            ${IS_MANDATORY} && warning "Mandatory package ${CYAN}${PACKAGE_NAME}${ENDCOLOR} did ${MAGENTA}not${ENDCOLOR} pass filters and will ${MAGENTA}not${ENDCOLOR} be installed."
         fi
         return 1
     fi
 
+    # Check if the package exists in the repository.
     check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}" "${STRICT_VERSION}"
     local CP_RC=${?}
     if [ ${CP_RC} -eq 0 ]; then
@@ -327,9 +361,19 @@ process_package_conditions() {
         fi
     done
 
-    ${ANY_ALTERNATIVE_SUCCESS} && return 0
-    ${IS_MANDATORY} && ${FATAL_FAILURE} && exit 1
+    #${ANY_ALTERNATIVE_SUCCESS} && return 0
+    #${IS_MANDATORY} && ${FATAL_FAILURE} && exit 1
+    #return 0
+    if ${ANY_ALTERNATIVE_SUCCESS}; then
+        return 0
+    elif ${IS_MANDATORY} && ${FATAL_FAILURE}; then
+        error "Mandatory package cannot be installed. Installation aborted."
+        if [ "${SIMULATION_MODE}" = false ]; then
+            exit 1
+        fi
+    fi
     return 0
+
 }
 
 #------------------------------------------------------------------------------
@@ -337,7 +381,8 @@ process_package_conditions() {
 #------------------------------------------------------------------------------
 
 # Function: process_queue
-# Description: Process a single installation queue.
+# Description: Process a single installation queue. In simulation mode,
+#              packages are not installed; only a simulation message is printed.
 process_queue() {
     local QUEUE_ID="${1}"
     shift
@@ -354,12 +399,13 @@ process_queue() {
     PACKAGES_TO_INSTALL=()
     PACKAGES_TO_HOLD=()
 
+    # Process each package condition in the queue.
     for PACKAGE_CONDITIONS in "${QUEUE[@]}"; do
         process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSITY_LEVEL}"
     done
 
     # Always execute the apt cache update block if USE_APT_CACHE is true and running in a chroot.
-    if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot; then
+    if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot && [ "${SIMULATION_MODE}" = false ]; then
         if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
             chattr -i /var/cache/apt/archives
         fi
@@ -374,6 +420,19 @@ process_queue() {
         #chattr +i /var/cache/apt/archives
     fi
 
+    # If simulation mode is active, print simulation information and skip actual installation.
+    if [ "${SIMULATION_MODE}" = true ]; then
+        if [ "${#PACKAGES_TO_INSTALL[@]}" -gt 0 ]; then
+            information "Simulation mode is ${GREEN}ON${ENDCOLOR}. The following packages would be installed: ${PACKAGES_TO_INSTALL[*]}"
+        else
+            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                information "No packages to install in Queue #${QUEUE_ID} (simulation mode)."
+            fi
+        fi
+        return
+    fi
+
+    # If there are packages to install, perform the actual installation.
     if [ "${#PACKAGES_TO_INSTALL[@]}" -gt 0 ]; then
         if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             # Verbose mode: run installation in foreground without spinner.
@@ -402,6 +461,7 @@ process_queue() {
             wait "${INSTALL_PID}"
         fi
 
+        # If any packages need to be held, process them.
         if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
             for PKG in "${PACKAGES_TO_HOLD[@]}"; do
                 if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
