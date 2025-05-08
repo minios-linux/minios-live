@@ -108,7 +108,7 @@ if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
 
     mkdir -p "${INSTALL_DIR}"
 
-    generate_chroot_configuration_file "$WORK_DIR/minios-build.conf"
+    generate_chroot_configuration_file "$WORK_DIR/minios_build.conf"
 
     install_host_dependencies
 

@@ -164,11 +164,14 @@ console_colors() {
     BLUE=$'\e[34m'
     MAGENTA=$'\e[35m'
     CYAN=$'\e[36m'
+    WHITE=$'\e[37m'
 
     # Dark colors
     DARKGRAY=$'\e[90m'
     DARKRED=$'\e[38;5;52m'
     DARKGREEN=$'\e[38;5;22m'
+    DARKYELLOW=$'\e[38;5;226m'
+    DARKBLUE=$'\e[38;5;24m'
 
     # Light colors
     LIGHTGRAY=$'\e[37m'
@@ -213,7 +216,7 @@ spinner() {
     local MSG="${2}"
     local DELAY=0.1
     local SPINSTR='|/-\\'
-    while ps -p "${PID}" >/dev/null 2>&1; do
+    while [ -d "/proc/${PID}" ]; do
         for ((i = 0; i < ${#SPINSTR}; i++)); do
             printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:$i:1}${ENDCOLOR}]"
             sleep "${DELAY}"
@@ -948,7 +951,7 @@ ${2}/initrd.img
 ${2}/initrd.img.old
 ${2}/vmlinuz
 ${2}/vmlinuz.old
-${2}/minios-build.conf
+${2}/minios_build.conf
 ${2}/minioslib
 ${2}/linux-live
 ${2}/install
@@ -960,12 +963,12 @@ EOF
 # The first file contains various environment variables and their values
 # The second file contains several utility functions
 add_chroot_configuration_files() {
-    generate_chroot_configuration_file "${1}/minios-build.conf"
+    generate_chroot_configuration_file "${1}/minios_build.conf"
     cp "$BUILD_SCRIPTS_DIR/minioslib" "$1/minioslib"
 }
 
 remove_chroot_configuration_files() {
-    rm -f "$1/minios-build.conf"
+    rm -f "$1/minios_build.conf"
     rm -f "$1/minioslib"
 }
 
@@ -1078,7 +1081,7 @@ export_chroot_variables() {
     current_function
     add_chroot_configuration_files /
     . /minioslib
-    read_config /minios-build.conf "${VARIABLES}"
+    read_config /minios_build.conf "${VARIABLES}"
     export ${VARIABLES}
 }
 
@@ -1087,7 +1090,7 @@ chroot_run() {
     add_chroot_configuration_files "${1}"
     chroot "${1}" /bin/bash <<EOF
 . /minioslib
-read_config /minios-build.conf "${VARIABLES}"
+read_config /minios_build.conf "${VARIABLES}"
 export ${VARIABLES}
 ${@:2}
 EOF
@@ -1588,7 +1591,7 @@ EOF
 build_initrd() {
     current_function
 
-    [ -f "${WORK_DIR}/minios-build.conf" ] && read_config "${WORK_DIR}/minios-build.conf" KERNEL
+    [ -f "${WORK_DIR}/minios_build.conf" ] && read_config "${WORK_DIR}/minios_build.conf" KERNEL
 
     copy_build_scripts "${MODULE_DIR[merged]}"
     chmod +x "${MODULE_DIR[merged]}/${BUILD_SCRIPTS}/build-initramfs"
@@ -2069,8 +2072,8 @@ kernel_variables() {
 # Function to create initial ramdisk file system (initrfs) for a Linux kernel
 create_initrfs() {
     if [[ "${MODULE}" == *"kernel"* ]]; then
-        if [ -f "${WORK_DIR}/minios-build.conf" ]; then
-            read_config "${WORK_DIR}/minios-build.conf" KERNEL
+        if [ -f "${WORK_DIR}/minios_build.conf" ]; then
+            read_config "${WORK_DIR}/minios_build.conf" KERNEL
         fi
         copy_build_scripts "${MODULE_DIR[merged]}"
         chmod +x "${MODULE_DIR[merged]}/${BUILD_SCRIPTS}/initrfs"
@@ -2250,6 +2253,7 @@ build_modules() {
 
                 cp "${BUILD_SCRIPTS_DIR}/install-packages" "${MODULE_DIR[merged]}/install-packages"
                 chmod +x "${MODULE_DIR[merged]}/install-packages"
+                cp "${BUILD_SCRIPTS_DIR}/filter_mapping.conf" "${MODULE_DIR[merged]}/filter_mapping.conf"
 
                 [ -f "${ENVIRONMENTS}/${MODULE}/cleanup" ] && cp "${ENVIRONMENTS}/${MODULE}/cleanup" "${MODULE_DIR[merged]}/cleanup"
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" "${MODULE_DIR[merged]}/packages-l10n.list"
@@ -2260,9 +2264,9 @@ build_modules() {
             fi
 
             if [[ "${MODULE}" == *"kernel"* ]]; then
-                if [ -f "${MODULE_DIR[upper]}/minios-build.conf" ]; then
-                    read_config "${MODULE_DIR[upper]}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
-                    update_config "${WORK_DIR}/minios-build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
+                if [ -f "${MODULE_DIR[upper]}/minios_build.conf" ]; then
+                    read_config "${MODULE_DIR[upper]}/minios_build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
+                    update_config "${WORK_DIR}/minios_build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                 fi
             fi
 
@@ -2306,7 +2310,7 @@ build_modules() {
             fi
 
             if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
-                read_config "${WORK_DIR}/minios-build.conf" KERNEL
+                read_config "${WORK_DIR}/minios_build.conf" KERNEL
 
                 [ -L "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/build" ] && rm -f "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/build"
                 [ -L "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/source" ] && rm -f "${MODULE_DIR[upper]}/usr/lib/modules/${KERNEL}/source"
@@ -2351,7 +2355,7 @@ build_modules() {
                 information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                 mksquashfs "${MODULE_DIR[merged]}/squashfs-root" "${MODULE_DIR[merged]}/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
-                rm -f "${MODULE_DIR[upper]}/minios-build.conf"
+                rm -f "${MODULE_DIR[upper]}/minios_build.conf"
             fi
 
             # copy files (post-install)
