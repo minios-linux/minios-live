@@ -1439,8 +1439,8 @@ EOF
 }
 
 create_config_files() {
-    DEFAULT_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
-    DEBUG_SETTINGS="load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
+    DEFAULT_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
+    DEBUG_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
 
     BOOT_SETTINGS="quiet"
 
