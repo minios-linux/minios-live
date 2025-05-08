@@ -5,7 +5,7 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib
-. /minios-build.conf
+. /minios_build.conf
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -15,7 +15,7 @@ if [ "$LOCALE" = "pt_BR" ]; then
     LNG="br"
 fi
 
-/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"
+/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
 
 echo "export QT_QPA_PLATFORMTHEME=gtk2" >>/etc/environment
 

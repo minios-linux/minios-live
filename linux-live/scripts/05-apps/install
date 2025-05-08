@@ -5,7 +5,7 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib
-. /minios-build.conf
+. /minios_build.conf
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -19,7 +19,7 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "${SETTING}" | debconf-set-selections -v
 done
 
-/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios-build.conf"
+/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
 
 if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop

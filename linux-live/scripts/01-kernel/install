@@ -66,7 +66,7 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
     fi
 
     # Call the external install-packages script.
-    /install-packages -l "${TMP_PKGLIST}" -c "/minios-build.conf"
+    /install-packages -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/filter_mapping.conf"
 
     # If installing from the repository, hold the kernel package.
     if [ ! -d "/rootcopy-install" ] || [ -z "${DEB}" ]; then
@@ -100,7 +100,7 @@ if [ -z "${KERNEL}" ]; then
 fi
 
 set +u
-update_config "/minios-build.conf" "KERNEL"
+update_config "/minios_build.conf" "KERNEL"
 set -u
 
 # Cleanup temporary package list file.

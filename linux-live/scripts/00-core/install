@@ -5,7 +5,7 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . "/minioslib"
-. "/minios-build.conf"
+. "/minios_build.conf"
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 IFS="/"
@@ -128,7 +128,7 @@ spinner "${APT_PID}" "Upgrading installed packages"
 wait "${APT_PID}"
 
 chmod +x /linux-live/install-packages
-/linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios-build.conf"
+/linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/filter_mapping.conf" -s
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
