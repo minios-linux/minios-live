@@ -1259,18 +1259,17 @@ copy_to_ram() {
    RAM="$(dirname "$CHANGES")"/toram
    CMDLINE=$(cat /proc/cmdline)
    TORAMMODE=$(cmdline_value "toram")
-   SSH_KEY=$(config_value "$DATA/minios.conf" SSH_KEY)
 
    # Function to copy filtered MiniOS data to RAM
    copy_filtered_bundles() {
       local FILE
-      cp -a "$DATA/minios.conf" "$RAM/minios.conf" || {
-         echo "Failed to copy minios.conf to RAM" >&2 >/dev/tty1
+      cp -a "$DATA/config.conf" "$RAM/config.conf" || {
+         echo "Failed to copy config.conf to RAM" >&2 >/dev/tty1
          exit 1
       }
-      if [ -f "$DATA/$SSH_KEY" ]; then
-         cp -a "$DATA/$SSH_KEY" "$RAM/$SSH_KEY" || {
-            echo "Failed to copy $SSH_KEY to RAM" >&2 >/dev/tty1
+      if [ -f "$DATA/authorized_keys" ]; then
+         cp -a "$DATA/authorized_keys" "$RAM/authorized_keys" || {
+            echo "Failed to copy authorized_keys to RAM" >&2 >/dev/tty1
          }
       fi
       (
@@ -1447,59 +1446,6 @@ fstab_create() {
    done
 }
 
-################################################################################
-#                                                                              #
-#  MiniOS Boot Functions                                                       #
-#  ---------------------                                                       #
-#  Provides functions for synchronizing files and executing the MiniOS boot    #
-#  process. Use these functions to set up system configuration, SSH keys, and  #
-#  logging during system startup.                                              #
-#                                                                              #
-################################################################################
-
-# synchronize_files
-# -----------------
-# $1 = source file path
-# $2 = destination file path
-# $3 = writable flag ("true" if writable)
-#
-synchronize_files() {
-   debug_log "synchronize_files $*"
-   local SRC DST WRITABLE
-
-   SRC="$1"
-   DST="$2"
-   WRITABLE="$3"
-
-   # If the source file exists, copy it if the destination is missing or older.
-   if [ -f "$SRC" ]; then
-      if [ ! -f "$DST" ] || [ "$SRC" -nt "$DST" ]; then
-         debug_log "synchronize_files: Copying '$SRC' to '$DST'"
-         cp -fp "$SRC" "$DST" || {
-            debug_log "ERROR: Failed to copy '$SRC' to '$DST'"
-            return 1
-         }
-      fi
-   # If the source is missing but the destination exists and is writable, copy destination back.
-   elif [ -f "$DST" ] && [ "$WRITABLE" = "true" ]; then
-      debug_log "synchronize_files: Copying '$DST' to '$SRC' (source missing)"
-      cp -fp "$DST" "$SRC" || {
-         debug_log "ERROR: Failed to copy '$DST' to '$SRC'"
-         return 1
-      }
-   fi
-
-   # For SSH key files, enforce strict permissions.
-   if [ "${DST##*.}" = "authorized_keys" ] && [ -f "$DST" ]; then
-      debug_log "synchronize_files: Setting permissions 600 for '$DST'"
-      chmod 600 "$DST" || {
-         debug_log "ERROR: Failed to chmod 600 '$DST'"
-         return 1
-      }
-   fi
-   return 0
-}
-
 # minios_boot
 # -----------
 # $1 = data directory
@@ -1507,12 +1453,12 @@ synchronize_files() {
 #
 minios_boot() {
    debug_log "minios_boot $*"
-   local WRITABLE SSH_KEY EXPORT_LOGS DATE TIME SYSTEMDSYSTEM
+   local WRITABLE DATE TIME
 
-   # Exit immediately if "static_profiles" is present in the kernel command line.
+   # Exit if "static_profiles" is present in the kernel command line.
    if grep -q static_profiles /proc/cmdline; then
       debug_log "minios_boot: static_profiles found, exiting."
-      return
+      return 0
    fi
 
    # Copy the boot binary to the target mount directory.
@@ -1538,26 +1484,22 @@ minios_boot() {
       debug_log "minios_boot: '$1' is NOT writable."
    fi
 
-   # Synchronize the configuration file.
-   debug_log "minios_boot: Synchronizing config file"
-   synchronize_files "$1/minios.conf" "$2/etc/minios/minios.conf" "$WRITABLE" || {
-      debug_log "ERROR: synchronize_files for config failed"
-      return 1
-   }
-
-   # Determine the SSH key file; default to "authorized_keys" if not specified.
-   SSH_KEY=$(cmdline_value ssh_key)
-   if [ -z "$SSH_KEY" ]; then
-      SSH_KEY=$(config_value "$1/minios.conf" SSH_KEY)
-      if [ -z "$SSH_KEY" ]; then
-         SSH_KEY="authorized_keys"
-      fi
+   if [ -f "$2/etc/live/config.conf" ]; then
+      return 0
    fi
-   debug_log "minios_boot: SSH_KEY is '$SSH_KEY'"
 
-   # Create the .ssh directory in the target if it doesn't exist.
+   # One-way copy of configuration file.
+   debug_log "minios_boot: Copying config file"
+   if [ -f "$1/config.conf" ]; then
+      cp -fp "$1/config.conf" "$2/etc/live/config.conf" || {
+         debug_log "ERROR: Failed to copy config.conf"
+         return 1
+      }
+   fi
+
+   # Prepare SSH directory in target.
+   debug_log "minios_boot: Preparing SSH directory"
    if ! [ -d "$2/root/.ssh" ]; then
-      debug_log "minios_boot: Creating directory $2/root/.ssh"
       mkdir -p "$2/root/.ssh" || {
          debug_log "ERROR: Failed to create directory '$2/root/.ssh'"
          return 1
@@ -1568,76 +1510,53 @@ minios_boot() {
       }
    fi
 
-   # Synchronize the SSH authorized_keys file.
-   debug_log "minios_boot: Synchronizing authorized_keys"
-   synchronize_files "$1/$SSH_KEY" "$2/root/.ssh/authorized_keys" "$WRITABLE" || {
-      debug_log "ERROR: synchronize_files for authorized_keys failed"
-      return 1
-   }
+   # One-way copy of SSH authorized_keys.
+   debug_log "minios_boot: Copying authorized_keys"
+   if [ -f "$1/authorized_keys" ]; then
+      cp -fp "$1/authorized_keys" "$2/root/.ssh/authorized_keys" || {
+         debug_log "ERROR: Failed to copy authorized_keys"
+         return 1
+      }
+      chmod 600 "$2/root/.ssh/authorized_keys" || {
+         debug_log "ERROR: Failed to chmod 600 authorized_keys"
+         return 1
+      }
+   fi
 
-   # Create the log directory in the target.
-   debug_log "minios_boot: Creating log directory $2/var/log/minios"
+   # Create log directory in target.
+   debug_log "minios_boot: Creating log directory"
    mkdir -p "$2/var/log/minios" || {
       debug_log "ERROR: Failed to create directory '$2/var/log/minios'"
       return 1
    }
 
-   # Determine the systemd system directory path.
-   if [ -d "$2/usr/lib/systemd/system" ]; then
-      SYSTEMDSYSTEM="$2/usr/lib/systemd/system"
-   elif [ -d "$2/lib/systemd/system" ]; then
-      SYSTEMDSYSTEM="$2/lib/systemd/system"
-   else
-      debug_log "minios_boot: Warning: systemd system directory not found."
-      SYSTEMDSYSTEM=""
-   fi
-   debug_log "minios_boot: SYSTEMDSYSTEM is '$SYSTEMDSYSTEM'"
-
-   # If a scripts directory exists in the data directory, pass it as an argument.
-   CMDLINE_ARGS=""
-   if [ "$(ls -A "$1/scripts" 2>/dev/null)" ]; then
-      CMDLINE_ARGS="$1"
-   fi
-   debug_log "minios_boot: Running chroot /bin/bash -c '/minios-boot $CMDLINE_ARGS'"
-   chroot "$2" /bin/bash -c "/minios-boot $CMDLINE_ARGS" >"$2/var/log/minios/minios-boot.output.log" 2>&1 || {
+   debug_log "minios_boot: Running chroot /bin/bash -c '/minios-boot'"
+   chroot "$2" /bin/bash -c "/minios-boot" >"$2/var/log/minios/minios-boot.output.log" 2>&1 || {
       debug_log "ERROR: chroot /minios-boot failed"
       return 1
    }
 
-   # Export logs if enabled and if the data directory is writable.
-   EXPORT_LOGS=$(config_value "$1/minios.conf" EXPORT_LOGS)
+   # Export logs if enabled and writable.
+   local EXPORT_LOGS LOGDIR
+   EXPORT_LOGS=$(config_value "$1/config.conf" EXPORT_LOGS)
    DATE=$(date +%Y%m%d)
    TIME=$(date +%H%M%S)
    if [ "$EXPORT_LOGS" = "true" ] && [ "$WRITABLE" = "true" ]; then
-      debug_log "minios_boot: Exporting logs to $1/log/$DATE"
-      mkdir -p "$1/log/$DATE" || {
-         debug_log "ERROR: Failed to create directory '$1/log/$DATE'"
+      LOGDIR="$1/log/${DATE}_${TIME}"
+      debug_log "minios_boot: Creating export directories $LOGDIR/minios and $LOGDIR/live"
+      mkdir -p "$LOGDIR/minios" "$LOGDIR/live" || {
+         debug_log "ERROR: Failed to create export directories"
          return 1
       }
-      if [ -f "$2/var/log/minios/minios-boot.output.log" ]; then
-         cp -fp "$2/var/log/minios/minios-boot.output.log" "$1/log/$DATE/boot-$TIME.output" || {
-            debug_log "ERROR: Failed to copy minios-boot.output.log"
-            return 1
-         }
-      fi
-      if [ -f "$2/var/log/minios/minios-boot.trace.log" ]; then
-         cp -fp "$2/var/log/minios/minios-boot.trace.log" "$1/log/$DATE/boot-$TIME.trace" || {
-            debug_log "ERROR: Failed to copy minios-boot.trace.log"
-            return 1
-         }
-      fi
-   fi
-
-   # Reverse synchronize config and authorized_keys back to the source if writable.
-   if [ "$WRITABLE" = "true" ]; then
-      debug_log "minios_boot: Synchronizing config back to source"
-      synchronize_files "$2/etc/minios/minios.conf" "$1/minios.conf" "$WRITABLE" || {
-         debug_log "ERROR: synchronize_files (back) for config failed"
+      # Copy logs with identical debug messages and error handling
+      debug_log "minios_boot: Copying /var/log/minios to $LOGDIR/minios"
+      cp -a "$2/var/log/minios/." "$LOGDIR/minios/" || {
+         debug_log "ERROR: Failed to copy /var/log/minios"
          return 1
       }
-      debug_log "minios_boot: Synchronizing authorized_keys back to source"
-      synchronize_files "$2/root/.ssh/authorized_keys" "$1/$SSH_KEY" "$WRITABLE" || {
-         debug_log "ERROR: synchronize_files (back) for authorized_keys failed"
+      debug_log "minios_boot: Copying /var/log/live to $LOGDIR/live"
+      cp -a "$2/var/log/live/." "$LOGDIR/live/" || {
+         debug_log "ERROR: Failed to copy /var/log/live"
          return 1
       }
    fi
@@ -1649,11 +1568,6 @@ minios_boot() {
    debug_log "minios_boot: Finished successfully."
    return 0
 }
-################################################################################
-#                                                                              #
-#  End of MiniOS Boot Functions                                                #
-#                                                                              #
-################################################################################
 
 # Change root and execute init
 # $1 = where to change root
