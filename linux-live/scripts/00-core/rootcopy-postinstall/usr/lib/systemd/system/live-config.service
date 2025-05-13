@@ -1,0 +1,25 @@
+## live-config - System Configuration Components
+##
+## live-config contains the components that configure a live system during
+## the boot process (late userspace).
+##
+## This is the systemd service for live-config.
+
+
+[Unit]
+Description=live-config contains the components that configure a live system during the boot process (late userspace).
+Documentation=man:live-config
+Before=basic.target
+After=local-fs.target systemd-tmpfiles-setup.service
+DefaultDependencies=no
+ConditionPathExists=/usr//bin/live-config
+ConditionKernelCommandLine=boot=live
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sh -c "if [ -f /run/initramfs/memory/data/minios/config.conf ] && [ ! -f /etc/live/config.conf ]; then cp -fp /run/initramfs/memory/data/minios/config.conf /etc/live/config.conf; fi; sync"
+ExecStart=/usr/bin/live-config
+
+[Install]
+WantedBy=basic.target
