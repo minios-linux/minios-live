@@ -13,10 +13,15 @@
 
 #set -e
 
+# Default passwords (hashed)
+DEFAULT_ROOT_PASSWORD_CRYPTED='$y$j9T$y6H8zml37HjzKO517qvkc.$53Ux0xA0OVHIELjgf91mMd8nr1DM.E3PSI.StCEnn4.'
+DEFAULT_USER_PASSWORD_CRYPTED='$y$j9T$ZjqXh232.8hREYixjgMNN.$ADNa7mAp.Cjky5HgjG7JioH3SxnzPLljAC0fVxPsYr6'
+
 Cmdline() {
 	# Reading kernel command line
 	for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
 		case "${_PARAMETER}" in
+		# User/group settings
 		live-config.user-default-groups=* | user-default-groups=*)
 			LIVE_USER_DEFAULT_GROUPS="${_PARAMETER#*user-default-groups=}"
 			;;
@@ -28,6 +33,27 @@ Cmdline() {
 		live-config.username=* | username=*)
 			LIVE_USERNAME="${_PARAMETER#*username=}"
 			;;
+
+		# Root password (plain)
+		live-config.root-password=* | root-password=*)
+			LIVE_ROOT_PASSWORD_PLAIN="${_PARAMETER#*root-password=}"
+			;;
+
+		# Root password (crypted)
+		live-config.root-password-crypted=* | root-password-crypted=*)
+			LIVE_ROOT_PASSWORD_CRYPTED="${_PARAMETER#*root-password-crypted=}"
+			;;
+
+		# User password (plain)
+		live-config.user-password=* | user-password=*)
+			LIVE_USER_PASSWORD_PLAIN="${_PARAMETER#*user-password=}"
+			;;
+
+		# User password (crypted)
+		live-config.user-password-crypted=* | user-password-crypted=*)
+			LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
+			;;
+
 		esac
 	done
 }
@@ -48,7 +74,7 @@ Config() {
 		exit 0
 	fi
 
-	# Adjust formating of groups
+	# Adjust formatting of groups
 	if [ -n "${LIVE_USER_DEFAULT_GROUPS}" ]; then
 		LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|,| |g')"
 	fi
@@ -60,21 +86,73 @@ Config() {
 		;;
 	esac
 
-	# Default password is: live
-	# passwords can be generated with 'echo "live" | mkpasswd -s',
-	# a blank password is 'U6aMy0wojraho'.
-	#_PASSWORD="8Ab05sVQ4LLps"
-	ROOT_PASSWORD='$y$j9T$y6H8zml37HjzKO517qvkc.$53Ux0xA0OVHIELjgf91mMd8nr1DM.E3PSI.StCEnn4.'
-	USER_PASSWORD='$y$j9T$ZjqXh232.8hREYixjgMNN.$ADNa7mAp.Cjky5HgjG7JioH3SxnzPLljAC0fVxPsYr6'
+	# Determine root password input method
+	if [ -n "${LIVE_ROOT_PASSWORD_PLAIN}" ]; then
+		# Plain text provided
+		ROOT_PASS_TYPE="plain"
+	elif [ -n "${LIVE_ROOT_PASSWORD_CRYPTED}" ]; then
+		# Crypted provided via cmdline
+		ROOT_PASS_TYPE="crypted"
+	else
+		# Fallback to default crypted
+		ROOT_PASS_TYPE="crypted"
+		LIVE_ROOT_PASSWORD_CRYPTED="${DEFAULT_ROOT_PASSWORD_CRYPTED}"
+	fi
 
+	# Determine user password input method
+	if [ -n "${LIVE_USER_PASSWORD_PLAIN}" ]; then
+		USER_PASS_TYPE="plain"
+	elif [ -n "${LIVE_USER_PASSWORD_CRYPTED}" ]; then
+		USER_PASS_TYPE="crypted"
+	else
+		# Fallback to default crypted
+		USER_PASS_TYPE="crypted"
+		LIVE_USER_PASSWORD_CRYPTED="${DEFAULT_USER_PASSWORD_CRYPTED}"
+	fi
+
+	# Build debconf selections
 	cat >/tmp/live-config.cfg <<EOF
 user-setup passwd/make-user boolean true
-user-setup passwd/root-password string ''
-user-setup passwd/root-password-again string ''
-user-setup passwd/root-password-crypted string ${ROOT_PASSWORD}
-user-setup passwd/user-password string ''
-user-setup passwd/user-password-again string ''
-user-setup passwd/user-password-crypted string ${USER_PASSWORD}
+EOF
+
+	# Root password selections
+	case "${ROOT_PASS_TYPE}" in
+	plain)
+		cat >>/tmp/live-config.cfg <<EOF
+user-setup passwd/root-password string ${LIVE_ROOT_PASSWORD_PLAIN}
+user-setup passwd/root-password-again string ${LIVE_ROOT_PASSWORD_PLAIN}
+user-setup passwd/root-password-crypted string 
+EOF
+		;;
+	crypted)
+		cat >>/tmp/live-config.cfg <<EOF
+user-setup passwd/root-password string 
+user-setup passwd/root-password-again string 
+user-setup passwd/root-password-crypted string ${LIVE_ROOT_PASSWORD_CRYPTED}
+EOF
+		;;
+	esac
+
+	# User password selections
+	case "${USER_PASS_TYPE}" in
+	plain)
+		cat >>/tmp/live-config.cfg <<EOF
+user-setup passwd/user-password string ${LIVE_USER_PASSWORD_PLAIN}
+user-setup passwd/user-password-again string ${LIVE_USER_PASSWORD_PLAIN}
+user-setup passwd/user-password-crypted string 
+EOF
+		;;
+	crypted)
+		cat >>/tmp/live-config.cfg <<EOF
+user-setup passwd/user-password string 
+user-setup passwd/user-password-again string 
+user-setup passwd/user-password-crypted string ${LIVE_USER_PASSWORD_CRYPTED}
+EOF
+		;;
+	esac
+
+	# Common user settings
+	cat >>/tmp/live-config.cfg <<EOF
 user-setup passwd/user-default-groups string ${LIVE_USER_DEFAULT_GROUPS}
 user-setup passwd/user-fullname string ${LIVE_USER_FULLNAME}
 user-setup passwd/username string ${LIVE_USERNAME}
