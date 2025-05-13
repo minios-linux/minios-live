@@ -1,0 +1,89 @@
+#!/bin/bash
+
+. /usr/lib/live/config.sh
+. /etc/os-release
+
+## live-config(7) - System Configuration Components
+## Copyright (C) 2016-2020 The Debian Live team
+## Copyright (C) 2006-2015 Daniel Baumann <mail@daniel-baumann.ch>
+## Copyright (C) 2025 MiniOS <https://minios.dev>
+##
+## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+#set -e
+
+Init() {
+    echo -n " hyperv"
+}
+
+Config() {
+    if ([ "$VERSION_CODENAME" = "bookworm" ] || [ "$VERSION_CODENAME" = "trixie" ] || [ "$VERSION_CODENAME" = "sid" ]) || ([ "$ID" = "ubuntu" ] && cat /proc/filesystems | grep aufs >/dev/null 2>&1); then
+        if is_virtual "Hyper-V"; then
+            echo "Running on Hyper-V. Configuring X11 for compatibility..."
+            if [ ! -d /etc/X11/xorg.conf.d ]; then
+                mkdir -p /etc/X11/xorg.conf.d || error "Failed to create directory /etc/X11/xorg.conf.d."
+            fi
+            cat <<EOF >/etc/X11/xorg.conf.d/30-hyperv.conf
+Section "Device"
+    Identifier  "HYPER-V Framebuffer"
+    Driver      "fbdev"
+EndSection
+
+EOF
+            echo "X11 configuration for Hyper-V completed."
+        elif [ -f /etc/X11/xorg.conf.d/30-hyperv.conf ]; then
+            rm -f /etc/X11/xorg.conf.d/30-hyperv.conf || error "Failed to remove /etc/X11/xorg.conf.d/30-hyperv.conf."
+            echo "Removed Hyper-V X11 configuration file."
+        fi
+    fi
+}
+
+# Function to check if the system is running on any virtual machine
+is_virtual() {
+    local VM_TYPE="$1"
+    if [[ -z "$VM_TYPE" ]]; then
+        if grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "(Oracle|microsoft corporation|Bochs)" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        case "$VM_TYPE" in
+        VirtualBox)
+            if grep -qEi "VirtualBox" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "Oracle" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+                return 0
+            fi
+            ;;
+        VMware)
+            if grep -qEi "VMware" /sys/class/dmi/id/product_name 2>/dev/null; then
+                return 0
+            fi
+            ;;
+        KVM | QEMU)
+            if grep -qEi "(KVM|QEMU)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "Bochs" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+                return 0
+            fi
+            ;;
+        Xen)
+            if grep -qEi "Xen" /sys/class/dmi/id/product_name 2>/dev/null; then
+                return 0
+            fi
+            ;;
+        Hyper-V)
+            if grep -qEi "microsoft corporation" /sys/class/dmi/id/sys_vendor 2>/dev/null && grep -qEi "virtual machine" /sys/class/dmi/id/product_name 2>/dev/null; then
+                return 0
+            fi
+            ;;
+        *)
+            echo "Usage: is_virtual [VirtualBox|VMware|KVM|QEMU|Xen|Hyper-V]" >&2
+            return 1
+            ;;
+        esac
+        return 1
+    fi
+}
+
+Init
+Config

@@ -1,11 +1,11 @@
 #!/bin/sh
-# /etc/live/config/0030-user-setup
 
 . /usr/lib/live/config.sh
 
 ## live-config(7) - System Configuration Components
 ## Copyright (C) 2016-2020 The Debian Live team
 ## Copyright (C) 2006-2015 Daniel Baumann <mail@daniel-baumann.ch>
+## Copyright (C) 2025 MiniOS <https://minios.dev>
 ##
 ## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
 ## This is free software, and you are welcome to redistribute it
@@ -82,7 +82,6 @@ user-setup passwd/user-uid string 1000
 EOF
 
 	debconf-set-selections </tmp/live-config.cfg
-	cp /tmp/live-config.cfg /var/log/live/
 	rm -f /tmp/live-config.cfg
 
 	# Workaround for bug in shadow
