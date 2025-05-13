@@ -39,7 +39,7 @@ EOF
 fi
 
 if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
-    USER_NAME="root"
+    LIVE_USERNAME="root"
 fi
 cat <<EOF >/usr/lib/systemd/system/xorg.service
 [Unit]
@@ -48,7 +48,7 @@ ConditionKernelCommandLine=!text
 After=systemd-user-sessions.service
 
 [Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $USER_NAME
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $LIVE_USERNAME
 
 [Install]
 WantedBy=graphical.target
