@@ -1,0 +1,47 @@
+#!/bin/bash
+
+. /usr/lib/live/config.sh
+
+## live-config(7) - System Configuration Components
+## Copyright (C) 2016-2020 The Debian Live team
+## Copyright (C) 2006-2015 Daniel Baumann <mail@daniel-baumann.ch>
+## Copyright (C) 2025 MiniOS <https://minios.dev>
+##
+## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+#set -e
+
+Init() {
+    echo -n " config-systemtype"
+}
+
+Config() {
+    LIVE="/run/initramfs/memory"
+    BUNDLES="$LIVE/bundles"
+    CHANGES="$LIVE/changes"
+
+    # Configuring the system to operate in 'puzzle' mode
+    if [ "$SYSTEM_TYPE" = "puzzle" ]; then
+        echo "Configuring the system to operate in 'puzzle' mode."
+
+        if [ -x /usr/sbin/minios-update-users ]; then
+            echo "Updating users with minios-update-users"
+            minios-update-users "$BUNDLES" "$CHANGES" >/var/log/minios/minios-update-users.output.log 2>&1
+        fi
+
+        if [ -x /usr/sbin/inios-update-cache ]; then
+            echo "Updating cache with minios-update-cache"
+            minios-update-cache "$BUNDLES" >/var/log/minios/minios-update-cache.output.log 2>&1 &
+        fi
+
+        if [ -x /usr/sbin/minios-update-dpkg ]; then
+            echo "Updating dpkg with minios-update-dpkg"
+            minios-update-dpkg "$BUNDLES" "$CHANGES" >/var/log/minios/minios-update-dpkg.output.log 2>&1 &
+        fi
+    fi
+}
+
+Init
+Config

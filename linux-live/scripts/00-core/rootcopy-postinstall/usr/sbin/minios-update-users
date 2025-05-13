@@ -1,0 +1,125 @@
+#!/bin/bash
+# Script to merge user/group files (passwd, shadow, group, gshadow)
+# from a core bundle, additional bundles, and an optional changes layer.
+#
+# Author: crims0n <https://minios.dev>
+
+# Exit on errors and unset variables
+set -euo pipefail
+
+[ ! "$1" ] && echo "Builds a common users files (passwd, shadow, group, gshadow) from all bundles
+    Usage:   $0 [bundles mount points location] [optional: changes location]
+    Example: $0 /run/initramfs/memory/bundles /run/initramfs/memory/changes" && exit 1
+
+# Ensure the script is run as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run as root!"
+    exit 1
+fi
+
+# Enable debug trace logging
+mkdir -p /var/log/minios
+exec 19>/var/log/minios/minios-update-users.trace.log
+BASH_XTRACEFD=19
+PS4='${LINENO}: '
+set -x
+
+# Create log directory for user files merge logs
+DEBUG_DIR="/var/log/minios/users"
+mkdir -p "$DEBUG_DIR"
+
+# Set necessary environment variables
+export HOME=/root
+export LC_ALL=C
+
+# Input parameters: bundles directory and optional changes directory
+BUNDLES="$1"
+CHANGES="${2:-}" # If not provided, defaults to empty
+
+# Define core bundle settings
+CORE_BUNDLE_PREFIX="00-core"
+BEXT="sb"
+
+# Locate the core bundle directory (first match)
+CORE_BUNDLE_PATH=$(ls -1d "$BUNDLES"/"$CORE_BUNDLE_PREFIX"*."$BEXT" 2>/dev/null | head -n 1)
+if [ -z "$CORE_BUNDLE_PATH" ]; then
+    echo "Core bundle ($CORE_BUNDLE_PREFIX) not found in $BUNDLES."
+    exit 1
+fi
+
+# Create a temporary working directory (will be removed on exit)
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+# Files to merge
+FILES=("passwd" "shadow" "group" "gshadow")
+
+# Function to merge a single FILE from all layers
+merge_file() {
+    local FILE="$1"
+    local TMP_FILE="$TMP/${FILE}.tmp"
+
+    echo "Merging $FILE ..."
+
+    # Initialize the merge FILE with the core bundle version, if available
+    local CORE_FILE="$CORE_BUNDLE_PATH/etc/$FILE"
+    if [ -f "$CORE_FILE" ]; then
+        cp "$CORE_FILE" "$TMP_FILE"
+        cp "$CORE_FILE" "$DEBUG_DIR/${FILE}.core"
+    else
+        # Create an empty FILE if the core bundle does not provide it
+        touch "$TMP_FILE"
+    fi
+
+    # Process additional bundles (excluding the core bundle)
+    # Find directories in BUNDLES with the expected extension, sorted lexicographically
+    while IFS= read -r -d '' BUNDLE_DIR; do
+        # Skip the core bundle directory
+        if [ "$BUNDLE_DIR" = "$CORE_BUNDLE_PATH" ]; then
+            continue
+        fi
+
+        local BUNDLE_NAME
+        BUNDLE_NAME=$(basename "$BUNDLE_DIR")
+        local BUNDLE_FILE="$BUNDLE_DIR/etc/$FILE"
+
+        if [ -f "$BUNDLE_FILE" ]; then
+            echo "  Processing bundle: $BUNDLE_NAME"
+            cp "$BUNDLE_FILE" "$DEBUG_DIR/${FILE}.${BUNDLE_NAME}"
+
+            # Merge current merged content with the bundle FILE:
+            # - Read the current TMP_FILE (from previous layers)
+            # - Then read the new bundle FILE so that any duplicate key (first field) is overwritten
+            awk -F: 'NR==FNR { rec[$1]=$0; next } { rec[$1]=$0 } END { for (k in rec) print rec[k] }' \
+                "$TMP_FILE" "$BUNDLE_FILE" >"$TMP/${FILE}.merged"
+            mv "$TMP/${FILE}.merged" "$TMP_FILE"
+            cp "$TMP_FILE" "$DEBUG_DIR/${FILE}.tmp"
+        fi
+    done < <(find "$BUNDLES" -maxdepth 1 -type d -name "*.${BEXT}" -print0 | sort -zV)
+
+    # Process the changes directory last (if provided and valid)
+    if [ -n "$CHANGES" ] && [ -d "$CHANGES" ]; then
+        local CHANGES_FILE="$CHANGES/etc/$FILE"
+        if [ -f "$CHANGES_FILE" ]; then
+            echo "  Processing changes directory"
+            cp "$CHANGES_FILE" "$DEBUG_DIR/${FILE}.changes"
+            awk -F: 'NR==FNR { rec[$1]=$0; next } { rec[$1]=$0 } END { for (k in rec) print rec[k] }' \
+                "$TMP_FILE" "$CHANGES_FILE" >"$TMP/${FILE}.merged"
+            mv "$TMP/${FILE}.merged" "$TMP_FILE"
+            cp "$TMP_FILE" "$DEBUG_DIR/${FILE}.tmp"
+        fi
+    fi
+
+    # Finalize the merge: sort the entries by the key (first field) and install the merged FILE to /etc
+    sort -t: -k1,1 "$TMP_FILE" >"$TMP/${FILE}.final"
+    cp "$TMP/${FILE}.final" "/etc/$FILE"
+    echo "Installed merged $FILE to /etc/$FILE"
+}
+
+# Iterate over each FILE (passwd, shadow, group, gshadow) and merge them
+for FILE in "${FILES[@]}"; do
+    merge_file "$FILE"
+done
+
+echo "User files merge complete."
+exit 0
