@@ -611,6 +611,7 @@ install_packages() {
     local VERBOSITY_LEVEL=0
     local XTRACE_MODE=false
     local FORCE_UPDATE=false
+    local PRIORITY_QUEUE=()
 
     PACKAGE_ARRAY=()
     PACKAGES_TO_INSTALL=()
@@ -708,8 +709,10 @@ install_packages() {
     fi
 
     if [ "${FORCE_UPDATE}" = true ] || [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
-        [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Updating package list..."
-        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 &
+        local APT_PID="$!"
+        spinner "${APT_PID}" "Updating package lists"
+        wait "${APT_PID}"
     else
         [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Package cache exists; update not required."
     fi

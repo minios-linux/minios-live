@@ -128,7 +128,21 @@ spinner "${APT_PID}" "Upgrading installed packages"
 wait "${APT_PID}"
 
 chmod +x /linux-live/install-packages
-/linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/filter_mapping.conf" -s
+/linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/filter_mapping.conf"
+
+cat <<EOF >>/etc/live/config.conf
+LIVE_CONFIG_CMDLINE="boot=live components"
+LIVE_HOSTNAME="minios"
+LIVE_USERNAME="${USER_NAME}"
+LIVE_USER_FULLNAME="MiniOS Live User"
+LIVE_USER_DEFAULT_GROUPS="dialout,cdrom,floppy,audio,video,plugdev,users,fuse,weston-launch,kvm,libvirt,libvirt-qemu,vboxusers,lpadmin,dip,sambashare,docker,wireshark"
+LIVE_LOCALES="en_US.UTF-8"
+LIVE_TIMEZONE="Etc\UTC"
+LIVE_KEYBOARD_MODEL="pc105"
+LIVE_KEYBOARD_LAYOUTS="us"
+LIVE_KEYBOARD_VARIANTS=","
+LIVE_CONFIG_DEBUG="true"
+EOF
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
@@ -169,17 +183,9 @@ fi
 
 # configuration
 
-(cd /$BUILD_SCRIPTS/scripts/00-core/rootcopy-install && cp --parents -afr * /)
+#(cd /$BUILD_SCRIPTS/scripts/00-core/rootcopy-install && cp --parents -afr * /)
 
 # minios-install setup
-if [ ! -d /usr/lib/usev/rules.d ]; then
-    mkdir -p /usr/lib/udev/rules.d
-fi
-cat <<EOF >/usr/lib/udev/rules.d/90-minios-automount.rules
-# we don't care about loop* and ram* devices
-KERNEL=="[!lr]*", SUBSYSTEM=="block", RUN+="/usr/sbin/minios-automount %r/%k"
-
-EOF
 if [ -d /etc/NetworkManager ] && [[ "${DISTRIBUTION}" = "jammy" || "${DISTRIBUTION}" = "noble" || "${DISTRIBUTION_TYPE}" = "ubuntu" ]]; then
     if [ ! -d /etc/netplan/ ]; then
         mkdir -p /etc/netplan/
@@ -284,7 +290,7 @@ fi
 
 dpkg-reconfigure -f noninteractive locales >/dev/null 2>&1
 
-echo root:"${ROOT_PASSWORD}" | chpasswd
+#echo root:"${ROOT_PASSWORD}" | chpasswd
 cp -f /etc/skel/.bashrc /root/
 
 mkdir -p "/usr/share/minios" "/etc/minios"

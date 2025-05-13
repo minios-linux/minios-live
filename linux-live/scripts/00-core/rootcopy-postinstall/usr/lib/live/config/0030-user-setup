@@ -1,0 +1,111 @@
+#!/bin/sh
+# /etc/live/config/0030-user-setup
+
+. /usr/lib/live/config.sh
+
+## live-config(7) - System Configuration Components
+## Copyright (C) 2016-2020 The Debian Live team
+## Copyright (C) 2006-2015 Daniel Baumann <mail@daniel-baumann.ch>
+##
+## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+#set -e
+
+Cmdline() {
+	# Reading kernel command line
+	for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
+		case "${_PARAMETER}" in
+		live-config.user-default-groups=* | user-default-groups=*)
+			LIVE_USER_DEFAULT_GROUPS="${_PARAMETER#*user-default-groups=}"
+			;;
+
+		live-config.user-fullname=* | user-fullname=*)
+			LIVE_USER_FULLNAME="${_PARAMETER#*user-fullname=}"
+			;;
+
+		live-config.username=* | username=*)
+			LIVE_USERNAME="${_PARAMETER#*username=}"
+			;;
+		esac
+	done
+}
+
+Init() {
+	# Checking if package is installed or already configured
+	if ! pkg_is_installed "user-setup" ||
+		component_was_executed "user-setup"; then
+		exit 0
+	fi
+
+	echo -n " user-setup"
+}
+
+Config() {
+	# Checking if package is already configured differently
+	if grep -q "^${LIVE_USERNAME}:" /etc/passwd; then
+		exit 0
+	fi
+
+	# Adjust formating of groups
+	if [ -n "${LIVE_USER_DEFAULT_GROUPS}" ]; then
+		LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|,| |g')"
+	fi
+
+	# Make sure user is not in sudo group if sudo is disabled
+	case "${LIVE_CONFIG_NOROOT}" in
+	true)
+		LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|sudo||')"
+		;;
+	esac
+
+	# Default password is: live
+	# passwords can be generated with 'echo "live" | mkpasswd -s',
+	# a blank password is 'U6aMy0wojraho'.
+	#_PASSWORD="8Ab05sVQ4LLps"
+	ROOT_PASSWORD='$y$j9T$y6H8zml37HjzKO517qvkc.$53Ux0xA0OVHIELjgf91mMd8nr1DM.E3PSI.StCEnn4.'
+	USER_PASSWORD='$y$j9T$ZjqXh232.8hREYixjgMNN.$ADNa7mAp.Cjky5HgjG7JioH3SxnzPLljAC0fVxPsYr6'
+
+	cat >/tmp/live-config.cfg <<EOF
+user-setup passwd/make-user boolean true
+user-setup passwd/root-password string ''
+user-setup passwd/root-password-again string ''
+user-setup passwd/root-password-crypted string ${ROOT_PASSWORD}
+user-setup passwd/user-password string ''
+user-setup passwd/user-password-again string ''
+user-setup passwd/user-password-crypted string ${USER_PASSWORD}
+user-setup passwd/user-default-groups string ${LIVE_USER_DEFAULT_GROUPS}
+user-setup passwd/user-fullname string ${LIVE_USER_FULLNAME}
+user-setup passwd/username string ${LIVE_USERNAME}
+user-setup passwd/user-uid string 1000
+EOF
+
+	debconf-set-selections </tmp/live-config.cfg
+	cp /tmp/live-config.cfg /var/log/live/
+	rm -f /tmp/live-config.cfg
+
+	# Workaround for bug in shadow
+	set +e
+	/usr/lib/user-setup/user-setup-apply 2>&1 |
+		grep -v "Shadow passwords are now on"
+	set -e
+
+	# Setting up 'root' user environment
+	cp -rT /etc/skel /root || echo "Failed to copy skeleton files to /root."
+	if [ -d /root ]; then
+		for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+			mkdir -p "/root/$DIR" || echo "Failed to create /root/$DIR"
+		done
+	fi
+	chown 0:0 /root || echo "Failed to set ownership for /root"
+	chown -R 0:0 /root || echo "Failed to set ownership recursively for /root"
+	sed -i 's,01;32m,01;31m,g' /root/.bashrc || echo "Failed to update /root/.bashrc"
+
+	# Creating state file
+	touch /var/lib/live/config/user-setup
+}
+
+Cmdline
+Init
+Config

@@ -1439,8 +1439,8 @@ EOF
 }
 
 create_config_files() {
-    DEFAULT_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
-    DEBUG_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
+    DEFAULT_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0 noautologin"
+    DEBUG_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0 noautologin"
 
     BOOT_SETTINGS="quiet"
 
@@ -2014,42 +2014,72 @@ install_core_packages() {
     # Set the hostname inside the chroot.
     echo "${LIVEKITNAME}" >/etc/hostname
 
-    # Workaround to prevent issues with initctl within the chroot.
-    # dpkg-divert renames the original /sbin/initctl, and then
-    # a symlink to /bin/true is created in its place. This prevents
-    # initctl from attempting to control services within the chroot,
-    # which may not be desired or even possible.
+    # Workaround to prevent initctl from running within the chroot.
     dpkg-divert --local --rename --add /sbin/initctl >/dev/null
     ln -s /bin/true /sbin/initctl
 
-    information "Installing core packages for chroot system:"
-
+    # Export any necessary variables for chroot operations.
     export_chroot_variables
 
-    if [ -f /${BUILD_SCRIPTS}/scripts/00-core/preinstall ]; then
-        chmod +x /${BUILD_SCRIPTS}/scripts/00-core/preinstall
-        /${BUILD_SCRIPTS}/scripts/00-core/preinstall
-    fi
-    if [ -f /${BUILD_SCRIPTS}/scripts/00-core/install ]; then
-        chmod +x /${BUILD_SCRIPTS}/scripts/00-core/install
-        /${BUILD_SCRIPTS}/scripts/00-core/install
-    fi
-    if [ -f /${BUILD_SCRIPTS}/scripts/00-core/postinstall ]; then
-        chmod +x /${BUILD_SCRIPTS}/scripts/00-core/postinstall
-        /${BUILD_SCRIPTS}/scripts/00-core/postinstall
+    CORE_SCRIPT_DIR="${BUILD_SCRIPTS}/scripts/00-core"
+
+    # -------------------------
+    # rootcopy-preinstall stage
+    # -------------------------
+    if [ -d "${CORE_SCRIPT_DIR}/rootcopy-preinstall" ]; then
+        cp -a "${CORE_SCRIPT_DIR}/rootcopy-preinstall/." / &
+        COPY_PID=$!
+        spinner "${COPY_PID}" "Copying rootcopy-preinstall files into chroot"
+        wait "${COPY_PID}"
     fi
 
+    # ------------------
+    # Pre-install hook
+    # ------------------
+    if [ -f "${CORE_SCRIPT_DIR}/preinstall" ]; then
+        chmod +x "${CORE_SCRIPT_DIR}/preinstall"
+        "${CORE_SCRIPT_DIR}/preinstall"
+    fi
+
+    # ----------------
+    # Install hook
+    # ----------------
+    if [ -f "${CORE_SCRIPT_DIR}/install" ]; then
+        chmod +x "${CORE_SCRIPT_DIR}/install"
+        "${CORE_SCRIPT_DIR}/install"
+    fi
+
+    # --------------------------
+    # rootcopy-postinstall stage
+    # --------------------------
+    if [ -d "${CORE_SCRIPT_DIR}/rootcopy-postinstall" ]; then
+        cp -a "${CORE_SCRIPT_DIR}/rootcopy-postinstall/." / &
+        COPY_PID=$!
+        spinner "${COPY_PID}" "Copying rootcopy-postinstall files into chroot"
+        wait "${COPY_PID}"
+    fi
+
+    # ------------------
+    # Post-install hook
+    # ------------------
+    if [ -f "${CORE_SCRIPT_DIR}/postinstall" ]; then
+        chmod +x "${CORE_SCRIPT_DIR}/postinstall"
+        "${CORE_SCRIPT_DIR}/postinstall"
+    fi
+
+    # Clean up unused packages non-interactively.
     DEBIAN_FRONTEND=noninteractive apt-get autoremove -y -qq &
     AUTOREMOVE_PID="$!"
     spinner "${AUTOREMOVE_PID}" "Autoremoving packages"
     wait "${AUTOREMOVE_PID}"
 
+    # Final cleanup of the chroot environment.
     chroot_cleanup core
 
-    # truncate machine id (why??)
+    # Reset machine-id inside chroot.
     truncate -s 0 /etc/machine-id
 
-    # remove diversion (why??)
+    # Restore initctl functionality.
     rm /sbin/initctl 2>/dev/null
     dpkg-divert --rename --remove /sbin/initctl >/dev/null
 }
