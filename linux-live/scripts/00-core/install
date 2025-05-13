@@ -276,7 +276,7 @@ fi
 
 dpkg-reconfigure -f noninteractive locales >/dev/null 2>&1
 
-#echo root:"${ROOT_PASSWORD}" | chpasswd
+#echo root:"${LIVE_ROOT_PASSWORD_PLAIN}" | chpasswd
 cp -f /etc/skel/.bashrc /root/
 
 mkdir -p "/usr/share/minios" "/etc/minios"

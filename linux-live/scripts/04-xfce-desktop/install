@@ -133,7 +133,7 @@ if dpkg -l | grep -q slim; then
     sed -i 's,screenshot_cmd      scrot /root/slim.png,#screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
     sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
     sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
-    sed -i "s/#default_user        simone/default_user        $USER_NAME/g" /etc/slim.conf
+    sed -i "s/#default_user        simone/default_user        $LIVE_USERNAMENAME/g" /etc/slim.conf
 fi
 
 if dpkg -l | grep -q nodm; then
@@ -144,7 +144,7 @@ if dpkg -l | grep -q nodm; then
 NODM_ENABLED=true
 
 # User to autologin for
-NODM_USER=$USER_NAME
+NODM_USER=$LIVE_USERNAME
 
 # First vt to try when looking for free VTs
 NODM_FIRST_VT=7
