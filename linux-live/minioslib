@@ -1291,149 +1291,31 @@ build_config() {
     current_process
 
     if [ -d "${WORK_DIR}/image/${LIVEKITNAME}" ]; then
-        cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/${LIVEKITNAME}.conf"
-################################################################################
-#                          MiniOS Configuration File                           #
-#                               (minios.conf)                                  #
-################################################################################
-#
-# This file sets up MiniOS, a lightweight Debian-based distro optimized
-# for booting from USB drives and removable media. It is divided into sections,
-# each marked by a header [SECTION_NAME]. Each setting is defined as:
-#
-#   VARIABLE_NAME="value"
-#
-# Lines beginning with '#' are ignored. For detailed help on these variables,
-# refer to the appropriate man pages. For example, see:
-#   man minios-configurator
-#
-################################################################################
+cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/config.conf"
+LIVE_CONFIG_CMDLINE="boot=live components"
+LIVE_HOSTNAME="${LIVEKITNAME:-minios}"
+LIVE_USERNAME="${USER_NAME}"
+LIVE_USER_FULLNAME="MiniOS Live User"
+LIVE_USER_DEFAULT_GROUPS="dialout,cdrom,floppy,audio,video,plugdev,users,fuse,weston-launch,kvm,libvirt,libvirt-qemu,vboxusers,lpadmin,dip,sambashare,docker,wireshark"
+LIVE_LOCALES="${LOCALE}.UTF-8"
+LIVE_TIMEZONE="${TIMEZONE}"
+LIVE_KEYBOARD_MODEL="pc105"
+LIVE_KEYBOARD_LAYOUTS="us,${LAYOUTID}"
+LIVE_KEYBOARD_OPTIONS="grp:alt_shift_toggle,grp_led:scroll"
+LIVE_KEYBOARD_VARIANTS=","
+LIVE_CONFIG_DEBUG="true"
 
-################################################################################
-#                              [ User Settings ]                               #
-################################################################################
-# Set the username for the default account.
-USER_NAME="${USER_NAME}"
-
-# Set the password for the default user account.
-USER_PASSWORD="${USER_PASSWORD}"
-
-# Set the password for the root (administrator) account.
-ROOT_PASSWORD="${ROOT_PASSWORD}"
-
-################################################################################
-#                              [ Host Settings ]                               #
-################################################################################
-# Define the system's hostname. Defaults to 'minios'.
-HOST_NAME="${LIVEKITNAME:-minios}"
-
-################################################################################
-#                             [ System Settings ]                              #
-################################################################################
-# SYSTEM_TYPE determines how modules are assembled in the system.
-#
-# In "classic" mode, modules are layered sequentially, with each module built
-# on top of the previous one. In "puzzle" mode, multiple modules can be merged
-# over a single layer; their contents are automatically reconciled to ensure
-# proper operation when squashfs layers are mounted.
-#
+# initrd options
 SYSTEM_TYPE="${SYSTEM_TYPE}"
-
-# Specify the target systemd unit for boot (e.g., "graphical", "multi-user",
-# or "rescue"). For details, see: man systemd.special
 DEFAULT_TARGET="${DEFAULT_TARGET}"
-
-################################################################################
-#                                 [ Cloud ]                                    #
-################################################################################
-# CLOUD is a flag indicating cloud environment operation.
-# It may activate cloud-specific optimizations.
 CLOUD="${CLOUD}"
-
-################################################################################
-#                        [ Services Configuration ]                          #
-################################################################################
-# List, separated by commas, of services to enable at boot.
-ENABLE_SERVICES="${ENABLE_SERVICES}"
-
-# List, separated by commas, of services to disable at boot.
-DISABLE_SERVICES="${DISABLE_SERVICES}"
-
-################################################################################
-#                              [ SSH Configuration ]                           #
-################################################################################
-# SSH_KEY specifies the filename containing public SSH keys stored in the
-# system folder on the storage device.
-# For further help, see: man sshd_config
-SSH_KEY="${SSH_KEY}"
-
-################################################################################
-#                     [ Scripts and Login Behavior ]                           #
-################################################################################
-# SCRIPTS enables or disables execution of user scripts from the boot media.
-SCRIPTS="${SCRIPTS}"
-
-# HIDE_CREDENTIALS, if set, hides the username and password in tty.
-HIDE_CREDENTIALS="${HIDE_CREDENTIALS}"
-
-# AUTOLOGIN controls automatic login with the default user after boot.
-AUTOLOGIN="${AUTOLOGIN}"
-
-# LINK_USER_DIRS links standard user directories (e.g., Documents, Downloads)
-# to persistent storage.
 LINK_USER_DIRS="${LINK_USER_DIRS}"
-
-################################################################################
-#                                [ Security ]                                  #
-################################################################################
-# ELEVATION_PASSWORD_REQUIRED forces a password prompt for sudo and pkexec,
-# enhancing security during privileged operations.
-# For more information, see: man sudo and man pkexec
+ENABLE_SERVICES="${ENABLE_SERVICES}"
+DISABLE_SERVICES="${DISABLE_SERVICES}"
+SSH_KEY="${SSH_KEY}"
+SCRIPTS="${SCRIPTS}"
 ELEVATION_PASSWORD_REQUIRED="${ELEVATION_PASSWORD_REQUIRED}"
-
-################################################################################
-#                                [ Logging ]                                   #
-################################################################################
-# EXPORT_LOGS enables export of system logs to the boot media for troubleshooting.
 EXPORT_LOGS="${EXPORT_LOGS}"
-
-################################################################################
-#                           [ Locale and Timezone ]                            #
-################################################################################
-# LOCALES sets the system locale in the format "language_COUNTRY.UTF-8"
-# (e.g., en_US.UTF-8). For additional info, see: man locale
-LOCALES="${LOCALE}.UTF-8"
-
-# TIMEZONE sets the system timezone (e.g., Europe/Moscow) as per the TZ database.
-# For details, refer to: man tzset
-TIMEZONE="${TIMEZONE}"
-
-################################################################################
-#                          [ Keyboard Configuration ]                          #
-################################################################################
-# KEYBOARD_LAYOUTS defines the keyboard layouts. The first is always 'us'.
-# See: man xkeyboard-config for a list of layouts.
-KEYBOARD_LAYOUTS="us,${LAYOUTID}"
-
-# KEYBOARD_MODEL specifies the keyboard model, commonly "pc105" for desktops.
-# For further info, see: man xkeyboard-config
-KEYBOARD_MODEL="pc105"
-
-# KEYBOARD_OPTIONS allows customization of keyboard behavior, such as layout
-# switching and indicator settings. For example, 'grp:alt_shift_toggle'
-# enables switching layouts with Alt+Shift, and 'grp_led:scroll' uses the
-# Scroll Lock LED to indicate the current layout. For a comprehensive list of
-# options, refer to the 'xkeyboard-config' manual page.
-# See also: man xkeyboard-config
-KEYBOARD_OPTIONS="grp:alt_shift_toggle,grp_led:scroll"
-
-# KEYBOARD_VARIANTS specifies keyboard variants if needed. Typically, it is left
-# empty. For a list of variants, see: man xkeyboard-config
-KEYBOARD_VARIANTS=","
-
-################################################################################
-#                      End of MiniOS Configuration File                        #
-################################################################################
 EOF
     fi
 }

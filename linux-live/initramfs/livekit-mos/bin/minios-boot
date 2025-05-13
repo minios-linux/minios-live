@@ -4,30 +4,8 @@
 # Author: crims0n <https://minios.dev>
 #
 
-# ======= Global Variables =======
-
-declare -A VARIABLES_DEFAULTS=(
-    ["DEFAULT_TARGET"]="graphical"
-    ["CLOUD"]="false"
-    ["SCRIPTS"]="false"
-    ["AUTOLOGIN"]="true"
-)
-
-declare -A VALIDATION_RULES=(
-    ["DEFAULT_TARGET"]="^(graphical|multi-user|rescue|emergency)$"
-    ["CLOUD"]="^(true|false)$"
-    ["SCRIPTS"]="^(true|false)$"
-    ["AUTOLOGIN"]="^(true|false)$"
-)
-
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-MINIOS_CONF="/etc/minios/minios.conf"
-
-if [ -d "/usr/lib/systemd/system" ]; then
-    SYSTEMDSYSTEM="/usr/lib/systemd/system"
-elif [ -d "/lib/systemd/system" ]; then
-    SYSTEMDSYSTEM="/lib/systemd/system"
-fi
+CONFIG="/etc/live/config.conf"
 
 CMDLINE="$(cat /cmdline)"
 
@@ -75,75 +53,20 @@ read_config() {
 read_cmdline() {
     for i in "$@"; do
         case $i in
-        user_name=* | username=*) USER_NAME="${i#*=}" ;;
-        user_password=* | userpass=*) USER_PASSWORD="${i#*=}" ;;
-        root_password=* | rootpass=*) ROOT_PASSWORD="${i#*=}" ;;
-        host_name=* | hostname=*) HOST_NAME="${i#*=}" ;;
-        default_target=*) DEFAULT_TARGET="${i#*=}" ;;
-        text) TEXT_MODE="true" ;;
-        enable_services=*) ENABLE_SERVICES="${i#*=}" ;;
-        disable_services=*) DISABLE_SERVICES="${i#*=}" ;;
-        ssh_key=*) SSH_KEY="${i#*=}" ;;
-        minios.flags=*) FLAGS="${i#*=}" ;;
-        slax.flags=*) SFLAGS="${i#*=}" ;;
-        toram) TORAM="true" ;;
-        toram_trim) TORAM_TRIM="true" ;;
-        toram_trim_load=*) TORAM_TRIM_LOAD="${i#*=}" ;;
-        toram_trim_noload=*) TORAM_TRIM_NOLOAD="${i#*=}" ;;
-        perchdir=*) PERCHDIR="${i#*=}" ;;
-        perchmode=*) PERCHMODE="${i#*=}" ;;
-        scripts=*) SCRIPTS="${i#*=}" ;;
-        cloud) CLOUD="true" ;;
-        hide_credentials) HIDE_CREDENTIALS="true" ;;
-        static_profiles) STATIC_PROFILES="true" ;;
-        autologin) AUTOLOGIN="true" ;;
-        link_user_dirs) LINK_USER_DIRS="true" ;;
-        system_type=*) SYSTEM_TYPE="${i#*=}" ;;
-        from=*) FROM="${i#*=}" ;;
-        locales=*) LOCALES="${i#*=}" ;;
-        timezone=*) TIMEZONE="${i#*=}" ;;
-        keyboard-layouts=*) KEYBOARD_LAYOUTS="${i#*=}" ;;
-        keyboard-model=*) KEYBOARD_MODEL="${i#*=}" ;;
-        keyboard-options=*) KEYBOARD_OPTIONS="${i#*=}" ;;
-        keyboard-variants=*) KEYBOARD_VARIANTS="${i#*=}" ;;
-        *) UNKNOWN="true" ;;
+        live-config.username=* | username=*)
+            LIVE_USERNAME="${i#*=}"
+            ;;
+        enable_services=*)
+            ENABLE_SERVICES="${i#*=}"
+            ;;
+        disable_services=*)
+            DISABLE_SERVICES="${i#*=}"
+            ;;
+        scripts=*)
+            SCRIPTS="${i#*=}"
+            ;;
         esac
     done
-}
-
-# Check and set default values
-check_and_set_defaults() {
-    echo "=====> Checking the set values for errors..."
-    for VAR_NAME in "${!VARIABLES_DEFAULTS[@]}"; do
-        DEFAULT_VALUE="${VARIABLES_DEFAULTS[$VAR_NAME]}"
-        ORIGINAL_VALUE="${!VAR_NAME}"
-
-        if [ -z "$ORIGINAL_VALUE" ]; then
-            read_config "$MINIOS_CONF" "$VAR_NAME"
-            ORIGINAL_VALUE="${!VAR_NAME}"
-            if [ -z "$ORIGINAL_VALUE" ]; then
-                declare "$VAR_NAME=$DEFAULT_VALUE"
-                echo "$VAR_NAME was not set. Using default value: $DEFAULT_VALUE"
-            fi
-        fi
-
-        if [[ -n ${VALIDATION_RULES[$VAR_NAME]} && ! "$ORIGINAL_VALUE" =~ ${VALIDATION_RULES[$VAR_NAME]} ]]; then
-            declare "$VAR_NAME=$DEFAULT_VALUE"
-            echo "$VAR_NAME has an invalid value. Using default value: $DEFAULT_VALUE"
-        fi
-
-        if [ "$ORIGINAL_VALUE" != "${!VAR_NAME}" ]; then
-            echo "$VAR_NAME was changed to: ${!VAR_NAME}"
-        fi
-    done
-}
-
-set_cloud() {
-    [ "$CLOUD" = "true" ] && {
-        USER_NAME="root"
-        DEFAULT_TARGET="multi-user"
-        systemctl enable ssh
-    }
 }
 
 set_default_target() {
@@ -165,8 +88,8 @@ manage_services() {
     fi
 
     if [ -z "${!SERVICES_VAR}" ]; then
-        if [ -f "$MINIOS_CONF" ]; then
-            read_config "$MINIOS_CONF" "$SERVICES_VAR"
+        if [ -f "$CONFIG" ]; then
+            read_config "$CONFIG" "$SERVICES_VAR"
         fi
     fi
 
@@ -179,46 +102,42 @@ manage_services() {
 }
 
 set_autologin() {
-    [ -z "$USER_NAME" ] && [ -f "$MINIOS_CONF" ] && read_config "$MINIOS_CONF" USER_NAME
+    [ -z "$LIVE_USERNAME" ] && [ -f "$CONFIG" ] && read_config "$CONFIG" LIVE_USERNAME
 
-    if [ "$AUTOLOGIN" = "true" ] && [ -f "$SYSTEMDSYSTEM/xorg.service" ]; then
-        cat <<EOF >"$SYSTEMDSYSTEM/xorg.service"
+    if [ -f "/usr/lib/systemd/system/xorg.service" ]; then
+        cat <<EOF >"/usr/lib/systemd/system/xorg.service"
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
+ConditionKernelCommandLine=!live-config.nox11autologin
+ConditionKernelCommandLine=!nox11autologin
+ConditionKernelCommandLine=!live-config.noautologin
+ConditionKernelCommandLine=!noautologin
 After=systemd-user-sessions.service
 
 [Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$USER_NAME"
+ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$LIVE_USERNAME"
 
 [Install]
 WantedBy=graphical.target
 EOF
     fi
 
-    command -v x11vnc >/dev/null && [ -f "$SYSTEMDSYSTEM/x11vnc.service" ] &&
-        sed -i "s,-auth guess,-auth /home/$USER_NAME/.Xauthority,g" "$SYSTEMDSYSTEM/x11vnc.service"
+    command -v x11vnc >/dev/null && [ -f "/usr/lib/systemd/system/x11vnc.service" ] &&
+        sed -i "s,-auth guess,-auth /home/$LIVE_USERNAME/.Xauthority,g" "/usr/lib/systemd/system/x11vnc.service"
 }
 
 set_scripts() {
-    [ -z "$SCRIPTS" ] && [ -f "$MINIOS_CONF" ] && read_config "$MINIOS_CONF" SCRIPTS
+    [ -z "$SCRIPTS" ] && [ -f "$CONFIG" ] && read_config "$CONFIG" SCRIPTS
     [ "$SCRIPTS" = "true" ] && systemctl enable minios-script-launcher.service || systemctl disable minios-script-launcher.service
 }
 
 # Main script execution
-mkdir -p /etc/minios
 set_trace_log "minios-boot.trace.log"
 read_cmdline "$CMDLINE"
-check_and_set_defaults
 
-set_cloud
 set_default_target
 manage_services enable
 manage_services disable
 set_autologin
 set_scripts
-
-echo ""
-echo "/etc/minios/minios.conf configuration file contents:"
-cat "/etc/minios/minios.conf"
-echo ""

@@ -130,20 +130,6 @@ wait "${APT_PID}"
 chmod +x /linux-live/install-packages
 /linux-live/install-packages -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/filter_mapping.conf"
 
-cat <<EOF >>/etc/live/config.conf
-LIVE_CONFIG_CMDLINE="boot=live components"
-LIVE_HOSTNAME="minios"
-LIVE_USERNAME="${USER_NAME}"
-LIVE_USER_FULLNAME="MiniOS Live User"
-LIVE_USER_DEFAULT_GROUPS="dialout,cdrom,floppy,audio,video,plugdev,users,fuse,weston-launch,kvm,libvirt,libvirt-qemu,vboxusers,lpadmin,dip,sambashare,docker,wireshark"
-LIVE_LOCALES="en_US.UTF-8"
-LIVE_TIMEZONE="Etc\UTC"
-LIVE_KEYBOARD_MODEL="pc105"
-LIVE_KEYBOARD_LAYOUTS="us"
-LIVE_KEYBOARD_VARIANTS=","
-LIVE_CONFIG_DEBUG="true"
-EOF
-
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
 fi
