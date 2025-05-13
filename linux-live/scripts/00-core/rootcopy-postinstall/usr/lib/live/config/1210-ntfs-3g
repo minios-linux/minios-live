@@ -1,0 +1,32 @@
+#!/bin/sh
+
+. /usr/lib/live/config.sh
+
+## live-config(7) - System Configuration Components
+## Copyright (C) 2016-2020 The Debian Live team
+## Copyright (C) 2006-2015 Daniel Baumann <mail@daniel-baumann.ch>
+## Copyright (C) 2025 MiniOS <https://minios.dev>
+##
+## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+#set -e
+
+Init() {
+    echo -n "ntfs3"
+}
+
+Config() {
+    if [ -f /usr/lib/modules/$(uname -r)/kernel/fs/ntfs3/ntfs3.ko ] || \
+       [ -f /usr/lib/modules/$(uname -r)/updates/dkms/ntfs3.ko ]; then
+        echo 'SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs", ENV{ID_FS_TYPE}="ntfs3"' > /etc/udev/rules.d/ntfs3.rules
+        echo "Udev rule for NTFS3 created."
+    else
+        rm -f /etc/udev/rules.d/ntfs3.rules
+        echo "Udev rule for NTFS3 removed."
+    fi
+}
+
+Init
+Config

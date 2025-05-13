@@ -1484,13 +1484,9 @@ minios_boot() {
       debug_log "minios_boot: '$1' is NOT writable."
    fi
 
-   if [ -f "$2/etc/live/config.conf" ]; then
-      return 0
-   fi
-
    # One-way copy of configuration file.
    debug_log "minios_boot: Copying config file"
-   if [ -f "$1/config.conf" ]; then
+   if [ -f "$1/config.conf" ] && [ ! -f "$2/etc/live/config.conf" ] ; then
       cp -fp "$1/config.conf" "$2/etc/live/config.conf" || {
          debug_log "ERROR: Failed to copy config.conf"
          return 1
