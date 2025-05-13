@@ -610,6 +610,7 @@ if [ ! -d /usr/share/backgrounds/xfce ]; then
     mkdir -p /usr/share/backgrounds/xfce
 fi
 
+: '
 find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS4*" ! -name "MiniOS-wallpaper-04.svg" -delete
 
 set_wallpaper() {
@@ -649,6 +650,16 @@ fi
 for BACKGROUND in /usr/share/backgrounds/MiniOS*; do
     ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
 done
+
+'
+
+find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" ! -delete
+
+# Check if the wallpaper file exists before creating symlinks
+ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-verticals.png
+ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-verticals.svg
+ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-teal.jpg
+ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-shapes.svg
 
 if [ $PACKAGE_VARIANT != "minimum" ]; then
     rm -f /usr/share/applications/taskmanager.desktop
