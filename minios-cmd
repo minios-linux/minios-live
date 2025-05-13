@@ -66,7 +66,7 @@ help() {
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}LOCALE=${ENDCOLOR} \"en_US\""
-    echo -e "  ${LIGHTGREEN}TIMEZONE=${ENDCOLOR} \"Etc/UTC\""
+    echo -e "  ${LIGHTGREEN}LIVE_TIMEZONE=${ENDCOLOR} \"Etc/UTC\""
     echo ""
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
     echo ""
@@ -209,7 +209,7 @@ done
 : "${LOCALE:="en_US"}"
 : "${MULTILINGUAL:=false}"
 : "${KEEP_LOCALES:=false}"
-: "${TIMEZONE:="Etc/UTC"}"
+: "${LIVE_TIMEZONE:="Etc/UTC"}"
 
 # Check if mandatory parameters are set ONLY if config file is NOT provided
 if [[ -z "$BUILD_CONF" && ! -f "$BUILD_CONF" && (-z "$DISTRIBUTION" || -z "$DISTRIBUTION_ARCH" || -z "$DESKTOP_ENVIRONMENT" || -z "$PACKAGE_VARIANT") ]]; then
