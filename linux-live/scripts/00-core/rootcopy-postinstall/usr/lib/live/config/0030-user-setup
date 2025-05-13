@@ -25,31 +25,21 @@ Cmdline() {
 		live-config.user-default-groups=* | user-default-groups=*)
 			LIVE_USER_DEFAULT_GROUPS="${_PARAMETER#*user-default-groups=}"
 			;;
-
 		live-config.user-fullname=* | user-fullname=*)
 			LIVE_USER_FULLNAME="${_PARAMETER#*user-fullname=}"
 			;;
-
 		live-config.username=* | username=*)
 			LIVE_USERNAME="${_PARAMETER#*username=}"
 			;;
-
-		# Root password (plain)
 		live-config.root-password=* | root-password=*)
 			LIVE_ROOT_PASSWORD_PLAIN="${_PARAMETER#*root-password=}"
 			;;
-
-		# Root password (crypted)
 		live-config.root-password-crypted=* | root-password-crypted=*)
 			LIVE_ROOT_PASSWORD_CRYPTED="${_PARAMETER#*root-password-crypted=}"
 			;;
-
-		# User password (plain)
 		live-config.user-password=* | user-password=*)
 			LIVE_USER_PASSWORD_PLAIN="${_PARAMETER#*user-password=}"
 			;;
-
-		# User password (crypted)
 		live-config.user-password-crypted=* | user-password-crypted=*)
 			LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
 			;;
