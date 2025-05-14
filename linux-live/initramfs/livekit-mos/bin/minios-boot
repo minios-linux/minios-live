@@ -11,12 +11,13 @@ CMDLINE="$(cat /cmdline)"
 
 # ======= Functions =======
 
-set_trace_log() {
+set_log() {
     mkdir -p /var/log/minios
-    exec 19>/var/log/minios/"$1"
-    BASH_XTRACEFD=19
-    PS4='${LINENO}: '
-    set -x
+    mkfifo /tmp/minios-boot.pipe
+    tee </tmp/minios-boot.pipe /var/log/minios/"$1" &
+    exec >/tmp/minios-boot.pipe 2>&1
+
+    echo -n "minios-boot:" >/tmp/minios-boot.pipe 2>&1
 }
 
 read_config() {
@@ -55,6 +56,9 @@ read_cmdline() {
         case $i in
         live-config.username=* | username=*)
             LIVE_USERNAME="${i#*=}"
+            ;;
+        live-config.debug | debug)
+            LIVE_CONFIG_DEBUG="true"
             ;;
         default_target=*)
             DEFAULT_TARGET="${i#*=}"
@@ -136,11 +140,18 @@ set_scripts() {
 }
 
 # Main script execution
-set_trace_log "minios-boot.trace.log"
+set_log "minios-boot.log"
 read_cmdline "$CMDLINE"
+case "${LIVE_CONFIG_DEBUG}" in
+true)
+    set -x
+    ;;
+esac
 
 set_default_target
 manage_services enable
 manage_services disable
 set_autologin
 set_scripts
+
+rm -f /tmp/minios-boot.pipe

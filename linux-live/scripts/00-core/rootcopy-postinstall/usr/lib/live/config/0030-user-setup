@@ -12,10 +12,7 @@
 ## under certain conditions; see COPYING for details.
 
 #set -e
-
-# Default passwords (hashed)
-DEFAULT_ROOT_PASSWORD_CRYPTED='$y$j9T$y6H8zml37HjzKO517qvkc.$53Ux0xA0OVHIELjgf91mMd8nr1DM.E3PSI.StCEnn4.'
-DEFAULT_USER_PASSWORD_CRYPTED='$y$j9T$ZjqXh232.8hREYixjgMNN.$ADNa7mAp.Cjky5HgjG7JioH3SxnzPLljAC0fVxPsYr6'
+set -x
 
 Cmdline() {
 	# Reading kernel command line
@@ -43,7 +40,6 @@ Cmdline() {
 		live-config.user-password-crypted=* | user-password-crypted=*)
 			LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
 			;;
-
 		esac
 	done
 }
@@ -78,15 +74,9 @@ Config() {
 
 	# Determine root password input method
 	if [ -n "${LIVE_ROOT_PASSWORD_PLAIN}" ]; then
-		# Plain text provided
 		ROOT_PASS_TYPE="plain"
 	elif [ -n "${LIVE_ROOT_PASSWORD_CRYPTED}" ]; then
-		# Crypted provided via cmdline
 		ROOT_PASS_TYPE="crypted"
-	else
-		# Fallback to default crypted
-		ROOT_PASS_TYPE="crypted"
-		LIVE_ROOT_PASSWORD_CRYPTED="${DEFAULT_ROOT_PASSWORD_CRYPTED}"
 	fi
 
 	# Determine user password input method
@@ -94,10 +84,6 @@ Config() {
 		USER_PASS_TYPE="plain"
 	elif [ -n "${LIVE_USER_PASSWORD_CRYPTED}" ]; then
 		USER_PASS_TYPE="crypted"
-	else
-		# Fallback to default crypted
-		USER_PASS_TYPE="crypted"
-		LIVE_USER_PASSWORD_CRYPTED="${DEFAULT_USER_PASSWORD_CRYPTED}"
 	fi
 
 	# Build debconf selections
@@ -157,6 +143,15 @@ EOF
 	/usr/lib/user-setup/user-setup-apply 2>&1 |
 		grep -v "Shadow passwords are now on"
 	set -e
+
+	# Setting up user environment
+	if [ -d /home/${LIVE_USERNAME} ]; then
+		for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+			mkdir -p "/home/${LIVE_USERNAME}/$DIR" || echo "Failed to create /home/${LIVE_USERNAME}/$DIR"
+		done
+	fi
+	chown 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership for /home/${LIVE_USERNAME}"
+	chown -R 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership recursively for /home/${LIVE_USERNAME}"
 
 	# Setting up 'root' user environment
 	cp -rT /etc/skel /root || echo "Failed to copy skeleton files to /root."
