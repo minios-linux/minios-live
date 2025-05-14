@@ -56,9 +56,9 @@ common_variables() {
     fi
 
     if [ "${PACKAGE_VARIANT}" = "puzzle" ] || [ "${PACKAGE_VARIANT}" = "standard" ]; then
-        SYSTEM_TYPE="puzzle"
+        MODULE_MODE="merged"
     else
-        SYSTEM_TYPE="classic"
+        MODULE_MODE="simple"
     fi
 
     case "${DISTRIBUTION}" in
@@ -1297,10 +1297,10 @@ LIVE_HOSTNAME="${LIVE_HOSTNAME}"
 LIVE_USERNAME="${LIVE_USERNAME}"
 LIVE_USER_FULLNAME="${LIVE_USER_FULLNAME}"
 LIVE_USER_DEFAULT_GROUPS="${LIVE_USER_DEFAULT_GROUPS}"
-LIVE_USER_PASSWORD_PLAIN="${LIVE_USER_PASSWORD_PLAIN}"
-LIVE_USER_PASSWORD_CRYPTED="${LIVE_USER_PASSWORD_CRYPTED}"
-LIVE_ROOT_PASSWORD_PLAIN="${LIVE_ROOT_PASSWORD_PLAIN}"
-LIVE_ROOT_PASSWORD_CRYPTED="${LIVE_ROOT_PASSWORD_CRYPTED}"
+LIVE_USER_PASSWORD_PLAIN='${LIVE_USER_PASSWORD_PLAIN}'
+LIVE_USER_PASSWORD_CRYPTED='${LIVE_USER_PASSWORD_CRYPTED}'
+LIVE_ROOT_PASSWORD_PLAIN='${LIVE_ROOT_PASSWORD_PLAIN}'
+LIVE_ROOT_PASSWORD_CRYPTED='${LIVE_ROOT_PASSWORD_CRYPTED}'
 LIVE_CONFIG_NOROOT="${LIVE_CONFIG_NOROOT}"
 LIVE_LOCALES="${LOCALE}.UTF-8"
 LIVE_TIMEZONE="${LIVE_TIMEZONE}"
@@ -1311,7 +1311,7 @@ LIVE_KEYBOARD_VARIANTS=","
 LIVE_CONFIG_DEBUG="true"
 
 # initrd options
-SYSTEM_TYPE="${SYSTEM_TYPE}"
+MODULE_MODE="${MODULE_MODE}"
 DEFAULT_TARGET="${DEFAULT_TARGET}"
 LINK_USER_DIRS="${LINK_USER_DIRS}"
 ENABLE_SERVICES="${ENABLE_SERVICES}"
@@ -1324,8 +1324,8 @@ EOF
 }
 
 create_config_files() {
-    DEFAULT_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0 noautologin"
-    DEBUG_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0 noautologin"
+    DEFAULT_SETTINGS="boot=live nottyautologin load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
+    DEBUG_SETTINGS="boot=live nottyautologin load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
 
     BOOT_SETTINGS="quiet"
 

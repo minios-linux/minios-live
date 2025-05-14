@@ -14,7 +14,7 @@
 #set -e
 
 Init() {
-    echo -n " config-systemtype"
+    echo -n " config-module-mode"
 }
 
 Config() {
@@ -22,9 +22,9 @@ Config() {
     BUNDLES="$LIVE/bundles"
     CHANGES="$LIVE/changes"
 
-    # Configuring the system to operate in 'puzzle' mode
-    if [ "$SYSTEM_TYPE" = "puzzle" ]; then
-        echo "Configuring the system to operate in 'puzzle' mode."
+    # Configuring the system to operate in 'merged' mode
+    if [ "$MODULE_MODE" = "merged" ]; then
+        echo "Configuring the system to operate in 'merged' mode."
 
         if [ -x /usr/sbin/minios-update-users ]; then
             echo "Updating users with minios-update-users"

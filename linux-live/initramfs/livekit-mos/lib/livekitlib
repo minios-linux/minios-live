@@ -1455,12 +1455,6 @@ minios_boot() {
    debug_log "minios_boot $*"
    local WRITABLE DATE TIME
 
-   # Exit if "static_profiles" is present in the kernel command line.
-   if grep -q static_profiles /proc/cmdline; then
-      debug_log "minios_boot: static_profiles found, exiting."
-      return 0
-   fi
-
    # Copy the boot binary to the target mount directory.
    debug_log "minios_boot: Copying /bin/minios-boot to $2/"
    cp /bin/minios-boot "$2/" || {
@@ -1486,7 +1480,7 @@ minios_boot() {
 
    # One-way copy of configuration file.
    debug_log "minios_boot: Copying config file"
-   if [ -f "$1/config.conf" ] && [ ! -f "$2/etc/live/config.conf" ] ; then
+   if [ -f "$1/config.conf" ] && [ ! -f "$2/etc/live/config.conf" ]; then
       cp -fp "$1/config.conf" "$2/etc/live/config.conf" || {
          debug_log "ERROR: Failed to copy config.conf"
          return 1
@@ -1519,15 +1513,9 @@ minios_boot() {
       }
    fi
 
-   # Create log directory in target.
-   debug_log "minios_boot: Creating log directory"
-   mkdir -p "$2/var/log/minios" || {
-      debug_log "ERROR: Failed to create directory '$2/var/log/minios'"
-      return 1
-   }
-
+   # Execute the minios-boot script in the target directory.
    debug_log "minios_boot: Running chroot /bin/bash -c '/minios-boot'"
-   chroot "$2" /bin/bash -c "/minios-boot" >"$2/var/log/minios/minios-boot.output.log" 2>&1 || {
+   chroot "$2" /bin/bash -c "/minios-boot" || {
       debug_log "ERROR: chroot /minios-boot failed"
       return 1
    }
