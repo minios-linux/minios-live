@@ -7,17 +7,29 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 CONFIG="/etc/live/config.conf"
 
-CMDLINE="$(cat /cmdline)"
+CMDLINE="$(cat /proc/cmdline)"
 
 # ======= Functions =======
 
 set_log() {
     mkdir -p /var/log/minios
     mkfifo /tmp/minios-boot.pipe
-    tee </tmp/minios-boot.pipe /var/log/minios/"$1" &
+    tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log &
     exec >/tmp/minios-boot.pipe 2>&1
 
-    echo -n "minios-boot:" >/tmp/minios-boot.pipe 2>&1
+    #echo -n "minios-boot: " >/tmp/minios-boot.pipe 2>&1
+}
+
+echo_green_star() {
+    echo -ne "[0;32m""* ""[0;39m"
+}
+
+echo_red_star() {
+    echo -ne "[0;31m""* ""[0;39m"
+}
+
+echo_white_star() {
+   echo -ne "[1;37m""* ""[0;39m"
 }
 
 read_config() {
@@ -27,7 +39,8 @@ read_config() {
     local KEYLIST="${@:2}"
 
     if [[ ! -f "$CONFIG_FILE" || ! -r "$CONFIG_FILE" ]]; then
-        error "$CONFIG_FILE is either not a file or not readable!"
+        echo_red_star
+        echo "$CONFIG_FILE is either not a file or not readable!"
         exit 1
     fi
 
@@ -69,15 +82,21 @@ read_cmdline() {
         disable_services=*)
             DISABLE_SERVICES="${i#*=}"
             ;;
-        scripts=*)
-            SCRIPTS="${i#*=}"
-            ;;
         esac
     done
 }
 
 set_default_target() {
-    [ -n "$DEFAULT_TARGET" ] && systemctl set-default "${TEXT_MODE:+multi-user}" || systemctl set-default "$DEFAULT_TARGET"
+    [ ! "$DEFAULT_TARGET" ] && read_config "$CONFIG" DEFAULT_TARGET
+    [ ! "$DEFAULT_TARGET" ] && DEFAULT_TARGET=graphical.target
+
+    [ "$TEXT_MODE" ] && DEFAULT_TARGET=multi-user
+
+    if ! systemctl set-default "$DEFAULT_TARGET" >/dev/null 2>&1; then
+        echo_red_star
+        echo -e "Failed to set default target: \e[31m$DEFAULT_TARGET\e[0m"
+        return 1
+    fi
 }
 
 manage_services() {
@@ -90,7 +109,8 @@ manage_services() {
     elif [ "$ACTION" == "disable" ]; then
         SERVICES_VAR="DISABLE_SERVICES"
     else
-        echo "Invalid ACTION: $ACTION"
+        echo_red_star
+        echo -e "Invalid ACTION: \e[31m$ACTION\e[0m"
         return 1
     fi
 
@@ -103,7 +123,13 @@ manage_services() {
     if [ -n "${!SERVICES_VAR}" ]; then
         IFS=',' read -ra SERVICES <<<"${!SERVICES_VAR}"
         for SERVICE in "${SERVICES[@]}"; do
-            systemctl "$ACTION" "$SERVICE"
+            if systemctl "$ACTION" "$SERVICE" >/dev/null 2>&1; then
+                echo_green_star
+                echo -e "Successfully ${ACTION}d service: \e[32m$SERVICE\e[0m"
+            else
+                echo_red_star
+                echo -e "Failed to ${ACTION}d service: \e[31m$SERVICE\e[0m"
+            fi
         done
     fi
 }
@@ -134,24 +160,12 @@ EOF
         sed -i "s,-auth guess,-auth /home/$LIVE_USERNAME/.Xauthority,g" "/usr/lib/systemd/system/x11vnc.service"
 }
 
-set_scripts() {
-    [ -z "$SCRIPTS" ] && [ -f "$CONFIG" ] && read_config "$CONFIG" SCRIPTS
-    [ "$SCRIPTS" = "true" ] && systemctl enable minios-script-launcher.service || systemctl disable minios-script-launcher.service
-}
-
 # Main script execution
-set_log "minios-boot.log"
+set_log
 read_cmdline "$CMDLINE"
-case "${LIVE_CONFIG_DEBUG}" in
-true)
-    set -x
-    ;;
-esac
-
 set_default_target
 manage_services enable
 manage_services disable
 set_autologin
-set_scripts
 
 rm -f /tmp/minios-boot.pipe
