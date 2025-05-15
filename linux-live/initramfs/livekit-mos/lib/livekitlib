@@ -25,16 +25,40 @@ debug_log() {
 }
 
 # header
-# $1 = text to show
+# $1 = title
+# $2 = URL
 #
 header() {
-   echo "[0;1m""$@""[0;0m"
+   TITLE="$1"
+   URL="$2"
+
+   TITLE="[1;37m$TITLE[0;0m"
+   if [ -n "$URL" ]; then
+      URL="[1;94m${URL}[0;0m"
+      TEXT="  ${TITLE} - ${URL}"
+   else
+      TEXT="  ${TITLE}"
+   fi
+
+   echo "$TEXT"
 }
 
 # echo green star
 #
 echo_green_star() {
    echo -ne "[0;32m""* ""[0;39m"
+}
+
+# echo red star
+#
+echo_red_star() {
+   echo -ne "[0;31m""* ""[0;39m"
+}
+
+# echo white star
+#
+echo_white_star() {
+   echo -ne "[1;37m""* ""[0;39m"
 }
 
 # log - store given text in /var/log/livedbg
@@ -161,7 +185,7 @@ modprobe_cloud() {
 modprobe_everything() {
    debug_log "modprobe_everything" "$*"
 
-   echo_green_star >&2
+   echo_white_star >&2
    echo "Probing for hardware" >&2
 
    find /lib/modules/ | fgrep .ko | egrep $1 $2 | sed -r "s:^.*/|[.]ko\$::g" | xargs -n 1 modprobe 2>/dev/null
@@ -195,7 +219,7 @@ init_zram() {
       return
    fi
    debug_log "init_zram" "$*"
-   echo_green_star
+   echo_white_star
    echo "Setting dynamic RAM compression using ZRAM if available"
    ZRAMCOMP=$(cmdline_value zramcomp)
    ZRAMSIZE=$(cmdline_value zramsize)
@@ -254,11 +278,11 @@ init_union() {
    mkdir -p "$2"
 
    if aufs_is_supported >/dev/null; then
-      echo_green_star
+      echo_white_star
       echo "Setting up empty union using aufs"
       mount -t aufs -o xino="/.xino",trunc_xino,br="$1" aufs "$2"
    else
-      echo_green_star
+      echo_white_star
       echo "Setting up union using overlayfs"
       mkdir -p "$1/changes"
       mkdir -p "$1/workdir"
@@ -451,7 +475,7 @@ mount_data_http() {
    debug_log "mount_data_http" "$*"
    local CACHE
 
-   echo_green_star >&2
+   echo_white_star >&2
    echo "Load data from $1" >&2
 
    CACHE=$(cmdline_value cache | sed -r "s/[^0-9]//g" | sed -r "s/^0+//g")
@@ -492,7 +516,7 @@ download_data_pxe() {
    IP="$(cmdline_value ip)"
 
    echo "$IP" | while IFS=":" read CLIENT SERVER GW MASK PORT; do
-      echo_green_star >&2
+      echo_white_star >&2
       echo "Contacting PXE server $SERVER" >&2
 
       if [ "$PORT" = "" ]; then PORT="7529"; fi
@@ -671,7 +695,7 @@ find_data() {
    # default to livekitname autodetected on all disks
    if [ "$FROM" = "" ]; then FROM="$LIVEKITNAME"; fi
 
-   echo_green_star >&2
+   echo_white_star >&2
    echo -n "Looking for MiniOS data in /$FROM .." | tr -s "/" >&2 >/dev/tty1
    for TIMEOUT in $(seq 1 $1); do
       echo -n "." >&2 >/dev/tty1
@@ -1222,7 +1246,7 @@ copy_rootcopy_content() {
    debug_log "copy_rootcopy_content" "$*"
 
    if [ "$(ls -1 "$1/rootcopy/" 2>/dev/null)" != "" ]; then
-      echo_green_star
+      echo_white_star
       echo "Copying content of rootcopy directory..."
       cp -a "$1"/rootcopy/* "$2"
    fi
@@ -1239,7 +1263,7 @@ user_preinit() {
    SRC="$1/rootcopy/run/preinit.sh"
 
    if [ "$(ls -1 "$SRC" 2>/dev/null)" != "" ]; then
-      echo_green_star
+      echo_white_star
       echo "Executing user custom preinit..."
       debug_log "Executing user custom preinit [$SRC]"
       . "$SRC" "$2"
@@ -1285,27 +1309,29 @@ copy_to_ram() {
       done
    }
 
-   if [ "$TORAMMODE" = "full" ]; then
-      mkdir -p "$RAM"
-      echo "* Copying all MiniOS data to RAM..." >&2 >/dev/tty1
-      if echo "$CMDLINE" | grep -q "perch"; then
-         cp -a "$DATA"/* "$RAM" || {
-            echo "Failed to copy data to RAM" >&2 >/dev/tty1
-            exit 1
-         }
-      else
-         find "$DATA" -mindepth 1 -maxdepth 1 ! -name changes -exec cp -a {} "$RAM" \; || {
-            echo "Failed to copy data to RAM" >&2 >/dev/tty1
-            exit 1
-         }
-      fi
-   elif [ "$TORAMMODE" = "trim" ] || echo "$CMDLINE" | grep -q "toram"; then
+   if [ "$TORAMMODE" = "trim" ]; then
       mkdir -p "$RAM"
       echo "* Copying filtered MiniOS data to RAM..." >&2 >/dev/tty1
       copy_filtered_bundles "$@"
       if echo "$CMDLINE" | grep -q "perch"; then
          echo "* Copying changes to RAM..." >&2 >/dev/tty1
          cp -a "$DATA/changes" "$RAM/changes" || {
+            echo "Failed to copy data to RAM" >&2 >/dev/tty1
+            exit 1
+         }
+      fi
+   elif [ "$TORAMMODE" = "full" ] || echo "$CMDLINE" | grep -q "toram"; then
+      mkdir -p "$RAM"
+      echo "* Copying all MiniOS data to RAM..." >&2 >/dev/tty1
+      if echo "$CMDLINE" | grep -q "perch"; then
+         cp -a "$DATA"/* "$RAM" || {
+            echo_red_star
+            echo "Failed to copy data to RAM" >&2 >/dev/tty1
+            exit 1
+         }
+      else
+         find "$DATA" -mindepth 1 -maxdepth 1 ! -name changes -exec cp -a {} "$RAM" \; || {
+            echo_red_star
             echo "Failed to copy data to RAM" >&2 >/dev/tty1
             exit 1
          }
@@ -1381,7 +1407,7 @@ sortmod() {
 # $2 = directory where to mount bundles
 #
 mount_bundles() {
-   echo_green_star
+   echo_white_star
    echo "Mounting bundles"
    (
       ls -1 "$1" | sort -n
@@ -1403,7 +1429,7 @@ union_append_bundles() {
    debug_log "union_append_bundles" "$*"
 
    if aufs_is_supported >/dev/null; then
-      echo_green_star
+      echo_white_star
       echo "Adding bundles to union"
       find "$1" -mindepth 1 -maxdepth 1 | sortmod | while read BUNDLE; do
          mount -o remount,add:1:"$BUNDLE=rr+wh" aufs "$2"
@@ -1469,6 +1495,35 @@ minios_boot() {
       return 1
    }
 
+   # Mount system directories for chroot
+   debug_log "minios_boot: Mounting /dev, /proc, /sys, /run, /tmp"
+
+   mkdir -p "$2/dev" "$2/proc" "$2/sys" "$2/run" "$2/tmp" || {
+      debug_log "ERROR: Failed to create directories in '$2'"
+      return 1
+   }
+
+   mount --bind /dev "$2/dev" || {
+      debug_log "ERROR: Failed to mount /dev"
+      return 1
+   }
+   mount -t proc proc "$2/proc" || {
+      debug_log "ERROR: Failed to mount proc"
+      return 1
+   }
+   mount -t sysfs sysfs "$2/sys" || {
+      debug_log "ERROR: Failed to mount sysfs"
+      return 1
+   }
+   mount -t tmpfs tmpfs "$2/run" || {
+      debug_log "ERROR: Failed to mount run"
+      return 1
+   }
+   mount -t tmpfs tmpfs "$2/tmp" || {
+      debug_log "ERROR: Failed to mount tmpfs"
+      return 1
+   }
+
    # Check if the data directory is writable.
    if touch "$1/.empty" 2>/dev/null && rm -f "$1/.empty" 2>/dev/null; then
       WRITABLE="true"
@@ -1489,36 +1544,25 @@ minios_boot() {
 
    # Prepare SSH directory in target.
    debug_log "minios_boot: Preparing SSH directory"
-   if ! [ -d "$2/root/.ssh" ]; then
-      mkdir -p "$2/root/.ssh" || {
-         debug_log "ERROR: Failed to create directory '$2/root/.ssh'"
-         return 1
-      }
-      chmod 700 "$2/root/.ssh" || {
-         debug_log "ERROR: Failed to chmod 700 '$2/root/.ssh'"
-         return 1
-      }
-   fi
+   mkdir -p "$2/root/.ssh" || {
+      debug_log "ERROR: Failed to create directory '$2/root/.ssh'"
+      # Continue, SSH may be optional
+   }
+   chmod 700 "$2/root/.ssh" 2>/dev/null || true
 
    # One-way copy of SSH authorized_keys.
    debug_log "minios_boot: Copying authorized_keys"
    if [ -f "$1/authorized_keys" ]; then
-      cp -fp "$1/authorized_keys" "$2/root/.ssh/authorized_keys" || {
-         debug_log "ERROR: Failed to copy authorized_keys"
-         return 1
-      }
-      chmod 600 "$2/root/.ssh/authorized_keys" || {
-         debug_log "ERROR: Failed to chmod 600 authorized_keys"
-         return 1
+      cp -fp "$1/authorized_keys" "$2/root/.ssh/authorized_keys" &&
+         chmod 600 "$2/root/.ssh/authorized_keys" || {
+         debug_log "ERROR: Failed to copy or chmod authorized_keys"
       }
    fi
 
    # Execute the minios-boot script in the target directory.
    debug_log "minios_boot: Running chroot /bin/bash -c '/minios-boot'"
-   chroot "$2" /bin/bash -c "/minios-boot" || {
-      debug_log "ERROR: chroot /minios-boot failed"
-      return 1
-   }
+   chroot "$2" /bin/bash -c "/minios-boot"
+   local CHROOT_EXIT=$?
 
    # Export logs if enabled and writable.
    local EXPORT_LOGS LOGDIR
@@ -1530,27 +1574,26 @@ minios_boot() {
       debug_log "minios_boot: Creating export directories $LOGDIR/minios and $LOGDIR/live"
       mkdir -p "$LOGDIR/minios" "$LOGDIR/live" || {
          debug_log "ERROR: Failed to create export directories"
-         return 1
       }
-      # Copy logs with identical debug messages and error handling
-      debug_log "minios_boot: Copying /var/log/minios to $LOGDIR/minios"
-      cp -a "$2/var/log/minios/." "$LOGDIR/minios/" || {
-         debug_log "ERROR: Failed to copy /var/log/minios"
-         return 1
-      }
-      debug_log "minios_boot: Copying /var/log/live to $LOGDIR/live"
-      cp -a "$2/var/log/live/." "$LOGDIR/live/" || {
-         debug_log "ERROR: Failed to copy /var/log/live"
-         return 1
-      }
+      debug_log "minios_boot: Copying logs"
+      cp -a "$2/var/log/minios/." "$LOGDIR/minios/" || debug_log "ERROR: Failed to copy /var/log/minios"
+      cp -a "$2/var/log/live/." "$LOGDIR/live/" || debug_log "ERROR: Failed to copy /var/log/live"
    fi
 
    # Clean up temporary boot files.
    debug_log "minios_boot: Cleaning up temporary files"
    rm -f "$2/cmdline" "$2/minios-boot"
 
-   debug_log "minios_boot: Finished successfully."
-   return 0
+   # Unmount system directories
+   debug_log "minios_boot: Unmounting /tmp, /run, /sys, /proc, /dev"
+   umount "$2/tmp" || debug_log "WARNING: Failed to unmount tmp"
+   umount "$2/run" || debug_log "WARNING: Failed to unmount run"
+   umount "$2/sys" || debug_log "WARNING: Failed to unmount sys"
+   umount "$2/proc" || debug_log "WARNING: Failed to unmount proc"
+   umount "$2/dev" || debug_log "WARNING: Failed to unmount dev"
+
+   debug_log "minios_boot: Finished with exit code $CHROOT_EXIT."
+   return $CHROOT_EXIT
 }
 
 # Change root and execute init
