@@ -1081,7 +1081,7 @@ build_bootstrap() {
 
     local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https,ca-certificates,wget,dbus,sudo,curl,libterm-readline-gnu-perl"
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
     directory_cleanup "${INSTALL_DIR}"
     directory_cleanup "${WORK_DIR}/image"
@@ -1173,7 +1173,6 @@ copy_build_scripts() {
     mkdir -p "${DESTINATION}/linux-live"
     rsync -a --exclude='.git' "${BUILD_SCRIPTS_DIR}/" "${DESTINATION}/${BUILD_SCRIPTS}/"
 
-    cp $GENERAL_CONF "${DESTINATION}/${BUILD_SCRIPTS}"
     cp $BUILD_CONF "${DESTINATION}/${BUILD_SCRIPTS}"
 
     chmod +x "${DESTINATION}/${BUILD_SCRIPTS}/install-chroot"
@@ -1182,7 +1181,7 @@ copy_build_scripts() {
 build_chroot() {
     current_process
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
     chroot_mount_fs "${INSTALL_DIR}"
 
@@ -1237,7 +1236,7 @@ mkmod_corefs() {
 build_live() {
     current_process
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
     copy_build_scripts
 
@@ -1457,6 +1456,7 @@ build_initrd() {
 
     mkdir -p "${OVERLAY[upper]}/boot"
     cp "${WORK_DIR}/kernel/vmlinuz"-* "${OVERLAY[upper]}/boot/"
+    KERNEL="${KERNEL:-$(file "${OVERLAY[upper]}/boot/vmlinuz"-* | grep -oP 'version \K[^\s]+')}"
 
     copy_build_scripts "${OVERLAY[merged]}"
     chmod +x "${OVERLAY[merged]}/${BUILD_SCRIPTS}/build-initramfs"
@@ -1478,7 +1478,7 @@ build_boot() {
 
     local OLD_KERNEL
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
@@ -1527,7 +1527,7 @@ build_iso() {
 
     local DIR IMAGE ISO SUFFIX PERCHIMG
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
     cd "${WORK_DIR}/image" || exit 1
     mkdir -p "${ISO_DIR}"
@@ -1835,43 +1835,31 @@ chroot_cleanup() {
 }
 
 # This function handles the installation of necessary packages for the host system.
-install_host_dependencies() {
+install_host_prerequisites() {
     if [[ "$SKIP_SETUP_HOST" = "true" || "$SCRIPT_DIR" = "/usr/bin" ]]; then
         return
     fi
 
     current_function
 
-    if [ ! -f "${BUILD_SCRIPTS_DIR}/package_lists/required_for_host.list" ]; then
-        error "Required package list not found at ${BUILD_SCRIPTS_DIR}/package_lists/required_for_host.list"
+    # Check distribution
+    read_config /etc/os-release ID
+    if [[ "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
+        error "This minios-live supports only Debian and Ubuntu."
         exit 1
     fi
 
-    PKGS_TO_INSTALL=$(grep -vE "^\s*#" "${BUILD_SCRIPTS_DIR}/package_lists/required_for_host.list" | tr "\n" " ")
-
-    if [ "${DISTRIBUTION_ARCH}" = "arm64" ]; then
-        PKGS_TO_INSTALL+=" grub-efi-arm64-bin"
+    # Request confirmation before installation
+    if command -v whiptail >/dev/null; then
+        whiptail --yesno "The necessary packages will be installed automatically only if they are missing from the system.\n\nContinue?\n\nIf you do not want to see this prompt in the future, set SKIP_SETUP_HOST to true in ${BUILD_CONF}." 14 60 || exit 1
     else
-        PKGS_TO_INSTALL+=" grub-efi-amd64-bin grub-pc-bin"
+        read -p "The necessary packages will be installed automatically only if they are missing from the system. Continue? (y/n) If you do not want to see this prompt in the future, set SKIP_SETUP_HOST to true in ${BUILD_CONF}. " choice
+        [[ "$choice" != "y" ]] && exit 1
     fi
 
-    MISSING_PACKAGES=""
-    for PKG in ${PKGS_TO_INSTALL}; do
-        if ! dpkg-query -W -f='${Status}' "${PKG}" 2>/dev/null | grep -q "ok installed"; then
-            MISSING_PACKAGES+=" ${PKG}"
-        fi
-    done
-
-    if [ -n "${MISSING_PACKAGES}" ]; then
-        if [ "$CONTAINER" = "true" ]; then
-            echo -e "${YELLOW}=====> Installing required software for container: ${MISSING_PACKAGES}${ENDCOLOR}"
-            USE_APT_CACHE="false" pkg install ${MISSING_PACKAGES}
-        else
-            error "Missing required packages on the host system:${MISSING_PACKAGES}"
-            error "Please install them manually using your package manager (e.g., apt-get install ...)."
-            exit 1
-        fi
-    fi
+    chmod +x "${BUILD_SCRIPTS_DIR}/install-packages"
+    "${BUILD_SCRIPTS_DIR}/install-packages" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/filter_mapping.conf"
+    chmod -x "${BUILD_SCRIPTS_DIR}/install-packages"
 }
 
 # This function installs the core packages within the chroot system.
@@ -1958,7 +1946,7 @@ filter_modules() {
             FILTER_LEVEL=$((${MODULE:1:1} - 1))
         fi
     else
-        read_config "$GENERAL_CONF" FILTER_MODULES FILTER_LEVEL
+        read_config "$BUILD_CONF" FILTER_MODULES FILTER_LEVEL
     fi
 
     if [ "${FILTER_MODULES}" = "true" ]; then
@@ -2035,7 +2023,7 @@ build_modules() {
 
     local VMLINUZNAME INITRFSNAME PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS OVERLAY DIR
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_dependencies
+    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
     ENVIRONMENTS="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
@@ -2137,7 +2125,10 @@ build_modules() {
             fi
 
             if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
-                read_config "${WORK_DIR}/minios_build.conf" KERNEL
+                toggle_shell_options e
+                KERNEL="${KERNEL:-$(file /boot/vmlinuz-* 2>/dev/null | grep -oP 'version \K[^\s]+')}"
+                KERNEL="${KERNEL:-$(file "${WORK_DIR}/kernel/vmlinuz"-* 2>/dev/null | grep -oP 'version \K[^\s]+')}"
+                toggle_shell_options e
 
                 [ -L "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/build" ] && rm -f "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/build"
                 [ -L "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/source" ] && rm -f "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/source"
