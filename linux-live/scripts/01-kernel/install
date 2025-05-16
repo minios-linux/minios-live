@@ -10,7 +10,6 @@ set -u          # treat unset variable as error
 # Kernel Installation Section
 #------------------------------------------------------------------------------
 
-KERNEL=""
 if [ "${KERNEL_BPO}" = "true" ]; then
     # Use backports target.
     BPO_TARGET="${DISTRIBUTION}-backports"
@@ -73,35 +72,6 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
         apt-mark hold "${KERNEL_IMAGE}" >/dev/null
     fi
 fi
-
-#------------------------------------------------------------------------------
-# Determine the Installed Kernel Version
-#------------------------------------------------------------------------------
-
-if [ -d "/rootcopy-install" ]; then
-    DEB=$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null || true | head -n 1)
-    if [ -n "${DEB}" ]; then
-        KERNEL="$(dpkg-deb -I /rootcopy-install/${DEB} | grep 'Linux kernel, version' | awk '{print $NF}')"
-    fi
-fi
-
-if [ -z "${KERNEL}" ]; then
-    if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; }; then
-        KERNEL="$(LANG=C apt-cache depends linux-image-"${KERNEL_VERSION}"-mos-"${KERNEL_ARCH}" 2>/dev/null | grep 'Depends' | sed 's/  Depends: //g' | sed 's/linux-image-//')"
-    elif [ -f /usr/bin/dpkg-query ] 2>/dev/null; then
-        set +e
-        KERNEL="$(LANG=C dpkg-query -W -f='${binary:Package}\n' linux-image-* 2>/dev/null | head -n 1 | sed 's/linux-image-//')"
-        set -e
-    elif [ "${KERNEL_TYPE}" = "none" ]; then
-        exit 0
-    else
-        KERNEL="$(uname -r)"
-    fi
-fi
-
-set +u
-update_config "/minios_build.conf" "KERNEL"
-set -u
 
 # Cleanup temporary package list file.
 rm -f "${TMP_PKGLIST}"
