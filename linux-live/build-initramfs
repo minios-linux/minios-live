@@ -6,6 +6,7 @@ export PATH=.:./tools:../tools:/usr/sbin:/usr/bin:/sbin:/bin:/
 
 . /minioslib || exit 1
 . /minios_build.conf || exit 1
+KERNEL="${KERNEL:-$(file /boot/vmlinuz-* | grep -oP 'version \K[^\s]+')}"
 
 console_colors
 

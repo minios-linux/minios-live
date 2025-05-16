@@ -12,160 +12,262 @@
 ## under certain conditions; see COPYING for details.
 
 #set -e
-set -x
+
+BEXT="sb"
+
+get_device() {
+    DEVICE=$(df "$1" | awk 'NR==2 {print $1}')
+    echo "${DEVICE}"
+}
+
+get_device_name() {
+    DEVICE_NAME=$(df "$1" | awk 'NR==2 {print $1}' | awk -F/ '{print $NF}')
+    echo "${DEVICE_NAME}"
+}
+
+get_filesystem_type() {
+    DEVICE=$(df "$1" | awk 'NR==2 {print $1}')
+    FS_TYPE=$(blkid -o value -s TYPE "${DEVICE}")
+    echo "${FS_TYPE}"
+}
+
+get_mount_point() {
+    MOUNT_POINT=$(df "$1" | awk 'NR==2 {print $6}')
+    echo "${MOUNT_POINT}"
+}
 
 Cmdline() {
-	# Reading kernel command line
-	for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
-		case "${_PARAMETER}" in
-		# User/group settings
-		live-config.user-default-groups=* | user-default-groups=*)
-			LIVE_USER_DEFAULT_GROUPS="${_PARAMETER#*user-default-groups=}"
-			;;
-		live-config.user-fullname=* | user-fullname=*)
-			LIVE_USER_FULLNAME="${_PARAMETER#*user-fullname=}"
-			;;
-		live-config.username=* | username=*)
-			LIVE_USERNAME="${_PARAMETER#*username=}"
-			;;
-		live-config.root-password=* | root-password=*)
-			LIVE_ROOT_PASSWORD_PLAIN="${_PARAMETER#*root-password=}"
-			;;
-		live-config.root-password-crypted=* | root-password-crypted=*)
-			LIVE_ROOT_PASSWORD_CRYPTED="${_PARAMETER#*root-password-crypted=}"
-			;;
-		live-config.user-password=* | user-password=*)
-			LIVE_USER_PASSWORD_PLAIN="${_PARAMETER#*user-password=}"
-			;;
-		live-config.user-password-crypted=* | user-password-crypted=*)
-			LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
-			;;
-		esac
-	done
+    # Reading kernel command line
+    echo "Reading kernel command line"
+    echo "Kernel command line: ${LIVE_CONFIG_CMDLINE}"
+    for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
+        case "${_PARAMETER}" in
+        # User/group settings
+        live-config.user-default-groups=* | user-default-groups=*)
+            LIVE_USER_DEFAULT_GROUPS="${_PARAMETER#*user-default-groups=}"
+            echo "User default groups: ${LIVE_USER_DEFAULT_GROUPS}"
+            ;;
+        live-config.user-fullname=* | user-fullname=*)
+            LIVE_USER_FULLNAME="${_PARAMETER#*user-fullname=}"
+            echo "User full name: ${LIVE_USER_FULLNAME}"
+            ;;
+        live-config.username=* | username=*)
+            LIVE_USERNAME="${_PARAMETER#*username=}"
+            echo "Username: ${LIVE_USERNAME}"
+            ;;
+        live-config.root-password=* | root-password=*)
+            LIVE_ROOT_PASSWORD_PLAIN="${_PARAMETER#*root-password=}"
+            echo "Root password: ${LIVE_ROOT_PASSWORD_PLAIN}"
+            ;;
+        live-config.root-password-crypted=* | root-password-crypted=*)
+            LIVE_ROOT_PASSWORD_CRYPTED="${_PARAMETER#*root-password-crypted=}"
+            echo "Root password (crypted): ${LIVE_ROOT_PASSWORD_CRYPTED}"
+            ;;
+        live-config.user-password=* | user-password=*)
+            LIVE_USER_PASSWORD_PLAIN="${_PARAMETER#*user-password=}"
+            echo "User password: ${LIVE_USER_PASSWORD_PLAIN}"
+            ;;
+        live-config.user-password-crypted=* | user-password-crypted=*)
+            LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
+            echo "User password (crypted): ${LIVE_USER_PASSWORD_CRYPTED}"
+            ;;
+        from=*)
+            FROM="${_PARAMETER#*from=}"
+            echo "From: ${FROM}"
+            ;;
+        toram)
+            TORAM="true"
+            echo "TORAM mode enabled"
+            ;;
+        live-config.link-user-dirs | link-user-dirs)
+            LIVE_LINK_USER_DIRS="true"
+            echo "Link user directories enabled"
+            ;;
+        esac
+    done
 }
 
 Init() {
-	# Checking if package is installed or already configured
-	if ! pkg_is_installed "user-setup" ||
-		component_was_executed "user-setup"; then
-		exit 0
-	fi
+    # Checking if package is installed or already configured
+    if ! pkg_is_installed "user-setup" ||
+        component_was_executed "user-setup"; then
+        exit 0
+    fi
 
-	echo -n " user-setup"
+    echo -n " user-setup"
 }
 
 Config() {
-	# Checking if package is already configured differently
-	if grep -q "^${LIVE_USERNAME}:" /etc/passwd; then
-		exit 0
-	fi
+    # Checking if package is already configured differently
+    if grep -q "^${LIVE_USERNAME}:" /etc/passwd; then
+        exit 0
+    fi
 
-	# Adjust formatting of groups
-	if [ -n "${LIVE_USER_DEFAULT_GROUPS}" ]; then
-		LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|,| |g')"
-	fi
+    # Adjust formatting of groups
+    if [ -n "${LIVE_USER_DEFAULT_GROUPS}" ]; then
+        LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|,| |g')"
+    fi
 
-	# Make sure user is not in sudo group if sudo is disabled
-	case "${LIVE_CONFIG_NOROOT}" in
-	true)
-		LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|sudo||')"
-		;;
-	esac
+    # Make sure user is not in sudo group if sudo is disabled
+    case "${LIVE_CONFIG_NOROOT}" in
+    true)
+        LIVE_USER_DEFAULT_GROUPS="$(echo ${LIVE_USER_DEFAULT_GROUPS} | sed -e 's|sudo||')"
+        ;;
+    esac
 
-	# Determine root password input method
-	if [ -n "${LIVE_ROOT_PASSWORD_PLAIN}" ]; then
-		ROOT_PASS_TYPE="plain"
-	elif [ -n "${LIVE_ROOT_PASSWORD_CRYPTED}" ]; then
-		ROOT_PASS_TYPE="crypted"
-	fi
+    # Determine root password input method
+    if [ -n "${LIVE_ROOT_PASSWORD_PLAIN}" ]; then
+        ROOT_PASS_TYPE="plain"
+    elif [ -n "${LIVE_ROOT_PASSWORD_CRYPTED}" ]; then
+        ROOT_PASS_TYPE="crypted"
+    fi
 
-	# Determine user password input method
-	if [ -n "${LIVE_USER_PASSWORD_PLAIN}" ]; then
-		USER_PASS_TYPE="plain"
-	elif [ -n "${LIVE_USER_PASSWORD_CRYPTED}" ]; then
-		USER_PASS_TYPE="crypted"
-	fi
+    # Determine user password input method
+    if [ -n "${LIVE_USER_PASSWORD_PLAIN}" ]; then
+        USER_PASS_TYPE="plain"
+    elif [ -n "${LIVE_USER_PASSWORD_CRYPTED}" ]; then
+        USER_PASS_TYPE="crypted"
+    fi
 
-	# Build debconf selections
-	cat >/tmp/live-config.cfg <<EOF
+    # Build debconf selections
+    cat >/tmp/live-config.cfg <<EOF
 user-setup passwd/make-user boolean true
 EOF
 
-	# Root password selections
-	case "${ROOT_PASS_TYPE}" in
-	plain)
-		cat >>/tmp/live-config.cfg <<EOF
+    # Root password selections
+    case "${ROOT_PASS_TYPE}" in
+    plain)
+        cat >>/tmp/live-config.cfg <<EOF
 user-setup passwd/root-password string ${LIVE_ROOT_PASSWORD_PLAIN}
 user-setup passwd/root-password-again string ${LIVE_ROOT_PASSWORD_PLAIN}
 user-setup passwd/root-password-crypted string 
 EOF
-		;;
-	crypted)
-		cat >>/tmp/live-config.cfg <<EOF
+        ;;
+    crypted)
+        cat >>/tmp/live-config.cfg <<EOF
 user-setup passwd/root-password string 
 user-setup passwd/root-password-again string 
 user-setup passwd/root-password-crypted string ${LIVE_ROOT_PASSWORD_CRYPTED}
 EOF
-		;;
-	esac
+        ;;
+    esac
 
-	# User password selections
-	case "${USER_PASS_TYPE}" in
-	plain)
-		cat >>/tmp/live-config.cfg <<EOF
+    # User password selections
+    case "${USER_PASS_TYPE}" in
+    plain)
+        cat >>/tmp/live-config.cfg <<EOF
 user-setup passwd/user-password string ${LIVE_USER_PASSWORD_PLAIN}
 user-setup passwd/user-password-again string ${LIVE_USER_PASSWORD_PLAIN}
 user-setup passwd/user-password-crypted string 
 EOF
-		;;
-	crypted)
-		cat >>/tmp/live-config.cfg <<EOF
+        ;;
+    crypted)
+        cat >>/tmp/live-config.cfg <<EOF
 user-setup passwd/user-password string 
 user-setup passwd/user-password-again string 
 user-setup passwd/user-password-crypted string ${LIVE_USER_PASSWORD_CRYPTED}
 EOF
-		;;
-	esac
+        ;;
+    esac
 
-	# Common user settings
-	cat >>/tmp/live-config.cfg <<EOF
+    # Common user settings
+    cat >>/tmp/live-config.cfg <<EOF
 user-setup passwd/user-default-groups string ${LIVE_USER_DEFAULT_GROUPS}
 user-setup passwd/user-fullname string ${LIVE_USER_FULLNAME}
 user-setup passwd/username string ${LIVE_USERNAME}
 user-setup passwd/user-uid string 1000
 EOF
 
-	debconf-set-selections </tmp/live-config.cfg
-	rm -f /tmp/live-config.cfg
+    debconf-set-selections </tmp/live-config.cfg
+    rm -f /tmp/live-config.cfg
 
-	# Workaround for bug in shadow
-	set +e
-	/usr/lib/user-setup/user-setup-apply 2>&1 |
-		grep -v "Shadow passwords are now on"
-	set -e
+    # Workaround for bug in shadow
+    set +e
+    /usr/lib/user-setup/user-setup-apply 2>&1 |
+        grep -v "Shadow passwords are now on"
+    set -e
 
-	# Setting up user environment
-	if [ -d /home/${LIVE_USERNAME} ]; then
-		for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-			mkdir -p "/home/${LIVE_USERNAME}/$DIR" || echo "Failed to create /home/${LIVE_USERNAME}/$DIR"
-		done
-	fi
-	chown 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership for /home/${LIVE_USERNAME}"
-	chown -R 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership recursively for /home/${LIVE_USERNAME}"
+    # Setting up user environment
+    if [ -z "$FROM" ] || echo "$FROM" | grep 'http://' || [ -d "/run/initramfs/memory/iso" ]; then
+        FROM="minios"
+    elif [ -f /run/initramfs/var/log/from.log ]; then
+        FROM=$(cat /run/initramfs/var/log/from.log)
+    fi
 
-	# Setting up 'root' user environment
-	cp -rT /etc/skel /root || echo "Failed to copy skeleton files to /root."
-	if [ -d /root ]; then
-		for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-			mkdir -p "/root/$DIR" || echo "Failed to create /root/$DIR"
-		done
-	fi
-	chown 0:0 /root || echo "Failed to set ownership for /root"
-	chown -R 0:0 /root || echo "Failed to set ownership recursively for /root"
-	sed -i 's,01;32m,01;31m,g' /root/.bashrc || echo "Failed to update /root/.bashrc"
+    # search for bundles in the mounted directory
+    if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        # we found at least one bundle/module here
+        FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    elif [ "$(find "/run/initramfs/memory/iso/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        FROM=$(echo "/run/initramfs/memory/iso/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    fi
+    MEDIA="$FROM"
 
-	# Creating state file
-	touch /var/lib/live/config/user-setup
+    DEVICE=$(get_device $MEDIA)
+    DEVICE_NAME=$(get_device_name $MEDIA)
+    FS_TYPE=$(get_filesystem_type $MEDIA)
+    MEDIA_ROOT=$(get_mount_point $MEDIA)
+
+    echo "Checking if the media is writable or if TORAM mode is enabled"
+    if ! test -w "$MEDIA" || [ "$TORAM" = "true" ]; then
+        WRITABLE="false"
+        echo "The media is not writable or the system is running in TORAM mode."
+    else
+        WRITABLE="true"
+        echo "The media is writable."
+    fi
+
+    if [ "${WRITABLE}" = "true" ]; then
+        case "$FS_TYPE" in
+        vfat | ntfs | exfat)
+            chmod 777 "$MEDIA_ROOT"
+            mkdir -p "/media/$DEVICE_NAME"
+            mount "$DEVICE" "/media/$DEVICE_NAME"
+            MEDIA_ROOT="/media/$DEVICE_NAME"
+            ;;
+        esac
+    fi
+
+    if [ "${LIVE_LINK_USER_DIRS}" = "true" ] && [ "${WRITABLE}" = "true" ]; then
+        case "$FS_TYPE" in
+        vfat | ntfs | exfat)
+            for DIR in Desktop Public Templates; do
+                mkdir -p "/home/${LIVE_USERNAME}/${DIR}"
+            done
+
+            for DIR in Documents Downloads Music Pictures Videos; do
+                MTD="${MEDIA_ROOT}/${DIR}"
+                mkdir -p "${MTD}"
+
+                if [ ! -L "/home/${LIVE_USERNAME}/${DIR}" ]; then
+                    mount --bind "${MTD}" "/home/${LIVE_USERNAME}/${DIR}" || echo "Failed to bind mount ${MTD} to /home/${LIVE_USERNAME}/${DIR}"
+                fi
+            done
+            ;;
+        esac
+    else
+        if [ -d "/home/${LIVE_USERNAME}" ]; then
+            for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                mkdir -p "/home/${LIVE_USERNAME}/$DIR" || echo "Failed to create /home/${LIVE_USERNAME}/$DIR"
+            done
+        fi
+    fi
+    chown 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership for /home/${LIVE_USERNAME}"
+    chown -R 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership recursively for /home/${LIVE_USERNAME}"
+
+    # Setting up 'root' user environment
+    cp -rT /etc/skel /root || echo "Failed to copy skeleton files to /root."
+    if [ -d /root ]; then
+        for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+            mkdir -p "/root/$DIR" || echo "Failed to create /root/$DIR"
+        done
+    fi
+    chown 0:0 /root || echo "Failed to set ownership for /root"
+    chown -R 0:0 /root || echo "Failed to set ownership recursively for /root"
+    sed -i 's,01;32m,01;31m,g' /root/.bashrc || echo "Failed to update /root/.bashrc"
+
+    # Creating state file
+    touch /var/lib/live/config/user-setup
 }
 
 Cmdline

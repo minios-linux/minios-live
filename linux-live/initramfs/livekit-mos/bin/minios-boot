@@ -17,6 +17,11 @@ set_log() {
     tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log &
     exec >/tmp/minios-boot.pipe 2>&1
 
+	case "${LIVE_CONFIG_DEBUG}" in
+		true)
+			set -x
+			;;
+	esac
     #echo -n "minios-boot: " >/tmp/minios-boot.pipe 2>&1
 }
 
