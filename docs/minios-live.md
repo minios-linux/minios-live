@@ -48,7 +48,7 @@ Using `minios-live`, you can build the following configurations:
 
 ### Quick Start & Configuration
 
-Edit the configuration files  `linux-live/build.conf` and `linux-live/general.conf` to specify your preferred distribution, desktop environment, and additional software to be included in the SquashFS modules. Then, to build the entire system, run:
+Edit the configuration file  `linux-live/build.conf` to specify your preferred distribution, desktop environment, and additional software to be included in the SquashFS modules. Then, to build the entire system, run:
 
 ```bash
 ./minios-live -
