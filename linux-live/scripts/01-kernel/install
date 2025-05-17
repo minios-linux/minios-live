@@ -65,7 +65,7 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
     fi
 
     # Call the external condinaut script.
-    /condinaut -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/filter_mapping.conf"
+    /condinaut -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/condinaut.conf"
 
     # If installing from the repository, hold the kernel package.
     if [ ! -d "/rootcopy-install" ] || [ -z "${DEB}" ]; then

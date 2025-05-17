@@ -13,10 +13,10 @@ LNG="$(echo $LOCALE | cut -d_ -f1)"
 echo "nodm nodm/enabled boolean true" | debconf-set-selections
 echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
 
-/install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+/install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 if [ $LOCALE != "en_US" ]; then
-    /install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+    /install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 fi
 
 if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then

@@ -2,7 +2,7 @@
 
 . /minioslib
 
-/install_packages -l "$SCRIPT_DIR/package.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+/install_packages -l "$SCRIPT_DIR/package.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 (cd /rootcopy-install && cp --parents -afr * /)
 

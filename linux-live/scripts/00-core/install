@@ -107,7 +107,7 @@ spinner "${APT_PID}" "Upgrading installed packages"
 wait "${APT_PID}"
 
 chmod +x /linux-live/condinaut
-/linux-live/condinaut -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/filter_mapping.conf"
+/linux-live/condinaut -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/condinaut.conf"
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
