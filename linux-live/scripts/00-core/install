@@ -96,7 +96,7 @@ fi
 
 APT_PID=""
 
-DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 &
+DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
 APT_PID="$!"
 spinner "${APT_PID}" "Updating package lists"
 wait "${APT_PID}"
@@ -298,7 +298,7 @@ fi
 DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq vim* grub* debconf-i18n installation-report >/dev/null 2>&1 &
 PURGE_PID="$!"
 spinner "${PURGE_PID}" "Purging packages"
-wait "${PURGE_PID}"
+wait "${PURGE_PID}" || true
 
 if [ "${LOCALE}" != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then
