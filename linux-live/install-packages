@@ -709,7 +709,7 @@ install_packages() {
     fi
 
     if [ "${FORCE_UPDATE}" = true ] || [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
-        DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 &
+        DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
         local APT_PID="$!"
         spinner "${APT_PID}" "Updating package lists"
         wait "${APT_PID}"

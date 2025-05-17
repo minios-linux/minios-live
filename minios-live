@@ -45,6 +45,8 @@ fi
 . "$BUILD_CONF" || exit 1
 export VERBOSITY_LEVEL
 
+[ "${VERBOSITY_LEVEL}" -ge 2 ] && set -x
+
 # ---[ FUNCTIONS ]---
 help() {
     local HEADLINE="${1:-$(gettext 'This script builds bootable MiniOS ISO image.')}"
@@ -88,7 +90,8 @@ CMD=(build_bootstrap build_chroot build_live build_modules build_boot build_conf
 # ----[ MAIN ]----
 create_log_file "$@"
 
-trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"' EXIT
+#trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"' EXIT
+trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR" && [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server' EXIT
 
 common_variables
 
@@ -121,7 +124,5 @@ determine_command_range "$@"
 for ((ii = "$START_INDEX"; ii < "$END_INDEX"; ii++)); do
     "${CMD[ii]}"
 done
-
-[ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server
 
 echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"
