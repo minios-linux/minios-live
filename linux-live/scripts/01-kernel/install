@@ -35,7 +35,7 @@ elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
 fi
 
-# Create a temporary package list file for install-packages.
+# Create a temporary package list file for condinaut.
 TMP_PKGLIST=$(mktemp /tmp/kernel-package.list.XXXXXX)
 
 if [ "${KERNEL_TYPE}" != "none" ]; then
@@ -64,8 +64,8 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
         fi
     fi
 
-    # Call the external install-packages script.
-    /install-packages -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/filter_mapping.conf"
+    # Call the external condinaut script.
+    /condinaut -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/filter_mapping.conf"
 
     # If installing from the repository, hold the kernel package.
     if [ ! -d "/rootcopy-install" ] || [ -z "${DEB}" ]; then
