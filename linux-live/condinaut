@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# NAME: Condinaut
+#
 # DESCRIPTION:
 #   Installs packages from a package list file with conditions.
 #   All filter information is automatically loaded from an external filter mapping file.
@@ -22,20 +24,6 @@
 #     -vv, --very-verbose           Enable very verbose mode.
 #     -x, --xtrace                  Enable shell tracing.
 #     -h, --help                    Display this help message and exit.
-#
-# NOTE:
-#   The main configuration file should define system variables used for filtering.
-#   The filter mapping file should contain lines formatted as:
-#
-#         PREFIX=Environment_Variable_Name
-#
-#   For example, "d=DISTRIBUTION" means that any filter with prefix "d" compares
-#   its value with the value of the variable DISTRIBUTION.
-#
-#   Any variable used for filtering may be either a scalar or an array.
-#
-#   The priority package list (if provided) is a plain list (one package per line)
-#   and is optional.
 #
 # AUTHOR: crims0n <https://minios.dev>
 
@@ -377,10 +365,7 @@ process_queue() {
         process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSITY_LEVEL}"
     done
 
-    if [ "${USE_APT_CACHE}" = "true" ] && is_in_chroot && [ "${SIMULATION_MODE}" = false ]; then
-        if lsattr -d /var/cache/apt/archives | awk '{print $1}' | grep -q -e 'i'; then
-            chattr -i /var/cache/apt/archives
-        fi
+    if [ "${PREINSTALL_APT_CACHE}" = "true" ] && [ "${SIMULATION_MODE}" = false ]; then
         DEBIAN_FRONTEND=noninteractive apt-get --download-only -y \
             -o Dpkg::Options::="--force-confdef" \
             -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" \
@@ -819,5 +804,6 @@ install_packages() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    PREINSTALL_APT_CACHE="${PREINSTALL_APT_CACHE:-false}"
     install_packages "$@"
 fi

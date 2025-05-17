@@ -15,7 +15,7 @@ if [ "$LOCALE" = "pt_BR" ]; then
     LNG="br"
 fi
 
-/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 echo "export QT_QPA_PLATFORMTHEME=gtk2" >>/etc/environment
 

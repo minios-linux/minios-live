@@ -57,7 +57,7 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     cat "/packages.list" >>"${TMP_COMBINED}"
 
     # Call the external condinaut command with the combined list.
-    /condinaut -l "${TMP_COMBINED}" -c "/minios_build.conf" -m "/filter_mapping.conf"
+    /condinaut -l "${TMP_COMBINED}" -c "/minios_build.conf" -m "/condinaut.conf"
 
     # Clean up the temporary file.
     rm -f "${TMP_COMBINED}"

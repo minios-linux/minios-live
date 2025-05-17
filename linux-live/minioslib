@@ -1969,7 +1969,7 @@ install_host_prerequisites() {
     [[ "${RESPONSE}" != "y" && "${RESPONSE}" != "Y" ]] && exit 1
 
     chmod +x "${BUILD_SCRIPTS_DIR}/condinaut"
-    "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/filter_mapping.conf"
+    "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf"
     chmod -x "${BUILD_SCRIPTS_DIR}/condinaut"
 }
 
@@ -2201,7 +2201,7 @@ build_modules() {
 
                 cp "${BUILD_SCRIPTS_DIR}/condinaut" "${OVERLAY[merged]}/condinaut"
                 chmod +x "${OVERLAY[merged]}/condinaut"
-                cp "${BUILD_SCRIPTS_DIR}/filter_mapping.conf" "${OVERLAY[merged]}/filter_mapping.conf"
+                cp "${BUILD_SCRIPTS_DIR}/condinaut.conf" "${OVERLAY[merged]}/condinaut.conf"
 
                 [ -f "${ENVIRONMENTS}/${MODULE}/cleanup" ] && cp "${ENVIRONMENTS}/${MODULE}/cleanup" "${OVERLAY[merged]}/cleanup"
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" "${OVERLAY[merged]}/packages-l10n.list"

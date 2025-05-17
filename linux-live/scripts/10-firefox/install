@@ -23,7 +23,7 @@ EOF
     fi
 fi
 
-/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 # Conditional Desktop environment settings
 if [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]] && [ "${PACKAGE_VARIANT}" != "puzzle" ]; then

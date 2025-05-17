@@ -19,7 +19,7 @@ for SETTING in "${DEBCONF_SETTINGS[@]}"; do
     echo "${SETTING}" | debconf-set-selections -v
 done
 
-/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
