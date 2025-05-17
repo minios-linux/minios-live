@@ -12,4 +12,4 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 echo "firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true" | debconf-set-selections
 echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-set-selections
 
-/install-packages -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"
+/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/filter_mapping.conf"

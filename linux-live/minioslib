@@ -1968,9 +1968,9 @@ install_host_prerequisites() {
 
     [[ "${RESPONSE}" != "y" && "${RESPONSE}" != "Y" ]] && exit 1
 
-    chmod +x "${BUILD_SCRIPTS_DIR}/install-packages"
-    "${BUILD_SCRIPTS_DIR}/install-packages" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/filter_mapping.conf"
-    chmod -x "${BUILD_SCRIPTS_DIR}/install-packages"
+    chmod +x "${BUILD_SCRIPTS_DIR}/condinaut"
+    "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/filter_mapping.conf"
+    chmod -x "${BUILD_SCRIPTS_DIR}/condinaut"
 }
 
 # This function installs the core packages within the chroot system.
@@ -2199,8 +2199,8 @@ build_modules() {
                 cp "${ENVIRONMENTS}/${MODULE}/install" "${OVERLAY[merged]}/install"
                 chmod +x "${OVERLAY[merged]}/install"
 
-                cp "${BUILD_SCRIPTS_DIR}/install-packages" "${OVERLAY[merged]}/install-packages"
-                chmod +x "${OVERLAY[merged]}/install-packages"
+                cp "${BUILD_SCRIPTS_DIR}/condinaut" "${OVERLAY[merged]}/condinaut"
+                chmod +x "${OVERLAY[merged]}/condinaut"
                 cp "${BUILD_SCRIPTS_DIR}/filter_mapping.conf" "${OVERLAY[merged]}/filter_mapping.conf"
 
                 [ -f "${ENVIRONMENTS}/${MODULE}/cleanup" ] && cp "${ENVIRONMENTS}/${MODULE}/cleanup" "${OVERLAY[merged]}/cleanup"
