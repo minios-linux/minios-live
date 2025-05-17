@@ -97,9 +97,11 @@ console_colors
 allow_root_only
 
 if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
-    toggle_shell_options e
-    check_internet_connection
-    toggle_shell_options e
+    if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
+        toggle_shell_options e
+        check_internet_connection
+        toggle_shell_options e
+    fi
 
     [[ "${CONTAINER,,}" == "true" ]] && new_run
 
@@ -119,5 +121,7 @@ determine_command_range "$@"
 for ((ii = "$START_INDEX"; ii < "$END_INDEX"; ii++)); do
     "${CMD[ii]}"
 done
+
+[ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server
 
 echo -e "${BOLD}${LIGHTYELLOW}$0${ENDCOLOR} - ${LIGHTGREEN}Command completed successfully!${ENDCOLOR}"

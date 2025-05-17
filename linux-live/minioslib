@@ -477,6 +477,18 @@ information() {
     fi
 }
 
+# Display a question message.
+question() {
+    local MESSAGE="${1-}"
+    if [ "$OUTPUT_MODE" = "console" ]; then
+        echo -ne "${BOLD}${GREEN}Q:${ENDCOLOR} $MESSAGE "
+        read RESPONSE
+    else
+        echo -n "Q: $MESSAGE "
+        read RESPONSE
+    fi
+}
+
 declare_locales() {
     # LOCALES is an associative array where each key-value pair is a locale with its related configurations.
     # Key: Locale code (e.g., "en_US" for American English)
@@ -604,12 +616,12 @@ process_flag() {
 #------- LIBMINIOSLIVE -------
 
 current_process() {
-    echo -e "${LIGHTYELLOW}=====> running ${CYAN}${CMD[ii]}${ENDCOLOR}${LIGHTYELLOW} ...${ENDCOLOR}"
+    echo -e "${LIGHTYELLOW}=> running ${CYAN}${CMD[ii]}${ENDCOLOR}${LIGHTYELLOW} ...${ENDCOLOR}"
 }
 
 current_function() {
     if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-        echo -e "=====> ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
+        echo -e "=> ${CYAN}${FUNCNAME[1]}${ENDCOLOR} function is executing ..."
     fi
 }
 
@@ -786,6 +798,39 @@ setup_apt_cache() {
         if [ "${USE_APT_CACHE}" = "true" ]; then
             mkdir -p "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
             mount --bind "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
+            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                information "The apt cache is set up in  ${CYAN}${APTCACHE_DIR}${ENDCOLOR}"
+            fi
+            if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
+                if [ -f "${APTCACHE_DIR}/Packages.gz" ]; then
+                    question "${BOLD}Package repository already exists.${ENDCOLOR}
+   Do you want to overwrite ${YELLOW}Packages.gz${ENDCOLOR}? (${GREEN}y${ENDCOLOR}/${RED}n${ENDCOLOR})"
+
+                    if [[ "${RESPONSE}" =~ ^[Yy]$ ]]; then
+                        dpkg-scanpackages -m "${APTCACHE_DIR}" /dev/null | gzip -9 >"${APTCACHE_DIR}/Packages.gz"
+                    else
+                        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                            information "Skipping the creation of ${YELLOW}Packages.gz${ENDCOLOR} in ${CYAN}${APTCACHE_DIR}${ENDCOLOR}"
+                        fi
+                    fi
+                fi
+
+                if [ $? -eq 0 ]; then
+                    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                        information "Successfully created ${YELLOW}Packages.gz${ENDCOLOR} in ${CYAN}${APTCACHE_DIR}${ENDCOLOR}"
+                    fi
+                else
+                    error "Failed to create ${YELLOW}Packages.gz${ENDCOLOR} in ${CYAN}${APTCACHE_DIR}${ENDCOLOR}"
+                    exit 1
+                fi
+                stop_http_server
+                local IDX=0
+                local PORT=18010
+                start_http_server "${APTCACHE_DIR}" "${IDX}" "${PORT}"
+                cat <<EOF >"${DIR_PATH}//etc/apt/sources.list.d/aptcache.list"
+deb [trusted=yes] http://127.0.0.2:${PORT} ./
+EOF
+            fi
         fi
 
         if [ "${USE_APT_CACHER}" = "true" ]; then
@@ -797,6 +842,55 @@ Acquire::ftp::proxy "http://$APT_CACHER_ADDRESS";
 EOF
         fi
     fi
+}
+
+# Start an HTTP server for a given image/directory.
+start_http_server() {
+    local REPO="${1}"
+    local IDX="${2}"
+    local PORT="${3}"
+
+    if [ ! -d "${REPO}" ]; then
+        local RBIND=$(mktemp -d /tmp/minios-image-XXXXX)
+        mount $(realpath "${REPO}") "${RBIND}" #2>/dev/null
+        if [ $? -ne 0 ]; then
+            error "Failed to mount image ${REPO} at ${RBIND}"
+            exit 1
+        fi
+        RBINDS+=("${RBIND}")
+        REPO="${RBIND}"
+    fi
+
+    # Start a HTTP server for local repository
+    information "Starting a HTTP server for the local repository at ${CYAN}${REPO}${ENDCOLOR}.
+This will make it accessible from the chroot environment where the system is being installed."
+
+    python3 -m http.server --bind 127.0.0.2 --directory "${REPO}" "${PORT}" >/dev/null 2>&1 &
+    PIDS+=($!)
+    toggle_shell_options e
+    local BINDED=$(netstat -npl | grep python3 | grep -e "127.0.0.2:${PORT}" | wc -l)
+    while [ "${BINDED}" -eq 0 ]; do
+        BINDED=$(netstat -npl | grep python3 | grep -e "127.0.0.2:${PORT}" | wc -l)
+        sleep 0.2
+    done
+    toggle_shell_options e
+    if curl -Is "http://127.0.0.2:${PORT}" | head -1 | grep "200 OK" >/dev/null; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "The repository is now available at the following URL: ${CYAN}http://127.0.0.2:${PORT}${ENDCOLOR}"
+        fi
+    else
+        error "Web server at http://127.0.0.2:${PORT} is not accessible"
+        exit 1
+    fi
+}
+
+# Function to stop the web server.
+stop_http_server() {
+    toggle_shell_options e
+    netstat -npl 2>/dev/null | grep python3 | grep -e "127.0.0.2" | awk '{print $7}' | cut -d'/' -f1 | xargs -r kill 2>/dev/null
+    unmount_dirs "/tmp/minios-image-"
+    rm -rf "/tmp/minios-image-"* 2>/dev/null
+    toggle_shell_options e
 }
 
 update_resolv_conf() {
@@ -1145,6 +1239,8 @@ build_bootstrap() {
         rm -f "${INSTALL_DIR}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
     fi
 
+    [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server
+
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
         DISTRIBUTION="testing"
         create_apt_list
@@ -1195,8 +1291,50 @@ build_chroot() {
         cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 
-    curl --silent -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
-    curl --silent -k http://deb.freexian.com/extended-lts/archive-key.gpg >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+    KEYS_DIR="${INSTALL_DIR}/etc/apt/trusted.gpg.d"
+    CACHE_DIR="${BUILD_DIR}/cache/${DISTRIBUTION}"
+    mkdir -p "${CACHE_DIR}"
+
+    if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
+        mv "${INSTALL_DIR}/etc/apt/sources.list" "${CACHE_DIR}/sources.list"
+    fi
+
+    if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
+        cp "${CACHE_DIR}/minios-linux.gpg" "${KEYS_DIR}/minios-linux.gpg"
+    else
+        curl --silent -k https://minios.dev/debian/minios-linux.asc | gpg --dearmor >"${KEYS_DIR}/minios-linux.gpg"
+        cp "${KEYS_DIR}/minios-linux.gpg" "${CACHE_DIR}/minios-linux.gpg"
+    fi
+
+    if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
+        cp "${CACHE_DIR}/freexian-archive-extended-lts.gpg" "${KEYS_DIR}/freexian-archive-extended-lts.gpg"
+    else
+        curl --silent -k http://deb.freexian.com/extended-lts/archive-key.gpg >"${KEYS_DIR}/freexian-archive-extended-lts.gpg"
+        cp "${KEYS_DIR}/freexian-archive-extended-lts.gpg" "${CACHE_DIR}/freexian-archive-extended-lts.gpg"
+    fi
+
+    if [ ! -f "${INSTALL_DIR}/etc/apt/apt.conf.d/000MiniOS" ]; then
+        cat <<'EOF' >"${INSTALL_DIR}/etc/apt/apt.conf.d/000MiniOS"
+APT::Install-Recommends "0";
+APT::Install-Suggests "0";
+Acquire::Languages { "none"; }
+EOF
+    fi
+
+    >"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+    if [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
+        echo "deb https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+        echo "#deb-src https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >>"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+    fi
+    echo "deb https://minios.dev/debian/ generic main contrib non-free" >>"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+    echo "#deb-src https://minios.dev/debian/ generic main contrib non-free" >>"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+    cp "${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list" "${CACHE_DIR}/minios-linux.list"
+    cat <<EOF >"${INSTALL_DIR}/etc/apt/preferences.d/minios-linux"
+Package: *
+Pin: release l=MiniOS Repository
+Pin-Priority: 1001
+EOF
+    cp "${INSTALL_DIR}/etc/apt/preferences.d/minios-linux" "${CACHE_DIR}/minios-linux"
 
     if [ -f /.minios-live-container ]; then
         chroot_run "${INSTALL_DIR}" /${BUILD_SCRIPTS}/install-chroot
@@ -1213,6 +1351,13 @@ build_chroot() {
 NAME="MiniOS Linux"
 VERSION="$MINIOS_VERSION"
 EOF
+
+    if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
+        stop_http_server
+        cp "${CACHE_DIR}/sources.list" "${INSTALL_DIR}/etc/apt/sources.list"
+        cp "${CACHE_DIR}/minios-linux.list" "${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+        cp "${CACHE_DIR}/minios-linux" "${INSTALL_DIR}/etc/apt/preferences.d/minios-linux"
+    fi
 
     unmount_dirs "${WORK_DIR}"
 }
@@ -1703,6 +1848,7 @@ chroot_cleanup() {
 
     toggle_shell_options eu
 
+    [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server
     rm -rf "${BASE_PATH}/patches" 2>/dev/null
     rm -rf "${BASE_PATH}/rootcopy" 2>/dev/null
     rm -rf "${BASE_PATH}/rootcopy-install" 2>/dev/null
@@ -1850,12 +1996,11 @@ install_host_prerequisites() {
     fi
 
     # Request confirmation before installation
-    if command -v whiptail >/dev/null; then
-        whiptail --yesno "The necessary packages will be installed automatically only if they are missing from the system.\n\nContinue?\n\nIf you do not want to see this prompt in the future, set SKIP_SETUP_HOST to true in ${BUILD_CONF}." 14 60 || exit 1
-    else
-        read -p "The necessary packages will be installed automatically only if they are missing from the system. Continue? (y/n) If you do not want to see this prompt in the future, set SKIP_SETUP_HOST to true in ${BUILD_CONF}. " choice
-        [[ "$choice" != "y" ]] && exit 1
-    fi
+    question "${BOLD}The necessary packages will be installed automatically only if they are missing from the system.${ENDCOLOR}
+   If you do not want to see this prompt in the future, set ${YELLOW}SKIP_SETUP_HOST${ENDCOLOR} to ${GREEN}true${ENDCOLOR} in ${CYAN}${BUILD_CONF}${ENDCOLOR}.
+   Continue? (${GREEN}y${ENDCOLOR}/${RED}n${ENDCOLOR})"
+
+    [[ "${RESPONSE}" != "y" && "${RESPONSE}" != "Y" ]] && exit 1
 
     chmod +x "${BUILD_SCRIPTS_DIR}/install-packages"
     "${BUILD_SCRIPTS_DIR}/install-packages" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/filter_mapping.conf"
@@ -2076,7 +2221,7 @@ build_modules() {
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" "${OVERLAY[merged]}/packages-l10n.list"
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
 
-                echo -e "=====> ${GREEN}install${ENDCOLOR} script is executing ..."
+                echo -e "=> ${GREEN}install${ENDCOLOR} script is executing ..."
                 chroot_run "${OVERLAY[merged]}" /install
             fi
 
@@ -2206,7 +2351,7 @@ EOF
 
             # post-install script
             if [ -f "${ENVIRONMENTS}/${MODULE}/postinstall" ]; then
-                echo -e "=====> ${GREEN}postinstall${ENDCOLOR} script is executing ..."
+                echo -e "=> ${GREEN}postinstall${ENDCOLOR} script is executing ..."
                 cp "${ENVIRONMENTS}/${MODULE}/postinstall" "${OVERLAY[merged]}/postinstall"
                 chmod +x "${OVERLAY[merged]}/postinstall"
                 chroot_run "${OVERLAY[merged]}" /postinstall
