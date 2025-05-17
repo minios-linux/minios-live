@@ -69,27 +69,6 @@ DEBCONF_PID="$!"
 spinner "${DEBCONF_PID}" "Applying debconf settings"
 wait "${DEBCONF_PID}"
 
-if [ ! -f /etc/apt/apt.conf.d/000MiniOS ]; then
-    cat <<'EOF' >/etc/apt/apt.conf.d/000MiniOS
-APT::Install-Recommends "0";
-APT::Install-Suggests "0";
-Acquire::Languages { "none"; }
-EOF
-fi
-
->/etc/apt/sources.list.d/minios-linux.list
-if [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
-    echo "deb https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >/etc/apt/sources.list.d/minios-linux.list
-    echo "#deb-src https://minios.dev/debian/ ${DISTRIBUTION} main contrib non-free" >>/etc/apt/sources.list.d/minios-linux.list
-fi
-echo "deb https://minios.dev/debian/ generic main contrib non-free" >>/etc/apt/sources.list.d/minios-linux.list
-echo "#deb-src https://minios.dev/debian/ generic main contrib non-free" >>/etc/apt/sources.list.d/minios-linux.list
-cat <<EOF >/etc/apt/preferences.d/minios-linux
-Package: *
-Pin: release l=MiniOS Repository
-Pin-Priority: 1001
-EOF
-
 if [ "$PACKAGE_VARIANT" = "minimum" ]; then
     cat <<EOF >/etc/dpkg/dpkg.cfg.d/exclusions
 path-exclude=/usr/share/man/*
