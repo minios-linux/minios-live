@@ -595,6 +595,7 @@ install_packages() {
     local SIMULATION_MODE=false
     local VERBOSITY_LEVEL=0
     local XTRACE_MODE=false
+    local PREINSTALL_APT_CACHE=false
     local FORCE_UPDATE=false
     local PRIORITY_QUEUE=()
 
@@ -804,6 +805,5 @@ install_packages() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    PREINSTALL_APT_CACHE="${PREINSTALL_APT_CACHE:-false}"
     install_packages "$@"
 fi
