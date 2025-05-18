@@ -34,8 +34,8 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl enable xrdp-configure
-    systemctl disable xrdp xrdp-sesman
+    systemctl enable xrdp-configure >/dev/null 2>&1
+    systemctl disable xrdp xrdp-sesman >/dev/null 2>&1
 fi
 
 if [ $DESKTOP_ENVIRONMENT = "flux" ]; then

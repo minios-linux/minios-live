@@ -1815,6 +1815,7 @@ chroot_cleanup() {
     rm -rf "${BASE_PATH}/patches" 2>/dev/null
     rm -rf "${BASE_PATH}/rootcopy" 2>/dev/null
     rm -rf "${BASE_PATH}/rootcopy-install" 2>/dev/null
+    rm -rf "${BASE_PATH}/rootcopy-postinstall" 2>/dev/null
     rm -rf "${BASE_PATH}/.cache" 2>/dev/null
     rm -rf "${BASE_PATH}/etc/systemd/system/timers.target.wants" 2>/dev/null
     rm -rf "${BASE_PATH}/root/.cache" 2>/dev/null
@@ -1833,7 +1834,6 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/minioslib" 2>/dev/null
     rm -f "${BASE_PATH}/install" 2>/dev/null
     rm -f "${BASE_PATH}/postinstall" 2>/dev/null
-    rm -f "${BASE_PATH}/preinstall" 2>/dev/null
     rm -f "${BASE_PATH}/root/.bash_history" 2>/dev/null
     rm -f "${BASE_PATH}/root/.wget-hsts" 2>/dev/null
     rm -f "${BASE_PATH}/usr/share/images/fluxbox/debian-squared.jpg" 2>/dev/null
@@ -2194,6 +2194,8 @@ build_modules() {
             overlay_cleanup
             overlay_chroot_mount_fs
 
+            information "Start building ${YELLOW}${MODULE}${ENDCOLOR} module ..."
+
             ###############################################################################
             # Stage 1: rootcopy-install
             ###############################################################################
@@ -2226,7 +2228,7 @@ build_modules() {
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] &&
                     cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
 
-                echo -e "=> ${GREEN}install${ENDCOLOR} script is executing ..."
+                information "${GREEN}install${ENDCOLOR} script is executing ..."
                 chroot_run "${OVERLAY[merged]}" /install
             fi
 
@@ -2446,22 +2448,21 @@ build_modules() {
             }
 
             # Handle .package variant logic for naming
-            if [ -f "${OVERLAY[upper]}/.package" ] && [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
+            if [ -f "${OVERLAY[upper]}/.package" ] && [ "${DYNAMIC_MODULE_NAMING}" = "true" ]; then
                 read_config "${OVERLAY[upper]}/.package" PACKAGE VERSION
                 if [[ ${MODULE} =~ ^0[0-9] ]]; then
                     MODULE_NAME=$(get_new_module_number "${MODULE}" "${PACKAGE}" "${VERSION}")
                 else
                     MODULE_NAME="${MODULE}-${PACKAGE}-${VERSION}"
                 fi
-                rm -f "${OVERLAY[upper]}/.package"
             else
                 if [[ ${MODULE} =~ ^0[0-9] ]]; then
                     MODULE_NAME=$(get_new_module_number "${MODULE}" "" "")
                 else
                     MODULE_NAME=${MODULE}
                 fi
-                [ -f "${OVERLAY[upper]}/.package" ] && rm -f "${OVERLAY[upper]}/.package"
             fi
+            [ -f "${OVERLAY[upper]}/.package" ] && rm -f "${OVERLAY[upper]}/.package"
 
             ###############################################################################
             # Stage 10: final copy and compression to image folder
