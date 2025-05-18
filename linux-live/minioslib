@@ -1911,7 +1911,7 @@ chroot_cleanup() {
             )
 
             for PATH_AND_PATTERN in "${PATHS_AND_PATTERNS[@]}"; do
-                information "Checking files in ${PATH_AND_PATTERN}..."
+                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Checking files in ${PATH_AND_PATTERN}..."
                 for FILE in ${PATH_AND_PATTERN}; do
                     FILENAME=$(basename "$FILE")
                     KEEP=false
@@ -1923,10 +1923,10 @@ chroot_cleanup() {
                         fi
                     done
                     if ! ${KEEP}; then
-                        information "Deleting ${FILE}..."
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Deleting ${FILE}..."
                         rm -rf "${FILE}"
                     else
-                        information "Keeping ${FILE}..."
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Keeping ${FILE}..."
                     fi
                 done
             done
