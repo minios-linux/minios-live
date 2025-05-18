@@ -1,0 +1,54 @@
+#!/bin/bash
+# You don't have to use this template, you can write your own commands instead
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+. /minioslib || exit 1
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+PACKAGE="virt-manager"
+PACKAGE_FULLNAME="Virtual Machine Manager"
+PACKAGE_GROUP="libvirt"
+
+# The condinaut, minios_build.conf and condinaut.conf files are
+# automatically copied to the chroot before the build starts, so you can use
+# them in your module build scripts.
+/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+
+# Script to allow the user with ID 1000 (first created user) to use the
+# libvirt daemon and manage virtual machines.
+cat <<EOF >/usr/bin/$PACKAGE-allowuser.sh
+#!/bin/bash
+if ! grep $APP_GROUP /etc/group | grep \$(id -nu 1000) >/dev/null; then
+    usermod -a -G $APP_GROUP \$(id -nu 1000)
+fi
+EOF
+chmod +x /usr/bin/$PACKAGE-allowuser.sh
+
+# Systemd service to run the script above at boot time. This allows the module
+# to be added to an already configured system, so that the user automatically
+# receives the necessary permissions to work with the application.
+cat <<EOF >/usr/lib/systemd/system/$PACKAGE-allowuser.service
+[Unit]
+Description=Allow user to use ${PACKAGE_FULLNAME}
+#After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/$PACKAGE-allowuser.sh
+RemainAfterExit=true
+ExecStop=
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable $PACKAGE-allowuser.service
+
+# A `.package` file with PACKAGE and VERSION variables is automatically used by
+# the build system to specify the module name. If it is absent, the name of the
+# folder with the module building scripts will be used as the module name.
+echo "PACKAGE=$PACKAGE" >/.package
+echo "VERSION=$(dpkg -s $PACKAGE | grep Version | sed 's/Version: //g' | sed 's/:/-/g')" >>/.package
