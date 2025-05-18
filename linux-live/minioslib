@@ -1828,7 +1828,6 @@ chroot_cleanup() {
     rm -rf "${BASE_PATH}/usr/share/man/"*_* 2>/dev/null
     rm -f "${BASE_PATH}/kernel.conf" 2>/dev/null
     rm -f "${BASE_PATH}/packages.list" 2>/dev/null
-    rm -f "${BASE_PATH}/packages-l10n.list" 2>/dev/null
     rm -f "${BASE_PATH}/build" 2>/dev/null
     rm -f "${BASE_PATH}/cleanup" 2>/dev/null
     rm -f "${BASE_PATH}/minioslib" 2>/dev/null
@@ -2148,27 +2147,43 @@ overlay_chroot_finish_up() {
                                                  dpkg-divert --rename --remove /sbin/initctl > /dev/null 2>&1 || true"
 }
 
-# Build modules function: This function builds modules for the system.
+# Orchestrates module packaging and installation into overlays and images
 build_modules() {
     current_process
 
+    # Initialize local variables for names, versions, and paths
     local VMLINUZNAME INITRFSNAME PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS OVERLAY DIR
 
+    # If running inside a container, install host prerequisites first
     [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
 
+    # Define environment and overlay directories
     ENVIRONMENTS="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
 
-    cd "${ENVIRONMENTS}" || exit 1
+    # Change into the environment directory or exit if it fails
+    cd "${ENVIRONMENTS}" || {
+        error "Failed to enter environments directory" >&2
+        exit 1
+    }
 
+    # Iterate over each module in the environments directory
     for MODULE in *; do
-        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | grep -q "$(echo "${MODULE}" | cut -d- -f2-)" 2>/dev/null); then
+        # Skip module if already present in the image folder
+        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null |
+            grep -q "$(echo "${MODULE}" | cut -d- -f2-)" 2>/dev/null); then
             information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
+
+        # Skip kernel modules if no kernel type is specified
         elif ([[ "${MODULE}" == *"kernel"* ]] || [[ "${MODULE}" == *"linux"* ]]) && [ "${KERNEL_TYPE}" = "none" ]; then
             continue
+
+        # Skip apps stage if no package variant list exists
         elif [ "${MODULE}" = "05-apps" ] && [ ! -f "${ENVIRONMENTS}/${MODULE}/${PACKAGE_VARIANT}.list" ]; then
             continue
+
         else
+            # Prepare overlay mount points
             declare -A OVERLAY=(
                 [upper]="${OVERLAYS}/${MODULE}-upper"
                 [work]="${OVERLAYS}/${MODULE}-work"
@@ -2177,10 +2192,12 @@ build_modules() {
             EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-${MODULE}-exclude"
 
             overlay_cleanup
-
             overlay_chroot_mount_fs
 
-            # copy rootcopy files
+            ###############################################################################
+            # Stage 1: rootcopy-install
+            ###############################################################################
+            # Copy root files into the merged overlay if rootcopy-install exists
             if [ -d "${ENVIRONMENTS}/${MODULE}/rootcopy-install" ]; then
                 if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                     mkdir -p "${OVERLAY[merged]}/rootcopy-install"
@@ -2194,7 +2211,10 @@ build_modules() {
                 wait "${COPY_PID}"
             fi
 
-            # install script
+            ###############################################################################
+            # Stage 2: install script
+            ###############################################################################
+            # Copy and execute the install script inside chroot
             if [ -f "${ENVIRONMENTS}/${MODULE}/install" ]; then
                 cp "${ENVIRONMENTS}/${MODULE}/install" "${OVERLAY[merged]}/install"
                 chmod +x "${OVERLAY[merged]}/install"
@@ -2203,14 +2223,17 @@ build_modules() {
                 chmod +x "${OVERLAY[merged]}/condinaut"
                 cp "${BUILD_SCRIPTS_DIR}/condinaut.conf" "${OVERLAY[merged]}/condinaut.conf"
 
-                [ -f "${ENVIRONMENTS}/${MODULE}/cleanup" ] && cp "${ENVIRONMENTS}/${MODULE}/cleanup" "${OVERLAY[merged]}/cleanup"
-                [ -f "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages-l10n.list" "${OVERLAY[merged]}/packages-l10n.list"
-                [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
+                [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] &&
+                    cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
 
                 echo -e "=> ${GREEN}install${ENDCOLOR} script is executing ..."
                 chroot_run "${OVERLAY[merged]}" /install
             fi
 
+            ###############################################################################
+            # Stage 3: capture kernel artifacts
+            ###############################################################################
+            # If building a kernel module, save vmlinuz and update build config
             if [[ "${MODULE}" == *"kernel"* ]]; then
                 if [ -f "${OVERLAY[upper]}/minios_build.conf" ]; then
                     read_config "${OVERLAY[upper]}/minios_build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
@@ -2220,67 +2243,88 @@ build_modules() {
                 fi
             fi
 
+            ###############################################################################
+            # Stage 4: pre-build squashfs handling
+            ###############################################################################
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 overlay_unmount_dirs
-
                 chroot_cleanup module
 
-                # run external actions
+                # Compress and decompress temporary module data if any changes in upper layer
                 if [ "$(ls -A "${OVERLAY[upper]}" 2>/dev/null)" != "" ]; then
                     mkdir -p "${OVERLAYS}/tmp"
                     mkmod_corefs "${OVERLAY[upper]}"
                     information "Compression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
-                    mksquashfs "${OVERLAY[upper]}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                    mksquashfs "${OVERLAY[upper]}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" \
+                        -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${OVERLAY[upper]}/${MODULE}-stock.${BEXT}"
                     cd "${OVERLAY[upper]}" || exit 1
                     information "Decompression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                     unsquashfs -quiet "${MODULE}-stock.${BEXT}"
                 else
-                    echo -e "${MAGENTA}${OVERLAY[upper]}${ENDCOLOR} is empty. Nothing to do."
+                    information "${MAGENTA}${OVERLAY[upper]}${ENDCOLOR} is empty. Nothing to do."
                 fi
 
                 overlay_chroot_mount_fs
 
-                # run build script
+                ###############################################################################
+                # Stage 5: build script execution
+                ###############################################################################
+                # Copy build script and patches, then run inside chroot
                 if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
-                    [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] && cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
+                    [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] &&
+                        cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
                     cp "${ENVIRONMENTS}/${MODULE}/build" "${OVERLAY[merged]}/build"
                     chmod +x "${OVERLAY[merged]}/build"
                     if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/patches" 2>/dev/null)" != "" ]; then
                         mkdir -p "${OVERLAY[merged]}/patches"
-                        (cd "${ENVIRONMENTS}/${MODULE}/patches" && cp --parents -afr * "${OVERLAY[merged]}/patches/")
+                        (cd "${ENVIRONMENTS}/${MODULE}/patches" &&
+                            cp --parents -afr * "${OVERLAY[merged]}/patches/")
                     fi
 
                     chroot_run "${OVERLAY[merged]}" /build
                 fi
             fi
 
+            ###############################################################################
+            # Stage 6: DKMS-specific packaging
+            ###############################################################################
             if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
+                # Determine kernel version if unset
                 toggle_shell_options e
-                KERNEL="${KERNEL:-$(file /boot/vmlinuz-* 2>/dev/null | grep -oP 'version \K[^\s]+')}"
-                KERNEL="${KERNEL:-$(file "${WORK_DIR}/kernel/vmlinuz"-* 2>/dev/null | grep -oP 'version \K[^\s]+')}"
+                KERNEL="${KERNEL:-$(file /boot/vmlinuz-* 2>/dev/null |
+                    grep -oP 'version \K[^\s]+')}"
+                KERNEL="${KERNEL:-$(file "${WORK_DIR}/kernel/vmlinuz"-* 2>/dev/null |
+                    grep -oP 'version \K[^\s]+')}"
                 toggle_shell_options e
 
-                [ -L "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/build" ] && rm -f "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/build"
-                [ -L "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/source" ] && rm -f "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/source"
-                [ -L "${OVERLAY[upper]}/lib/modules/${KERNEL}/build" ] && rm -f "${OVERLAY[upper]}/lib/modules/${KERNEL}/build"
-                [ -L "${OVERLAY[upper]}/lib/modules/${KERNEL}/source" ] && rm -f "${OVERLAY[upper]}/lib/modules/${KERNEL}/source"
+                # Remove stale symlinks
+                [ -L "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/build" ] &&
+                    rm -f "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/build"
+                [ -L "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/source" ] &&
+                    rm -f "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}/source"
+                [ -L "${OVERLAY[upper]}/lib/modules/${KERNEL}/build" ] &&
+                    rm -f "${OVERLAY[upper]}/lib/modules/${KERNEL}/build"
+                [ -L "${OVERLAY[upper]}/lib/modules/${KERNEL}/source" ] &&
+                    rm -f "${OVERLAY[upper]}/lib/modules/${KERNEL}/source"
 
+                # Copy modules into squashfs-root for packaging
                 toggle_shell_options e
                 mkdir -p "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}"
-                ([ -d "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}" ] && cd "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}" && cp --parents -afr * "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}/")
+                ([ -d "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}" ] &&
+                    cd "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}" &&
+                    cp --parents -afr * "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}/")
                 mkdir -p "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}"
-                ([ -d "${OVERLAY[upper]}/lib/modules/${KERNEL}" ] && cd "${OVERLAY[upper]}/lib/modules/${KERNEL}" && cp --parents -afr * "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}/")
+                ([ -d "${OVERLAY[upper]}/lib/modules/${KERNEL}" ] &&
+                    cd "${OVERLAY[upper]}/lib/modules/${KERNEL}" &&
+                    cp --parents -afr * "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}/")
                 toggle_shell_options e
 
+                # Clean up initrd and vmlinuz remnants
                 if [[ "${MODULE}" == *"kernel"* ]]; then
                     cd "${OVERLAY[upper]}/squashfs-root" || exit 1
-                    if ls initrd* >/dev/null 2>&1; then
-                        rm -f initrd*
-                    fi
-                    if ls vmlinuz* >/dev/null 2>&1; then
-                        rm -f vmlinuz*
-                    fi
+                    ls initrd* >/dev/null 2>&1 && rm -f initrd*
+                    ls vmlinuz* >/dev/null 2>&1 && rm -f vmlinuz*
                     if [ "${KERNEL_MODULES_ONLY}" = "true" ]; then
                         bash -c "
                         shopt -s extglob
@@ -2301,27 +2345,20 @@ build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
                 fi
+
                 information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
-                mksquashfs "${OVERLAY[merged]}/squashfs-root" "${OVERLAY[merged]}/${MODULE}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                mksquashfs "${OVERLAY[merged]}/squashfs-root" \
+                    "${OVERLAY[merged]}/${MODULE}.${BEXT}" \
+                    -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
+                    -b 1024K -always-use-fragments -noappend -quiet -progress || exit
 
                 rm -f "${OVERLAY[upper]}/minios_build.conf"
             fi
 
-            # copy files (post-install)
-            if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
-                mkdir -p "${OVERLAY[merged]}/usr/share/minios" "${OVERLAY[merged]}/etc/minios"
-
-                if [[ "${RELEASE}" = "true" ]]; then
-                    MINIOS_VERSION="${RELEASE_VERSION}"
-                else
-                    MINIOS_VERSION="$(date +%Y%m%d)"
-                fi
-                cat <<EOF >"${OVERLAY[merged]}/etc/minios-release"
-NAME="MiniOS Linux"
-VERSION="$MINIOS_VERSION"
-EOF
-            fi
-
+            ###############################################################################
+            # Stage 7: rootcopy-install
+            ###############################################################################
+            # Copy any post-install root files
             if [ -d "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" ]; then
                 if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                     mkdir -p "${OVERLAY[merged]}/rootcopy-postinstall"
@@ -2335,7 +2372,10 @@ EOF
                 wait "${COPY_PID}"
             fi
 
-            # post-install script
+            ###############################################################################
+            # Stage 8: post-install script
+            ###############################################################################
+            # Copy and execute the post-install script inside chroot
             if [ -f "${ENVIRONMENTS}/${MODULE}/postinstall" ]; then
                 echo -e "=> ${GREEN}postinstall${ENDCOLOR} script is executing ..."
                 cp "${ENVIRONMENTS}/${MODULE}/postinstall" "${OVERLAY[merged]}/postinstall"
@@ -2343,6 +2383,9 @@ EOF
                 chroot_run "${OVERLAY[merged]}" /postinstall
             fi
 
+            ###############################################################################
+            # Stage 9: final cleanup for non-build modules
+            ###############################################################################
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 toggle_shell_options e
                 chroot_run "${OVERLAY[merged]}" uncompress_files /etc/alternatives
@@ -2352,16 +2395,20 @@ EOF
                 toggle_shell_options e
             fi
 
-            # Function to determine the new module number
+            ###############################################################################
+            # Stage 10: determine and assign module number/name
+            ###############################################################################
             get_new_module_number() {
                 local MODULE=$1
                 local PACKAGE=$2
                 local VERSION=$3
 
-                # Retrieve the list of existing module numbers
-                local EXISTING_NUMBERS=$(find "${WORK_DIR}/image/${LIVEKITNAME}/" -name "0[0-9]-*.${BEXT}" -exec basename {} \; | awk -F- '{ print $1 }' | sort -n)
+                # Retrieve existing module numbers
+                local EXISTING_NUMBERS=$(find "${WORK_DIR}/image/${LIVEKITNAME}/" \
+                    -name "0[0-9]-*.${BEXT}" -exec basename {} \; |
+                    awk -F- '{ print $1 }' | sort -n)
 
-                # Check if a gap could be created in the numbering
+                # Determine if a gap can be created
                 local NUMBER=$(echo "${MODULE}" | cut -d- -f1)
                 local CAN_CREATE_GAP=true
                 for EXISTING_NUMBER in $EXISTING_NUMBERS; do
@@ -2374,7 +2421,7 @@ EOF
                     fi
                 done
 
-                # Increment the last number by 1 if a gap could be created
+                # Assign new number if gap available, else reuse existing
                 if $CAN_CREATE_GAP; then
                     local LAST_NUMBER=0
                     for EXISTING_NUMBER in $EXISTING_NUMBERS; do
@@ -2398,59 +2445,54 @@ EOF
                 fi
             }
 
-            # Check if the .package file exists and if PACKAGE_VARIANT equals "puzzle"
+            # Handle .package variant logic for naming
             if [ -f "${OVERLAY[upper]}/.package" ] && [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
-                # Read configuration from the .package file
                 read_config "${OVERLAY[upper]}/.package" PACKAGE VERSION
-
-                # Check if MODULE starts with a number from 00 to 09
                 if [[ ${MODULE} =~ ^0[0-9] ]]; then
-                    # Determine the new module number
                     MODULE_NAME=$(get_new_module_number "${MODULE}" "${PACKAGE}" "${VERSION}")
                 else
                     MODULE_NAME="${MODULE}-${PACKAGE}-${VERSION}"
                 fi
-
-                # Remove the .package file
                 rm -f "${OVERLAY[upper]}/.package"
             else
-                # Check if MODULE starts with a number from 00 to 09
                 if [[ ${MODULE} =~ ^0[0-9] ]]; then
-                    # Determine the new module number
                     MODULE_NAME=$(get_new_module_number "${MODULE}" "" "")
                 else
                     MODULE_NAME=${MODULE}
                 fi
-
-                # Remove the .package file if it exists
-                if [ -f "${OVERLAY[upper]}/.package" ]; then
-                    rm -f "${OVERLAY[upper]}/.package"
-                fi
+                [ -f "${OVERLAY[upper]}/.package" ] && rm -f "${OVERLAY[upper]}/.package"
             fi
 
-            # run external actions
+            ###############################################################################
+            # Stage 10: final copy and compression to image folder
+            ###############################################################################
+            # Copy built module to the target image directory
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [[ "${MODULE}" == *"kernel"* ]]; then
-                    cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}"
+                    cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" \
+                        "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}"
                 else
-                    cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
+                    cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" \
+                        "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
                 fi
             fi
 
+            # Clean up dpkg info for livekit module
             if [[ "${MODULE}" == *"${LIVEKITNAME}"* ]]; then
                 rm -rf "${OVERLAY[merged]}/var/lib/dpkg"
             fi
 
             overlay_chroot_finish_up
-
             overlay_unmount_dirs
 
+            # Cleanup chroot for non-build modules
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 chroot_cleanup module
             fi
 
             mkmod_corefs "${OVERLAY[upper]}"
 
+            # Compress any remaining data if module had no build script
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}.${BEXT}" ]; then
                     if [ "$(ls -A "${OVERLAY[upper]}" 2>/dev/null)" != "" ]; then
@@ -2460,7 +2502,9 @@ EOF
                             FILENAME="${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
                         fi
                         information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
-                        mksquashfs ${COREFS} "${FILENAME}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                        mksquashfs ${COREFS} "${FILENAME}" \
+                            -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
+                            -b 1024K -always-use-fragments -noappend -quiet -progress || exit
                     else
                         echo -e "${MAGENTA}${OVERLAY[upper]}${ENDCOLOR} is empty. Nothing to do."
                     fi
