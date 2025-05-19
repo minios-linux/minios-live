@@ -610,12 +610,11 @@ if [ ! -d /usr/share/backgrounds/xfce ]; then
     mkdir -p /usr/share/backgrounds/xfce
 fi
 
-: '
-find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS4*" ! -name "MiniOS-wallpaper-04.svg" -delete
+find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" -delete
 
 set_wallpaper() {
     local WALLPAPER=$1
-    local WALLPAPER_FILE="../MiniOS4-wallpaper-$WALLPAPER.svg"
+    local WALLPAPER_FILE="../MiniOS5-wallpaper-$WALLPAPER.jpg"
 
     # Check if the wallpaper file exists before creating symlinks
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-verticals.png
@@ -624,9 +623,9 @@ set_wallpaper() {
     ln -sf "$WALLPAPER_FILE" /usr/share/backgrounds/xfce/xfce-shapes.svg
 
     # Remove other wallpaper files
-    for other_wallpaper in Minimum Flux Standard Maximum Toolbox Ultra; do
-        if [[ "$other_wallpaper" != "$WALLPAPER" ]]; then
-            rm -f "/usr/share/backgrounds/MiniOS4-wallpaper-$other_wallpaper.svg"
+    for OTHER_WALLPAPER in Minimum Flux Standard Toolbox Ultra; do
+        if [[ "$OTHER_WALLPAPER" != "$WALLPAPER" ]]; then
+            rm -f "/usr/share/backgrounds/MiniOS5-wallpaper-$OTHER_WALLPAPER.jpg"
         fi
     done
 }
@@ -650,8 +649,6 @@ fi
 for BACKGROUND in /usr/share/backgrounds/MiniOS*; do
     ln -s ../$(basename $BACKGROUND) /usr/share/backgrounds/xfce/$(basename $BACKGROUND)
 done
-
-'
 
 find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" ! -delete
 
