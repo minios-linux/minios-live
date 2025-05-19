@@ -2228,7 +2228,7 @@ build_modules() {
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] &&
                     cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
 
-                information "${GREEN}install${ENDCOLOR} script is executing ..."
+                information "Executing ${GREEN}install${ENDCOLOR} script ..."
                 chroot_run "${OVERLAY[merged]}" /install
             fi
 
@@ -2283,7 +2283,7 @@ build_modules() {
                         (cd "${ENVIRONMENTS}/${MODULE}/patches" &&
                             cp --parents -afr * "${OVERLAY[merged]}/patches/")
                     fi
-
+                    information "Executing ${GREEN}build${ENDCOLOR} script ..."
                     chroot_run "${OVERLAY[merged]}" /build
                 fi
             fi
@@ -2382,6 +2382,7 @@ build_modules() {
                 echo -e "=> ${GREEN}postinstall${ENDCOLOR} script is executing ..."
                 cp "${ENVIRONMENTS}/${MODULE}/postinstall" "${OVERLAY[merged]}/postinstall"
                 chmod +x "${OVERLAY[merged]}/postinstall"
+                information "Executing ${GREEN}postinstall${ENDCOLOR} script ..."
                 chroot_run "${OVERLAY[merged]}" /postinstall
             fi
 
