@@ -44,7 +44,7 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
 
     # Check that the fixed build package list exists.
     if [ ! -f "/packages.list" ]; then
-        echo "Error: /packages.list not found." >&2
+        error "Fixed build package list not found: /packages.list"
         exit 1
     fi
 
