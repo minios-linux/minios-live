@@ -22,8 +22,8 @@ Using `minios-live`, you can build the following configurations:
 - **`build_bootstrap`** - Installs a minimal base system using `debootstrap`.
 - **`build_chroot`** - Installs the remaining core components and chosen desktop environment within the chroot environment.
 - **`build_live`** - Creates the main SquashFS image containing the core MiniOS system.
-- **`build_boot`** - Copies the boot files and generates the necessary boot configuration files.
 - **`build_modules`** - Builds additional SquashFS modules containing extra software packages. These modules are layered on top of the main SquashFS image, providing a modular way to add functionality without rebuilding the entire core system.
+- **`build_boot`** - Copies the boot files, generates the initrd and the necessary boot configuration files.
 - **`build_iso`** - Creates the final ISO image, incorporating both the core SquashFS image and any additional modules.
 
 ### Command Syntax
