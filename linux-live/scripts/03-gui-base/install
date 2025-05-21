@@ -19,22 +19,6 @@ if dpkg -l | grep -q xrdp >/dev/null 2>&1; then
     adduser xrdp ssl-cert
     rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
 
-    echo "Enable xrdp.service autostart."
-    cat <<EOF >/usr/lib/systemd/system/xrdp-configure.service
-[Unit]
-Description=Configure xrdp service
-Before=xrdp.service
-
-[Service]
-Type=oneshot
-ExecStart=-/bin/sh -c 'if [ ! -f /var/log/xrdp.log ]; then touch /var/log/xrdp.log; chown xrdp:adm /var/log/xrdp.log; chmod 640 /var/log/xrdp.log; fi; if [ ! -f /etc/ssl/private/ssl-cert-snakeoil.key ]; then make-ssl-cert generate-default-snakeoil; fi'
-RemainAfterExit=true
-StandardOutput=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    systemctl enable xrdp-configure >/dev/null 2>&1
     systemctl disable xrdp xrdp-sesman >/dev/null 2>&1
 fi
 
