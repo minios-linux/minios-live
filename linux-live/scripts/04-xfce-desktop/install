@@ -652,11 +652,20 @@ done
 
 find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" ! -delete
 
-# Check if the wallpaper file exists before creating symlinks
-ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-verticals.png
-ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-verticals.svg
-ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-teal.jpg
-ln -sf /usr/share/backgrounds/MiniOS5-beta.jpg /usr/share/backgrounds/xfce/xfce-shapes.svg
+# if we're NOT running flux, and we're on the minimum variant,
+# delete everything except the two images we want to keep
+if [ "$PACKAGE_VARIANT" = "minimum" ]; then
+    case "$DESKTOP_ENVIRONMENT" in
+    "flux")
+        KEEP_FILES=("MiniOS5-wallpaper-Flux.jpg" "MiniOS5-background-jungle.jpg")
+        ;;
+    *)
+        KEEP_FILES=("MiniOS5-wallpaper-Minimum.jpg" "MiniOS5-background-jungle.jpg")
+        ;;
+    esac
+
+    find /usr/share/backgrounds -type f ! -name "${KEEP_FILES[0]}" ! -name "${KEEP_FILES[1]}" -delete
+fi
 
 if [ $PACKAGE_VARIANT != "minimum" ]; then
     rm -f /usr/share/applications/taskmanager.desktop
@@ -664,8 +673,4 @@ fi
 
 if ! dpkg -l | grep -q slim; then
     rm -rf /usr/share/slim
-fi
-
-if [ $PACKAGE_VARIANT = "minimum" ]; then
-    find /usr/share/backgrounds -type f -not \( -name 'MiniOS4-wallpaper-Minimum.svg' -or -name 'MiniOS4-background-jungle.svg' \) -delete
 fi
