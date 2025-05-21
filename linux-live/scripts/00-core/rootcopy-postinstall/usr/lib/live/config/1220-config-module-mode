@@ -21,6 +21,9 @@ Config() {
     LIVE="/run/initramfs/memory"
     BUNDLES="$LIVE/bundles"
     CHANGES="$LIVE/changes"
+    if [ -d "$CHANGES/changes" ] && [ -d "$CHANGES/workdir" ]; then
+        CHANGES="$CHANGES/changes"
+    fi
 
     # Configuring the system to operate in 'merged' mode
     if [ "$MODULE_MODE" = "merged" ]; then
