@@ -36,21 +36,30 @@ header() {
    OPTIND=1
    while getopts ":t:u:s:" OPT; do
       case "$OPT" in
-         t) TITLE="$OPTARG" ;;
-         u) URL="$OPTARG" ;;
-         s) SLOGAN="$OPTARG" ;;
-         *) echo "Usage: header -t title [-u url] [-s slogan]" >&2; return 1 ;;
+      t) TITLE="$OPTARG" ;;
+      u) URL="$OPTARG" ;;
+      s) SLOGAN="$OPTARG" ;;
+      *)
+         echo "Usage: header -t title [-u url] [-s slogan]" >&2
+         return 1
+         ;;
       esac
    done
 
    local FORMATTED_TITLE FORMATTED_URL FORMATTED_SLOGAN
-   [ -n "$TITLE" ]  && FORMATTED_TITLE="[1;37m${TITLE}[0;0m"
-   [ -n "$URL" ]    && FORMATTED_URL="[1;94m${URL}[0;0m"
+   [ -n "$TITLE" ] && FORMATTED_TITLE="[1;37m${TITLE}[0;0m"
+   [ -n "$URL" ] && FORMATTED_URL="[1;94m${URL}[0;0m"
    [ -n "$SLOGAN" ] && FORMATTED_SLOGAN="[1;37m${SLOGAN}[0;0m"
 
    local SEP="" TEXT=""
-   [ -n "$FORMATTED_TITLE" ]  && { TEXT="${TEXT}${SEP}${FORMATTED_TITLE}"; SEP=" - "; }
-   [ -n "$FORMATTED_URL" ]    && { TEXT="${TEXT}${SEP}${FORMATTED_URL}"; SEP=" - "; }
+   [ -n "$FORMATTED_TITLE" ] && {
+      TEXT="${TEXT}${SEP}${FORMATTED_TITLE}"
+      SEP=" - "
+   }
+   [ -n "$FORMATTED_URL" ] && {
+      TEXT="${TEXT}${SEP}${FORMATTED_URL}"
+      SEP=" - "
+   }
    [ -n "$FORMATTED_SLOGAN" ] && { TEXT="${TEXT}${SEP}${FORMATTED_SLOGAN}"; }
 
    [ -n "$TEXT" ] && echo "  $TEXT"
@@ -297,8 +306,9 @@ init_union() {
    else
       echo_white_star
       echo "Setting up union using overlayfs"
-      mkdir -p "$1/../workdir"
-      mount -t overlay overlay -o lowerdir=$(find "$3" -mindepth 1 -maxdepth 1 | sortmod | tac | tr '\n' ':' | sed -r 's/:$//'),upperdir=$1,workdir=$1/../workdir $2
+      mkdir -p "$1/changes"
+      mkdir -p "$1/workdir"
+      mount -t overlay overlay -o lowerdir=$(find "$3" -mindepth 1 -maxdepth 1 | sortmod | tac | tr '\n' ':' | sed -r 's/:$//'),upperdir=$1/changes,workdir=$1/workdir $2
    fi
 }
 
