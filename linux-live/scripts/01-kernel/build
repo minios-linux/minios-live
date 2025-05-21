@@ -6,9 +6,9 @@ set -u          # treat unset variable as error
 
 . "/minioslib" || exit 1
 . "/minios_build.conf" || exit 1
-KERNEL="$(file /boot/vmlinuz-* | grep -oP 'version \K[^\s]+')"
 
 if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
+    KERNEL="$(file /boot/vmlinuz-* | grep -oP 'version \K[^\s]+')"
     # Determine the kernel version (major.minor).
     KERNEL_VERSION=$(echo "$KERNEL" | cut -d'.' -f1,2)
 

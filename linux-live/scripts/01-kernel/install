@@ -39,6 +39,19 @@ fi
 TMP_PKGLIST=$(mktemp /tmp/kernel-package.list.XXXXXX)
 
 if [ "${KERNEL_TYPE}" != "none" ]; then
+    console_colors
+    DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
+    APT_PID="$!"
+    spinner "${APT_PID}" "Updating package lists"
+    wait "${APT_PID}"
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends initramfs-tools
+    else
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends initramfs-tools >/dev/null 2>&1
+    fi
+    chmod -x /etc/kernel/postinst.d/initramfs-tools
+    chmod -x /etc/kernel/postrm.d/initramfs-tools
+
     if [ -d "/rootcopy-install" ]; then
         # Check for a local .deb package in /rootcopy-install.
         DEB=$(cd /rootcopy-install && ls linux-image-*${KERNEL_ARCH}.deb 2>/dev/null || true | head -n 1)
