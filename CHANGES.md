@@ -394,3 +394,7 @@
 - Added deletion of `/var/cache/mandb` at system build to eliminate mandb cache error when installing packages.
 - Added `minios-kernelpack` utility to minios-tools to package kernel modules and create initrd.
 - Added a hotkey to open the start menu.
+
+## v4.1.2
+- Added support for Ventoy-1.1.01.
+- Fixed autologin under root user (https://github.com/orgs/minios-linux/discussions/68#discussioncomment-12386609).
