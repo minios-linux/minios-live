@@ -8,16 +8,21 @@ set -u          # treat unset variable as error
 . /minios_build.conf
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-
 LNG="$(echo "$LOCALE" | cut -d_ -f1)"
+
+console_colors
 
 DEBCONF_SETTINGS+=(
     "wireshark-common        wireshark-common/install-setuid boolean true"
 )
-
-for SETTING in "${DEBCONF_SETTINGS[@]}"; do
-    echo "${SETTING}" | debconf-set-selections -v
-done
+(
+    for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+        echo "${SETTING}" | debconf-set-selections -v >/dev/null 2>&1
+    done
+) &
+DEBCONF_PID="$!"
+spinner "${DEBCONF_PID}" "Applying debconf settings"
+wait "${DEBCONF_PID}"
 
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
@@ -29,13 +34,33 @@ if [ -f "/usr/share/applications/display-im6.q16.desktop" ]; then
     rm -f /usr/share/applications/display-im6.q16.desktop
 fi
 
-if [ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]; then
-    wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
-        grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
-        sed -E 's/.*"([^"]+)".*/\1/') &&
-        apt-get update &&
-        apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb) &&
-        rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
+if ([ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]) && ! pkg_is_installed "codium"; then
+    if [ "$VERBOSITY_LEVEL" -ge 1 ]; then
+        wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
+            grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
+            sed -E 's/.*"([^"]+)".*/\1/')
+        apt-get update
+        apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb)
+    else
+        wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
+            grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
+            sed -E 's/.*"([^"]+)".*/\1/') >/dev/null 2>&1 &
+        WGET_PID="$!"
+        spinner "${WGET_PID}" "Downloading VSCodium"
+        wait "${WGET_PID}"
+        DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
+        APT_PID="$!"
+        spinner "${APT_PID}" "Updating package lists"
+        wait "${APT_PID}"
+        apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb) >/dev/null 2>&1 &
+        APT_PID="$!"
+        spinner "${APT_PID}" "Installing VSCodium"
+        wait "${APT_PID}"
+    fi
+    if [ "$USE_APT_CACHE" = "true" ]; then
+        cp -f ./$(ls codium*$DISTRIBUTION_ARCH.deb) /var/cache/apt/archives/
+    fi
+    rm -f ./$(ls codium*$DISTRIBUTION_ARCH.deb)
 fi
 
 if [ -f "/usr/share/applications/isomaster.desktop" ]; then
