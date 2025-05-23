@@ -489,6 +489,18 @@ question() {
     fi
 }
 
+pkg_is_installed() {
+    local PACKAGE="${1-}",
+    if [ -z "$PACKAGE" ]; then
+        error "pkg_is_installed() needs a package as parameter"
+        exit 1
+    fi
+    if dpkg-query -f'${db:Status-Status}\n' -W $PACKAGE 2>/dev/null | grep -q ^installed; then
+        return 0
+    fi
+    return 1
+}
+
 declare_locales() {
     # LOCALES is an associative array where each key-value pair is a locale with its related configurations.
     # Key: Locale code (e.g., "en_US" for American English)
@@ -1358,7 +1370,7 @@ build_live() {
     mkmod_corefs "${INSTALL_DIR}"
 
     information "Compression of ${YELLOW}core${ENDCOLOR} data is in progress ..."
-    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || exit 1
+    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}core${ENDCOLOR} data."; exit 1; }
 
 }
 
@@ -2310,7 +2322,7 @@ build_modules() {
                     mkmod_corefs "${OVERLAY[upper]}"
                     information "Compression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                     mksquashfs "${OVERLAY[upper]}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" \
-                        -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                        -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."; exit 1; }
                     mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${OVERLAY[upper]}/${MODULE}-stock.${BEXT}"
                     cd "${OVERLAY[upper]}" || exit 1
                     information "Decompression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
@@ -2399,7 +2411,7 @@ build_modules() {
                 mksquashfs "${OVERLAY[merged]}/squashfs-root" \
                     "${OVERLAY[merged]}/${MODULE}.${BEXT}" \
                     -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
-                    -b 1024K -always-use-fragments -noappend -quiet -progress || error "Failed to compress ${MODULE} module data" >&2 && exit 1
+                    -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."; exit 1; }
 
                 rm -f "${OVERLAY[upper]}/minios_build.conf"
             fi
@@ -2539,9 +2551,9 @@ build_modules() {
                         information "Compressing ${YELLOW}${MODULE}${ENDCOLOR} module data as ${CYAN}${FILENAME}${ENDCOLOR} ..."
                         mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/${FILENAME}" \
                             -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
-                            -b 1024K -always-use-fragments -noappend -quiet -progress || exit
+                            -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."; exit 1; }
                     else
-                        echo -e "${MAGENTA}${OVERLAY[upper]}${ENDCOLOR} is empty. Nothing to do."
+                        warning "${MAGENTA}${OVERLAY[upper]}${ENDCOLOR} is empty. Nothing to do."
                     fi
                 fi
             fi
