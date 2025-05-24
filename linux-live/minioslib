@@ -1266,7 +1266,6 @@ build_chroot() {
             "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 
-    KEYS_DIR="etc/apt/trusted.gpg.d"
     CACHE_DIR="${BUILD_DIR}/cache/${DISTRIBUTION}"
     mkdir -p "${CACHE_DIR}"
 
@@ -1279,12 +1278,12 @@ build_chroot() {
         cache_cp "etc/apt/sources.list"
 
         curl --silent -k https://minios.dev/debian/minios-linux.asc |
-            gpg --dearmor >"${INSTALL_DIR}/${KEYS_DIR}/minios-linux.gpg"
-        cache_cp "${KEYS_DIR}/minios-linux.gpg"
+            gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
+        cache_cp "etc/apt/trusted.gpg.d/minios-linux.gpg"
 
         curl --silent -k http://deb.freexian.com/extended-lts/archive-key.gpg \
-            >"${INSTALL_DIR}/${KEYS_DIR}/freexian-archive-extended-lts.gpg"
-        cache_cp "${KEYS_DIR}/freexian-archive-extended-lts.gpg"
+            >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+        cache_cp "etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
 
         if [ ! -f "${INSTALL_DIR}/etc/apt/apt.conf.d/000MiniOS" ]; then
             mkdir -p "${INSTALL_DIR}/etc/apt/apt.conf.d"
