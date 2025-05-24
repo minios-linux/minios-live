@@ -13,33 +13,7 @@
 
 #set -e
 
-BEXT="sb"
-
-get_device() {
-    DEVICE=$(df "$1" | awk 'NR==2 {print $1}')
-    echo "${DEVICE}"
-}
-
-get_device_name() {
-    DEVICE_NAME=$(df "$1" | awk 'NR==2 {print $1}' | awk -F/ '{print $NF}')
-    echo "${DEVICE_NAME}"
-}
-
-get_filesystem_type() {
-    DEVICE=$(df "$1" | awk 'NR==2 {print $1}')
-    FS_TYPE=$(blkid -o value -s TYPE "${DEVICE}")
-    echo "${FS_TYPE}"
-}
-
-get_mount_point() {
-    MOUNT_POINT=$(df "$1" | awk 'NR==2 {print $6}')
-    echo "${MOUNT_POINT}"
-}
-
 Cmdline() {
-    # Reading kernel command line
-    echo "Reading kernel command line"
-    echo "Kernel command line: ${LIVE_CONFIG_CMDLINE}"
     for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
         case "${_PARAMETER}" in
         # User/group settings
@@ -70,18 +44,6 @@ Cmdline() {
         live-config.user-password-crypted=* | user-password-crypted=*)
             LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
             echo "User password (crypted): ${LIVE_USER_PASSWORD_CRYPTED}"
-            ;;
-        from=*)
-            FROM="${_PARAMETER#*from=}"
-            echo "From: ${FROM}"
-            ;;
-        toram)
-            TORAM="true"
-            echo "TORAM mode enabled"
-            ;;
-        live-config.link-user-dirs | link-user-dirs)
-            LIVE_LINK_USER_DIRS="true"
-            echo "Link user directories enabled"
             ;;
         esac
     done
@@ -188,69 +150,10 @@ EOF
     set -e
 
     # Setting up user environment
-    if [ -z "$FROM" ] || echo "$FROM" | grep 'http://' || [ -d "/run/initramfs/memory/iso" ]; then
-        FROM="minios"
-    elif [ -f /run/initramfs/var/log/from.log ]; then
-        FROM=$(cat /run/initramfs/var/log/from.log)
-    fi
-
-    # search for bundles in the mounted directory
-    if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
-        # we found at least one bundle/module here
-        FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
-    elif [ "$(find "/run/initramfs/memory/iso/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
-        FROM=$(echo "/run/initramfs/memory/iso/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
-    fi
-    MEDIA="$FROM"
-
-    DEVICE=$(get_device $MEDIA)
-    DEVICE_NAME=$(get_device_name $MEDIA)
-    FS_TYPE=$(get_filesystem_type $MEDIA)
-    MEDIA_ROOT=$(get_mount_point $MEDIA)
-
-    echo "Checking if the media is writable or if TORAM mode is enabled"
-    if ! test -w "$MEDIA" || [ "$TORAM" = "true" ]; then
-        WRITABLE="false"
-        echo "The media is not writable or the system is running in TORAM mode."
-    else
-        WRITABLE="true"
-        echo "The media is writable."
-    fi
-
-    if [ "${WRITABLE}" = "true" ]; then
-        case "$FS_TYPE" in
-        vfat | ntfs | exfat)
-            chmod 777 "$MEDIA_ROOT"
-            mkdir -p "/media/$DEVICE_NAME"
-            mount "$DEVICE" "/media/$DEVICE_NAME"
-            MEDIA_ROOT="/media/$DEVICE_NAME"
-            ;;
-        esac
-    fi
-
-    if [ "${LIVE_LINK_USER_DIRS}" = "true" ] && [ "${WRITABLE}" = "true" ]; then
-        case "$FS_TYPE" in
-        vfat | ntfs | exfat)
-            for DIR in Desktop Public Templates; do
-                mkdir -p "/home/${LIVE_USERNAME}/${DIR}"
-            done
-
-            for DIR in Documents Downloads Music Pictures Videos; do
-                MTD="${MEDIA_ROOT}/${DIR}"
-                mkdir -p "${MTD}"
-
-                if [ ! -L "/home/${LIVE_USERNAME}/${DIR}" ]; then
-                    mount --bind "${MTD}" "/home/${LIVE_USERNAME}/${DIR}" || echo "Failed to bind mount ${MTD} to /home/${LIVE_USERNAME}/${DIR}"
-                fi
-            done
-            ;;
-        esac
-    else
-        if [ -d "/home/${LIVE_USERNAME}" ]; then
-            for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-                mkdir -p "/home/${LIVE_USERNAME}/$DIR" || echo "Failed to create /home/${LIVE_USERNAME}/$DIR"
-            done
-        fi
+    if [ -d "/home/${LIVE_USERNAME}" ]; then
+        for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+            mkdir -p "/home/${LIVE_USERNAME}/$DIR" || echo "Failed to create /home/${LIVE_USERNAME}/$DIR"
+        done
     fi
     chown 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership for /home/${LIVE_USERNAME}"
     chown -R 1000:1000 /home/${LIVE_USERNAME} || echo "Failed to set ownership recursively for /home/${LIVE_USERNAME}"

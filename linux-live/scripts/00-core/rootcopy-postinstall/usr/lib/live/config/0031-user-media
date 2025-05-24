@@ -1,0 +1,193 @@
+#!/bin/sh
+
+. /usr/lib/live/config.sh
+
+## live-config(7) - System Configuration Components
+## Copyright (C) 2016-2020 The Debian Live team
+## Copyright (C) 2006-2015 Daniel Baumann <mail@daniel-baumann.ch>
+## Copyright (C) 2025 MiniOS <https://minios.dev>
+##
+## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+#set -e
+
+BEXT="sb"
+
+get_device() {
+    DEVICE=$(df "$1" | awk 'NR==2 {print $1}')
+    echo "${DEVICE}"
+}
+
+get_device_name() {
+    DEVICE_NAME=$(df "$1" | awk 'NR==2 {print $1}' | awk -F/ '{print $NF}')
+    echo "${DEVICE_NAME}"
+}
+
+get_filesystem_type() {
+    DEVICE=$(df "$1" | awk 'NR==2 {print $1}')
+    FS_TYPE=$(blkid -o value -s TYPE "${DEVICE}")
+    echo "${FS_TYPE}"
+}
+
+get_mount_point() {
+    MOUNT_POINT=$(df "$1" | awk 'NR==2 {print $6}')
+    echo "${MOUNT_POINT}"
+}
+
+Cmdline() {
+    # Reading kernel command line
+    for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
+        case "${_PARAMETER}" in
+        from=*)
+            FROM="${_PARAMETER#*from=}"
+            echo "From: ${FROM}"
+            ;;
+        toram)
+            TORAM="true"
+            echo "TORAM mode enabled"
+            ;;
+        live-config.link-user-dirs | link-user-dirs)
+            LINK_USER_DIRS="true"
+            echo "Link user directories enabled"
+            ;;
+        live-config.bind-user-dirs | bind-user-dirs)
+            BIND_USER_DIRS="true"
+            echo "Bind user directories enabled"
+            ;;
+        live-config.user-dirs-path | user-dirs-path)
+            USER_DIRS_PATH="${_PARAMETER#*user-dirs-path=}"
+            echo "User directories path: ${USER_DIRS_PATH}"
+            ;;
+        esac
+    done
+}
+
+Init() {
+    # Checking if package is installed or already configured
+    if ! pkg_is_installed "user-setup" ||
+        ! component_was_executed "user-setup"; then
+        exit 0
+    fi
+
+    echo -n " user-media"
+}
+
+Config() {
+    if [ -z "$FROM" ] || echo "$FROM" | grep 'http://' || [ -d "/run/initramfs/memory/iso" ]; then
+        FROM="minios"
+    elif [ -f /run/initramfs/var/log/from.log ]; then
+        FROM=$(cat /run/initramfs/var/log/from.log)
+    fi
+
+    # search for bundles in the mounted directory
+    if [ "$(find "/run/initramfs/memory/data/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        # we found at least one bundle/module here
+        FROM=$(echo "/run/initramfs/memory/data/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    elif [ "$(find "/run/initramfs/memory/iso/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
+        FROM=$(echo "/run/initramfs/memory/iso/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g")
+    fi
+    MEDIA="$FROM"
+
+    DEVICE=$(get_device $MEDIA)
+    DEVICE_NAME=$(get_device_name $MEDIA)
+    FS_TYPE=$(get_filesystem_type $MEDIA)
+    MEDIA_ROOT=$(get_mount_point $MEDIA)
+
+    echo "Checking if the media is writable or if TORAM mode is enabled"
+    if ! test -w "$MEDIA" || [ "$TORAM" = "true" ]; then
+        WRITABLE="false"
+        echo "The media is not writable or the system is running in TORAM mode."
+    else
+        WRITABLE="true"
+        echo "The media is writable."
+    fi
+
+    if [ "${WRITABLE}" = "true" ]; then
+        case "$FS_TYPE" in
+        vfat | ntfs | exfat)
+            chmod 777 "$MEDIA_ROOT"
+            mkdir -p "/media/$DEVICE_NAME"
+            mount "$DEVICE" "/media/$DEVICE_NAME"
+            MEDIA_ROOT="/media/$DEVICE_NAME"
+            ;;
+        esac
+    fi
+
+    if [ "${WRITABLE}" = "true" ]; then
+        case "$FS_TYPE" in
+        vfat | ntfs | exfat)
+            USER_DIRS_PATH="${USER_DIRS_PATH:-${MEDIA_ROOT}/minios/userdata}"
+            for DIR in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+                MTD="${USER_DIRS_PATH}/${DIR}"
+                TARGET="/home/${LIVE_USERNAME}/${DIR}"
+                BACKUP="${TARGET}.backup"
+
+                # Ensure media folder exists
+                mkdir -p "${MTD}"
+
+                # If both options are set, prefer link-user-dirs
+                if [ "${BIND_USER_DIRS}" = "true" ] && [ "${LINK_USER_DIRS}" = "true" ]; then
+                    echo "Both bind-user-dirs and link-user-dirs are set. Using link-user-dirs."
+                    BIND_USER_DIRS="false"
+                fi
+
+                if [ "${BIND_USER_DIRS}" = "true" ]; then
+                    # --- Prepare TARGET for bind-mount ---
+                    # 1) If it's a symlink — remove it
+                    if [ -L "${TARGET}" ]; then
+                        rm "${TARGET}"
+                    fi
+
+                    # 2) If it's a directory with data — back it up
+                    if [ -d "${TARGET}" ] && [ "$(ls -A "${TARGET}")" ]; then
+                        mv "${TARGET}" "${BACKUP}"
+                        echo "Moved existing data ${TARGET} → ${BACKUP}"
+                    fi
+
+                    # 3) (Re)create empty directory as mountpoint
+                    mkdir -p "${TARGET}"
+
+                    # 4) Bind-mount
+                    mount --bind "${MTD}" "${TARGET}" ||
+                        echo "Failed to bind-mount ${MTD} → ${TARGET}"
+
+                elif [ "${LINK_USER_DIRS}" = "true" ]; then
+                    # --- Prepare TARGET for symlink ---
+                    # 1) If it's a symlink — remove it
+                    if [ -L "${TARGET}" ]; then
+                        rm "${TARGET}"
+                    fi
+
+                    # 2) If it's a directory with data — back it up
+                    if [ -d "${TARGET}" ] && [ "$(ls -A "${TARGET}")" ]; then
+                        mv "${TARGET}" "${BACKUP}"
+                        echo "Moved existing data ${TARGET} → ${BACKUP}"
+                    fi
+
+                    # 3) If it's a directory without data — remove it
+                    if [ -d "${TARGET}" ]; then
+                        if [ -z "$(ls -A "${TARGET}")" ]; then
+                            rmdir "${TARGET}" || echo "Failed to remove empty directory ${TARGET}"
+                        else
+                            echo "Directory ${TARGET} is not empty, skipping removal"
+                        fi
+                    fi
+
+                    # 4) Create symlink
+                    ln -s "${MTD}" "${TARGET}" ||
+                        echo "Failed to create symlink ${TARGET} → ${MTD}"
+                fi
+            done
+            ;;
+        esac
+    fi
+
+    # Creating state file
+    #touch /var/lib/live/config/user-media
+}
+
+Cmdline
+Init
+Config

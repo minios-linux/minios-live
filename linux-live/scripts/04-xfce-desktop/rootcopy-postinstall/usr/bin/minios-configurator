@@ -152,6 +152,8 @@ while true; do
             --field="$(gettext "Enable services (delimiter ,)")" "$ENABLE_SERVICES" \
             --field="$(gettext "Disable services (delimiter ,)")" "$DISABLE_SERVICES" \
             --field="$(gettext "Link user directories to storage"):CHK" "$LINK_USER_DIRS" \
+            --field="$(gettext "Bind user directories to storage"):CHK" "$BIND_USER_DIRS" \
+            --field="$(gettext "User directories path on storage")" "$USER_DIRS_PATH" \
             --field="$(gettext "Export logs to flash drive"):CHK" "$EXPORT_LOGS"
     )
 
@@ -182,6 +184,8 @@ while true; do
         FORM_ENABLE_SERVICES \
         FORM_DISABLE_SERVICES \
         FORM_LINK_USER_DIRS \
+        FORM_BIND_USER_DIRS \
+        FORM_USER_DIRS_PATH \
         FORM_EXPORT_LOGS \
         <<<"$FORM_OUTPUT"
 
@@ -189,6 +193,8 @@ while true; do
     FORM_NOROOT=$(echo "$FORM_NOROOT" | tr '[:upper:]' '[:lower:]')
     FORM_DEBUG=$(echo "$FORM_DEBUG" | tr '[:upper:]' '[:lower:]')
     FORM_LINK_USER_DIRS=$(echo "$FORM_LINK_USER_DIRS" | tr '[:upper:]' '[:lower:]')
+    FORM_BIND_USER_DIRS=$(echo "$FORM_BIND_USER_DIRS" | tr '[:upper:]' '[:lower:]')
+    FORM_USER_DIRS_PATH=$(echo "$FORM_USER_DIRS_PATH" | tr '[:upper:]' '[:lower:]')
     FORM_EXPORT_LOGS=$(echo "$FORM_EXPORT_LOGS" | tr '[:upper:]' '[:lower:]')
 
     LIVE_CONFIG_CMDLINE="$FORM_CMDLINE"
@@ -213,6 +219,8 @@ while true; do
     ENABLE_SERVICES="$FORM_ENABLE_SERVICES"
     DISABLE_SERVICES="$FORM_DISABLE_SERVICES"
     LINK_USER_DIRS="$FORM_LINK_USER_DIRS"
+    BIND_USER_DIRS="$FORM_BIND_USER_DIRS"
+    USER_DIRS_PATH="$FORM_USER_DIRS_PATH"
     EXPORT_LOGS="$FORM_EXPORT_LOGS"
     break
 done
