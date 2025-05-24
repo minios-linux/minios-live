@@ -1331,7 +1331,8 @@ EOF
     fi
     cat >"${INSTALL_DIR}/etc/minios-release" <<EOF
 NAME="MiniOS Linux"
-VERSION="$MINIOS_VERSION"
+VERSION="${MINIOS_VERSION}"
+EDITION="${PACKAGE_VARIANT}"
 EOF
 
     if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
@@ -1370,7 +1371,10 @@ build_live() {
     mkmod_corefs "${INSTALL_DIR}"
 
     information "Compression of ${YELLOW}core${ENDCOLOR} data is in progress ..."
-    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}core${ENDCOLOR} data."; exit 1; }
+    mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || {
+        error "Failed to compress ${YELLOW}core${ENDCOLOR} data."
+        exit 1
+    }
 
 }
 
@@ -1406,6 +1410,8 @@ DEFAULT_TARGET="${DEFAULT_TARGET}"
 ENABLE_SERVICES="${ENABLE_SERVICES}"
 DISABLE_SERVICES="${DISABLE_SERVICES}"
 LINK_USER_DIRS="${LINK_USER_DIRS}"
+BIND_USER_DIRS="${BIND_USER_DIRS}"
+USER_DIRS_PATH="${USER_DIRS_PATH}"
 EXPORT_LOGS="${EXPORT_LOGS}"
 EOF
     fi
@@ -2322,7 +2328,10 @@ build_modules() {
                     mkmod_corefs "${OVERLAY[upper]}"
                     information "Compression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
                     mksquashfs "${OVERLAY[upper]}" "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" \
-                        -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."; exit 1; }
+                        -comp lz4 -b 1024K -always-use-fragments -noappend -quiet -progress || {
+                        error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."
+                        exit 1
+                    }
                     mv "${OVERLAYS}/tmp/${MODULE}-stock.${BEXT}" "${OVERLAY[upper]}/${MODULE}-stock.${BEXT}"
                     cd "${OVERLAY[upper]}" || exit 1
                     information "Decompression of temporary ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
@@ -2411,7 +2420,10 @@ build_modules() {
                 mksquashfs "${OVERLAY[merged]}/squashfs-root" \
                     "${OVERLAY[merged]}/${MODULE}.${BEXT}" \
                     -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
-                    -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."; exit 1; }
+                    -b 1024K -always-use-fragments -noappend -quiet -progress || {
+                    error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."
+                    exit 1
+                }
 
                 rm -f "${OVERLAY[upper]}/minios_build.conf"
             fi
@@ -2502,12 +2514,12 @@ build_modules() {
                 fi
             }
 
-            # Handle .package variant logic for naming
+            # Determine module name and number
             if [[ -f "${OVERLAY[upper]}/.package" && ${MODULE} =~ ^([1-9][0-9]+)(-.+)?$ ]]; then
                 read_config "${OVERLAY[upper]}/.package" PACKAGE VERSION
                 MODULE_NUM="${MODULE%%-*}"
                 MODULE_NAME="${MODULE_NUM}-${PACKAGE}-${VERSION}"
-            elif [[ ${MODULE} =~ ^0[0-9]$ ]]; then
+            elif [[ ${MODULE:0:2} =~ ^0[0-9]$ ]]; then
                 MODULE_NAME=$(get_new_module_number "${MODULE}" "" "")
             else
                 MODULE_NAME=${MODULE}
@@ -2551,7 +2563,10 @@ build_modules() {
                         information "Compressing ${YELLOW}${MODULE}${ENDCOLOR} module data as ${CYAN}${FILENAME}${ENDCOLOR} ..."
                         mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/${FILENAME}" \
                             -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
-                            -b 1024K -always-use-fragments -noappend -quiet -progress || { error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."; exit 1; }
+                            -b 1024K -always-use-fragments -noappend -quiet -progress || {
+                            error "Failed to compress ${YELLOW}${MODULE}${ENDCOLOR} module data."
+                            exit 1
+                        }
                     else
                         warning "${MAGENTA}${OVERLAY[upper]}${ENDCOLOR} is empty. Nothing to do."
                     fi
