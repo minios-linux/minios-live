@@ -1575,9 +1575,9 @@ build_initrd() {
     OVERLAYS="${WORK_DIR}/overlays"
     BUNDLES_DIR="${OVERLAYS}/bundles"
     declare -A OVERLAY=(
-        [upper]="${OVERLAYS}/initrd-upper"
-        [work]="${OVERLAYS}/initrd-work"
-        [merged]="${OVERLAYS}/initrd-merged"
+        [upper]="${OVERLAYS}/initrd/upper"
+        [work]="${OVERLAYS}/initrd/work"
+        [merged]="${OVERLAYS}/initrd/merged"
     )
 
     overlay_cleanup
@@ -2260,9 +2260,9 @@ build_modules() {
         else
             # Prepare overlay mount points
             declare -A OVERLAY=(
-                [upper]="${OVERLAYS}/${MODULE}-upper"
-                [work]="${OVERLAYS}/${MODULE}-work"
-                [merged]="${OVERLAYS}/${MODULE}-merged"
+                [upper]="${OVERLAYS}/${MODULE}/upper"
+                [work]="${OVERLAYS}/${MODULE}/work"
+                [merged]="${OVERLAYS}/${MODULE}/merged"
             )
             EXCLUDE_MODULE_FILE="${WORK_DIR}/squashfs-${MODULE}-exclude"
 
@@ -2477,7 +2477,7 @@ build_modules() {
                     awk -F- '{ print $1 }' | sort -n)
 
                 # Determine if a gap can be created
-                local NUMBER=$(echo "${MODULE}" | cut -d- -f1)
+                local NUMBER=$((10#$(echo "${MODULE}" | cut -d- -f1)))
                 local CAN_CREATE_GAP=true
                 for EXISTING_NUMBER in $EXISTING_NUMBERS; do
                     if ((NUMBER == EXISTING_NUMBER)); then
