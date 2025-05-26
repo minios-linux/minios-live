@@ -1304,7 +1304,6 @@ copy_to_ram() {
 
    RAM="$(dirname "$CHANGES")"/toram
    CMDLINE=$(cat /proc/cmdline)
-   TORAMMODE=$(cmdline_value "toram")
 
    # Function to copy filtered MiniOS data to RAM
    copy_filtered_bundles() {
@@ -1331,10 +1330,11 @@ copy_to_ram() {
       done
    }
 
-   if [ "$TORAMMODE" = "trim" ]; then
+   case "$CMDLINE" in
+   *toram=trim*)
       mkdir -p "$RAM"
       echo "* Copying filtered MiniOS data to RAM..." >&2 >/dev/tty1
-      copy_filtered_bundles "$@"
+      copy_filtered_bundles
       if echo "$CMDLINE" | grep -q "perch"; then
          echo "* Copying changes to RAM..." >&2 >/dev/tty1
          cp -a "$DATA/changes" "$RAM/changes" || {
@@ -1342,7 +1342,8 @@ copy_to_ram() {
             exit 1
          }
       fi
-   elif [ "$TORAMMODE" = "full" ] || echo "$CMDLINE" | grep -q "toram"; then
+      ;;
+   *toram* | *toram=full*)
       mkdir -p "$RAM"
       echo "* Copying all MiniOS data to RAM..." >&2 >/dev/tty1
       if echo "$CMDLINE" | grep -q "perch"; then
@@ -1358,10 +1359,12 @@ copy_to_ram() {
             exit 1
          }
       fi
-   else
+      ;;
+   *)
       echo "$DATA"
       return
-   fi
+      ;;
+   esac
 
    # Get mounted directory and device for $DATA
    MDIR="$(mounted_dir "$DATA")"
