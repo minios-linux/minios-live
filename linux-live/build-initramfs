@@ -21,7 +21,11 @@ cd /$BUILD_SCRIPTS/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
 
 TMPFILE=$(mktemp)
-./mkinitrfs "$KERNEL" "$COMP_TYPE" >"$TMPFILE" 2>&1 &
+if [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then
+	./mkinitrfs "$KERNEL" "xz" >"$TMPFILE" 2>&1 &
+else
+	./mkinitrfs "$KERNEL" "$COMP_TYPE" >"$TMPFILE" 2>&1 &
+fi
 MKINIT_PID=$!
 spinner "${MKINIT_PID}" "Building initramfs image"
 wait "${MKINIT_PID}"
