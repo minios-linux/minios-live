@@ -45,11 +45,20 @@ Cmdline() {
             LIVE_USER_PASSWORD_CRYPTED="${_PARAMETER#*user-password-crypted=}"
             echo "User password (crypted): ${LIVE_USER_PASSWORD_CRYPTED}"
             ;;
+        live-config.debug | debug)
+            LIVE_CONFIG_DEBUG=true
+            echo "Debug mode enabled"
+            ;;
         esac
     done
 }
 
 Init() {
+    # Setting debug mode if enabled
+    if [ "${LIVE_CONFIG_DEBUG}" = true ]; then
+        set -x
+    fi
+
     # Checking if package is installed or already configured
     if ! pkg_is_installed "user-setup" ||
         component_was_executed "user-setup"; then
