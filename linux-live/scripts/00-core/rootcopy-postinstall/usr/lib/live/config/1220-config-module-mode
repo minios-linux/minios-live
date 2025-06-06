@@ -13,7 +13,27 @@
 
 #set -e
 
+Cmdline() {
+    for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
+        case "${_PARAMETER}" in
+        live-config.module-mode=* | module-mode=*)
+            MODULE_MODE="${_PARAMETER#*module-mode=}"
+            echo "Module mode: ${MODULE_MODE}"
+            ;;
+        live-config.debug | debug)
+            LIVE_CONFIG_DEBUG=true
+            echo "Debug mode enabled"
+            ;;
+        esac
+    done
+}
+
 Init() {
+    # Setting debug mode if enabled
+    if [ "${LIVE_CONFIG_DEBUG}" = true ]; then
+        set -x
+    fi
+
     echo -n " config-module-mode"
 }
 
@@ -46,5 +66,6 @@ Config() {
     fi
 }
 
+Cmdline
 Init
 Config
