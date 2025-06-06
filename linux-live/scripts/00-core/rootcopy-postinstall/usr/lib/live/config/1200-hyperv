@@ -14,7 +14,23 @@
 
 #set -e
 
+Cmdline() {
+    for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
+        case "${_PARAMETER}" in
+        live-config.debug | debug)
+            LIVE_CONFIG_DEBUG=true
+            echo "Debug mode enabled"
+            ;;
+        esac
+    done
+}
+
 Init() {
+    # Setting debug mode if enabled
+    if [ "${LIVE_CONFIG_DEBUG}" = true ]; then
+        set -x
+    fi
+
     echo -n " hyperv"
 }
 
@@ -40,50 +56,6 @@ EOF
     fi
 }
 
-# Function to check if the system is running on any virtual machine
-is_virtual() {
-    local VM_TYPE="$1"
-    if [[ -z "$VM_TYPE" ]]; then
-        if grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "(Oracle|microsoft corporation|Bochs)" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
-            return 0
-        else
-            return 1
-        fi
-    else
-        case "$VM_TYPE" in
-        VirtualBox)
-            if grep -qEi "VirtualBox" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "Oracle" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
-                return 0
-            fi
-            ;;
-        VMware)
-            if grep -qEi "VMware" /sys/class/dmi/id/product_name 2>/dev/null; then
-                return 0
-            fi
-            ;;
-        KVM | QEMU)
-            if grep -qEi "(KVM|QEMU)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "Bochs" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
-                return 0
-            fi
-            ;;
-        Xen)
-            if grep -qEi "Xen" /sys/class/dmi/id/product_name 2>/dev/null; then
-                return 0
-            fi
-            ;;
-        Hyper-V)
-            if grep -qEi "microsoft corporation" /sys/class/dmi/id/sys_vendor 2>/dev/null && grep -qEi "virtual machine" /sys/class/dmi/id/product_name 2>/dev/null; then
-                return 0
-            fi
-            ;;
-        *)
-            echo "Usage: is_virtual [VirtualBox|VMware|KVM|QEMU|Xen|Hyper-V]" >&2
-            return 1
-            ;;
-        esac
-        return 1
-    fi
-}
-
+Cmdline
 Init
 Config
