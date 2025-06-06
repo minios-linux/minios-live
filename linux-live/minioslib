@@ -1277,7 +1277,7 @@ build_chroot() {
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
         cache_cp "etc/apt/sources.list"
 
-        curl --silent -k https://minios.dev/debian/minios-linux.asc |
+        curl --silent -k http://deb.minios.dev/minios-linux.asc |
             gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
         cache_cp "etc/apt/trusted.gpg.d/minios-linux.gpg"
 
@@ -1296,12 +1296,20 @@ EOF
         cache_cp "etc/apt/apt.conf.d/000MiniOS"
 
         mkdir -p "${INSTALL_DIR}/etc/apt/sources.list.d"
-        cat >"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list" <<EOF
-$([[ "${DISTRIBUTION}" =~ ^(bookworm|sid|jammy|noble|bionic)$ ]] &&
-            printf "deb https://minios.dev/debian/ %s main contrib non-free\n#deb-src https://minios.dev/debian/ %s main contrib non-free\n" "${DISTRIBUTION}" "${DISTRIBUTION}")
-deb https://minios.dev/debian/ generic main contrib non-free
-#deb-src https://minios.dev/debian/ generic main contrib non-free
+        # Add MiniOS Linux repository
+        {
+            [[ "${DISTRIBUTION}" =~ ^(buster|bookworm|trixie|sid)$ ]] && cat <<EOF
+deb http://deb.minios.dev/debian/ ${DISTRIBUTION} main contrib non-free
+#deb-src http://deb.minios.dev/debian/ ${DISTRIBUTION} main contrib non-free
+
 EOF
+            cat <<EOF
+deb http://deb.minios.dev/debian/ generic main contrib non-free
+#deb-src http://deb.minios.dev/debian/ generic main contrib non-free
+EOF
+
+        } >"${INSTALL_DIR}/etc/apt/sources.list.d/minios-linux.list"
+
         cache_cp "etc/apt/sources.list.d/minios-linux.list"
 
         mkdir -p "${INSTALL_DIR}/etc/apt/preferences.d"
@@ -1396,11 +1404,9 @@ LIVE_KEYBOARD_MODEL="pc105"
 LIVE_KEYBOARD_LAYOUTS="us,${LAYOUTID}"
 LIVE_KEYBOARD_OPTIONS="grp:alt_shift_toggle,grp_led:scroll"
 LIVE_KEYBOARD_VARIANTS=","
-LIVE_CONFIG_DEBUG="true"
+LIVE_CONFIG_DEBUG="${LIVE_CONFIG_DEBUG}"
 # minios-live-config specific settings.
-LIVE_USER_PASSWORD_PLAIN='${LIVE_USER_PASSWORD_PLAIN}'
 LIVE_USER_PASSWORD_CRYPTED='${LIVE_USER_PASSWORD_CRYPTED}'
-LIVE_ROOT_PASSWORD_PLAIN='${LIVE_ROOT_PASSWORD_PLAIN}'
 LIVE_ROOT_PASSWORD_CRYPTED='${LIVE_ROOT_PASSWORD_CRYPTED}'
 
 # MiniOS LiveKit specific settings.
