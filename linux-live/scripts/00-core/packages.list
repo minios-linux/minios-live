@@ -1,11 +1,11 @@
 network-manager -de=flux || connman
 netplan.io +d=jammy +d=noble
 gpg
-discover
+#discover -d=bookworm -d=trixie -d=sid
 laptop-mode-tools -d=bookworm -d=trixie -d=sid
 kbd
 keyboard-configuration
-laptop-detect
+#laptop-detect -d=bookworm -d=trixie -d=sid
 locales
 console-setup
 man-db
@@ -20,8 +20,8 @@ ncdu +pv=ultra +pv=toolbox +pv=standard
 zip
 unzip
 psmisc +pv=ultra +pv=toolbox +pv=standard
-net-tools
-telnet +pv=ultra +pv=toolbox
+#net-tools -d=bookworm -d=trixie -d=sid
+#telnet +pv=ultra +pv=toolbox -d=bookworm -d=trixie -d=sid
 alsa-utils +pv=minimum
 xz-utils
 zstd
@@ -42,9 +42,9 @@ rsync +pv=ultra +pv=toolbox
 netcat +pv=ultra +pv=toolbox
 netcat-openbsd +pv=ultra +pv=toolbox
 ssh
-gpm
-wireless-tools
-ntfs-3g
+gpm -d=bookworm -d=trixie -d=sid
+#wireless-tools -d=bookworm -d=trixie -d=sid
+ntfs-3g -d=trixie -d=sid
 rfkill
 file
 usb-modeswitch +pv=ultra +pv=toolbox +pv=standard
