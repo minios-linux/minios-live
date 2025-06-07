@@ -35,9 +35,6 @@ if [ "$KERNEL_TYPE" != "cloud" ]; then
     init_zram
 fi
 
-# modprobe the drivers needed to load in QEMU and VMware virtual machines, if any
-modprobe_cloud
-
 # modprobe all devices excluding network drivers
 modprobe_everything -v /drivers/net/
 
