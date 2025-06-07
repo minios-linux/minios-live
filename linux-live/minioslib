@@ -732,12 +732,28 @@ unmount_dirs() {
     local DIR UNMOUNTED
     while true; do
         UNMOUNTED="true"
-        for DIR in $(mount | grep ${DIR_PATH} | awk '{print $3}'); do
-            umount "${DIR}" 2>/dev/null || UNMOUNTED="false"
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "Attempt #${ATTEMPTS} to unmount file systems inside ${DIR_PATH}..."
+        fi
+
+        for DIR in $(mount | grep "${DIR_PATH}" | awk '{print $3}' | awk '{print length, $0}' | sort -rn | cut -d' ' -f2-); do
+            if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+                information "Trying to unmount: ${DIR}"
+            fi
+            if umount "${DIR}" 2>/dev/null; then
+                if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+                    information "Successfully unmounted: ${DIR}"
+                fi
+            else
+                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+                    information "Failed to unmount: ${DIR}"
+                fi
+                UNMOUNTED="false"
+            fi
         done
         if [ "${UNMOUNTED}" = "true" ]; then
             if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-                information "The file systems inside the ${DIR_PATH} directory are unmounted."
+                information "All file systems inside ${DIR_PATH} have been unmounted."
             fi
             break
         fi
@@ -1594,6 +1610,7 @@ build_initrd() {
 
     mkdir -p "${OVERLAY[upper]}/boot"
     cp "${WORK_DIR}/kernel/vmlinuz"-* "${OVERLAY[upper]}/boot/"
+    cp "${WORK_DIR}/kernel/config"-* "${OVERLAY[upper]}/boot/"
     KERNEL="${KERNEL:-$(file "${OVERLAY[upper]}/boot/vmlinuz"-* | grep -oP 'version \K[^\s]+')}"
 
     copy_build_scripts "${OVERLAY[merged]}"
@@ -2317,6 +2334,7 @@ build_modules() {
                     update_config "${WORK_DIR}/minios_build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                     mkdir -p "${WORK_DIR}/kernel/"
                     cp "${OVERLAY[merged]}/boot/vmlinuz"-* "${WORK_DIR}/kernel/"
+                    cp "${OVERLAY[merged]}/boot/config"-* "${WORK_DIR}/kernel/"
                 fi
             fi
 
