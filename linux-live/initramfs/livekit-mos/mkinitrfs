@@ -4,10 +4,81 @@
 # Author: crims0n <https://minios.dev>
 set -euo pipefail
 
-# Check if KERNEL is supplied as an argument
-[ $# -eq 0 ] && echo "Builds LiveKit initrfs.img
-    Usage:   $0 <KERNEL VERSION> [COMPRESSION TYPE]
-    Example: $0 $(uname -r)" && exit 1
+# Prepare log file descriptor for xtrace
+LOG_FILE="/initramfs-$$.log"
+
+# FD 19 writes only to log file; suppress stderr fallback
+exec 19>>"$LOG_FILE"
+
+export BASH_XTRACEFD=19
+export PS4='+ ${BASH_SOURCE}:${LINENO}: '
+
+set -x
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+  -k, --kernel <KERNEL VERSION>         Specify the kernel version (required)
+  -n, --network                         Enable or disable network support
+  -c, --cloud                           Enable or disable cloud support
+  -cm, --compress-modules               Compress kernel modules
+  -dm, --decompress-modules             Decompress kernel modules
+  -h, --help                            Display this help message and exit
+
+Example:
+  $(basename "$0") --kernel 5.10.0-8-amd64 --compression auto --network true --cloud false
+EOF
+    exit 1
+}
+
+# Default parameters
+KERNEL=""
+NETWORK="false"
+CLOUD="false"
+INITRD_COMPRESS="auto"
+MODULE_COMPRESS="auto"
+DECOMPRESS_MODULES="false"
+COMPRESS_MODULES="false"
+
+# Parse options
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    -k | --kernel)
+        KERNEL="$2"
+        shift 2
+        ;;
+    -n | --network)
+        NETWORK="true"
+        shift 2
+        ;;
+    -c | --cloud)
+        CLOUD="true"
+        shift 2
+        ;;
+    -dm | --decompress-modules)
+        DECOMPRESS_MODULES="true"
+        shift
+        ;;
+    -cm | --compress-modules)
+        COMPRESS_MODULES="true"
+        shift
+        ;;
+    -h | --help)
+        usage
+        ;;
+    -*)
+        echo "Unknown option: $1"
+        usage
+        ;;
+    *)
+        break
+        ;;
+    esac
+done
+
+[ -z "$KERNEL" ] && usage
 
 # Check for root privileges
 if [[ "$EUID" -ne 0 ]]; then
@@ -66,35 +137,57 @@ copy_files() {
 
         mkdir -p "$DEST_DIR/$DIR"
         if [ ! -f "$ORIGIN_DIR/$DIR/$FILE" ]; then
-            echo "ERROR: File "$ORIGIN_DIR/$DIR/$FILE" not found."
+            echo "ERROR: File \"$ORIGIN_DIR/$DIR/$FILE\" not found."
             exit 1
         fi
         cp "$ORIGIN_DIR/$DIR/$FILE" "$DEST_DIR/$DIR/$FILE"
     done
 }
 
-# Assign kernel version from the first script argument
-KERNEL="$1"
-COMP="${2:-xz}"
+has_config() {
+    grep -q -E "^CONFIG_${1}=(y|1)" <<<"$KCONFIG"
+}
 
-# Redirect trace to log file and start tracing commands
-LOG_FILE="/tmp/initrfs-$KERNEL-$$.log"
-exec 19>"$LOG_FILE"
-BASH_XTRACEFD=19
-set -x
+pick() {
+    local PREFIX=$1 DEFAULT=$2
+    for ALG in ZSTD XZ GZIP; do
+        local OPT="${PREFIX}_${ALG}"
+        local CMD="${ALG,,}"
+        if has_config "$OPT" && command -v "$CMD" &>/dev/null; then
+            echo "$CMD"
+            return
+        fi
+    done
+    echo "$DEFAULT"
+}
 
-# Set compression parameters
-if [ $COMP = "xz" ]; then
-    COMP_PARAMS="-T0 -f --extreme --check=crc32"
-elif [ $COMP = "zstd" ]; then
-    COMP_PARAMS="-T0 -19 --check --force"
+# Load kernel config into KCONFIG
+if [[ -f /proc/config.gz ]]; then
+    KCONFIG=$(zcat /proc/config.gz)
+elif [[ -f /boot/config-$(uname -r) ]]; then
+    KCONFIG=$(</boot/config-$(uname -r))
 else
-    COMP_PARAMS=""
+    KCONFIG=""
 fi
 
+# Set MODULE_COMPRESS (kernel modules) if auto
+if [[ "${MODULE_COMPRESS:-auto}" == auto ]]; then
+    MODULE_COMPRESS=$(pick MODULE_COMPRESS gzip)
+fi
+
+# Set INITRD_COMPRESS (initrd) if auto
+if [[ "${INITRD_COMPRESS:-auto}" == auto ]]; then
+    INITRD_COMPRESS=$(pick RD gzip)
+fi
+
+# Compression parameters for initrd
+case $INITRD_COMPRESS in
+xz) INITRD_COMPRESS_PARAMS="-T0 -f --extreme --check=crc32" ;;
+zstd) INITRD_COMPRESS_PARAMS="-T0 -19 --check --force" ;;
+*) INITRD_COMPRESS_PARAMS="" ;;
+esac
+
 # Assign config values
-NETWORK="true"
-CLOUD="true"
 LIVEKITNAME="minios"
 BEXT="sb"
 
@@ -209,8 +302,6 @@ copy_including_deps "/$LMK/kernel/drivers/scsi/scsi_mod."*
 copy_including_deps "/$LMK/kernel/drivers/scsi/sg."*
 
 # virtual disk drivers
-copy_including_deps "/$LMK/kernel/drivers/scsi/hv_storvsc."*
-
 if [ "$CLOUD" = "true" ]; then
     copy_including_deps "/$LMK/kernel/drivers/virtio/virtio."*
     copy_including_deps "/$LMK/kernel/drivers/virtio/virtio_mmio."*
@@ -244,16 +335,48 @@ copy_including_deps "/$LMK/modules."*
 
 copy_including_deps "/usr/share/terminfo/l/linux"
 
-find "$INITRAMFS" -name "*.ko.gz" -exec gunzip {} \;
-find "$INITRAMFS" -name "*.ko.xz" -exec unxz {} \;
+# Before module unpacking
+if [ "$DECOMPRESS_MODULES" = "true" ] || [ "$COMPRESS_MODULES" = "true" ]; then
+    find "$INITRAMFS" -name "*.ko.gz" -exec gunzip {} \;
+    find "$INITRAMFS" -name "*.ko.xz" -exec unxz {} \;
+    find "$INITRAMFS" -name "*.ko.zst" -exec unzstd {} \;
+fi
 
-# trim modules.order file. Perhaps we could remove it entirely
+# Compress kernel modules if the corresponding flag is set.
+if [ "$COMPRESS_MODULES" = "true" ]; then
+    if [ "$MODULE_COMPRESS" = "xz" ]; then
+        find "$INITRAMFS" -type f -name "*.ko" -exec xz -z {} \;
+        MODULE_EXT=".ko.xz"
+    elif [ "$MODULE_COMPRESS" = "zstd" ]; then
+        find "$INITRAMFS" -type f -name "*.ko" -exec zstd -z --rm {} \;
+        MODULE_EXT=".ko.zst"
+    else
+        find "$INITRAMFS" -type f -name "*.ko" -exec gzip -9 {} \;
+        MODULE_EXT=".ko.gz"
+    fi
+fi
+
+# Detect module compression if not set by earlier step.
+cd "$INITRAMFS/$LMK/"
+if [ -z "${MODULE_EXT:-}" ]; then
+    if find . -maxdepth 3 -type f -name "*.ko.gz" | grep -q .; then
+        MODULE_EXT=".ko.gz"
+    elif find . -maxdepth 3 -type f -name "*.ko.xz" | grep -q .; then
+        MODULE_EXT=".ko.xz"
+    elif find . -maxdepth 3 -type f -name "*.ko.zst" | grep -q .; then
+        MODULE_EXT=".ko.zst"
+    else
+        MODULE_EXT=".ko"
+    fi
+fi
+
+# Trim and update modules.order file
 MODULEORDER="$(
     cd "$INITRAMFS/$LMK/"
-    find -name "*.ko" | sed -r "s:^./::g" | tr "\n" "|" | sed -r "s:[.]:.:g"
+    find -name "*$MODULE_EXT" | sed -r "s:^./::g" | tr "\n" "|" | sed -r "s:[.]:.:g" | sed -r -e "s/.ko.gz/.ko/" -e "s/.ko.xz/.ko/" -e "s/.ko.zst/.ko/"
 )"
-cat "$INITRAMFS/$LMK/modules.order" | sed -r "s/.ko.gz\$/.ko/" | grep -E "$MODULEORDER"/foo/bar >"$INITRAMFS/$LMK/_"
-mv "$INITRAMFS/$LMK/_" "$INITRAMFS/$LMK/modules.order"
+cat $INITRAMFS/$LMK/modules.order | sed -r -e "s/.ko.gz\$/.ko/" -e "s/.ko.xz\$/.ko/" -e "s/.ko.zst\$/.ko/" | grep -E "$MODULEORDER"/foo/bar >$INITRAMFS/$LMK/_
+mv $INITRAMFS/$LMK/_ $INITRAMFS/$LMK/modules.order
 
 depmod -b "$INITRAMFS" "$KERNEL"
 
@@ -266,9 +389,10 @@ chmod a+x "$INITRAMFS/init"
 chmod a+x "$INITRAMFS/shutdown"
 ln -s ../init "$INITRAMFS/bin/init"
 
+# Remove the initrd auto-detection block and revert to using module settings for final image compression:
 cd "$INITRAMFS"
-find . -print | cpio -o -H newc | $COMP $COMP_PARAMS >"$INITRAMFS.img"
+find . -print | cpio -o -H newc | $INITRD_COMPRESS $INITRD_COMPRESS_PARAMS >"$INITRAMFS.img"
 echo "$INITRAMFS.img"
 
 cd "$INITRAMFS/.."
-rm -Rf "$INITRAMFS"
+mv "$INITRAMFS" /
