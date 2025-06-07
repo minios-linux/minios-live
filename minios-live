@@ -91,7 +91,7 @@ CMD=(build_bootstrap build_chroot build_live build_modules build_boot build_conf
 create_log_file "$@"
 
 #trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"' EXIT
-trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR" && [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server' EXIT
+trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"; [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server' EXIT
 
 common_variables
 
