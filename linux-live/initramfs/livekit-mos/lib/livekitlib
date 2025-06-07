@@ -189,17 +189,6 @@ init_proc_sysfs() {
    ln -sf /proc/mounts /etc/mtab
 }
 
-# modprobe the drivers needed to load in QEMU and VMware virtual machines, if any
-#
-modprobe_cloud() {
-   modprobe virtio 2>/dev/null
-   modprobe virtio_ring 2>/dev/null
-   modprobe virtio_pci 2>/dev/null
-   modprobe virtio_blk 2>/dev/null
-   modprobe virtio_scsi 2>/dev/null
-   modprobe vmw_pvscsi 2>/dev/null
-}
-
 # modprobe all modules found in initial ramdisk
 # $1 = -e for match, -v for negative match
 # $2 = regex pattern

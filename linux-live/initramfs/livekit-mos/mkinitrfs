@@ -20,12 +20,12 @@ usage() {
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
-  -k, --kernel <KERNEL VERSION>         Specify the kernel version (required)
-  -n, --network                         Enable or disable network support
-  -c, --cloud                           Enable or disable cloud support
+  -k,  --kernel <KERNEL VERSION>         Specify the kernel version (required)
+  -n,  --network                         Enable or disable network support
+  -c,  --cloud                           Enable or disable cloud support
   -cm, --compress-modules               Compress kernel modules
   -dm, --decompress-modules             Decompress kernel modules
-  -h, --help                            Display this help message and exit
+  -h,  --help                            Display this help message and exit
 
 Example:
   $(basename "$0") --kernel 5.10.0-8-amd64 --compression auto --network true --cloud false
