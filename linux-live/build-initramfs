@@ -11,7 +11,7 @@ KERNEL="${KERNEL:-$(file /boot/vmlinuz-* | grep -oP 'version \K[^\s]+')}"
 console_colors
 
 # build initramfs image
-if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
 	echo -e "   ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
 	echo -e "   ${YELLOW}KERNEL_BPO=${KERNEL_BPO}${ENDCOLOR}"
 	echo -e "   ${YELLOW}KERNEL_AUFS=${KERNEL_AUFS}${ENDCOLOR}"
@@ -21,7 +21,7 @@ cd /$BUILD_SCRIPTS/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
 
 TMPFILE=$(mktemp)
-./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE" 2>&1 &
+./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE" 2>&1 &
 MKINIT_PID=$!
 spinner "${MKINIT_PID}" "Building initramfs image"
 wait "${MKINIT_PID}"
