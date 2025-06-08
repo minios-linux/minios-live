@@ -162,10 +162,10 @@ pick() {
 }
 
 # Load kernel config into KCONFIG
-if [[ -f /proc/config.gz ]]; then
+if [[ -f /boot/config-$KERNEL ]]; then
+    KCONFIG=$(</boot/config-$KERNEL)
+elif [[ -f /proc/config.gz ]]; then
     KCONFIG=$(zcat /proc/config.gz)
-elif [[ -f /boot/config-$(uname -r) ]]; then
-    KCONFIG=$(</boot/config-$(uname -r))
 else
     KCONFIG=""
 fi
