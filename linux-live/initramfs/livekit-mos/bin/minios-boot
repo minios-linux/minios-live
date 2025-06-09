@@ -4,9 +4,7 @@
 # Author: crims0n <https://minios.dev>
 #
 
-SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 CONFIG="/etc/live/config.conf"
-
 CMDLINE="$(cat /proc/cmdline)"
 
 # ======= Functions =======
@@ -17,12 +15,11 @@ set_log() {
     tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log &
     exec >/tmp/minios-boot.pipe 2>&1
 
-	case "${LIVE_CONFIG_DEBUG}" in
-		true)
-			set -x
-			;;
-	esac
-    #echo -n "minios-boot: " >/tmp/minios-boot.pipe 2>&1
+    case "${LIVE_CONFIG_DEBUG}" in
+    true)
+        set -x
+        ;;
+    esac
 }
 
 echo_green_star() {
@@ -34,7 +31,7 @@ echo_red_star() {
 }
 
 echo_white_star() {
-   echo -ne "[1;37m""* ""[0;39m"
+    echo -ne "[1;37m""* ""[0;39m"
 }
 
 read_config() {
