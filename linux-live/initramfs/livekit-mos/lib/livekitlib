@@ -1493,7 +1493,7 @@ fstab_create() {
 #
 minios_boot() {
    debug_log "minios_boot $*"
-   local WRITABLE DATE TIME
+   local WRITABLE SRC DST
 
    # Copy the boot binary to the target mount directory.
    debug_log "minios_boot: Copying /bin/minios-boot to $2/"
@@ -1547,31 +1547,93 @@ minios_boot() {
       debug_log "minios_boot: '$1' is NOT writable."
    fi
 
-   # One-way copy of configuration file.
-   debug_log "minios_boot: Copying config file"
-   if [ -f "$1/config.conf" ] && [ ! -f "$2/etc/live/config.conf" ]; then
+   # Path to the marker file for storing last sync time
+   local STATE_FILE="$2/var/lib/live/config/last-config-sync-time"
+
+   # Get current time in seconds since epoch
+   local NOW=$(date +%s)
+
+   # Flag indicating that system time is incorrect (has been reset)
+   local SKIP_TIME_CHECK=false
+
+   # Check the marker of the previous synchronization
+   if [ -f "$STATE_FILE" ]; then
+      local LAST_SYNC=$(cat "$STATE_FILE")
+      if [ "$NOW" -lt "$LAST_SYNC" ]; then
+         debug_log "ERROR: System time appears wrong. Skipping timestamp-based sync."
+         SKIP_TIME_CHECK=true
+      fi
+   fi
+
+   # Function: determine whether to copy src ($1) to dst ($2)
+   should_copy() {
+      # $1 = source path, $2 = destination path
+      if [ "$SKIP_TIME_CHECK" = true ]; then
+         # if time is reset — only copy when destination does not exist
+         [ ! -f "$2" ]
+      else
+         # otherwise — copy if dst missing or src is newer than dst
+         [ ! -f "$2" ] || [ "$1" -nt "$2" ]
+      fi
+   }
+
+   debug_log "minios_boot: Starting two-way sync of config.conf and config.conf.d"
+
+   # --- Sync main config.conf ---
+   if [ -f "$1/config.conf" ] && should_copy "$1/config.conf" "$2/etc/live/config.conf"; then
+      debug_log "Copying $1/config.conf -> $2/etc/live/config.conf"
       cp -fp "$1/config.conf" "$2/etc/live/config.conf" || {
-         debug_log "ERROR: Failed to copy config.conf"
+         debug_log "ERROR: copy failed"
+         return 1
+      }
+   elif [ "$WRITABLE" = "true" ] && [ -f "$2/etc/live/config.conf" ] &&
+      should_copy "$2/etc/live/config.conf" "$1/config.conf"; then
+      debug_log "Copying $2/etc/live/config.conf -> $1/config.conf"
+      cp -fp "$2/etc/live/config.conf" "$1/config.conf" || {
+         debug_log "ERROR: copy failed"
          return 1
       }
    fi
 
-   # Prepare SSH directory in target.
-   debug_log "minios_boot: Preparing SSH directory"
-   mkdir -p "$2/root/.ssh" || {
-      debug_log "ERROR: Failed to create directory '$2/root/.ssh'"
-      # Continue, SSH may be optional
-   }
-   chmod 700 "$2/root/.ssh" 2>/dev/null || true
+   # --- Ensure directories exist ---
+   mkdir -p "$2/etc/live/config.conf.d" "$1/config.conf.d"
 
-   # One-way copy of SSH authorized_keys.
-   debug_log "minios_boot: Copying authorized_keys"
-   if [ -f "$1/authorized_keys" ]; then
-      cp -fp "$1/authorized_keys" "$2/root/.ssh/authorized_keys" &&
-         chmod 600 "$2/root/.ssh/authorized_keys" || {
-         debug_log "ERROR: Failed to copy or chmod authorized_keys"
-      }
+   # --- Sync files in config.conf.d from source to live ---
+   if [ -d "$1/config.conf.d" ]; then
+      for SRC in "$1/config.conf.d/"*.conf; do
+         [ -e "$SRC" ] || continue
+         DST="$2/etc/live/config.conf.d/$(basename "$SRC")"
+         if should_copy "$SRC" "$DST"; then
+            debug_log "Copying $SRC -> $DST"
+            cp -fp "$SRC" "$DST" || {
+               debug_log "ERROR: copy failed"
+               return 1
+            }
+         fi
+      done
    fi
+
+   # --- If writable, sync back from live to source ---
+   if [ "$WRITABLE" = "true" ] && [ -d "$2/etc/live/config.conf.d" ]; then
+      for SRC in "$2/etc/live/config.conf.d/"*.conf; do
+         [ -e "$SRC" ] || continue
+         DST="$1/config.conf.d/$(basename "$SRC")"
+         if should_copy "$SRC" "$DST"; then
+            debug_log "Copying $SRC -> $DST"
+            cp -fp "$SRC" "$DST" || {
+               debug_log "ERROR: copy failed"
+               return 1
+            }
+         fi
+      done
+   fi
+
+   # Update the marker if the system time is valid
+   if [ "$SKIP_TIME_CHECK" = "false" ]; then
+      echo "$NOW" >"$STATE_FILE" || debug_log "WARNING: Could not write state file"
+   fi
+
+   debug_log "minios_boot: Sync completed"
 
    # Execute the minios-boot script in the target directory.
    debug_log "minios_boot: Running chroot /bin/bash -c '/minios-boot'"
@@ -1581,8 +1643,8 @@ minios_boot() {
    # Export logs if enabled and writable.
    local EXPORT_LOGS LOGDIR
    EXPORT_LOGS=$(config_value "$1/config.conf" EXPORT_LOGS)
-   DATE=$(date +%Y%m%d)
-   TIME=$(date +%H%M%S)
+   local DATE=$(date +%Y%m%d)
+   local TIME=$(date +%H%M%S)
    if [ "$EXPORT_LOGS" = "true" ] && [ "$WRITABLE" = "true" ]; then
       LOGDIR="$1/log/${DATE}_${TIME}"
       debug_log "minios_boot: Creating export directories $LOGDIR/minios and $LOGDIR/live"
