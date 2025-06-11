@@ -2273,7 +2273,7 @@ build_modules() {
     # Iterate over each module in the environments directory
     for MODULE in *; do
         # Skip module if already present in the image folder
-        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null |
+        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | xargs -n1 basename |
             grep -q "$(echo "${MODULE}" | cut -d- -f2-)" 2>/dev/null); then
             information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         elif should_skip_module "${ENVIRONMENTS}/${MODULE}/skip_conditions.conf"; then
