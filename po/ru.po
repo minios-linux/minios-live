@@ -7,10 +7,10 @@ msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 4.0.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-30 00:05+0300\n"
+"POT-Creation-Date: 2025-06-11 20:59+0300\n"
 "PO-Revision-Date: 2024-11-23 20:23+0300\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
-"Language-Team: Russian <gnu@d07.ru>\n"
+"Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -18,9 +18,69 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: minios-cmd:31 minios-live:64
+#: minios-live:52
+msgid "This script builds bootable MiniOS ISO image."
+msgstr "Этот скрипт создаёт загрузочный ISO-образ MiniOS."
+
+#: minios-live:56
+msgid "Run the build from start to finish."
+msgstr "Запустить сборку от начала до конца."
+
+#: minios-live:57
+msgid ""
+"Start the build by building the base environment and finish by installing "
+"the entire system in chroot."
+msgstr ""
+"Начать сборку со сборки базовой среды и завершить установкой всей системы в "
+"chroot."
+
+#: minios-live:58
+msgid ""
+"Start the build from the beginning and finish by installing the entire "
+"system in chroot."
+msgstr ""
+"Начать сборку с самого начала и завершить установкой всей системы в chroot."
+
+#: minios-live:59
+msgid "Start the build by building the base environment and run to completion."
+msgstr "Начать сборку со сборки базовой среды и выполнить до завершения."
+
+#: minios-live:60
+msgid "Build only ISO image from previously prepared data."
+msgstr "Собрать только ISO-образ из ранее подготовленных данных."
+
+#: minios-live:64
+msgid "Supported commands:"
+msgstr "Поддерживаемые команды:"
+
+#: minios-live:65 minios-cmd:31
 msgid "Usage:"
 msgstr "Использование:"
+
+#: minios-live:66
+msgid "  Run from start_cmd to end_cmd"
+msgstr "  Запуск с start_cmd до end_cmd"
+
+#: minios-live:67
+msgid "  If start_cmd is omitted, start from the first command"
+msgstr "  Если start_cmd пропущен, начать с первой команды"
+
+#: minios-live:68
+msgid "  If end_cmd is omitted, end with the last command"
+msgstr "  Если end_cmd пропущен, закончить последней командой"
+
+#: minios-live:69
+msgid "  Enter a single cmd to run the specific command"
+msgstr "  Введите одну команду cmd для запуска конкретной команды"
+
+#: minios-live:70
+msgid "  Enter '-' as the only argument to run all commands\\n"
+msgstr ""
+"  Введите '-' в качестве единственного аргумента для запуска всех команд\\n"
+
+#: minios-live:71 minios-cmd:71
+msgid "Examples:"
+msgstr "Примеры:"
 
 #: minios-cmd:32
 msgid "Creates a system image with the specified parameters."
@@ -36,13 +96,14 @@ msgstr "Параметры конфигурации:"
 
 #: minios-cmd:37
 msgid "Specify the configuration file path. All other options are ignored."
-msgstr "Укажите путь к файлу конфигурации. Все остальные параметры будут проигнорированы."
+msgstr ""
+"Укажите путь к файлу конфигурации. Все остальные параметры будут "
+"проигнорированы."
 
 #: minios-cmd:38
 msgid ""
 "Generate the configuration file only and do not start the build process."
-msgstr ""
-"Только сгенерировать файл конфигурации и не запускать процесс сборки."
+msgstr "Только сгенерировать файл конфигурации и не запускать процесс сборки."
 
 #: minios-cmd:40
 msgid "Build Options:"
@@ -128,10 +189,6 @@ msgstr "Настройки ядра:"
 msgid "Locale & Timezone Settings:"
 msgstr "Настройки локали и часового пояса:"
 
-#: minios-cmd:71 minios-live:70
-msgid "Examples:"
-msgstr "Примеры:"
-
 #: minios-cmd:73
 msgid "1. Create a MiniOS Standard system image (default settings):"
 msgstr "1. Создать стандартный образ системы MiniOS (настройки по умолчанию):"
@@ -195,58 +252,3 @@ msgid ""
 msgstr ""
 "имеет гораздо больше доступных параметров.  Для получения более подробной "
 "информации обратитесь к списку параметров выше."
-
-#: minios-live:51
-msgid "This script builds bootable MiniOS ISO image."
-msgstr "Этот скрипт создаёт загрузочный ISO-образ MiniOS."
-
-#: minios-live:55
-msgid "Run the build from start to finish."
-msgstr "Запустить сборку от начала до конца."
-
-#: minios-live:56
-msgid ""
-"Start the build by building the base environment and finish by installing "
-"the entire system in chroot."
-msgstr ""
-"Начать сборку со сборки базовой среды и завершить установкой всей системы в "
-"chroot."
-
-#: minios-live:57
-msgid ""
-"Start the build from the beginning and finish by installing the entire "
-"system in chroot."
-msgstr ""
-"Начать сборку с самого начала и завершить установкой всей системы в chroot."
-
-#: minios-live:58
-msgid "Start the build by building the base environment and run to completion."
-msgstr "Начать сборку со сборки базовой среды и выполнить до завершения."
-
-#: minios-live:59
-msgid "Build only ISO image from previously prepared data."
-msgstr "Собрать только ISO-образ из ранее подготовленных данных."
-
-#: minios-live:63
-msgid "Supported commands:"
-msgstr "Поддерживаемые команды:"
-
-#: minios-live:65
-msgid "  Run from start_cmd to end_cmd"
-msgstr "  Запуск с start_cmd до end_cmd"
-
-#: minios-live:66
-msgid "  If start_cmd is omitted, start from the first command"
-msgstr "  Если start_cmd пропущен, начать с первой команды"
-
-#: minios-live:67
-msgid "  If end_cmd is omitted, end with the last command"
-msgstr "  Если end_cmd пропущен, закончить последней командой"
-
-#: minios-live:68
-msgid "  Enter a single cmd to run the specific command"
-msgstr "  Введите одну команду cmd для запуска конкретной команды"
-
-#: minios-live:69
-msgid "  Enter '-' as the only argument to run all commands\\n"
-msgstr "  Введите '-' в качестве единственного аргумента для запуска всех команд\\n"
