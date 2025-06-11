@@ -1596,7 +1596,7 @@ minios_boot() {
    fi
 
    # --- Ensure directories exist ---
-   mkdir -p "$2/etc/live/config.conf.d" "$1/config.conf.d"
+   mkdir -p "$2/etc/live/config.conf.d" "$1/config.conf.d" >/dev/null 2>&1 || true
 
    # --- Sync files in config.conf.d from source to live ---
    if [ -d "$1/config.conf.d" ]; then
