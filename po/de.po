@@ -7,19 +7,82 @@ msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 4.0.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-30 00:05+0300\n"
+"POT-Creation-Date: 2025-06-11 20:59+0300\n"
 "PO-Revision-Date: 2024-11-23 21:29+0300\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
-"Language-Team: German <translation-team-de@lists.sourceforge.net>\n"
+"Language-Team: none\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: minios-cmd:31 minios-live:64
+#: minios-live:52
+msgid "This script builds bootable MiniOS ISO image."
+msgstr "Dieses Skript erstellt ein bootfähiges MiniOS ISO-Image."
+
+#: minios-live:56
+msgid "Run the build from start to finish."
+msgstr "Führe den Build von Anfang bis Ende aus."
+
+#: minios-live:57
+msgid ""
+"Start the build by building the base environment and finish by installing "
+"the entire system in chroot."
+msgstr ""
+"Starte den Build mit dem Erstellen der Basisumgebung und beende ihn mit der "
+"Installation des gesamten Systems in chroot."
+
+#: minios-live:58
+msgid ""
+"Start the build from the beginning and finish by installing the entire "
+"system in chroot."
+msgstr ""
+"Starte den Build von Anfang an und beende ihn mit der Installation des "
+"gesamten Systems in chroot."
+
+#: minios-live:59
+msgid "Start the build by building the base environment and run to completion."
+msgstr ""
+"Starte den Build mit dem Erstellen der Basisumgebung und führe ihn bis zum "
+"Abschluss aus."
+
+#: minios-live:60
+msgid "Build only ISO image from previously prepared data."
+msgstr "Erstelle nur das ISO-Image aus zuvor vorbereiteten Daten."
+
+#: minios-live:64
+msgid "Supported commands:"
+msgstr "Unterstützte Befehle:"
+
+#: minios-live:65 minios-cmd:31
 msgid "Usage:"
 msgstr "Benutzung:"
+
+#: minios-live:66
+msgid "  Run from start_cmd to end_cmd"
+msgstr "  Ausführung von start_cmd bis end_cmd"
+
+#: minios-live:67
+msgid "  If start_cmd is omitted, start from the first command"
+msgstr "  Wenn start_cmd weggelassen wird, beginne mit dem ersten Befehl"
+
+#: minios-live:68
+msgid "  If end_cmd is omitted, end with the last command"
+msgstr "  Wenn end_cmd weggelassen wird, beende mit dem letzten Befehl"
+
+#: minios-live:69
+msgid "  Enter a single cmd to run the specific command"
+msgstr ""
+"  Gib einen einzelnen Befehl cmd ein, um den spezifischen Befehl auszuführen"
+
+#: minios-live:70
+msgid "  Enter '-' as the only argument to run all commands\\n"
+msgstr "  Gib '-' als einziges Argument ein, um alle Befehle auszuführen\\n"
+
+#: minios-live:71 minios-cmd:71
+msgid "Examples:"
+msgstr "Beispiele:"
 
 #: minios-cmd:32
 msgid "Creates a system image with the specified parameters."
@@ -35,13 +98,16 @@ msgstr "Konfigurationsoptionen:"
 
 #: minios-cmd:37
 msgid "Specify the configuration file path. All other options are ignored."
-msgstr "Geben Sie den Pfad zur Konfigurationsdatei an. Alle anderen Optionen werden ignoriert."
+msgstr ""
+"Geben Sie den Pfad zur Konfigurationsdatei an. Alle anderen Optionen werden "
+"ignoriert."
 
 #: minios-cmd:38
 msgid ""
 "Generate the configuration file only and do not start the build process."
 msgstr ""
-"Generieren Sie nur die Konfigurationsdatei und starten Sie den Build-Prozess nicht."
+"Generieren Sie nur die Konfigurationsdatei und starten Sie den Build-Prozess "
+"nicht."
 
 #: minios-cmd:40
 msgid "Build Options:"
@@ -93,7 +159,9 @@ msgstr "Aktivieren Sie die AUFS-Unterstützung im Kernel."
 
 #: minios-cmd:54
 msgid "Enable compilation of additional drivers during kernel installation."
-msgstr "Aktivieren Sie die Kompilierung zusätzlicher Treiber während der Kernel-Installation."
+msgstr ""
+"Aktivieren Sie die Kompilierung zusätzlicher Treiber während der Kernel-"
+"Installation."
 
 #: minios-cmd:56
 msgid "Locale and Timezone Options:"
@@ -127,117 +195,71 @@ msgstr "Kernel-Einstellungen:"
 msgid "Locale & Timezone Settings:"
 msgstr "Locale- & Zeitzoneneinstellungen:"
 
-#: minios-cmd:71 minios-live:70
-msgid "Examples:"
-msgstr "Beispiele:"
-
 #: minios-cmd:73
 msgid "1. Create a MiniOS Standard system image (default settings):"
-msgstr "1. Erstellen Sie ein MiniOS Standard-Systemabbild (Standardeinstellungen):"
+msgstr ""
+"1. Erstellen Sie ein MiniOS Standard-Systemabbild (Standardeinstellungen):"
 
 #: minios-cmd:76
 msgid "2. Create a MiniOS Toolbox system image (default settings):"
-msgstr "2. Erstellen Sie ein MiniOS Toolbox-Systemabbild (Standardeinstellungen):"
+msgstr ""
+"2. Erstellen Sie ein MiniOS Toolbox-Systemabbild (Standardeinstellungen):"
 
 #: minios-cmd:79
 msgid ""
 "3. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'toolbox' package variant, and Russian locale:"
 msgstr ""
-"3. Erstellen Sie ein Systemabbild mit der Distribution 'bookworm', der Architektur 'amd64', der Paketvariante 'toolbox' und der russischen Locale:"
+"3. Erstellen Sie ein Systemabbild mit der Distribution 'bookworm', der "
+"Architektur 'amd64', der Paketvariante 'toolbox' und der russischen Locale:"
 
 #: minios-cmd:82
 msgid ""
 "3. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'standard' package variant and 'lxqt' desktop environment:"
 msgstr ""
-"3. Erstellen Sie ein Systemabbild mit der Distribution 'bookworm', der Architektur 'amd64', der Paketvariante 'standard' und der Desktop-Umgebung 'lxqt':"
+"3. Erstellen Sie ein Systemabbild mit der Distribution 'bookworm', der "
+"Architektur 'amd64', der Paketvariante 'standard' und der Desktop-Umgebung "
+"'lxqt':"
 
 #: minios-cmd:85
 msgid ""
 "4. Create a system image with 'buster' distribution, 'i386' architecture, "
 "and 'xfce' desktop environment:"
 msgstr ""
-"4. Erstellen Sie ein Systemabbild mit der Distribution 'buster', der Architektur 'i386' und der Desktop-Umgebung 'xfce':"
+"4. Erstellen Sie ein Systemabbild mit der Distribution 'buster', der "
+"Architektur 'i386' und der Desktop-Umgebung 'xfce':"
 
 #: minios-cmd:88
 msgid ""
 "5. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, and 'xfce' desktop environment and with kernel from backports:"
 msgstr ""
-"5. Erstellen Sie ein Systemabbild mit der Distribution 'bookworm', der Architektur 'amd64', der Desktop-Umgebung 'xfce' und dem Kernel aus Backports:"
+"5. Erstellen Sie ein Systemabbild mit der Distribution 'bookworm', der "
+"Architektur 'amd64', der Desktop-Umgebung 'xfce' und dem Kernel aus "
+"Backports:"
 
 #: minios-cmd:91
 msgid ""
 "6. Create a system image with the 'jammy' distribution and 'standard' "
 "package variant:"
 msgstr ""
-"6. Erstellen Sie ein Systemabbild mit der Distribution 'jammy' und der Paketvariante 'standard':"
+"6. Erstellen Sie ein Systemabbild mit der Distribution 'jammy' und der "
+"Paketvariante 'standard':"
 
 #: minios-cmd:94
 msgid ""
 "7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
 "and 'xfce' desktop environment with multilingual support enabled:"
 msgstr ""
-"7. Erstellen Sie ein Systemabbild mit der Distribution 'trixie', der Architektur 'amd64', der Desktop-Umgebung 'xfce' und aktivierter mehrsprachiger Unterstützung:"
+"7. Erstellen Sie ein Systemabbild mit der Distribution 'trixie', der "
+"Architektur 'amd64', der Desktop-Umgebung 'xfce' und aktivierter "
+"mehrsprachiger Unterstützung:"
 
 #: minios-cmd:97
 msgid ""
 "has many more options available. Please refer to the above options list for "
 "more details."
 msgstr ""
-"bietet viele weitere Optionen. Weitere Informationen finden Sie in der obigen Optionsliste."
-
-#: minios-live:51
-msgid "This script builds bootable MiniOS ISO image."
-msgstr "Dieses Skript erstellt ein bootfähiges MiniOS ISO-Image."
-
-#: minios-live:55
-msgid "Run the build from start to finish."
-msgstr "Führe den Build von Anfang bis Ende aus."
-
-#: minios-live:56
-msgid ""
-"Start the build by building the base environment and finish by installing "
-"the entire system in chroot."
-msgstr ""
-"Starte den Build mit dem Erstellen der Basisumgebung und beende ihn mit der Installation des gesamten Systems in chroot."
-
-#: minios-live:57
-msgid ""
-"Start the build from the beginning and finish by installing the entire "
-"system in chroot."
-msgstr ""
-"Starte den Build von Anfang an und beende ihn mit der Installation des gesamten Systems in chroot."
-
-#: minios-live:58
-msgid "Start the build by building the base environment and run to completion."
-msgstr "Starte den Build mit dem Erstellen der Basisumgebung und führe ihn bis zum Abschluss aus."
-
-#: minios-live:59
-msgid "Build only ISO image from previously prepared data."
-msgstr "Erstelle nur das ISO-Image aus zuvor vorbereiteten Daten."
-
-#: minios-live:63
-msgid "Supported commands:"
-msgstr "Unterstützte Befehle:"
-
-#: minios-live:65
-msgid "  Run from start_cmd to end_cmd"
-msgstr "  Ausführung von start_cmd bis end_cmd"
-
-#: minios-live:66
-msgid "  If start_cmd is omitted, start from the first command"
-msgstr "  Wenn start_cmd weggelassen wird, beginne mit dem ersten Befehl"
-
-#: minios-live:67
-msgid "  If end_cmd is omitted, end with the last command"
-msgstr "  Wenn end_cmd weggelassen wird, beende mit dem letzten Befehl"
-
-#: minios-live:68
-msgid "  Enter a single cmd to run the specific command"
-msgstr "  Gib einen einzelnen Befehl cmd ein, um den spezifischen Befehl auszuführen"
-
-#: minios-live:69
-msgid "  Enter '-' as the only argument to run all commands\\n"
-msgstr "  Gib '-' als einziges Argument ein, um alle Befehle auszuführen\\n"
+"bietet viele weitere Optionen. Weitere Informationen finden Sie in der "
+"obigen Optionsliste."
