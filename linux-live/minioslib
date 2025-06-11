@@ -1403,7 +1403,7 @@ build_live() {
 
 build_config() {
     current_process
-set -x
+
     if [ -d "${WORK_DIR}/image/${LIVEKITNAME}" ]; then
         cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/config.conf"
 # You can get information about minios-live-config and other options:
@@ -1435,7 +1435,6 @@ DISABLE_SERVICES="${DISABLE_SERVICES}"
 EXPORT_LOGS="${EXPORT_LOGS}"
 EOF
     fi
-    set +x
 }
 
 create_config_files() {
