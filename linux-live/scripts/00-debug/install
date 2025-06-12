@@ -1,0 +1,15 @@
+#!/bin/bash
+# The debug module is not skipped when building modules even when it is already
+# built. It is used for testing.
+
+set -e          # exit on error
+set -o pipefail # exit on pipeline error
+set -u          # treat unset variable as error
+
+. "/minioslib"
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+# Install packages
+#chmod +x /condinaut
+#/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
