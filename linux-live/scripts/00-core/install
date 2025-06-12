@@ -255,45 +255,15 @@ fi
 
 dpkg-reconfigure -f noninteractive locales >/dev/null 2>&1
 
+# set root password for debugging purposes
 #echo root:toor | chpasswd
+
 cp -f /etc/skel/.bashrc /root/
 
-mkdir -p "/usr/share/minios" "/etc/minios"
+mkdir -p "/usr/share/minios" #"/etc/minios"
 
-sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="adm cdrom sudo dip plugdev users lpadmin sambashare audio docker libvirt wireshark"/' /etc/adduser.conf
-sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
-
-if [ -d /etc/NetworkManager ]; then
-    if [ ! -d /etc/NetworkManager/dispatcher.d ]; then
-        mkdir -p /etc/NetworkManager/dispatcher.d
-    fi
-fi
-if [ -d /etc/NetworkManager/dispatcher.d ]; then
-    cat <<'EOF' >/etc/NetworkManager/dispatcher.d/09-timedate
-#!/bin/sh
-case "$2" in
-    up)
-        sleep 3
-        # Check the availability of https://ipapi.co/timezone over a minute at intervals
-        for i in {1..60}
-        do
-            if curl --output /dev/null --silent --head --fail https://ipapi.co/timezone
-            then
-                timedatectl set-local-rtc 0
-                timedatectl set-ntp true
-                timedatectl set-timezone "$(curl --fail https://ipapi.co/timezone)"
-                break
-            else
-                echo "https://ipapi.co/timezone is not available. Attempt number $i..."
-                sleep 1
-            fi
-        done
-    ;;
-esac
-EOF
-    rm /etc/NetworkManager/dispatcher.d/09-timedate
-    #chmod +x /etc/NetworkManager/dispatcher.d/09-timedate
-fi
+#sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="adm cdrom sudo dip plugdev users lpadmin sambashare audio docker libvirt wireshark"/' /etc/adduser.conf
+#sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
 
 DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq vim* grub* debconf-i18n installation-report >/dev/null 2>&1 &
 PURGE_PID="$!"
