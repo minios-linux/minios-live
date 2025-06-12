@@ -36,10 +36,19 @@ fi
 ./"$EXTLINUX" --install "$BOOT" >/dev/null 2>&1
 
 if [ $? -ne 0 ]; then
-   echo "Error installing boot loader."
-   echo "Read the errors above and press enter to exit..."
-   read junk
-   exit 1
+   echo "$EXTLINUX failed, trying fallback from /tmp..."
+   cp -f "./$EXTLINUX" /tmp/"$EXTLINUX" >/dev/null 2>&1
+   chmod a+x /tmp/"$EXTLINUX" >/dev/null 2>&1
+   /tmp/"$EXTLINUX" --install "$BOOT" >/dev/null 2>&1
+   if [ $? -ne 0 ]; then
+       echo "Error installing boot loader."
+       echo "Read the errors above and press enter to exit..."
+       read junk
+       exit 1
+   else
+       rm -f /tmp/"$EXTLINUX"
+       echo "Boot loader installation succeeded."
+   fi
 fi
 
 if [ "$DEV" != "$PART" ]; then
