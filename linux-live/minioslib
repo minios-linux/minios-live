@@ -728,47 +728,42 @@ unmount_dirs() {
     current_function
 
     local DIR_PATH="$1"
-    local ATTEMPTS="0"
-    local DIR UNMOUNTED
-    while true; do
-        UNMOUNTED="true"
-        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-            information "Attempt #${ATTEMPTS} to unmount file systems inside ${DIR_PATH}..."
+    local ATTEMPT=0
+    local MAX_ATTEMPTS=5
+
+    if [ -z "$DIR_PATH" ]; then
+        error "No directory path provided to unmount_dirs()."
+        return 1
+    fi
+
+    while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
+        mapfile -t MOUNTS < <(
+            awk -v mp="$DIR_PATH" '
+                $5 ~ "^" mp "/"{ print length($5), $5 }
+            ' /proc/self/mountinfo |
+                sort -rn | cut -d' ' -f2-
+        )
+
+        if [ "${#MOUNTS[@]}" -eq 0 ]; then
+            [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "All sub-mounts inside ${DIR_PATH} have been unmounted."
+            return 0
         fi
 
-        for DIR in $(mount | grep "${DIR_PATH}" | awk '{print $3}' | awk '{print length, $0}' | sort -rn | cut -d' ' -f2-); do
-            if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-                information "Trying to unmount: ${DIR}"
-            fi
-            if umount "${DIR}" 2>/dev/null; then
-                if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-                    information "Successfully unmounted: ${DIR}"
-                fi
+        for M in "${MOUNTS[@]}"; do
+            [ "${VERBOSITY_LEVEL}" -ge 2 ] && information "Attempt #${ATTEMPT}: umount ${M}..."
+            if umount "${M}" 2>/dev/null; then
+                [ "${VERBOSITY_LEVEL}" -ge 2 ] && information "Successfully unmounted: ${M}"
             else
-                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-                    information "Failed to unmount: ${DIR}"
-                fi
-                UNMOUNTED="false"
+                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Failed to unmount: ${M}"
             fi
         done
-        if [ "${UNMOUNTED}" = "true" ]; then
-            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-                information "All file systems inside ${DIR_PATH} have been unmounted."
-            fi
-            break
-        fi
+
+        ATTEMPT=$((ATTEMPT + 1))
         sleep 1
-        ATTEMPTS=$(("${ATTEMPTS}" + 1))
-        if [ "${ATTEMPTS}" -ge 5 ]; then
-            error "Failed to unmount directories after 5 attempts."
-            break
-        fi
     done
 
-    if [ "${UNMOUNTED}" = "false" ]; then
-        error "Failed to unmount all file systems. Unmount file systems inside ${DIR_PATH} manually and try again."
-        exit 1
-    fi
+    error "Failed to unmount all sub-mounts inside ${DIR_PATH} after ${MAX_ATTEMPTS} attempts."
+    return 1
 }
 
 directory_cleanup() {
@@ -2273,8 +2268,8 @@ build_modules() {
     # Iterate over each module in the environments directory
     for MODULE in *; do
         # Skip module if already present in the image folder
-        if (ls "${WORK_DIR}/image/${LIVEKITNAME}/"*."${BEXT}" 2>/dev/null | xargs -n1 basename |
-            grep -q "$(echo "${MODULE}" | cut -d- -f2-)" 2>/dev/null); then
+        if [ "${MODULE#*-}" != "debug" ] &&
+            basename -a "${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}" 2>/dev/null | grep -q "${MODULE#*-}"; then
             information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         elif should_skip_module "${ENVIRONMENTS}/${MODULE}/skip_conditions.conf"; then
             information "Skipping module ${YELLOW}${MODULE}${ENDCOLOR} due to matching skip condition."
