@@ -1,14 +1,11 @@
 #!/bin/bash
 
 . /minioslib
+. /minios_build.conf
 
-CWD=$(dirname $(readlink -f $0))
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-apt-get update
-
-if [ -f $SCRIPT_DIR/package.list ]; then
-    install_packages
-fi
+/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 if [ $LOCALE = "en_US" ]; then
     sed -i '114G' /etc/skel/.fluxbox/startup
