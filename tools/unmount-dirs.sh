@@ -12,49 +12,67 @@ information() {
     echo "I: $1"
 }
 
+warning() {
+    echo "W: $1"
+}
+
+# Function to unmount all file systems under a given directory
+# Parameters:
+#   $1 - Absolute or relative path to the directory
 unmount_dirs() {
-    local DIR_PATH="$1"
-    local ATTEMPTS="0"
-    local DIR UNMOUNTED
-    while true; do
-        UNMOUNTED="true"
-        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-            information "Attempt #${ATTEMPTS} to unmount file systems inside ${DIR_PATH}..."
+    # Get the directory path from argument and normalize to absolute
+    local DIR_PATH="$(realpath -m "$1")"
+    local MOUNTS
+    local FAILED=0
+
+    # 1) Collect all mount points strictly inside DIR_PATH (deepest first)
+    mapfile -t MOUNTS < <(
+        findmnt -rn -o TARGET |
+            while read -r TARGET; do
+                TARGET_ABS="$(realpath -m "$TARGET")"
+                if [[ "$TARGET_ABS" == "$DIR_PATH"/* ]]; then
+                    echo "$TARGET_ABS"
+                fi
+            done |
+            # Sort by path length descending to unmount deepest first
+            awk '{ print length, $0 }' |
+            sort -rn |
+            cut -d' ' -f2-
+    )
+
+    if [ "${#MOUNTS[@]}" -eq 0 ]; then
+        information "No mount points found under ${DIR_PATH}."
+        return 0
+    fi
+
+    # 2) Attempt to unmount each mount point (without killing processes)
+    for MOUNT in "${MOUNTS[@]}"; do
+        if [ ${VERBOSITY_LEVEL:-1} -ge 2 ]; then
+            information "Processing mount point: ${MOUNT}"
+            information "Attempting to unmount ${MOUNT}..."
         fi
 
-        for DIR in $(mount | grep "${DIR_PATH}" | awk '{print $3}' | awk '{print length, $0}' | sort -rn | cut -d' ' -f2-); do
-            if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-                information "Trying to unmount: ${DIR}"
-            fi
-            if umount "${DIR}" 2>/dev/null; then
-                if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-                    information "Successfully unmounted: ${DIR}"
-                fi
-            else
-                if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-                    information "Failed to unmount: ${DIR}"
-                fi
-                UNMOUNTED="false"
-            fi
-        done
-        if [ "${UNMOUNTED}" = "true" ]; then
-            if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-                information "All file systems inside ${DIR_PATH} have been unmounted."
-            fi
-            break
-        fi
-        sleep 1
-        ATTEMPTS=$(("${ATTEMPTS}" + 1))
-        if [ "${ATTEMPTS}" -ge 5 ]; then
-            error "Failed to unmount directories after 5 attempts."
-            break
+        if umount "${MOUNT}" 2>/dev/null; then
+            information "Successfully unmounted ${MOUNT}."
+        else
+            error "Could not unmount ${MOUNT}."
+            ((FAILED++))
         fi
     done
 
-    if [ "${UNMOUNTED}" = "false" ]; then
-        error "Failed to unmount all file systems. Unmount file systems inside ${DIR_PATH} manually and try again."
-        exit 1
+    # 3) Final status report
+    if [ "$FAILED" -gt 0 ]; then
+        error "Failed to unmount ${FAILED} mount point(s). Remaining mounted:"
+        for MOUNT in "${MOUNTS[@]}"; do
+            if mountpoint -q "${MOUNT}"; then
+                warning "  * ${MOUNT}"
+            fi
+        done
+        return 1
     fi
+
+    information "All file systems under ${DIR_PATH} have been successfully unmounted."
+    return 0
 }
 
 VERBOSITY_LEVEL=0
