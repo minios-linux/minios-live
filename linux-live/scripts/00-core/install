@@ -113,7 +113,7 @@ if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
 fi
 
-if dpkg -l | grep -q dnsmasq; then
+if pkg_is_installed "dnsmasq"; then
     if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ]; then
         systemctl disable dnsmasq
     fi
@@ -123,18 +123,18 @@ if [ -f /bin/ping ]; then
     chmod +s /bin/ping
 fi
 
-if dpkg -l | grep -q docker; then
+if pkg_is_installed "docker"; then
     systemctl disable docker.socket >/dev/null 2>&1
     systemctl disable docker.service >/dev/null 2>&1
     systemctl disable containerd.service >/dev/null 2>&1
 fi
-if dpkg -l | grep -q libvirt; then
+if pkg_is_installed "libvirt"; then
     systemctl disable libvirtd >/dev/null 2>&1
 fi
-if dpkg -l | grep -q open-iscsi; then
+if pkg_is_installed "open-iscsi"; then
     systemctl disable iscsid >/dev/null 2>&1
 fi
-if dpkg -l | grep -q nfs-common; then
+if pkg_is_installed "nfs-common"; then
     systemctl disable rpcbind >/dev/null 2>&1
 fi
 
@@ -142,7 +142,7 @@ if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service
     systemctl disable grub-initrd-fallback.service >/dev/null 2>&1
 fi
 
-if dpkg -l | grep -q ssh; then
+if pkg_is_installed "ssh"; then
     systemctl disable ssh >/dev/null 2>&1
 fi
 
@@ -212,7 +212,7 @@ EOF
     dpkg-reconfigure -f noninteractive keyboard-configuration
 fi
 
-if dpkg -l | grep -q console-setup; then
+if pkg_is_installed "console-setup"; then
     cat >/etc/default/console-setup <<'EOF'
 # CONFIGURATION FILE FOR SETUPCON
 
@@ -234,16 +234,16 @@ EOF
     dpkg-reconfigure -f noninteractive console-setup
 fi
 
-if dpkg -l | grep -q firewalld; then
+if pkg_is_installed "firewalld"; then
     systemctl disable firewalld >/dev/null 2>&1
 else
     rm -rf /etc/firewalld
 fi
-if dpkg -l | grep -q cockpit; then
+if pkg_is_installed "cockpit"; then
     systemctl disable cockpit.socket >/dev/null 2>&1
 fi
 
-if dpkg -l | grep -q laptop-mode-tools; then
+if pkg_is_installed "laptop-mode-tools"; then
     if [ -f /usr/share/applications/laptop-mode-tools.desktop ]; then
         rm /usr/share/applications/laptop-mode-tools.desktop
     fi
@@ -253,7 +253,9 @@ if ! grep -q LANG /etc/default/locale; then
     echo "LANG=\"${LOCALE}.UTF-8\"" >>/etc/default/locale
 fi
 
-dpkg-reconfigure -f noninteractive locales >/dev/null 2>&1
+if pkg_is_installed "locales"; then
+    dpkg-reconfigure -f noninteractive locales >/dev/null 2>&1
+fi
 
 # set root password for debugging purposes
 #echo root:toor | chpasswd
