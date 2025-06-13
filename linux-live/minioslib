@@ -727,6 +727,7 @@ create_log_file() {
 # Parameters:
 #   $1 - Absolute or relative path to the directory
 unmount_dirs() {
+    current_function
     # Get the directory path from argument and normalize to absolute
     local DIR_PATH="$(realpath -m "$1")"
     local MOUNTS
