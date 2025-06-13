@@ -21,7 +21,11 @@ cd /$BUILD_SCRIPTS/initramfs/livekit-mos
 chmod 755 ./mkinitrfs
 
 TMPFILE=$(mktemp)
-./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE" 2>&1 &
+if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
+	./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE" 2>&1 &
+else
+	./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE" 2>&1 &
+fi
 MKINIT_PID=$!
 spinner "${MKINIT_PID}" "Building initramfs image"
 wait "${MKINIT_PID}"
