@@ -723,47 +723,63 @@ create_log_file() {
     toggle_shell_options u
 }
 
-# Unmount directories
+# Function to unmount all file systems under a given directory
+# Parameters:
+#   $1 - Absolute or relative path to the directory
 unmount_dirs() {
-    current_function
+    # Get the directory path from argument and normalize to absolute
+    local DIR_PATH="$(realpath -m "$1")"
+    local MOUNTS
+    local FAILED=0
 
-    local DIR_PATH="$1"
-    local ATTEMPT=0
-    local MAX_ATTEMPTS=5
+    # 1) Collect all mount points strictly inside DIR_PATH (deepest first)
+    mapfile -t MOUNTS < <(
+        findmnt -rn -o TARGET |
+            while read -r TARGET; do
+                TARGET_ABS="$(realpath -m "$TARGET")"
+                if [[ "$TARGET_ABS" == "$DIR_PATH"/* ]]; then
+                    echo "$TARGET_ABS"
+                fi
+            done |
+            # Sort by path length descending to unmount deepest first
+            awk '{ print length, $0 }' |
+            sort -rn |
+            cut -d' ' -f2-
+    )
 
-    if [ -z "$DIR_PATH" ]; then
-        error "No directory path provided to unmount_dirs()."
+    if [ "${#MOUNTS[@]}" -eq 0 ]; then
+        information "No mount points found under ${DIR_PATH}."
+        return 0
+    fi
+
+    # 2) Attempt to unmount each mount point (without killing processes)
+    for MOUNT in "${MOUNTS[@]}"; do
+        if [ ${VERBOSITY_LEVEL:-1} -ge 2 ]; then
+            information "Processing mount point: ${MOUNT}"
+            information "Attempting to unmount ${MOUNT}..."
+        fi
+
+        if umount "${MOUNT}" 2>/dev/null; then
+            information "Successfully unmounted ${MOUNT}."
+        else
+            error "Could not unmount ${MOUNT}."
+            ((FAILED++))
+        fi
+    done
+
+    # 3) Final status report
+    if [ "$FAILED" -gt 0 ]; then
+        error "Failed to unmount ${FAILED} mount point(s). Remaining mounted:"
+        for MOUNT in "${MOUNTS[@]}"; do
+            if mountpoint -q "${MOUNT}"; then
+                warning "  * ${MOUNT}"
+            fi
+        done
         return 1
     fi
 
-    while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
-        mapfile -t MOUNTS < <(
-            awk -v mp="$DIR_PATH" '
-                $5 ~ "^" mp "/"{ print length($5), $5 }
-            ' /proc/self/mountinfo |
-                sort -rn | cut -d' ' -f2-
-        )
-
-        if [ "${#MOUNTS[@]}" -eq 0 ]; then
-            [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "All sub-mounts inside ${DIR_PATH} have been unmounted."
-            return 0
-        fi
-
-        for M in "${MOUNTS[@]}"; do
-            [ "${VERBOSITY_LEVEL}" -ge 2 ] && information "Attempt #${ATTEMPT}: umount ${M}..."
-            if umount "${M}" 2>/dev/null; then
-                [ "${VERBOSITY_LEVEL}" -ge 2 ] && information "Successfully unmounted: ${M}"
-            else
-                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Failed to unmount: ${M}"
-            fi
-        done
-
-        ATTEMPT=$((ATTEMPT + 1))
-        sleep 1
-    done
-
-    error "Failed to unmount all sub-mounts inside ${DIR_PATH} after ${MAX_ATTEMPTS} attempts."
-    return 1
+    information "All file systems under ${DIR_PATH} have been successfully unmounted."
+    return 0
 }
 
 directory_cleanup() {
@@ -1636,7 +1652,9 @@ build_boot() {
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
-
+    if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
+        cp -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/zblack.png" "${WORK_DIR}/image/${LIVEKITNAME}/boot/bootlogo.png"
+    fi
     build_initrd
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
