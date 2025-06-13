@@ -1,59 +1,82 @@
+# ========================================
+# == Base XFCE DE (All Editions)        ==
+# ========================================
+at-spi2-core
 dbus-x11
-slim +dt=ubuntu
-slim +pv=minimum
-lightdm -dt=ubuntu -pv=minimum
-lightdm-gtk-greeter -dt=ubuntu -pv=minimum
+greybird-gtk-theme
+gvfs-backends
+libglib2.0-bin
 libxfce4ui-utils
+libxml2-utils
+mousepad
+network-manager-gnome
+policykit-1-gnome
+ristretto
+slim +dt=ubuntu
 thunar
 thunar-volman
-gvfs-backends
-samba-common -pv=minimum
-avahi-daemon -pv=minimum
-tumbler -pv=minimum
-eject -pv=minimum
 xfce4-appfinder
 xfce4-panel
 xfce4-session
 xfce4-settings
+xfce4-xkb-plugin
 xfconf
 xfdesktop4
 xfwm4
-greybird-gtk-theme
-xfce4-pulseaudio-plugin -pv=minimum
+xmlstarlet
+
+# ========================================
+# == Minimum Edition (only)             ==
+# ========================================
+alsa-utils +pv=minimum
+nodm +pv=minimum
 volumeicon-alsa +pv=minimum
-pulseaudio -pv=minimum
-pavucontrol -pv=minimum
-xfce4-xkb-plugin
-xfce4-power-manager-plugins -pv=minimum
+xarchiver +pv=minimum
 xfce4-battery-plugin +pv=minimum
-xfce4-whiskermenu-plugin -pv=minimum
-xfce4-notifyd +pv=ultra +pv=toolbox
+
+# ========================================
+# == Standard Edition (and above)       ==
+# ========================================
+avahi-daemon -pv=minimum
+blueman -pv=minimum
+eject -pv=minimum
+engrampa -pv=minimum
+lightdm -dt=ubuntu -pv=minimum
+lightdm-gtk-greeter -dt=ubuntu -pv=minimum
+minios-configurator -pv=minimum
+minios-installer -pv=minimum
+mintstick -pv=minimum
+pavucontrol -pv=minimum
+pulseaudio -pv=minimum
+pulseaudio-module-bluetooth -pv=minimum
+samba-common -pv=minimum
+thunar-archive-plugin -pv=minimum
+tumbler -pv=minimum
 xdg-user-dirs -pv=minimum
 xdg-user-dirs-gtk -pv=minimum
-menulibre +pv=ultra +pv=toolbox
-blueman -pv=minimum
-pulseaudio-module-bluetooth -pv=minimum
-gtk-update-icon-cache +pv=ultra +pv=toolbox
-open-vm-tools-desktop +pv=ultra +pv=toolbox
-libglib2.0-bin
-at-spi2-core
-qt5-gtk2-platformtheme +pv=ultra +pv=toolbox
-qt6-gtk-platformtheme +pv=ultra +pv=toolbox && qt5-gtk-platformtheme +pv=ultra +pv=toolbox
-network-manager-gnome
-minios-installer
-minios-configurator
-mintstick +pv=toolbox +pv=ultra +pv=standard
-policykit-1-gnome
-mousepad
-engrampa -pv=minimum
-thunar-archive-plugin -pv=minimum
-xarchiver +pv=minimum
-ristretto
-xfce4-terminal -pv=minimum
-xfce4-taskmanager -pv=minimum
+xfce4-power-manager-plugins -pv=minimum
+xfce4-pulseaudio-plugin -pv=minimum
 xfce4-screenshooter -pv=minimum
-libxml2-utils
-xmlstarlet
+xfce4-taskmanager -pv=minimum
+xfce4-terminal -pv=minimum
+xfce4-whiskermenu-plugin -pv=minimum
+
+# ========================================
+# == Toolbox Edition (and above)        ==
+# ========================================
+gtk-update-icon-cache +pv=toolbox +pv=ultra
+menulibre +pv=toolbox +pv=ultra
+open-vm-tools-desktop +pv=toolbox +pv=ultra
+qt5-gtk2-platformtheme +pv=toolbox +pv=ultra
+qt6-gtk-platformtheme +pv=toolbox +pv=ultra && qt5-gtk-platformtheme +pv=toolbox +pv=ultra
+xfce4-notifyd +pv=toolbox +pv=ultra
+
+# ========================================
+# == Localization Packages (Ubuntu only)==
+# ========================================
+language-pack-gnome-br-base +lo=pt_BR +dt=ubuntu
+language-pack-gnome-br-base +ml=true +dt=ubuntu
+language-pack-gnome-br-base +kl=true +dt=ubuntu
 language-pack-gnome-de-base +lo=de_DE +dt=ubuntu
 language-pack-gnome-de-base +ml=true +dt=ubuntu
 language-pack-gnome-de-base +kl=true +dt=ubuntu
@@ -66,9 +89,6 @@ language-pack-gnome-fr-base +kl=true +dt=ubuntu
 language-pack-gnome-it-base +lo=it_IT +dt=ubuntu
 language-pack-gnome-it-base +ml=true +dt=ubuntu
 language-pack-gnome-it-base +kl=true +dt=ubuntu
-language-pack-gnome-br-base +lo=pt_BR +dt=ubuntu
-language-pack-gnome-br-base +ml=true +dt=ubuntu
-language-pack-gnome-br-base +kl=true +dt=ubuntu
 language-pack-gnome-ru-base +lo=ru_RU +dt=ubuntu
 language-pack-gnome-ru-base +ml=true +dt=ubuntu
 language-pack-gnome-ru-base +kl=true +dt=ubuntu
