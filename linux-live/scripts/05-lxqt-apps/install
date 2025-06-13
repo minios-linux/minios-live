@@ -5,12 +5,13 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib
+. /minios_build.conf
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-/install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+/condinaut -l "$SCRIPT_DIR/$PACKAGE_VARIANT.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 if [ $LOCALE != "en_US" ]; then
-    /install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+    /condinaut -l "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 fi
 
 rm -f /usr/share/applications/xterm.desktop
