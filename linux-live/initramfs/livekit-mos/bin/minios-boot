@@ -130,7 +130,7 @@ manage_services() {
                 echo -e "Successfully ${ACTION}d service: \e[32m$SERVICE\e[0m"
             else
                 echo_red_star
-                echo -e "Failed to ${ACTION}d service: \e[31m$SERVICE\e[0m"
+                echo -e "Failed to ${ACTION} service: \e[31m$SERVICE\e[0m"
             fi
         done
     fi
@@ -138,25 +138,6 @@ manage_services() {
 
 set_autologin() {
     [ -z "$LIVE_USERNAME" ] && [ -f "$CONFIG" ] && read_config "$CONFIG" LIVE_USERNAME
-
-    if [ -f "/usr/lib/systemd/system/xorg.service" ]; then
-        cat <<EOF >"/usr/lib/systemd/system/xorg.service"
-[Unit]
-Description=X-Window
-ConditionKernelCommandLine=!text
-ConditionKernelCommandLine=!live-config.nox11autologin
-ConditionKernelCommandLine=!nox11autologin
-ConditionKernelCommandLine=!live-config.noautologin
-ConditionKernelCommandLine=!noautologin
-After=systemd-user-sessions.service
-
-[Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" "$LIVE_USERNAME"
-
-[Install]
-WantedBy=graphical.target
-EOF
-    fi
 
     command -v x11vnc >/dev/null && [ -f "/usr/lib/systemd/system/x11vnc.service" ] &&
         sed -i "s,-auth guess,-auth /home/$LIVE_USERNAME/.Xauthority,g" "/usr/lib/systemd/system/x11vnc.service"
