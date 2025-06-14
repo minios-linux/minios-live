@@ -490,12 +490,31 @@ question() {
 }
 
 pkg_is_installed() {
-    local PACKAGE="${1-}",
+    local PACKAGE="${1-}"
     if [ -z "$PACKAGE" ]; then
         error "pkg_is_installed() needs a package as parameter"
         exit 1
     fi
     if dpkg-query -f'${db:Status-Status}\n' -W $PACKAGE 2>/dev/null | grep -q ^installed; then
+        return 0
+    fi
+    return 1
+}
+
+pkg_test_version() {
+    local PACKAGE="$1"
+    local RELATION="$2"
+    local VERSION="$3"
+    if [ -z "$PACKAGE" ] || [ -z "$RELATION" ] || [ -z "$VERSION" ]; then
+        error "pkg_test_version() takes three arguments: <package>, <relation>, <version>" >&2
+        exit 1
+    fi
+    local INSTVER=$(dpkg-query -f'${Version}\n' -W $PACKAGE 2>/dev/null)
+    if [ -z "$INSTVER" ]; then
+        error "can't test version of package $PACKAGE if it's not installed"
+        exit 1
+    fi
+    if dpkg --compare-versions "$INSTVER" "$RELATION" "$VERSION"; then
         return 0
     fi
     return 1
@@ -1178,7 +1197,7 @@ build_bootstrap() {
 
     local DEBOOTSTRAP_INCLUDE="--include=apt-transport-https,ca-certificates,wget,dbus,sudo,curl,libterm-readline-gnu-perl"
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
+    [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
     directory_cleanup "${INSTALL_DIR}"
     directory_cleanup "${WORK_DIR}/image"
@@ -1278,7 +1297,7 @@ copy_build_scripts() {
 build_chroot() {
     current_process
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
+    [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
     chroot_mount_fs "${INSTALL_DIR}"
 
@@ -1396,7 +1415,7 @@ mkmod_corefs() {
 build_live() {
     current_process
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
+    [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
     copy_build_scripts
 
@@ -1649,7 +1668,7 @@ build_boot() {
 
     local OLD_KERNEL
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
+    [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
@@ -1700,7 +1719,7 @@ build_iso() {
 
     local DIR IMAGE ISO SUFFIX PERCHIMG
 
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
+    [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
     cd "${WORK_DIR}/image" || exit 1
     mkdir -p "${ISO_DIR}"
@@ -2009,8 +2028,8 @@ chroot_cleanup() {
     toggle_shell_options eu
 }
 
-# This function handles the installation of necessary packages for the host system.
-install_host_prerequisites() {
+# This function checks and installs required packages on the host system.
+ensure_host_prerequisites() {
     if [[ "$SKIP_SETUP_HOST" = "true" || "$SCRIPT_DIR" = "/usr/bin" ]]; then
         return
     fi
@@ -2023,16 +2042,20 @@ install_host_prerequisites() {
         error "This minios-live supports only Debian and Ubuntu."
         exit 1
     fi
-
-    # Request confirmation before installation
-    #    question "${BOLD}The necessary packages will be installed automatically only if they are missing from the system.${ENDCOLOR}
-    #   If you do not want to see this prompt in the future, set ${YELLOW}SKIP_SETUP_HOST${ENDCOLOR} to ${GREEN}true${ENDCOLOR} in ${CYAN}${BUILD_CONF}${ENDCOLOR}.
-    #   Continue? (${GREEN}y${ENDCOLOR}/${RED}n${ENDCOLOR})"
-
-    #    [[ "${RESPONSE}" != "y" && "${RESPONSE}" != "Y" ]] && exit 1
-
     chmod +x "${BUILD_SCRIPTS_DIR}/condinaut"
-    "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf"
+    if [[ "${CONTAINER,,}" == "true" ]]; then
+        "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf"
+    else
+        toggle_shell_options e
+        "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf" -C
+        if [ $? -ne 0 ]; then
+            echo
+            error "Missing required packages. Please install them and try again."
+            exit 1
+        fi
+        toggle_shell_options e
+
+    fi
     chmod -x "${BUILD_SCRIPTS_DIR}/condinaut"
 }
 
@@ -2272,7 +2295,7 @@ build_modules() {
     local VMLINUZNAME INITRFSNAME PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS OVERLAY DIR
 
     # If running inside a container, install host prerequisites first
-    [[ "${CONTAINER,,}" == "true" ]] && install_host_prerequisites
+    [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
     # Define environment and overlay directories
     ENVIRONMENTS="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
