@@ -1469,19 +1469,15 @@ EOF
 }
 
 create_config_files() {
-    DEFAULT_SETTINGS="boot=live nottyautologin load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
-    DEBUG_SETTINGS="boot=live nottyautologin load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
+    DEFAULT_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
+    DEBUG_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
 
     BOOT_SETTINGS="quiet"
 
-    FLUX_SETTINGS=""
-    ULTRA_SETTINGS=""
+    BOOT_SETTINGS="${BOOT_SETTINGS} nottyautologin"
 
-    if [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
-        #FLUX_SETTINGS=" automount"
-        FLUX_SETTINGS=""
-    elif [ "${PACKAGE_VARIANT}" = "ultra" ]; then
-        ULTRA_SETTINGS=" apparmor=0 selinux=0"
+    if [ "${PACKAGE_VARIANT}" = "ultra" ]; then
+        BOOT_SETTINGS="${BOOT_SETTINGS} apparmor=0 selinux=0"
     fi
 
     cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux.cfg"
@@ -1517,27 +1513,27 @@ MENU TABMSG [F1] help                                                        [Ta
 LABEL default
 MENU LABEL Run MiniOS (Resume previous session)
 KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=resume
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume
 
 LABEL perch
 MENU LABEL Run MiniOS (Start a new session)
 KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=new
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new
 
 LABEL asksession
 MENU LABEL Run MiniOS (Choose session during startup)
 KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask
 
 LABEL live
 MENU LABEL Run MiniOS (Fresh start)
 KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}
 
 LABEL toram
 MENU LABEL Run MiniOS (Copy to RAM)
 KERNEL /${LIVEKITNAME}/boot/vmlinuz
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${ULTRA_SETTINGS} toram
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/initrfs.img ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram
 
 EOF
 
@@ -1587,31 +1583,31 @@ set initrd_img="/${LIVEKITNAME}/boot/initrfs.img"
 menuentry "Run MiniOS (Resume previous session)" --class resume {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/vmlinuz
-    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=resume
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume
     initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Start a new session)" --class new {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/vmlinuz
-    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=new
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new
     initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Choose session during startup)" --class switch {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/vmlinuz
-    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} perchdir=ask
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask
     initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Fresh start)" --class live {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/vmlinuz
-    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS}
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}
     initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 menuentry "Run MiniOS (Copy to RAM)" --class ram {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/vmlinuz
-    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}${FLUX_SETTINGS}${ULTRA_SETTINGS} toram
+    linux /${LIVEKITNAME}/boot/vmlinuz ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram
     initrd /${LIVEKITNAME}/boot/initrfs.img
 }
 
@@ -1672,9 +1668,7 @@ build_boot() {
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
-    if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-        cp -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/zblack.png" "${WORK_DIR}/image/${LIVEKITNAME}/boot/bootlogo.png"
-    fi
+
     build_initrd
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
