@@ -1,6 +1,6 @@
-# ========================
-# == Base (All Editions) ==
-# ========================
+# ========================================
+# == Base (All Editions)                ==
+# ========================================
 minios-tools
 minios-live-config
 minios-live-config-systemd
@@ -24,36 +24,40 @@ netplan.io +d=jammy +d=noble
 wpasupplicant
 
 # ========================================
+# == Additional Packages (All Editions) ==
+# ========================================
+pciutils
+usbutils
+psmisc
+hdparm
+sdparm
+mdadm
+smartmontools
+bash-completion
+ssh
+mc
+zip
+unzip
+rfkill
+usb-modeswitch
+
+# ========================================
 # == Standard Edition (and above)       ==
 # ========================================
 minios-welcome -pv=minimum
 minios-live-config-doc -pv=minimum
 gpm -pv=minimum
 man-db -pv=minimum
-pciutils -pv=minimum
-usbutils -pv=minimum
-ssh -pv=minimum
 dnsmasq-base -pv=minimum
 squashfs-tools -pv=minimum
 zstd -pv=minimum
 lz4 -pv=minimum
 liblz4-tools -pv=minimum
 xorriso -pv=minimum
-mc -pv=minimum
-bash-completion -pv=minimum
 ncdu -pv=minimum
-zip -pv=minimum
-unzip -pv=minimum
-psmisc -pv=minimum
 bzip2 -pv=minimum
-hdparm -pv=minimum
-sdparm -pv=minimum
-mdadm -pv=minimum
-smartmontools -pv=minimum
 lsof -pv=minimum
 ntfs-3g -pv=minimum
-rfkill -pv=minimum
-usb-modeswitch -pv=minimum
 btrfs-progs -pv=minimum
 xfsprogs -pv=minimum
 dosfstools -pv=minimum
