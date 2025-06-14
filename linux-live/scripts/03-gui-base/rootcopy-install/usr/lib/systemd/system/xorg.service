@@ -1,7 +1,14 @@
 [Unit]
 Description=X-Window
 ConditionKernelCommandLine=!text
+ConditionKernelCommandLine=!live-config.nox11autologin
+ConditionKernelCommandLine=!nox11autologin
+ConditionKernelCommandLine=!live-config.noautologin
+ConditionKernelCommandLine=!noautologin
 After=systemd-user-sessions.service
 
 [Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" live
+ExecStart=/usr/bin/start-xorg.sh
+
+[Install]
+WantedBy=graphical.target
