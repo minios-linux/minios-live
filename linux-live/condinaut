@@ -15,7 +15,7 @@
 #   Options:
 #     -l, --package-list PATH       Path to the package list file.
 #     -c, --config PATH             Path to the main configuration file
-#                                   (defines system variables).
+#     -C, --check-only              Only check if packages exist (no actual installation).
 #     -m, --filter-mapping PATH     Path to the filter mapping file.
 #     -P, --priority-list PATH      (Optional) Path to a priority package list file.
 #                                   Packages here are installed in a dedicated queue.
@@ -106,6 +106,7 @@ help() {
     echo "Options:"
     echo "  -l, --package-list PATH       Path to the package list file."
     echo "  -c, --config PATH             Path to the main configuration file."
+    echo "  -C, --check-only              Only check if packages exist (no actual installation)."
     echo "  -m, --filter-mapping PATH     Path to the filter mapping file."
     echo "  -P, --priority-list PATH      Path to a priority package list file (Optional)."
     echo "                                Packages here are installed in a dedicated queue."
@@ -257,14 +258,15 @@ process_condition() {
     done
 
     if ! ${INCLUDE}; then
-        [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} will not be installed.${FILTER_MSG}"
+        [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} will not be installed.${FILTER_MSG}"
         return 3
     fi
 
     check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}" "${STRICT_VERSION}"
     local CP_RC=${?}
     if [ ${CP_RC} -eq 0 ]; then
-        [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} will be installed.${FILTER_MSG}"
+        [ "${CHECK_ONLY}" = "true" ] && [ -z "${FILTER_MSG}" ] && error "${PACKAGE_NAME} not installed." && CHECK_FAILED=true
+        [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} will be installed.${FILTER_MSG}"
         if [[ -n "${PACKAGE_VERSION}" ]]; then
             if [ "${FOUND_EXACT_VERSION}" = true ]; then
                 PACKAGES_TO_INSTALL+=("${PACKAGE_NAME}=${PACKAGE_VERSION}")
@@ -279,7 +281,8 @@ process_condition() {
     elif [ ${CP_RC} -eq 2 ]; then
         return 0
     else
-        [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} will not be installed.${FILTER_MSG}"
+        [ "${CHECK_ONLY}" = "true" ] && [ -z "${FILTER_MSG}" ] && error "${PACKAGE_NAME} not installed." && CHECK_FAILED=true
+        [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} will not be installed.${FILTER_MSG}"
         ${IS_MANDATORY} && error "Mandatory package ${PACKAGE_NAME} not found. Installation aborted."
         return 1
     fi
@@ -348,15 +351,15 @@ process_package_conditions() {
 #------------------------------------------------------------------------------
 
 process_queue() {
-    local QUEUE_ID="${1}"
+    local QUEUE_ID="$1"
     shift
-    local SIMULATION_MODE="${1}"
+    local SIMULATION_MODE="$1"
     shift
-    local TARGET_RELEASE="${1}"
+    local TARGET_RELEASE="$1"
     shift
     local -a QUEUE=("$@")
 
-    [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Installation Queue #${QUEUE_ID}:"
+    [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Installation Queue #${QUEUE_ID}:"
 
     PACKAGES_TO_INSTALL=()
     PACKAGES_TO_HOLD=()
@@ -364,6 +367,8 @@ process_queue() {
     for PACKAGE_CONDITIONS in "${QUEUE[@]}"; do
         process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSITY_LEVEL}"
     done
+
+    [ "${CHECK_ONLY}" = "true" ] && return
 
     if [ "${PREINSTALL_APT_CACHE}" = "true" ] && [ "${SIMULATION_MODE}" = false ]; then
         DEBIAN_FRONTEND=noninteractive apt-get --download-only -y \
@@ -427,40 +432,66 @@ process_queue() {
 # Package Checking Functions
 #------------------------------------------------------------------------------
 
+# Check if a package is installed
+pkg_is_installed() {
+    local PACKAGE="${1}"
+    if [ -z "${PACKAGE}" ]; then
+        echo "Error: pkg_is_installed() requires a package name" >&2
+        return 2
+    fi
+    if dpkg-query -f'${db:Status-Status}\n' -W "${PACKAGE}" 2>/dev/null | grep -q '^installed'; then
+        return 0
+    fi
+    return 1
+}
+
+# Test installed package version against a relation
+pkg_test_version() {
+    local PACKAGE="${1}"
+    local RELATION="${2}"
+    local VERSION="${3}"
+    if [ -z "${PACKAGE}" ] || [ -z "${RELATION}" ] || [ -z "${VERSION}" ]; then
+        echo "Error: pkg_test_version() requires <package> <relation> <version>" >&2
+        return 2
+    fi
+    local INSTVER
+    INSTVER=$(dpkg-query -f'${Version}\n' -W "${PACKAGE}" 2>/dev/null)
+    if [ -z "${INSTVER}" ]; then
+        echo "Error: package ${PACKAGE} is not installed" >&2
+        return 2
+    fi
+    if dpkg --compare-versions "${INSTVER}" "${RELATION}" "${VERSION}"; then
+        return 0
+    fi
+    return 1
+}
+
+# Main function: check if package is available/installed with optional version
 check_package() {
     local PACKAGE_NAME="${1}"
-    local PACKAGE_VERSION="${2}"
+    local PACKAGE_VERSION="${2-}"
     local STRICT_VERSION="${3:-false}"
     FOUND_EXACT_VERSION=false
 
-    local INSTALLED_VERSION
-    INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}" 2>/dev/null || echo "")
-    if [ -n "${INSTALLED_VERSION}" ]; then
+    # If installed, short-circuit
+    if pkg_is_installed "${PACKAGE_NAME}"; then
         if [ -z "${PACKAGE_VERSION}" ]; then
-            local REPO_CANDIDATE
-            REPO_CANDIDATE=$(apt-cache policy "${PACKAGE_NAME}" 2>/dev/null | awk '/Candidate:/ {print $2}')
-            if [ -n "${REPO_CANDIDATE}" ]; then
-                if [ "${INSTALLED_VERSION}" = "${REPO_CANDIDATE}" ]; then
-                    [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
-                    return 2
-                else
-                    [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} is installed (version ${INSTALLED_VERSION}), repository candidate is ${REPO_CANDIDATE}."
-                fi
-            else
-                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
-                return 2
-            fi
+            # No version requirement: already installed
+            [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
+            return 2
         else
-            if [ "${INSTALLED_VERSION}" = "${PACKAGE_VERSION}" ]; then
-                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
+            # Version requirement: test
+            if pkg_test_version "${PACKAGE_NAME}" "=" "${PACKAGE_VERSION}"; then
+                [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} version ${PACKAGE_VERSION} is already installed."
                 return 2
             else
-                [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} is installed (version ${INSTALLED_VERSION}), required version is ${PACKAGE_VERSION}."
+                [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} is installed (version $(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}")), required version is ${PACKAGE_VERSION}."
             fi
         fi
     fi
 
-    SPECIAL_PACKAGES=("qemu-kvm")
+    # Handle special purely virtual packages
+    local SPECIAL_PACKAGES=("qemu-kvm")
     for SPECIAL in "${SPECIAL_PACKAGES[@]}"; do
         if [ "${PACKAGE_NAME}" = "${SPECIAL}" ]; then
             if LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1 | grep -q 'purely virtual'; then
@@ -470,14 +501,18 @@ check_package() {
             fi
         fi
     done
+
+    # No installed version or wrong version:
     if [ -z "${PACKAGE_VERSION}" ]; then
-        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
+        # Any version acceptable: check candidate
+        if apt-cache policy "${PACKAGE_NAME}" 2>&1 | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
             return 1
         else
             return 0
         fi
     else
-        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
+        # Specific version requested: search madison
+        if apt-cache madison "${PACKAGE_NAME}" 2>&1 | awk '{print $3}' | grep -qx "${PACKAGE_VERSION}"; then
             FOUND_EXACT_VERSION=true
             return 0
         else
@@ -486,7 +521,7 @@ check_package() {
                 return 1
             else
                 [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "Version ${PACKAGE_VERSION} of ${PACKAGE_NAME} not available. Installing available version."
-                if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
+                if apt-cache policy "${PACKAGE_NAME}" 2>&1 | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
                     return 1
                 else
                     FOUND_EXACT_VERSION=false
@@ -593,6 +628,8 @@ install_packages() {
     local FILTER_MAPPING_FILE=""
     local PRIORITY_LIST_FILE=""
     local SIMULATION_MODE=false
+    local CHECK_ONLY=false
+    CHECK_FAILED=false
     local VERBOSITY_LEVEL=0
     local XTRACE_MODE=false
     local PREINSTALL_APT_CACHE=false
@@ -614,6 +651,10 @@ install_packages() {
         -c | --config)
             MAIN_CONFIG_FILE="$2"
             shift 2
+            ;;
+        -C | --check-only)
+            CHECK_ONLY=true
+            shift
             ;;
         -m | --filter-mapping)
             FILTER_MAPPING_FILE="$2"
@@ -694,13 +735,13 @@ install_packages() {
         load_filter_mapping "${FILTER_MAPPING_FILE}"
     fi
 
-    if [ "${FORCE_UPDATE}" = true ] || [ ! -e "/var/cache/apt/pkgcache.bin" ]; then
+    if [ "${CHECK_ONLY}" = "false" ] && (${FORCE_UPDATE} || [ ! -e "/var/cache/apt/pkgcache.bin" ]); then
         DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
         local APT_PID="$!"
         spinner "${APT_PID}" "Updating package lists"
         wait "${APT_PID}"
     else
-        [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Package cache exists; update not required."
+        [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Package cache exists; update not required."
     fi
 
     # Group packages into queues.
@@ -801,6 +842,17 @@ install_packages() {
     if [ "${SIMULATION_MODE}" = true ]; then
         information "Simulation mode ON. No installation will be performed."
         exit 1
+    fi
+
+    if [ "${CHECK_ONLY}" = true ]; then
+        if [ "${CHECK_FAILED}" = true ]; then
+            echo
+            echo "You can install missing packages with the command:"
+            echo "  sudo apt install ${PACKAGES_TO_INSTALL[*]}"
+            return 1
+        else
+            return 0
+        fi
     fi
 }
 
