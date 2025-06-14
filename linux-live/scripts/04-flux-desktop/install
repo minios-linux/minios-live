@@ -19,9 +19,9 @@ if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
 fi
 
-if [ $LOCALE = "ru_RU" ] || [ $LOCALE = "es_ES" ] || [ $LOCALE = "pt_BR" ] || [ $MULTILINGUAL = "true" ]; then
-    apt-get -y install fbxkb
-fi
+#if [ $LOCALE != "en_US" ] || [ $LOCALE != "C" ]; then
+#    apt-get -y install fbxkb
+#fi
 
 # For each .desktop file in the /usr/share/applications directory
 for FILE in /usr/share/applications/*.desktop; do
