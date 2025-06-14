@@ -15,37 +15,22 @@ echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)"
 
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
-if dpkg -l | grep -q xrdp >/dev/null 2>&1; then
+if pkg_is_installed "xrdp" >/dev/null 2>&1; then
     adduser xrdp ssl-cert
     rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
 
     systemctl disable xrdp xrdp-sesman >/dev/null 2>&1
 fi
 
-if [ $DESKTOP_ENVIRONMENT = "flux" ]; then
-    LIVE_USERNAME="root"
-fi
-cat <<EOF >/usr/lib/systemd/system/xorg.service
-[Unit]
-Description=X-Window
-ConditionKernelCommandLine=!text
-After=systemd-user-sessions.service
-
-[Service]
-ExecStart=/bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $LIVE_USERNAME
-
-[Install]
-WantedBy=graphical.target
-
-EOF
-
-if dpkg -l | grep -q openbox; then
+if pkg_is_installed "openbox"; then
     sed -i "s,blackbox,openbox-session,g" /etc/skel/.xinitrc
 fi
 
 if [ -d /etc/systemd/system ]; then
     mkdir -p /etc/systemd/system
 fi
+
+rm -f /etc/systemd/system/display-manager.service
 ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
 if [ ! -L /etc/systemd/system/display-manager.service ]; then
     error "The /etc/systemd/system/display-manager.service link is missing."
@@ -88,9 +73,7 @@ if [ -d /usr/share/icons/hicolor/256x256 ]; then
     rm -Rf /usr/share/icons/hicolor/256x256
 fi
 
-if [ "$DISTRIBUTION" != "orel" ]; then
-    update-alternatives --set x-terminal-emulator /usr/bin/xterm >/dev/null 2>&1
-fi
+update-alternatives --set x-terminal-emulator /usr/bin/xterm >/dev/null 2>&1
 
 for APP in debian-uxterm debian-xterm; do
     rm -f /usr/share/applications/$APP.desktop
