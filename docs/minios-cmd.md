@@ -8,10 +8,10 @@
 
 With `minios-cmd`, you can customize various aspects of your MiniOS image, including:
 
-- **Distribution:** Choose from Debian and Ubuntu releases (e.g., `bookworm`, `jammy`, `trixie`).
-- **Architecture:** Specify the target architecture (e.g., `amd64`, `i386`).
+- **Distribution:** Choose from Debian releases (e.g., `bookworm`, `trixie`).
+- **Architecture:** Specify the target architecture (e.g., `amd64`, `i386` (`bookworm` only)).
 - **Desktop Environment:** Select your preferred desktop environment (e.g., `xfce`, `lxqt`).
-- **Package Variant:** Use pre-defined package sets like `standard` or `toolbox`.
+- **Package Variant:** Use pre-defined package sets like `standard`, `toolbox` or `ultra`.
 - **Compression Type:** Specify the image compression method (e.g., `zstd`).
 - **Kernel:** Configure kernel type, enable backports, AUFS support, and DKMS module compilation.
 - **Locale and Timezone:** Set the system locale and timezone.
@@ -73,10 +73,10 @@ These options **must be provided** unless a configuration file is used:
 ### Quick Start Examples
 
 #### Minimal Build
-Build a MiniOS system with Ubuntu 22.04, amd64 architecture, XFCE desktop, and the standard package variant:
+Build a MiniOS system with Debian 12, amd64 architecture, XFCE desktop, and the standard package variant:
 
 ```bash
-minios-cmd -d jammy -a amd64 -de xfce -pv standard
+minios-cmd -d bookworm -a amd64 -de xfce -pv standard
 ```
 
 #### Customized Build
