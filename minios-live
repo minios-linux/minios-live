@@ -50,18 +50,19 @@ export VERBOSITY_LEVEL
 # ---[ FUNCTIONS ]---
 help() {
     local HEADLINE="${1:-$(gettext 'This script builds bootable MiniOS ISO image.')}"
-    local COMMANDS="${CMD[*]}"
+    # show hyphenated command names
+    local COMMANDS="${CMD[*]//_/-}"
     local SYNTAX="$0 [start_cmd] [-] [end_cmd]"
     local EXAMPLES=(
         "${LIGHTYELLOW}  $0 -                              ${ENDCOLOR}$(gettext "Run the build from start to finish.")"
-        "${LIGHTYELLOW}  $0 build_bootstrap - build_chroot ${ENDCOLOR}$(gettext "Start the build by building the base environment and finish by installing the entire system in chroot.")"
-        "${LIGHTYELLOW}  $0 - build_chroot                 ${ENDCOLOR}$(gettext "Start the build from the beginning and finish by installing the entire system in chroot.")"
-        "${LIGHTYELLOW}  $0 build_bootstrap -              ${ENDCOLOR}$(gettext "Start the build by building the base environment and run to completion.")"
-        "${LIGHTYELLOW}  $0 build_iso                      ${ENDCOLOR}$(gettext "Build only ISO image from previously prepared data.")"
+        "${LIGHTYELLOW}  $0 build-bootstrap - build-chroot ${ENDCOLOR}$(gettext "Start the build by building the base environment and finish by installing the entire system in chroot.")"
+        "${LIGHTYELLOW}  $0 - build-chroot                 ${ENDCOLOR}$(gettext "Start the build from the beginning and finish by installing the entire system in chroot.")"
+        "${LIGHTYELLOW}  $0 build-bootstrap -              ${ENDCOLOR}$(gettext "Start the build by building the base environment and run to completion.")"
+        "${LIGHTYELLOW}  $0 build-iso                      ${ENDCOLOR}$(gettext "Build only ISO image from previously prepared data.")"
     )
 
     echo -e "${LIGHTYELLOW}${HEADLINE}${ENDCOLOR}\n"
-    echo -e "$(gettext "Supported commands:") ${CYAN}${CMD[*]}${ENDCOLOR}\n"
+    echo -e "$(gettext "Supported commands:") ${CYAN}${COMMANDS}${ENDCOLOR}\n"
     echo -e "$(gettext "Usage:") ${MAGENTA}${SYNTAX}${ENDCOLOR}"
     echo -e "$(gettext "  Run from start_cmd to end_cmd")"
     echo -e "$(gettext "  If start_cmd is omitted, start from the first command")"
@@ -90,6 +91,15 @@ CMD=(build_bootstrap build_chroot build_live build_modules build_boot build_conf
 # ----[ MAIN ]----
 create_log_file "$@"
 
+# normalize both hyphens and underscores into underscore form,
+# but leave lone "-" untouched
+ARGS=("$@")
+for idx in "${!ARGS[@]}"; do
+    [[ "${ARGS[$idx]}" == "-" ]] && continue
+    ARGS[$idx]="${ARGS[$idx]//-/_}"
+done
+set -- "${ARGS[@]}"
+
 #trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"' EXIT
 trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"; [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server' EXIT
 
@@ -112,7 +122,7 @@ if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
 
     generate_chroot_configuration_file "$WORK_DIR/minios_build.conf"
 
-    install_host_prerequisites
+    ensure_host_prerequisites
 
     #generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
 
@@ -121,7 +131,7 @@ fi
 determine_command_range "$@"
 
 # Run commands within the defined range.
-for ((ii = "$START_INDEX"; ii < "$END_INDEX"; ii++)); do
+for ((ii = START_INDEX; ii < END_INDEX; ii++)); do
     "${CMD[ii]}"
 done
 
