@@ -4,6 +4,8 @@
 minios-tools
 minios-live-config
 minios-live-config-systemd
+minios-live-config-doc
+minios-welcome
 user-setup
 gpg
 gnupg
@@ -27,11 +29,20 @@ hdparm
 sdparm
 mdadm
 smartmontools
+dosfstools
+ntfs-3g
+btrfs-progs
+gettext-base || gettext
+xorriso
+squashfs-tools
+zstd
 bash-completion
 ssh
 mc
 zip
 unzip
+man-db
+gpm
 rfkill
 usb-modeswitch
 htop -de=flux
@@ -44,23 +55,13 @@ wpasupplicant
 # ========================================
 # == Standard Edition (and above)       ==
 # ========================================
-minios-welcome -pv=minimum
-minios-live-config-doc -pv=minimum
-gpm -pv=minimum
-man-db -pv=minimum
 dnsmasq-base -pv=minimum
-squashfs-tools -pv=minimum
-zstd -pv=minimum
 lz4 -pv=minimum
 liblz4-tools -pv=minimum
-xorriso -pv=minimum
 ncdu -pv=minimum
 bzip2 -pv=minimum
 lsof -pv=minimum
-ntfs-3g -pv=minimum
-btrfs-progs -pv=minimum
 xfsprogs -pv=minimum
-dosfstools -pv=minimum
 exfat-utils -pv=minimum
 exfat-fuse -pv=minimum
 exfatprogs -pv=minimum
@@ -69,7 +70,6 @@ nfs-common -pv=minimum
 ipset -pv=minimum
 fuse3 -pv=minimum || fuse -pv=minimum
 libfuse2 -pv=minimum
-gettext-base -pv=minimum || gettext -pv=minimum
 parted -pv=minimum
 7zip -pv=minimum
 whois -pv=minimum
