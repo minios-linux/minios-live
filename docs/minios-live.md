@@ -6,7 +6,7 @@
 
 Using `minios-live`, you can build the following configurations:
 
-- **Debian 10, Debian 12, Debian Unstable, Ubuntu 22.04, 24.04 with Xfce4 environment**.
+- **Debian 12, Debian 13, Debian Unstable with Xfce4 environment**.
 - **Debian 12 with Fluxbox environment** (analogous to [Slax](https://www.slax.org/)).
 - **Debian 12 with LXQT environment**.
 
