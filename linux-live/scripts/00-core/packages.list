@@ -14,14 +14,8 @@ locales
 console-setup
 linux-base
 xz-utils
-systemd-timesyncd
-polkitd || policykit-1
-pkexec || policykit-1
-tlp
-htop
-network-manager -de=flux || connman
+network-manager -de=flux || connman +de=flux
 netplan.io +d=jammy +d=noble
-wpasupplicant
 
 # ========================================
 # == Additional Packages (All Editions) ==
@@ -40,6 +34,12 @@ zip
 unzip
 rfkill
 usb-modeswitch
+htop -de=flux
+systemd-timesyncd
+#polkitd || policykit-1
+#pkexec || policykit-1
+tlp
+wpasupplicant
 
 # ========================================
 # == Standard Edition (and above)       ==
