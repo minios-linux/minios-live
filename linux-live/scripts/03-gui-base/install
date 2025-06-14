@@ -11,8 +11,6 @@ console_colors
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-echo "keyboard-configuration	keyboard-configuration/variant	select	English (US)" | debconf-set-selections
-
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
 
 if pkg_is_installed "xrdp" >/dev/null 2>&1; then
@@ -29,20 +27,8 @@ fi
 if [ -d /etc/systemd/system ]; then
     mkdir -p /etc/systemd/system
 fi
-
-rm -f /etc/systemd/system/display-manager.service
-ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
-if [ ! -L /etc/systemd/system/display-manager.service ]; then
-    error "The /etc/systemd/system/display-manager.service link is missing."
-    exit 1
-fi
-
-# Check if Xorg binary exists before operating on it
-if [ -f /usr/lib/xorg/Xorg ]; then
-    chmod u+s /usr/lib/xorg/Xorg
-else
-    error "Xorg binary does not exist."
-    exit 1
+if [ -f /usr/lib/systemd/system/xorg.service ]; then
+    ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
 fi
 
 # Only perform operations if directories exist
