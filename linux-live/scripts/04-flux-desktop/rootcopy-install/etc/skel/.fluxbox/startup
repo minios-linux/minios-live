@@ -14,10 +14,10 @@ fbdesktop
 xmodmap "/root/.Xmodmap"
 
 # merge xresource settings
-xrdb -merge /root/.Xresources
+xrdb -merge ~/.Xresources
 
 # set keyboard layout
-fbsetkb $(cat /root/.fluxbox/kblayout)
+fbsetkb $(cat ~/.fluxbox/kblayout)
 
 # setup bookmarks for file manager
 gtk-bookmarks-update
@@ -38,18 +38,11 @@ xsetroot -xcf /usr/share/icons/breeze_cursors/cursors/watch 37
 xset s off
 xset -dpms
 
-# volume icon in system tray. Can fail if no soundcard is detected
-volumeicon &
-
-# layout selector
-if command -v fbxkb >/dev/null 2>&1; then
-    fbxkb &
-fi
-
 # preload compton and fluxbox to cache
 (
     compton --help
     fluxbox --help
+    xfce4-panel --help
 ) >/dev/null 2>&1
 
 # Keep black screen for first second while the sound plays.
@@ -67,7 +60,7 @@ fi
 #     exists. If it does, we'll start it up by default.
 which fbautostart >/dev/null
 if [ $? -eq 0 ]; then
-    fbautostart
+    fbautostart &
 fi
 
 # We need to postpone compton after fluxbox starts, else it won't set
@@ -75,8 +68,8 @@ fi
 # which is created by fluxbox at the phase when it sets background.
 # Once the file exist, fluxbox-toolbar is already started
 
-SIGNAL1=/root/.fehbg
-SIGNAL2=/root/.fehbg2
+SIGNAL1=~/.fehbg
+SIGNAL2=~/.fehbg2
 
 rm -f $SIGNAL1 2>/dev/null
 rm -f $SIGNAL2 2>/dev/null
@@ -87,23 +80,10 @@ rm -f $SIGNAL2 2>/dev/null
     done
     touch $SIGNAL2
 
-    (
-        sleep 1
-        (
-            echo
-            sleep 10
-            echo :quit
-        ) | xlunch --window --xposition 20 --yposition -30 \
-            --width 195 --height 53 --noscroll --noprompt --backgroundcolor ffffff00 \
-            --multiple --desktop --button "/usr/share/fluxbox/styles/Slax/pixmaps/start-here.png;;0,0;fbappselect" &
-    ) &
-
     exec compton --sw-opti -e 0.9 --shadow-exclude 'class_g="xlunch-windowed"' --fade-exclude 'role*="fluxbox-toolbar"' --opacity-rule '70:role*="fluxbox-toolbar"' --no-fading-destroyed-argb -D 5 -c -f -l -2 -t -2 -r 0 -o 1 -z --shadow-exclude 'bounding_shaped'
 ) &
 
-# We want to run systrayicon only after the volumeicon is started
-# So we have to wait until it is visible to xwinfo
-# We also wait after background is set and compton is started
+# We wait after background is set and compton is started
 (
     while [ ! -e $SIGNAL2 ]; do
         sleep 0.1
@@ -111,16 +91,12 @@ rm -f $SIGNAL2 2>/dev/null
 
     rm -f $SIGNAL2
 
-    while ! xwininfo -name volumeicon >/dev/null 2>&1 && pgrep volumeicon >/dev/null 2>&1; do
-        sleep 0.1
-    done
-
-    exec systrayicon --command fblogout --iconfile /usr/share/icons/locolor/16x16/actions/system-shutdown-symbolic.png
+    exec volumeicon
 ) &
 
 # gen screen resolutions to fluxbox menu
 xrandr 2>/dev/null | fgrep x | fgrep . | sort -n | tr -s " " | cut -d " " -f 2 |
-    sed -r "s:(.*):[exec] (\\1) {fbscreensize \\1}:" >/root/.fluxbox/menu_resolution
+    sed -r "s:(.*):[exec] (\\1) {fbscreensize \\1}:" >~/.fluxbox/menu_resolution
 
 # In all cases, wait for the sound sleeper.
 # If startup took longer (sound completed already), no extra wait
@@ -128,17 +104,28 @@ wait $SOUNDPID
 
 # If we are running inside VirtualBox or vmware,
 # switch to bigger screen size right away
-OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
-if [ "$(virt-what | egrep -i "virtualbox|vmware")" != "" && ! grep -q 'novrc' /proc/cmdline ]; then
-    xrandr --output $OUTPUT --mode 1280x800 -s 1280x800
+if [ "$(virt-what | egrep -i "virtualbox|vmware")" != "" ] && ! grep -q 'novrc' /proc/cmdline; then
+    # this is here to fix some strange virtualbox bug
+    # to adjust window size properly
+    fbscreensize 1440x900 -n
+    fbscreensize 1280x800 -n
+fi
+
+# start xfce4 panel in background
+xfce4-panel --disable-wm-check --sm-client-disable &
+
+(
+    while [ "$(wmctrl -l | grep xfce4-panel)" = "" ]; do
+        sleep 0.1
+    done
+    xprop -id $(wmctrl -l | grep xfce4-panel | cut -d " " -f 1) -format _NET_WM_STRUT 32c -set _NET_WM_STRUT "0,0,0,52"
+) &
+
+# layout selector
+if command -v fbxkb >/dev/null 2>&1; then
+    fbxkb &
 fi
 
 # And last but not least we start fluxbox.
 # Because it is the last app you have to run it with ''exec'' before it.
-
-# Launch connman, we no longer need the network manager icon in the application menu.
-if command -v connman-gtk >/dev/null 2>&1; then
-    exec connman-gtk &
-fi
-
 exec fluxbox
