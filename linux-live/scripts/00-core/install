@@ -7,6 +7,7 @@ set -u          # treat unset variable as error
 . "/minioslib"
 . "/minios_build.conf"
 
+export DEBIAN_FRONTEND=noninteractive
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 IFS="/"
 LIVE_TIMEZONE=(${LIVE_TIMEZONE})
@@ -39,7 +40,7 @@ DEBCONF_SETTINGS+=(
     "console-setup   console-setup/codeset47 select  Guess optimal character set"
     "console-setup   console-setup/charmap47 select  UTF-8"
     "console-setup   console-setup/fontsize-fb47 select  8x16"
-    "console-setup   console-setup/fontface47select  Fixed"
+    "console-setup   console-setup/fontface47 select  Fixed"
     "console-setup   console-setup/fontsize-text47   select  8x16"
     "openssh-server  openssh-server/password-authentication  boolean true"
     "openssh-server  openssh-server/permit-root-login        boolean false"
@@ -60,14 +61,14 @@ if [ "${MULTILINGUAL}" = "true" ]; then
     )
 fi
 
-(
-    for SETTING in "${DEBCONF_SETTINGS[@]}"; do
-        echo "${SETTING}" | debconf-set-selections -v >/dev/null 2>&1
-    done
-) &
-DEBCONF_PID="$!"
-spinner "${DEBCONF_PID}" "Applying debconf settings"
-wait "${DEBCONF_PID}"
+apply_debconf() {
+  for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+    echo "${SETTING}" \
+      | debconf-set-selections -v
+  done
+}
+
+run_with_spinner "Applying debconf settings" apply_debconf
 
 if [ "$PACKAGE_VARIANT" = "minimum" ]; then
     cat <<EOF >/etc/dpkg/dpkg.cfg.d/exclusions
@@ -94,17 +95,9 @@ path-include=/usr/share/locale/locale.alias
 EOF
 fi
 
-APT_PID=""
+run_with_spinner "Updating package lists" apt-get update --allow-releaseinfo-change
 
-DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
-APT_PID="$!"
-spinner "${APT_PID}" "Updating package lists"
-wait "${APT_PID}"
-
-DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq >/dev/null 2>&1 &
-APT_PID="$!"
-spinner "${APT_PID}" "Upgrading installed packages"
-wait "${APT_PID}"
+run_with_spinner "Upgrading installed packages" apt-get upgrade -y
 
 chmod +x /linux-live/condinaut
 /linux-live/condinaut -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/condinaut.conf"
@@ -267,10 +260,7 @@ mkdir -p "/usr/share/minios" #"/etc/minios"
 #sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="adm cdrom sudo dip plugdev users lpadmin sambashare audio docker libvirt wireshark"/' /etc/adduser.conf
 #sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
 
-DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq vim* grub* debconf-i18n installation-report >/dev/null 2>&1 &
-PURGE_PID="$!"
-spinner "${PURGE_PID}" "Purging packages"
-wait "${PURGE_PID}" || true
+run_with_spinner "Purging packages" apt-get purge -y vim* grub* debconf-i18n installation-report
 
 if [ "${LOCALE}" != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then

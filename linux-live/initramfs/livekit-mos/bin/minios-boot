@@ -17,6 +17,7 @@ set_log() {
 
     case "${LIVE_CONFIG_DEBUG}" in
     true)
+        export PS4='+ ${BASH_SOURCE}:${LINENO}: '
         set -x
         ;;
     esac

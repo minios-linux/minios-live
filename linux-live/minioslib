@@ -55,7 +55,7 @@ common_variables() {
         KERNEL_TYPE="cloud"
     fi
 
-    if [ "${PACKAGE_VARIANT}" = "puzzle" ] || [ "${PACKAGE_VARIANT}" = "standard" ]; then
+    if [ "${PACKAGE_VARIANT}" = "puzzle" ] || [ "${PACKAGE_VARIANT}" = "standard" ] || [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
         LIVE_MODULE_MODE="merged"
     else
         LIVE_MODULE_MODE="simple"
@@ -208,7 +208,7 @@ console_colors() {
 
 # Function: spinner
 # Description: Display an animated spinner while waiting for a background process.
-# Parameters:
+# Arguments:
 #   $1 - Process ID (PID) of the background process.
 #   $2 - Custom message text to display.
 spinner() {
@@ -216,6 +216,7 @@ spinner() {
     local MSG="${2}"
     local DELAY=0.1
     local SPINSTR='|/-\\'
+    console_colors
     while [ -d "/proc/${PID}" ]; do
         for ((i = 0; i < ${#SPINSTR}; i++)); do
             printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:$i:1}${ENDCOLOR}]"
@@ -223,6 +224,28 @@ spinner() {
         done
     done
     printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n"
+}
+
+# Function: run_with_spinner
+# Description:
+#   Executes a command with an animated spinner if VERBOSITY_LEVEL is less than 1.
+#   If VERBOSITY_LEVEL is 1 or higher, runs the command normally with output.
+# Usage:
+#   run_with_spinner "Message to display" command [args...]
+# Arguments:
+#   $1 - Message to display alongside the spinner.
+#   $@ - Command and its arguments to execute.
+run_with_spinner() {
+    local MSG="$1"
+    shift
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        "$@"
+    else
+        "$@" >/dev/null 2>&1 &
+        local CMD_PID="$!"
+        spinner "${CMD_PID}" "${MSG}"
+        wait "${CMD_PID}"
+    fi
 }
 
 # A function to read specific variables from a configuration file in Bash.
@@ -401,12 +424,13 @@ determine_option_status() {
 # Print the current status of the set options.
 print_option_status() {
     local OPTION="${1}"
-    local SET_OPTION="SET_${OPTION^^}"
+    local CALLER_LINE=${BASH_LINENO[1]}
+    local CALLER_FILE=${BASH_SOURCE[2]##*/}
 
     if [[ $- == *${OPTION}* ]]; then
-        information "Option -${OPTION} is currently set."
+        information "[$CALLER_FILE:$CALLER_LINE] set -${OPTION}"
     else
-        information "Option -${OPTION} is currently unset."
+        information "[$CALLER_FILE:$CALLER_LINE] set +${OPTION}"
     fi
 }
 
@@ -2041,14 +2065,13 @@ ensure_host_prerequisites() {
         "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf"
     else
         toggle_shell_options e
-        "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf" -C
+        "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf" --check-only
         if [ $? -ne 0 ]; then
             echo
-            error "Missing required packages. Please install them and try again."
+            error "Some prerequisites are not installed on the host system. Please install them and try again."
             exit 1
         fi
         toggle_shell_options e
-
     fi
     chmod -x "${BUILD_SCRIPTS_DIR}/condinaut"
 }
@@ -2415,10 +2438,12 @@ build_modules() {
             if [ -f "${ENVIRONMENTS}/${MODULE}/is_dkms_build" ]; then
                 # Determine kernel version if unset
                 toggle_shell_options e
-                KERNEL="${KERNEL:-$(file /boot/vmlinuz-* 2>/dev/null |
+                KERNEL="${KERNEL:-$(file "${OVERLAY[merged]}/boot/vmlinuz"-* 2>/dev/null |
                     grep -oP 'version \K[^\s]+')}"
-                KERNEL="${KERNEL:-$(file "${WORK_DIR}/kernel/vmlinuz"-* 2>/dev/null |
-                    grep -oP 'version \K[^\s]+')}"
+                if [ -z "${KERNEL}" ]; then
+                    KERNEL="$(file "${WORK_DIR}/kernel/vmlinuz"-* 2>/dev/null |
+                        grep -oP 'version \K[^\s]+')"
+                fi
                 toggle_shell_options e
 
                 # Remove stale symlinks
