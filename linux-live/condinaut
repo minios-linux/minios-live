@@ -80,6 +80,7 @@ spinner() {
     printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n"
 
     if ${XTRACE_WAS_SET}; then
+        export PS4='+ ${BASH_SOURCE}:${LINENO}: '
         set -x
     fi
 }
@@ -281,6 +282,7 @@ process_condition() {
     elif [ ${CP_RC} -eq 2 ]; then
         return 0
     else
+        MISSING_PACKAGES+=("${PACKAGE_NAME}")
         [ "${CHECK_ONLY}" = "true" ] && [ -z "${FILTER_MSG}" ] && error "${PACKAGE_NAME} not installed." && CHECK_FAILED=true
         [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} will not be installed.${FILTER_MSG}"
         ${IS_MANDATORY} && error "Mandatory package ${PACKAGE_NAME} not found. Installation aborted."
@@ -351,11 +353,11 @@ process_package_conditions() {
 #------------------------------------------------------------------------------
 
 process_queue() {
-    local QUEUE_ID="$1"
+    local QUEUE_ID="${1}"
     shift
-    local SIMULATION_MODE="$1"
+    local SIMULATION_MODE="${1}"
     shift
-    local TARGET_RELEASE="$1"
+    local TARGET_RELEASE="${1}"
     shift
     local -a QUEUE=("$@")
 
@@ -466,32 +468,49 @@ pkg_test_version() {
     return 1
 }
 
-# Main function: check if package is available/installed with optional version
+# Check if package is available/installed with optional version
 check_package() {
     local PACKAGE_NAME="${1}"
-    local PACKAGE_VERSION="${2-}"
+    local PACKAGE_VERSION="${2}"
     local STRICT_VERSION="${3:-false}"
     FOUND_EXACT_VERSION=false
 
-    # If installed, short-circuit
-    if pkg_is_installed "${PACKAGE_NAME}"; then
-        if [ -z "${PACKAGE_VERSION}" ]; then
-            # No version requirement: already installed
-            [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
+    if [ "$CHECK_ONLY" = true ]; then
+        if pkg_is_installed "$PACKAGE_NAME"; then
             return 2
         else
-            # Version requirement: test
-            if pkg_test_version "${PACKAGE_NAME}" "=" "${PACKAGE_VERSION}"; then
-                [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} version ${PACKAGE_VERSION} is already installed."
+            return 1
+        fi
+    fi
+
+    local INSTALLED_VERSION
+    INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}" 2>/dev/null || echo "")
+    if [ -n "${INSTALLED_VERSION}" ]; then
+        if [ -z "${PACKAGE_VERSION}" ]; then
+            local REPO_CANDIDATE
+            REPO_CANDIDATE=$(apt-cache policy "${PACKAGE_NAME}" 2>/dev/null | awk '/Candidate:/ {print $2}')
+            if [ -n "${REPO_CANDIDATE}" ]; then
+                if [ "${INSTALLED_VERSION}" = "${REPO_CANDIDATE}" ]; then
+                    [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
+                    return 2
+                else
+                    [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} is installed (version ${INSTALLED_VERSION}), repository candidate is ${REPO_CANDIDATE}."
+                fi
+            else
+                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
+                return 2
+            fi
+        else
+            if [ "${INSTALLED_VERSION}" = "${PACKAGE_VERSION}" ]; then
+                [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} is already installed."
                 return 2
             else
-                [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} is installed (version $(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}")), required version is ${PACKAGE_VERSION}."
+                [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} is installed (version ${INSTALLED_VERSION}), required version is ${PACKAGE_VERSION}."
             fi
         fi
     fi
 
-    # Handle special purely virtual packages
-    local SPECIAL_PACKAGES=("qemu-kvm")
+    SPECIAL_PACKAGES=("qemu-kvm")
     for SPECIAL in "${SPECIAL_PACKAGES[@]}"; do
         if [ "${PACKAGE_NAME}" = "${SPECIAL}" ]; then
             if LANG=C apt-cache --quiet=0 show "${PACKAGE_NAME}" 2>&1 | grep -q 'purely virtual'; then
@@ -501,18 +520,14 @@ check_package() {
             fi
         fi
     done
-
-    # No installed version or wrong version:
     if [ -z "${PACKAGE_VERSION}" ]; then
-        # Any version acceptable: check candidate
-        if apt-cache policy "${PACKAGE_NAME}" 2>&1 | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
+        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
             return 1
         else
             return 0
         fi
     else
-        # Specific version requested: search madison
-        if apt-cache madison "${PACKAGE_NAME}" 2>&1 | awk '{print $3}' | grep -qx "${PACKAGE_VERSION}"; then
+        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
             FOUND_EXACT_VERSION=true
             return 0
         else
@@ -521,7 +536,7 @@ check_package() {
                 return 1
             else
                 [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "Version ${PACKAGE_VERSION} of ${PACKAGE_NAME} not available. Installing available version."
-                if apt-cache policy "${PACKAGE_NAME}" 2>&1 | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
+                if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
                     return 1
                 else
                     FOUND_EXACT_VERSION=false
@@ -635,6 +650,8 @@ install_packages() {
     local PREINSTALL_APT_CACHE=false
     local FORCE_UPDATE=false
     local PRIORITY_QUEUE=()
+    DEBIAN_FRONTEND=noninteractive
+    LANG=C
 
     PACKAGE_ARRAY=()
     PACKAGES_TO_INSTALL=()
@@ -848,7 +865,7 @@ install_packages() {
         if [ "${CHECK_FAILED}" = true ]; then
             echo
             echo "You can install missing packages with the command:"
-            echo "  sudo apt install ${PACKAGES_TO_INSTALL[*]}"
+            echo "  sudo apt install ${MISSING_PACKAGES[*]}"
             return 1
         else
             return 0

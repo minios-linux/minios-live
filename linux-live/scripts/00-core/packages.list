@@ -56,15 +56,12 @@ wpasupplicant
 # == Standard Edition (and above)       ==
 # ========================================
 dnsmasq-base -pv=minimum
-lz4 -pv=minimum
-liblz4-tools -pv=minimum
+lz4 -pv=minimum || liblz4-tools -pv=minimum
 ncdu -pv=minimum
 bzip2 -pv=minimum
 lsof -pv=minimum
 xfsprogs -pv=minimum
-exfat-utils -pv=minimum
-exfat-fuse -pv=minimum
-exfatprogs -pv=minimum
+exfatprogs -pv=minimum || exfat-utils -pv=minimum && exfat-fuse -pv=minimum
 cifs-utils -pv=minimum
 nfs-common -pv=minimum
 ipset -pv=minimum
