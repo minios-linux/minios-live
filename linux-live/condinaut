@@ -360,6 +360,7 @@ process_queue() {
     local TARGET_RELEASE="${1}"
     shift
     local -a QUEUE=("$@")
+    local FATAL_FAILURE=false
 
     [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Installation Queue #${QUEUE_ID}:"
 
@@ -402,6 +403,9 @@ process_queue() {
                     -o Dpkg::Options::="--force-confdef" \
                     -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}"
             fi
+            if [ $? -ne 0 ]; then
+                FATAL_FAILURE=true
+            fi
         else
             if [[ -n "${TARGET_RELEASE}" ]]; then
                 DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
@@ -413,6 +417,9 @@ process_queue() {
                     -o Dpkg::Options::="--force-confdef" \
                     -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" \
                     -qq >/dev/null 2>&1 &
+            fi
+            if [ $? -ne 0 ]; then
+                FATAL_FAILURE=true
             fi
             local INSTALL_PID="$!"
             spinner "${INSTALL_PID}" "Installing packages"
@@ -427,6 +434,11 @@ process_queue() {
         fi
     else
         [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "No packages to install in Queue #${QUEUE_ID}."
+    fi
+
+    if [ "${FATAL_FAILURE}" = true ]; then
+        error "Fatal failure during package installation in Queue #${QUEUE_ID}."
+        return 1
     fi
 }
 
@@ -843,6 +855,9 @@ install_packages() {
         fi
         mapfile -t QUEUE_ARRAY < <(printf "%s\n" "${QUEUE}" | sed '/^$/d')
         process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
         QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
     done
 
@@ -851,6 +866,9 @@ install_packages() {
         local QUEUE_CONTENT="${TARGET_QUEUES[${TR}]}"
         IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE_CONTENT}")
         process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
         QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
     done
 
