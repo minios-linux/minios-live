@@ -1,8 +1,16 @@
 #!/bin/sh
+#set -x
 #
 # fluxbox startup-script:
 #
 # Lines starting with a '#' are ignored.
+
+# --- start logging setup ---
+LOGFILE="${HOME}/.fluxbox/startup.log"
+mkdir -p "$(dirname "$LOGFILE")"
+#exec >"$LOGFILE" 2>&1
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Fluxbox startup script started"
+# --- end logging setup ---
 
 # menu generation based on the current locale
 fbmenu >/root/.fluxbox/menu
@@ -17,7 +25,10 @@ xmodmap "/root/.Xmodmap"
 xrdb -merge ~/.Xresources
 
 # set keyboard layout
-fbsetkb $(cat ~/.fluxbox/kblayout)
+echo "$(setxkbmap -query | grep "layout" | awk '{print $2}')" >~/.fluxbox/kblayout
+if [ -n $(cat ~/.fluxbox/kblayout) ]; then
+    fbsetkb $(cat ~/.fluxbox/kblayout)
+fi
 
 # setup bookmarks for file manager
 gtk-bookmarks-update
@@ -102,12 +113,21 @@ xrandr 2>/dev/null | fgrep x | fgrep . | sort -n | tr -s " " | cut -d " " -f 2 |
 # If startup took longer (sound completed already), no extra wait
 wait $SOUNDPID
 
-# If we are running inside VirtualBox or vmware,
+# If we are running inside virtual environment,
 # switch to bigger screen size right away
-if [ "$(virt-what | egrep -i "virtualbox|vmware")" != "" ] && ! grep -q 'novrc' /proc/cmdline; then
-    # this is here to fix some strange virtualbox bug
-    # to adjust window size properly
-    fbscreensize 1440x900 -n
+
+# Function to check if running in a virtual environment
+is_virtual() {
+    grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "(Oracle|microsoft corporation|Bochs)" /sys/class/dmi/id/sys_vendor 2>/dev/null
+}
+
+# Function to check if guest utilities are installed and running
+guest_utils_active() {
+    pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [[ -d /proc/xen ]]
+}
+
+if is_virtual && ! guest_utils_active; then
+    #    fbscreensize 1440x900 -n
     fbscreensize 1280x800 -n
 fi
 
@@ -121,11 +141,23 @@ xfce4-panel --disable-wm-check --sm-client-disable &
     xprop -id $(wmctrl -l | grep xfce4-panel | cut -d " " -f 1) -format _NET_WM_STRUT 32c -set _NET_WM_STRUT "0,0,0,52"
 ) &
 
-# layout selector
-if command -v fbxkb >/dev/null 2>&1; then
-    fbxkb &
-fi
+# start keyboard layout switcher if available
+case $(cat ~/.fluxbox/kblayout) in
+us) ;;
+us,us) echo "us" >~/.fluxbox/kblayout ;;
+*)
+    command -v fbxkb >/dev/null 2>&1 && fbxkb &
+    ;;
+esac
+
+# start network manager applet if available
+command -v nm-applet >/dev/null 2>&1 && nm-applet &
 
 # And last but not least we start fluxbox.
-# Because it is the last app you have to run it with ''exec'' before it.
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Fluxbox startup script finished"
+
+# Set QT themes
+export QT_STYLE_OVERRIDE=gtk
+export QT_QPA_PLATFORMTHEME=gtk2
+
 exec fluxbox

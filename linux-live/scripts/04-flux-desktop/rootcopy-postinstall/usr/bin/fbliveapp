@@ -1,0 +1,112 @@
+#!/bin/bash
+
+LOCALE="$(echo $LANG | cut -d. -f1)"
+LNG="$(echo $LANG | cut -d_ -f1)"
+
+if [ "$LOCALE" != "en_US" ] && [ "$LOCALE" != "C" ]; then
+   case "$LOCALE" in
+   "es_ES" | "pt_BR")
+      LNG="$(echo $LOCALE | tr '[:upper:]' '[:lower:]')"
+      ;;
+   esac
+fi
+
+if [ "$1" = "vlc" ]; then
+   NAME="VLC Video Player"
+   ABOUT="VLC Video Player is a free and open source multimedia player
+and framework that plays most multimedia files as well as DVDs,
+Audio CDs, CVDs, and various streaming protocols."
+   EXECUTABLE="/usr/bin/vlc"
+   PREINSTALL="apt update"
+   INSTALL="apt install --yes vlc"
+   POSTINSTALL="rm /usr/share/applications/vlc.desktop; mkdir -p /home/guest/.config/vlc; echo '[qt4]
+qt-privacy-ask=0' > /home/guest/.config/vlc/vlcrc;"
+   GUEST=true
+fi
+
+if [ "$1" = "chromium" ]; then
+   NAME="Chromium Web Browser"
+   ABOUT="Chromium is a free and open source version of
+the famous Chrome browser, developed by Google."
+   EXECUTABLE="/usr/bin/chromium"
+   PREINSTALL="apt update"
+   INSTALL="apt install --yes chromium chromium-sandbox"
+   POSTINSTALL="rm -f /usr/share/applications/chromium.desktop"
+   GUEST=true
+fi
+
+if [ "$1" = "firefox-esr" ]; then
+   NAME="Firefox Web Browser"
+   ABOUT="Firefox is a free and open source browser."
+   EXECUTABLE="/usr/bin/firefox-esr"
+   PREINSTALL="apt update"
+   if [ "$LOCALE" != "en_US" ] && [ "$LOCALE" != "C" ]; then
+      INSTALL="apt install --yes firefox-esr firefox-esr-l10n-$LNG minios-welcome"
+   else
+      INSTALL="apt install --yes firefox-esr minios-welcome"
+   fi
+   POSTINSTALL="rm -f /usr/share/applications/firefox-esr.desktop"
+   GUEST=false
+fi
+
+if [ "$1" = "minios-installer" ]; then
+   NAME="MiniOS Installer"
+   ABOUT="MiniOS Installer allows you to install MiniOS on the media."
+   EXECUTABLE="/usr/bin/minios-installer"
+   PREINSTALL="apt update"
+   INSTALL="apt install --yes minios-installer"
+   POSTINSTALL="rm -f /usr/share/applications/yad-icon-browser.desktop  2>/dev/null; rm -f /usr/share/applications/minios-installer.desktop"
+   GUEST=false
+fi
+
+if [ "$1" = "minios-configurator" ]; then
+   NAME="MiniOS Configurator"
+   ABOUT="MiniOS Configurator allows you to configure MiniOS."
+   EXECUTABLE="/usr/bin/minios-configurator"
+   PREINSTALL="apt update"
+   INSTALL="apt install --yes minios-configurator"
+   POSTINSTALL="rm -f /usr/share/applications/yad-icon-browser.desktop 2>/dev/null; rm -f /usr/share/applications/minios-configurator.desktop"
+   GUEST=false
+fi
+
+shift
+
+# ------------------------------------------------
+#   do not touch anything below this line
+# ------------------------------------------------
+
+if [ "$ABOUT" != "" ]; then
+   ABOUT="$ABOUT
+
+"
+fi
+
+if [ "$EXECUTABLE" = "" ]; then
+   exit
+fi
+
+if [ ! -f "$EXECUTABLE" ]; then
+
+   if [ $(uname -m) != 'x86_64' -a "$ONLY64" = "true" ]; then
+      gtkask -i /usr/share/icons/gnome/16x16/status/dialog-warning.png -t Error -m "$NAME only works in 64bit version of MiniOS" -y OK
+      exit 1
+   fi
+
+   if gtkask -i /usr/share/icons/gnome/16x16/status/dialog-question.png -t Question -m "$ABOUT$NAME is not yet installed.
+Do you like to download and install it now?" -y Yes -n No; then
+      xterm -ls -e bash --login -c -- "$PREINSTALL; $INSTALL; $POSTINSTALL"
+   fi
+fi
+
+if [ -f "$EXECUTABLE" ]; then
+
+   fbstartupnotify
+
+   if [ "$GUEST" = "true" -a "$EUID" -eq 0 ]; then
+      xhost + >/dev/null 2>/dev/null
+      exec su -c "$EXECUTABLE "$@"" guest
+   fi
+
+   exec "$EXECUTABLE" "$@"
+
+fi

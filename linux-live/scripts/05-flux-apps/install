@@ -6,6 +6,10 @@
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+if [ $? -ne 0 ]; then
+    echo "Failed to install packages."
+    exit 1
+fi
 
 if [ $LOCALE = "en_US" ]; then
     sed -i '114G' /etc/skel/.fluxbox/startup

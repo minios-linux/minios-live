@@ -25,6 +25,10 @@ spinner "${DEBCONF_PID}" "Applying debconf settings"
 wait "${DEBCONF_PID}"
 
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+if [ $? -ne 0 ]; then
+    echo "Failed to install packages."
+    exit 1
+fi
 
 if [ -f "/usr/share/applications/yad-icon-browser.desktop" ]; then
     rm -f /usr/share/applications/yad-icon-browser.desktop
@@ -36,26 +40,19 @@ fi
 
 if ([ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]) && ! pkg_is_installed "codium"; then
     if [ "$VERBOSITY_LEVEL" -ge 1 ]; then
-        wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
+        curl -LJO $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
             grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
             sed -E 's/.*"([^"]+)".*/\1/')
         apt-get update
         apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb)
     else
-        wget $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
-            grep '"browser_download_url":' | grep "$DISTRIBUTION_ARCH.deb"\" |
-            sed -E 's/.*"([^"]+)".*/\1/') >/dev/null 2>&1 &
-        WGET_PID="$!"
-        spinner "${WGET_PID}" "Downloading VSCodium"
-        wait "${WGET_PID}"
-        DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
-        APT_PID="$!"
-        spinner "${APT_PID}" "Updating package lists"
-        wait "${APT_PID}"
-        apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb) >/dev/null 2>&1 &
-        APT_PID="$!"
-        spinner "${APT_PID}" "Installing VSCodium"
-        wait "${APT_PID}"
+        run_with_spinner "Downloading VSCodium" bash -c '
+            curl -sLJO $(curl --silent "https://api.github.com/repos/VSCodium/vscodium/releases/latest" |
+                grep '"'"browser_download_url"'"': | grep "$DISTRIBUTION_ARCH.deb"\" |
+                sed -E "s/.*\"([^\"]+)\".*/\1/")
+        '
+        run_with_spinner "Updating package lists" apt-get update --allow-releaseinfo-change
+        run_with_spinner "Installing VSCodium" apt-get -y install ./$(ls codium*$DISTRIBUTION_ARCH.deb)
     fi
     if [ "$USE_APT_CACHE" = "true" ]; then
         cp -f ./$(ls codium*$DISTRIBUTION_ARCH.deb) /var/cache/apt/archives/
@@ -104,11 +101,11 @@ fi
 if [ -f "/usr/share/applications/gnumeric.desktop" ]; then
     sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
 fi
-if ! dpkg -l | grep -q clonezilla; then
+if ! pkg_is_installed "clonezilla"; then
     rm -f /usr/sbin/clonezilla.sh
     rm -f /usr/share/applications/clonezilla.desktop
     rm -f /usr/share/pixmaps/ocslogo.png
 fi
-if dpkg -l | grep -q gnome-software; then
+if pkg_is_installed "gnome-software"; then
     mkdir -p /var/cache/swcatalog/cache
 fi

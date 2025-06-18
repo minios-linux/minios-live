@@ -1,0 +1,59 @@
+#!/bin/bash
+
+export TEXTDOMAIN="flux-tools"
+
+create_desktop_file() {
+    APP_NAME="$(gettext "$1")"
+    EXEC_COMMAND="$2"
+    ICON_NAME="$3"
+    CATEGORIES="$4"
+    MIME_TYPE="$5"
+    STARTUP_WM_CLASS="$6"
+    HIDDEN="$7"
+
+    # Extract the actual command from EXEC_COMMAND
+    if echo "$EXEC_COMMAND" | grep -q "fbliveapp"; then
+        ACTUAL_COMMAND=$(echo "$EXEC_COMMAND" | awk '{print $2}')
+        CHECK="false"
+    else
+        ACTUAL_COMMAND=$(echo "$EXEC_COMMAND" | awk '{print $1}')
+        CHECK="true"
+    fi
+
+    # Generate the desktop filename, append '-flux' suffix
+    FILENAME="${ACTUAL_COMMAND}-flux"
+
+    # Check if command exists on the system
+    if [ $CHECK = "false" ] || command -v $ACTUAL_COMMAND >/dev/null 2>&1; then
+        # Create the applications directory if it doesn't exist
+        mkdir -p /usr/share/applications
+
+        # Write the .desktop file
+        echo "[Desktop Entry]
+Version=1.0
+Name=$APP_NAME
+Exec=$EXEC_COMMAND
+Terminal=false
+Type=Application
+Icon=$ICON_NAME
+Categories=$CATEGORIES
+MimeType=$MIME_TYPE
+StartupWMClass=$STARTUP_WM_CLASS
+StartupNotify=true
+Hidden=$HIDDEN" >/usr/share/applications/${FILENAME}.desktop
+    fi
+}
+
+# Call function with different parameters
+create_desktop_file "Web Browser" "fbliveapp firefox-esr %U" "firefox-esr" "Network;WebBrowser;" "audio/*;image/*;video/*;application/pdf;application/x-pdf;text/html;text/xml;application/xhtml_xml;application/x-mimearchive;x-scheme-handler/http;x-scheme-handler/https;" "firefox" "false"
+create_desktop_file "Image Viewer" "feh %U" "none.png" "Graphics;2DGraphics;RasterGraphics;" "image/*;" "feh" "true"
+create_desktop_file "Video Player" "fbliveapp vlc" "multimedia-video-player" "AudioVideo;Player;" "" "" "false"
+create_desktop_file "Terminal" "xterm -ls" "utilities-terminal" "System;Utility;" "" "" "false"
+create_desktop_file "Install MiniOS" "fbliveapp minios-installer" "usb-creator-gtk" "GTK;System;Settings;" "" "" "false"
+create_desktop_file "Configure MiniOS" "fbliveapp minios-configurator" "menulibre" "GTK;System;Settings;" "" "" "false"
+create_desktop_file "Archiver" "xarchiver %f" "xarchiver" "GTK;Archiving;Compression;Utility;" "application/x-arj;application/arj;application/x-bzip;application/x-bzip-compressed-tar;application/x-gzip;application/x-rar;application/x-rar-compressed;application/x-tar;application/x-zip;application/x-zip-compressed;application/zip;application/x-7z-compressed;application/x-compressed-tar;application/x-bzip2;application/x-bzip2-compressed-tar;application/x-lzma-compressed-tar;application/x-lzma;application/x-deb;application/deb;application/x-xz;application/x-xz-compressed-tar;" "xarchiver" "false"
+create_desktop_file "File Manager" "pcmanfm %U" "system-file-manager" "System;FileTools;FileManager;Utility;Core;GTK;" "inode/directory;" "pcmanfm" "false"
+create_desktop_file "Text Editor" "mousepad %f" "org.xfce.mousepad" "GTK;Utility;TextEditor;" "text/plain;" "mousepad" "false"
+create_desktop_file "Task Manager" "lxtask" "utilities-system-monitor" "GTK;System;Monitor;" "" "lxtask" "false"
+#create_desktop_file "Net Manager" "connman-gtk" "preferences-system-network" "" "" "connman-gtk" "false"
+create_desktop_file "Calculator" "galculator" "galculator" "Utility" "" "false" "false"

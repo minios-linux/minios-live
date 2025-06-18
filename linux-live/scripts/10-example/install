@@ -16,6 +16,10 @@ PACKAGE_GROUP="libvirt"
 # automatically copied to the chroot before the build starts, so you can use
 # them in your module build scripts.
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+if [ $? -ne 0 ]; then
+    echo "Failed to install packages."
+    exit 1
+fi
 
 # Script to allow the user with ID 1000 (first created user) to use the
 # libvirt daemon and manage virtual machines.
