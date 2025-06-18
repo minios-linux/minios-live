@@ -58,6 +58,10 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
 
     # Call the external condinaut command with the combined list.
     /condinaut -l "${TMP_COMBINED}" -c "/minios_build.conf" -m "/condinaut.conf"
+    if [ $? -ne 0 ]; then
+        error "Failed to install packages."
+        exit 1
+    fi
 
     # Clean up the temporary file.
     rm -f "${TMP_COMBINED}"

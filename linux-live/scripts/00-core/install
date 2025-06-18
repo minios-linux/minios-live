@@ -101,6 +101,10 @@ run_with_spinner "Upgrading installed packages" apt-get upgrade -y
 
 chmod +x /linux-live/condinaut
 /linux-live/condinaut -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/condinaut.conf"
+if [ $? -ne 0 ]; then
+    echo "Failed to install packages."
+    exit 1
+fi
 
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
