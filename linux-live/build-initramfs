@@ -22,13 +22,10 @@ chmod 755 ./mkinitrfs
 
 TMPFILE=$(mktemp)
 if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-	./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE" 2>&1 &
+	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE"
 else
-	./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE" 2>&1 &
+	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE"
 fi
-MKINIT_PID=$!
-spinner "${MKINIT_PID}" "Building initramfs image"
-wait "${MKINIT_PID}"
 
 INITRAMFS=$(tail -n 1 "$TMPFILE" | xargs)
 rm "$TMPFILE"
