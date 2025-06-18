@@ -6,8 +6,10 @@
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
-
-(cd /rootcopy-install && cp --parents -afr * /)
+if [ $? -ne 0 ]; then
+    echo "Failed to install packages."
+    exit 1
+fi
 
 rm -f /usr/share/applications/chromium-flux.desktop
 rm -f /usr/share/applications/compton.desktop

@@ -13,3 +13,7 @@ echo "firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true" | debconf
 echo "b43-fwcutter b43-fwcutter/install-unconditional boolean true" | debconf-set-selections
 
 /condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+if [ $? -ne 0 ]; then
+    error "Failed to install packages."
+    exit 1
+fi

@@ -71,6 +71,10 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
 
     # Call the external condinaut script.
     /condinaut -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/condinaut.conf"
+    if [ $? -ne 0 ]; then
+        echo "Failed to install packages."
+        exit 1
+    fi
 
     # If installing from the repository, hold the kernel package.
     if [ ! -d "/rootcopy-install" ] || [ -z "${DEB}" ]; then
