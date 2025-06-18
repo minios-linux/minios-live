@@ -27,11 +27,14 @@ else
     : "${BUILD_CONF:="$BUILD_SCRIPTS_DIR/build.conf"}"
     : "${BUILD_DIR:="$SCRIPT_DIR/build"}"
 fi
+export DEBIAN_FRONTEND=noninteractive
 
 MINIOSLIB="${BUILD_SCRIPTS_DIR}/minioslib"
 
 # ---[ SOURCE FILES ]---
 . "$MINIOSLIB" || exit 1
+
+console_colors
 
 # ---[ INITIALIZE BUILD DIRECTORY & CONFIGURATION ]---
 if [[ "$MAIN_EXECUTABLE" = "minios-cmd" && ! -f "$BUILD_CONF" ]]; then
@@ -45,7 +48,7 @@ fi
 . "$BUILD_CONF" || exit 1
 export VERBOSITY_LEVEL
 
-[ "${VERBOSITY_LEVEL}" -ge 2 ] && set -x
+[ "${VERBOSITY_LEVEL}" -ge 2 ] && export PS4='+ ${BASH_SOURCE}:${LINENO}: ' && set -x
 
 # ---[ FUNCTIONS ]---
 help() {
@@ -104,8 +107,6 @@ set -- "${ARGS[@]}"
 trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"; [ "${USE_APT_CACHE_REPO}" = "true" ] && stop_http_server' EXIT
 
 common_variables
-
-console_colors
 
 allow_root_only
 
