@@ -8,18 +8,18 @@
 # --- start logging setup ---
 LOGFILE="${HOME}/.fluxbox/startup.log"
 mkdir -p "$(dirname "$LOGFILE")"
-#exec >"$LOGFILE" 2>&1
+exec >"$LOGFILE" 2>&1
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Fluxbox startup script started"
 # --- end logging setup ---
 
 # menu generation based on the current locale
-fbmenu >/root/.fluxbox/menu
+fbmenu >${HOME}/.fluxbox/menu
 
 # desktop file generation based on the current locale
 fbdesktop
 
 # Change your keymap:
-xmodmap "/root/.Xmodmap"
+xmodmap "${HOME}/.Xmodmap"
 
 # merge xresource settings
 xrdb -merge ~/.Xresources
@@ -31,15 +31,20 @@ if [ -n $(cat ~/.fluxbox/kblayout) ]; then
 fi
 
 # setup bookmarks for file manager
-gtk-bookmarks-update
 
-# Share common directories with guest user. This is necessary
-# because some apps like chromium must be running under guest
-for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-    if ! mountpoint /root/$dir; then
-        mount --bind /home/guest/$dir /root/$dir
-    fi
-done
+if [ "$(id -u)" -eq 0 ]; then
+    gtk-bookmarks-update
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    # Share common directories with guest user. This is necessary
+    # because some apps like chromium must be running under guest
+    for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+        if ! mountpoint ${HOME}/$dir; then
+            mount --bind /home/guest/$dir ${HOME}/$dir
+        fi
+    done
+fi
 
 # set background color and big wait mouse cursor
 xsetroot -solid '#111111'
@@ -91,7 +96,7 @@ rm -f $SIGNAL2 2>/dev/null
     done
     touch $SIGNAL2
 
-    exec compton --sw-opti -e 0.9 --shadow-exclude 'class_g="xlunch-windowed"' --fade-exclude 'role*="fluxbox-toolbar"' --opacity-rule '70:role*="fluxbox-toolbar"' --no-fading-destroyed-argb -D 5 -c -f -l -2 -t -2 -r 0 -o 1 -z --shadow-exclude 'bounding_shaped'
+    exec compton --sw-opti --shadow-exclude 'class_g="xlunch-windowed"' --fade-exclude 'role*="fluxbox-toolbar"' --opacity-rule '70:role*="fluxbox-toolbar"' --no-fading-destroyed-argb -D 5 -c -f -l -2 -t -2 -r 3 -o 1 -z --shadow-exclude 'bounding_shaped'
 ) &
 
 # We wait after background is set and compton is started

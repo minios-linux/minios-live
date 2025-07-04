@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+
+  <!-- Начало основного меню -->
+  <menu id="root-menu" label="Рабочее меню">
+
+    <!-- Запуск терминала -->
+    <item label="Терминал">
+      <action name="Execute">
+        <command>xterm -ls</command>
+      </action>
+    </item>
+
+    <!-- Файловый менеджер -->
+    <item label="Файловый менеджер">
+      <action name="Execute">
+        <command>pcmanfm</command>
+      </action>
+    </item>
+
+    <!-- Веб‑браузер -->
+    <item label="Веб‑браузер">
+      <action name="Execute">
+        <command>fbliveapp firefox-esr</command>
+      </action>
+    </item>
+
+    <!-- Текстовый редактор -->
+    <item label="Текстовый редактор">
+      <action name="Execute">
+        <command>mousepad</command>
+      </action>
+    </item>
+
+    <!-- Калькулятор -->
+    <item label="Калькулятор">
+      <action name="Execute">
+        <command>galculator</command>
+      </action>
+    </item>
+
+    <!-- Запустить… -->
+    <item label="Запустить">
+      <action name="Execute">
+        <command>fbappselect</command>
+      </action>
+    </item>
+
+    <separator/>
+
+    <!-- Список рабочих пространств -->
+    <item label="Рабочие пространства">
+      <action name="ShowMenu">
+        <menu>workspace-menu</menu>
+      </action>
+    </item>
+
+    <!-- Подменю разрешений экрана -->
+    <menu id="resolution-menu" label="Разрешение экрана">
+      <!-- Здесь вы можете либо вручную вставить все режимы, -->
+      <!-- либо генерировать их скриптом и подключать через pipe-menu. -->
+      <!-- Пример ручного списка: -->
+      <item label="640x480">
+        <action name="Execute">
+          <command>xrandr --output HDMI1 --mode 640x480</command>
+        </action>
+      </item>
+      <item label="800x600">
+        <action name="Execute">
+          <command>xrandr --output HDMI1 --mode 800x600</command>
+        </action>
+      </item>
+      <!-- … остальные разрешения … -->
+      <item label="1920x1080">
+        <action name="Execute">
+          <command>xrandr --output HDMI1 --mode 1920x1080</command>
+        </action>
+      </item>
+    </menu>
+
+    <!-- Подменю раскладки клавиатуры -->
+    <menu id="kbd-menu" label="Раскладка клавиатуры">
+      <item label="English">
+        <action name="Execute">
+          <command>fbsetkb us</command>
+        </action>
+        <icon>/usr/share/icons/locolor/16x16/flags/flag_usa.png</icon>
+      </item>
+      <item label="Русский">
+        <action name="Execute">
+          <command>fbsetkb ru</command>
+        </action>
+        <icon>/usr/share/icons/locolor/16x16/flags/flag_russia.png</icon>
+      </item>
+    </menu>
+
+    <separator/>
+
+    <!-- Выход из сессии -->
+    <item label="Выход">
+      <action name="Execute">
+        <command>fblogout</command>
+      </action>
+    </item>
+
+  </menu>
+
+  <!-- Определяем меню рабочих пространств, Openbox умеет автоматически -->
+  <menu id="workspace-menu" label="Выбрать рабочее пространство">
+    <workspaceList/>
+  </menu>
+
+</openbox_menu>

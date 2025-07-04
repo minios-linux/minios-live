@@ -9,6 +9,8 @@ After=systemd-user-sessions.service
 
 [Service]
 ExecStart=/usr/bin/start-xorg.sh
+ExecStop=/usr/bin/stop-xorg.sh
+TimeoutStopSec=20s
 
 [Install]
 WantedBy=graphical.target

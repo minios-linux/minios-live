@@ -9,5 +9,9 @@ for _FILE in /etc/live/config.conf /etc/live/config.conf.d/*.conf; do
 done
 set +o allexport
 
-# Start the X server as the user specified in the $LIVE_USERNAME variable
-exec /bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $LIVE_USERNAME
+# First, try to gracefully terminate the X session
+pkill -TERM -u "$LIVE_USERNAME" Xorg
+sleep 1
+
+# If there are still processes left – force kill them
+pkill -KILL -u "$LIVE_USERNAME" Xorg
