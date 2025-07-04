@@ -1,0 +1,133 @@
+#!/bin/sh
+# Openbox autostart script converted from Fluxbox
+
+set -x
+
+# --- start logging setup ---
+LOGFILE="${HOME}/.config/openbox/autostart.log"
+mkdir -p "$(dirname "$LOGFILE")"
+exec >"$LOGFILE" 2>&1
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Openbox autostart script started"
+# --- end logging setup ---
+
+# Merge X resources
+xrdb -merge "${HOME}/.Xresources"
+
+# Load Xmodmap
+xmodmap "${HOME}/.Xmodmap" 2>/dev/null || {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Warning: .Xmodmap not found or failed to load."
+}
+
+# Save and set keyboard layout
+KBLAYOUT=$(setxkbmap -query | awk '/layout:/ {print $2}')
+echo "$KBLAYOUT" >"${HOME}/.config/openbox/kblayout"
+[ -n "$KBLAYOUT" ] && setxkbmap "$KBLAYOUT"
+
+# Update GTK bookmarks if root
+if [ "$(id -u)" -eq 0 ]; then
+    gtk-bookmarks-update
+fi
+
+# Bind guest directories (if running as root)
+if [ "$(id -u)" -eq 0 ]; then
+    for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+        if [ -d "/home/guest/$dir" ] && ! mountpoint -q "${HOME}/$dir"; then
+            mount --bind "/home/guest/$dir" "${HOME}/$dir"
+        fi
+    done
+fi
+
+# Set background color and cursor
+xsetroot -solid '#111111'
+xsetroot -xcf /usr/share/icons/breeze_cursors/cursors/watch 37
+
+# Disable screen blanking
+xset s off
+xset -dpms
+
+# Preload binaries
+(
+    compton --help
+    openbox --help
+    xfce4-panel --help
+) >/dev/null 2>&1
+
+# Play startup sound with a brief black screen delay
+SND=/usr/share/sounds/startup.wav
+if [ -r "$SND" ]; then
+    aplay "$SND" &
+    sleep 1
+fi
+
+# If fbautostart exists, run it too
+command -v fbautostart >/dev/null && fbautostart &
+
+# Start Compton after Openbox has set the background
+# We wait for the ~/.fehbg file (created by feh) as signal
+FEHBG="${HOME}/.fehbg"
+COMPTON_SIG="${HOME}/.config/openbox/.compton_started"
+
+rm -f "$COMPTON_SIG"
+if command -v compton >/dev/null; then
+    (
+        while [ ! -f "$FEHBG" ]; do sleep 0.1; done
+        touch "$COMPTON_SIG"
+        exec compton --sw-opti -e 0.9 \
+            --shadow-exclude 'class_g="xlunch-windowed"' \
+            --fade-exclude 'role*="openbox"' \
+            --opacity-rule '70:role*="openbox"' \
+            --no-fading-destroyed-argb \
+            -D 5 -c -f -l -2 -t -2 -r 0 -o 1 -z \
+            --shadow-exclude 'bounding_shaped'
+    ) &
+fi
+
+# Start volumeicon after Compton is up
+(
+    while [ ! -f "$COMPTON_SIG" ]; do sleep 0.1; done
+    rm -f "$COMPTON_SIG"
+    exec volumeicon
+) &
+
+# Generate screen resolutions menu (if using dynamic menu scripts)
+xrandr 2>/dev/null | awk '/[0-9]+x[0-9]+/ {print "[exec] "$1" {xrandr --output $(xrandr | grep " connected" | cut -d" " -f1) --mode "$1"}"}' \
+    >"${HOME}/.config/openbox/menu_resolution"
+
+# If in VM and guest utils inactive, set smaller resolution
+is_virtual() {
+    grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null ||
+        grep -qEi "(Oracle|microsoft corporation|Bochs)" /sys/class/dmi/id/sys_vendor 2>/dev/null
+}
+guest_utils_active() {
+    pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [ -d /proc/xen ]
+}
+if is_virtual && ! guest_utils_active; then
+    xrandr --output "$(xrandr | awk '/ connected/ {print $1}')" --mode 1280x800
+fi
+
+# Set wallpaper using feh
+feh --no-fehbg --bg-fill "/usr/share/wallpapers/flux_wallpaper.jpg"
+
+# Start XFCE4 panel
+xfce4-panel --disable-wm-check --sm-client-disable &
+
+# Adjust XFCE4-panel strut
+(
+    while ! wmctrl -l | grep -q xfce4-panel; do sleep 0.1; done
+    PANEL_ID=$(wmctrl -l | grep xfce4-panel | awk '{print $1}')
+    xprop -id "$PANEL_ID" -format _NET_WM_STRUT 32c -set _NET_WM_STRUT "0,0,0,52"
+) &
+
+# Keyboard-layout switcher (if installed)
+case "$(cat "${HOME}/.config/openbox/kblayout")" in
+us) ;;
+us,us) echo "us" >"${HOME}/.config/openbox/kblayout" ;;
+*)
+    command -v fbxkb >/dev/null 2>&1 && fbxkb &
+    ;;
+esac
+
+# Network manager applet
+command -v nm-applet >/dev/null && nm-applet &
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Openbox autostart script finished"

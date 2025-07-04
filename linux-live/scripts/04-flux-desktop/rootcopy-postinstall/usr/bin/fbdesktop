@@ -2,6 +2,12 @@
 
 export TEXTDOMAIN="flux-tools"
 
+if [ "$(id -u)" -eq 0 ]; then
+    APPDIR="/usr/share/applications"
+else
+    APPDIR="$HOME/.local/share/applications"
+fi
+
 create_desktop_file() {
     APP_NAME="$(gettext "$1")"
     EXEC_COMMAND="$2"
@@ -25,8 +31,15 @@ create_desktop_file() {
 
     # Check if command exists on the system
     if [ $CHECK = "false" ] || command -v $ACTUAL_COMMAND >/dev/null 2>&1; then
+
+        # Avoid duplicating system desktop files in user dir
+        if [ "$APPDIR" != "/usr/share/applications" ] && \
+           [ -e "/usr/share/applications/${FILENAME}.desktop" ]; then
+            return
+        fi
+
         # Create the applications directory if it doesn't exist
-        mkdir -p /usr/share/applications
+        mkdir -p "$APPDIR"
 
         # Write the .desktop file
         echo "[Desktop Entry]
@@ -40,7 +53,7 @@ Categories=$CATEGORIES
 MimeType=$MIME_TYPE
 StartupWMClass=$STARTUP_WM_CLASS
 StartupNotify=true
-Hidden=$HIDDEN" >/usr/share/applications/${FILENAME}.desktop
+Hidden=$HIDDEN" >"$APPDIR/${FILENAME}.desktop"
     fi
 }
 
