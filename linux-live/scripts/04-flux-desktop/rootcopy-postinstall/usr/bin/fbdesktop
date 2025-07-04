@@ -35,6 +35,8 @@ create_desktop_file() {
         # Avoid duplicating system desktop files in user dir
         if [ "$APPDIR" != "/usr/share/applications" ] && \
            [ -e "/usr/share/applications/${FILENAME}.desktop" ]; then
+            # remove old user copy if present
+            rm -f "$APPDIR/${FILENAME}.desktop"
             return
         fi
 
