@@ -76,13 +76,13 @@ read_cmdline() {
         live-config.debug | debug)
             LIVE_CONFIG_DEBUG="true"
             ;;
-        default_target=*)
+        default_target=* | default-target=*)
             DEFAULT_TARGET="${i#*=}"
             ;;
-        enable_services=*)
+        enable_services=* | enable-services=*)
             ENABLE_SERVICES="${i#*=}"
             ;;
-        disable_services=*)
+        disable_services=* | disable-services=*)
             DISABLE_SERVICES="${i#*=}"
             ;;
         esac

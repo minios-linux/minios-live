@@ -62,10 +62,10 @@ if [ "${MULTILINGUAL}" = "true" ]; then
 fi
 
 apply_debconf() {
-  for SETTING in "${DEBCONF_SETTINGS[@]}"; do
-    echo "${SETTING}" \
-      | debconf-set-selections -v
-  done
+    for SETTING in "${DEBCONF_SETTINGS[@]}"; do
+        echo "${SETTING}" |
+            debconf-set-selections -v
+    done
 }
 
 run_with_spinner "Applying debconf settings" apply_debconf
@@ -255,7 +255,10 @@ if pkg_is_installed "locales"; then
 fi
 
 # set root password for debugging purposes
-#echo root:toor | chpasswd
+if [ "${DEBUG_SET_ROOT_PASSWORD}" = "true" ]; then
+    #echo root:toor | chpasswd
+    echo "root:${LIVE_ROOT_PASSWORD_CRYPTED}" | chpasswd -e
+fi
 
 cp -f /etc/skel/.bashrc /root/
 
