@@ -24,6 +24,8 @@ New to MiniOS? Start with our comprehensive [Quick Start Guide](https://github.c
 
 * For information on building MiniOS and modifying modules, read the [Building MiniOS Guide](https://github.com/minios-linux/minios-live/wiki/Building-MiniOS).
 
-## ✍️ Author
+## ✍️ Authors
 
-Created by [crims0n](https://github.com/crim50n).  Learn more at [minios.dev](https://minios.dev).
+MiniOS was created by [crims0n](https://github.com/crim50n). Learn more at [minios.dev](https://minios.dev).
+
+Development was made possible thanks to the valuable contributions of [.nemesis](https://github.com/zukhovich) and [FershoUno](https://github.com/fershouno).
