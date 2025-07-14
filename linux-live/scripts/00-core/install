@@ -99,8 +99,8 @@ run_with_spinner "Updating package lists" apt-get update --allow-releaseinfo-cha
 
 run_with_spinner "Upgrading installed packages" apt-get upgrade -y
 
-chmod +x /linux-live/condinaut
-/linux-live/condinaut -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/condinaut.conf"
+chmod +x /linux-live/condinapt
+/linux-live/condinapt -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/condinapt.map"
 if [ $? -ne 0 ]; then
     echo "Failed to install packages."
     exit 1

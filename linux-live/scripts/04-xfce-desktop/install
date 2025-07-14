@@ -37,7 +37,7 @@ EOF'
     ;;
 esac
 
-/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+/condinapt -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
 if [ $? -ne 0 ]; then
     echo "Failed to install packages."
     exit 1

@@ -1,13 +1,9 @@
 #!/bin/bash
 #
-# NAME: Condinaut
+# NAME: CondinAPT
 #
 # DESCRIPTION:
 #   Installs packages from a package list file with conditions.
-#   All filter information is automatically loaded from an external filter mapping file.
-#   In addition, an optional priority package list can be provided; packages from this
-#   list will be installed in a dedicated priority queue (processed first), overriding
-#   their presence in the main package list.
 #
 # USAGE:
 #   $(basename "${0}") [OPTIONS]
@@ -16,7 +12,7 @@
 #     -l, --package-list PATH       Path to the package list file.
 #     -c, --config PATH             Path to the main configuration file
 #     -C, --check-only              Only check if packages exist (no actual installation).
-#     -m, --filter-mapping PATH     Path to the filter mapping file.
+#     -m, --filter-mapping PATH     Path to the filter mapping file (Optional).
 #     -P, --priority-list PATH      (Optional) Path to a priority package list file.
 #                                   Packages here are installed in a dedicated queue.
 #     -s, --simulation              Enable simulation mode (no actual installation).
@@ -108,7 +104,7 @@ help() {
     echo "  -l, --package-list PATH       Path to the package list file."
     echo "  -c, --config PATH             Path to the main configuration file."
     echo "  -C, --check-only              Only check if packages exist (no actual installation)."
-    echo "  -m, --filter-mapping PATH     Path to the filter mapping file."
+    echo "  -m, --filter-mapping PATH     Path to the filter mapping file (Optional)."
     echo "  -P, --priority-list PATH      Path to a priority package list file (Optional)."
     echo "                                Packages here are installed in a dedicated queue."
     echo "  -s, --simulation              Enable simulation mode (no actual installation)."
@@ -205,23 +201,42 @@ process_condition() {
     for FILTER in "${FILTERS[@]}"; do
         case "${FILTER}" in
         +\{*)
-            # Process a group of alternative positive filters.
             local GROUP_CONTENT="${FILTER#+\{}"
             GROUP_CONTENT="${GROUP_CONTENT%\}}"
-            local GROUP_PASSED=false
-            IFS='|' read -r -a GROUP_FILTERS <<<"${GROUP_CONTENT}"
-            for ALT_FILTER in "${GROUP_FILTERS[@]}"; do
-                ALT_FILTER="$(echo "${ALT_FILTER}" | xargs)"
-                if check_filter "${ALT_FILTER}"; then
-                    GROUP_PASSED=true
-                    [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Group: '${ALT_FILTER}' ${GREEN}Passed${ENDCOLOR}]; "
-                    break
-                else
-                    [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Group: '${ALT_FILTER}' ${RED}Failed${ENDCOLOR}]; "
+            if [[ "${GROUP_CONTENT}" == *"&"* ]]; then
+                # Process a group of mandatory positive filters (+{a&b}).
+                local ALL_PASSED=true
+                IFS='&' read -r -a GROUP_FILTERS <<<"${GROUP_CONTENT}"
+                for AND_FILTER in "${GROUP_FILTERS[@]}"; do
+                    AND_FILTER="$(echo "${AND_FILTER}" | xargs)"
+                    if check_filter "${AND_FILTER}"; then
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Group&: '${AND_FILTER}' ${GREEN}Passed${ENDCOLOR}]; "
+                    else
+                        ALL_PASSED=false
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Group&: '${AND_FILTER}' ${RED}Failed${ENDCOLOR}]; "
+                        break
+                    fi
+                done
+                if ! ${ALL_PASSED}; then
+                    INCLUDE=false
                 fi
-            done
-            if ! ${GROUP_PASSED}; then
-                INCLUDE=false
+            else
+                # Process a group of alternative positive filters (+{a|b}).
+                local GROUP_PASSED=false
+                IFS='|' read -r -a GROUP_FILTERS <<<"${GROUP_CONTENT}"
+                for ALT_FILTER in "${GROUP_FILTERS[@]}"; do
+                    ALT_FILTER="$(echo "${ALT_FILTER}" | xargs)"
+                    if check_filter "${ALT_FILTER}"; then
+                        GROUP_PASSED=true
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Group|: '${ALT_FILTER}' ${GREEN}Passed${ENDCOLOR}]; "
+                        break
+                    else
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Group|: '${ALT_FILTER}' ${RED}Failed${ENDCOLOR}]; "
+                    fi
+                done
+                if ! ${GROUP_PASSED}; then
+                    INCLUDE=false
+                fi
             fi
             ;;
         +*)
@@ -236,8 +251,45 @@ process_condition() {
                 [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[+${FILTER_VALUE} ${RED}Failed${ENDCOLOR}]; "
             fi
             ;;
+        -\{*)
+            local GROUP_CONTENT="${FILTER#-\{}"
+            GROUP_CONTENT="${GROUP_CONTENT%\}}"
+            if [[ "${GROUP_CONTENT}" == *"&"* ]]; then
+                # Process a group of mandatory negative filters (-{a&b}).
+                # Exclude only if ALL conditions are true.
+                local ALL_NEGATIVE_CONDITIONS_MET=true
+                IFS='&' read -r -a GROUP_FILTERS <<<"${GROUP_CONTENT}"
+                for AND_FILTER in "${GROUP_FILTERS[@]}"; do
+                    AND_FILTER="$(echo "${AND_FILTER}" | xargs)"
+                    if ! check_filter "${AND_FILTER}"; then
+                        ALL_NEGATIVE_CONDITIONS_MET=false
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Neg-Group&: '${AND_FILTER}' ${GREEN}Passed${ENDCOLOR}]; "
+                        break
+                    else
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Neg-Group&: '${AND_FILTER}' ${RED}Failed${ENDCOLOR}]; "
+                    fi
+                done
+                if ${ALL_NEGATIVE_CONDITIONS_MET}; then
+                    INCLUDE=false
+                fi
+            else
+                # Process a group of alternative negative filters (-{a|b}).
+                # Exclude if ANY condition is true.
+                IFS='|' read -r -a GROUP_FILTERS <<<"${GROUP_CONTENT}"
+                for OR_FILTER in "${GROUP_FILTERS[@]}"; do
+                    OR_FILTER="$(echo "${OR_FILTER}" | xargs)"
+                    if check_filter "${OR_FILTER}"; then
+                        INCLUDE=false
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Neg-Group|: '${OR_FILTER}' ${RED}Failed${ENDCOLOR}]; "
+                        break
+                    else
+                        [ "${VERBOSITY_LEVEL}" -ge 1 ] && FILTER_STRING+="[Neg-Group|: '${OR_FILTER}' ${GREEN}Passed${ENDCOLOR}]; "
+                    fi
+                done
+            fi
+            ;;
         -*)
-            # Process a negative filter with the desired output format.
+            # Process a negative filter.
             local FILTER_VALUE="${FILTER#-}"
             if check_filter "${FILTER_VALUE}"; then
                 INCLUDE=false
@@ -569,9 +621,11 @@ check_filter() {
     local FILTER="${1}"
     local PREFIX="${FILTER%%=*}"
     local VALUE="${FILTER#*=}"
-    local VAR_NAME="${FILTER_ENV_VARS[${PREFIX}]}"
+    local VAR_NAME="${FILTER_ENV_VARS[${PREFIX}]:-}"
+
+    # If the prefix is not in the mapping file, use the prefix itself as the variable name.
     if [ -z "${VAR_NAME}" ]; then
-        return 1
+        VAR_NAME="${PREFIX}"
     fi
 
     # Check if the target variable is an array.
@@ -758,8 +812,8 @@ install_packages() {
     fi
 
     if [[ -z "${FILTER_MAPPING_FILE}" ]]; then
-        error "No filter mapping file provided. Use -m to specify it."
-        exit 1
+        warning "No filter mapping file provided. Use -m to specify it."
+        #exit 1
     else
         load_filter_mapping "${FILTER_MAPPING_FILE}"
     fi

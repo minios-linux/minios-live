@@ -35,7 +35,7 @@ elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
 fi
 
-# Create a temporary package list file for condinaut.
+# Create a temporary package list file for condinapt.
 TMP_PKGLIST=$(mktemp /tmp/kernel-package.list.XXXXXX)
 
 if [ "${KERNEL_TYPE}" != "none" ]; then
@@ -69,8 +69,8 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
         fi
     fi
 
-    # Call the external condinaut script.
-    /condinaut -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/condinaut.conf"
+    # Call the external condinapt script.
+    /condinapt -l "${TMP_PKGLIST}" -c "/minios_build.conf" -m "/condinapt.map"
     if [ $? -ne 0 ]; then
         echo "Failed to install packages."
         exit 1
