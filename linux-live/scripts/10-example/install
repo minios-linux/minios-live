@@ -12,10 +12,10 @@ PACKAGE="virt-manager"
 PACKAGE_FULLNAME="Virtual Machine Manager"
 PACKAGE_GROUP="libvirt"
 
-# The condinaut, minios_build.conf and condinaut.conf files are
+# The condinapt, minios_build.conf and condinapt.map files are
 # automatically copied to the chroot before the build starts, so you can use
 # them in your module build scripts.
-/condinaut -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinaut.conf"
+/condinapt -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
 if [ $? -ne 0 ]; then
     echo "Failed to install packages."
     exit 1

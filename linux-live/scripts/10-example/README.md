@@ -39,7 +39,7 @@ Below is the basic structure and purpose of each element inside the module direc
 
 * **install**: Executable module installation script. Copies files, installs dependencies, configures the environment. Runs first.
 
-* **packages.list**: APT package list for installation using `condinaut`.
+* **packages.list**: APT package list for installation using `condinapt`.
 
 * **patches/**: Directory with patches that will be applied before building (the patch application code should be described in `build`). The structure retains relative paths, and patches are copied inside chroot into the `/patches/` folder. Not available for `00-core`.
 

@@ -56,8 +56,8 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     # Append the contents of the fixed package list, preserving one package per line.
     cat "/packages.list" >>"${TMP_COMBINED}"
 
-    # Call the external condinaut command with the combined list.
-    /condinaut -l "${TMP_COMBINED}" -c "/minios_build.conf" -m "/condinaut.conf"
+    # Call the external condinapt command with the combined list.
+    /condinapt -l "${TMP_COMBINED}" -c "/minios_build.conf" -m "/condinapt.map"
     if [ $? -ne 0 ]; then
         error "Failed to install packages."
         exit 1

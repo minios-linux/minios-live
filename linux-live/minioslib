@@ -1289,9 +1289,9 @@ build_bootstrap() {
         unmount_dirs "${INSTALL_DIR}"
     fi
 
-    if [ "${USE_APT_CACHER}" = "true" ]; then
-        rm -f "${INSTALL_DIR}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
-    fi
+    #if [ "${USE_APT_CACHER}" = "true" ]; then
+    rm -f "${INSTALL_DIR}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
+    #fi
 
     if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
         DISTRIBUTION="testing"
@@ -1881,6 +1881,11 @@ build_iso() {
 
     rm -f "${PERCHIMG}"
 
+    if [[ -f "${ISO}" ]]; then
+        sha256sum "${ISO}" >"${ISO}.sha256"
+        information "SHA256 checksum saved to ${CYAN}${ISO}.sha256${ENDCOLOR}."
+    fi
+
     if [[ "${BUILD_TEST_ISO}" == "true" ]]; then
         rm -f "${ISO_DIR}/${LIVEKITNAME}.iso"
         ln "${ISO}" "${ISO_DIR}/${LIVEKITNAME}.iso" &&
@@ -1988,12 +1993,12 @@ chroot_cleanup() {
     if [ "${USE_APT_CACHE}" = "false" ]; then
         rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
     fi
-    if [ "${USE_APT_CACHER}" = "true" ]; then
-        rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
-    fi
-    if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
-        rm -f "${BASE_PATH}/etc/apt/apt.conf.d/99ignore-localcache" 2>/dev/null
-    fi
+    #if [ "${USE_APT_CACHER}" = "true" ]; then
+    rm -f "${BASE_PATH}/etc/apt/apt.conf.d/02aptcache" 2>/dev/null
+    #fi
+    #if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
+    rm -f "${BASE_PATH}/etc/apt/apt.conf.d/99ignore-localcache" 2>/dev/null
+    #fi
     rm -f "${BASE_PATH}/var/cache/apt/"*.bin 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/apt/lists/"*Packages 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/apt/lists/"*Translation* 2>/dev/null
@@ -2090,12 +2095,12 @@ ensure_host_prerequisites() {
         error "This minios-live supports only Debian and Ubuntu."
         exit 1
     fi
-    chmod +x "${BUILD_SCRIPTS_DIR}/condinaut"
+    chmod +x "${BUILD_SCRIPTS_DIR}/condinapt"
     if [[ "${CONTAINER,,}" == "true" ]]; then
-        "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf"
+        "${BUILD_SCRIPTS_DIR}/condinapt" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinapt.map"
     else
         toggle_shell_options e
-        "${BUILD_SCRIPTS_DIR}/condinaut" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinaut.conf" --check-only
+        "${BUILD_SCRIPTS_DIR}/condinapt" -l "${BUILD_SCRIPTS_DIR}/prerequisites.list" -c "${BUILD_CONF}" -m "${BUILD_SCRIPTS_DIR}/condinapt.map" --check-only
         if [ $? -ne 0 ]; then
             echo
             error "Some prerequisites are not installed on the host system. Please install them and try again."
@@ -2103,7 +2108,7 @@ ensure_host_prerequisites() {
         fi
         toggle_shell_options e
     fi
-    chmod -x "${BUILD_SCRIPTS_DIR}/condinaut"
+    chmod -x "${BUILD_SCRIPTS_DIR}/condinapt"
 }
 
 # This function installs the core packages within the chroot system.
@@ -2399,9 +2404,9 @@ build_modules() {
                 cp "${ENVIRONMENTS}/${MODULE}/install" "${OVERLAY[merged]}/install"
                 chmod +x "${OVERLAY[merged]}/install"
 
-                cp "${BUILD_SCRIPTS_DIR}/condinaut" "${OVERLAY[merged]}/condinaut"
-                chmod +x "${OVERLAY[merged]}/condinaut"
-                cp "${BUILD_SCRIPTS_DIR}/condinaut.conf" "${OVERLAY[merged]}/condinaut.conf"
+                cp "${BUILD_SCRIPTS_DIR}/condinapt" "${OVERLAY[merged]}/condinapt"
+                chmod +x "${OVERLAY[merged]}/condinapt"
+                cp "${BUILD_SCRIPTS_DIR}/condinapt.map" "${OVERLAY[merged]}/condinapt.map"
 
                 [ -f "${ENVIRONMENTS}/${MODULE}/packages.list" ] &&
                     cp "${ENVIRONMENTS}/${MODULE}/packages.list" "${OVERLAY[merged]}/packages.list"
