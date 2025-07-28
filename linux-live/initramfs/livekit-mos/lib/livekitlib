@@ -900,13 +900,22 @@ mount_perch_drive() {
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED
+   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION
 
    DRIVE="$1"
    CHANDIR="$2"
    PERCHDIR="$3"
    ACTION="$4"
    PERCHMODE="$5"
+
+   # Get current system's MiniOS version and edition
+   if [ -f /etc/minios-release ]; then
+      SYSTEM_VERSION=$(config_value "/etc/minios-release" VERSION)
+      SYSTEM_EDITION=$(config_value "/etc/minios-release" EDITION)
+   fi
+   # Set the main VERSION/EDITION variables to the system's version by default
+   VERSION="$SYSTEM_VERSION"
+   EDITION="$SYSTEM_EDITION"
 
    # Supported syntax allows perchdir=/dev/sda1/changes
    # In this case, perchdir is mounted on $CHANDIR and action is prompted
@@ -925,41 +934,131 @@ restore_perch_session() {
 
       LASTSESSION=$(jq -r '.default // empty' "$SESSIONS")
       LASTMODE=$(jq -r ".sessions[\"$LASTSESSION\"].mode // empty" "$SESSIONS")
+      LASTVERSION=$(jq -r ".sessions[\"$LASTSESSION\"].version // empty" "$SESSIONS")
+      LASTEDITION=$(jq -r ".sessions[\"$LASTSESSION\"].edition // empty" "$SESSIONS")
    else
       SESSIONS="$CHANDIR/session.conf"
-      [ ! -f "$SESSIONS" ] && echo "default=\nsession=" >"$SESSIONS"
+      [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
 
-      LASTSESSION=$(grep '^default=' "$SESSIONS" | cut -d'=' -f2)
-      LASTMODE=$(grep "^session\[$LASTSESSION\]=" "$SESSIONS" | cut -d'=' -f2)
+      LASTSESSION=$(sed -n 's/^default=//p' "$SESSIONS")
+      LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$SESSIONS")
+      LASTVERSION=$(sed -n "s/^session_version\[$LASTSESSION\]=//p" "$SESSIONS")
+      LASTEDITION=$(sed -n "s/^session_edition\[$LASTSESSION\]=//p" "$SESSIONS")
    fi
 
    if [ -n "$LASTSESSION" ]; then
       # If action is "ask", prompt the user to select a session
       if [ "$ACTION" = "ask" ]; then
-         ls -1 $CHANDIR | grep -E "^[0-9]+" | while read DIR; do
-            USAGE=$(du -s -h "$CHANDIR/$DIR" 2>/dev/null | sed -r "s/[[:space:]].*//")
-            LASTMOD=$(date -r "$CHANDIR/$DIR" "+%Y-%m-%d %H:%M:%S")
-            DAYS=$(date_diff_since_now "$LASTMOD")
-            echo "$LASTMOD Resume session #$DIR - last access $DAYS ago - using $USAGE" | sed -r "s/(.)\$/ \1B/"
-         done | sort -r | cut -d " " -f 3- >/tmp/sessions.txt
+         local SESSION_CONFIRMED="false"
+         while [ "$SESSION_CONFIRMED" = "false" ]; do
+            ls -1 $CHANDIR | grep -E "^[0-9]+" | while read DIR; do
+               local S_VERSION S_EDITION INFO_PARTS SESSION_INFO
+               if command -v jq >/dev/null 2>&1; then
+                  S_VERSION=$(jq -r ".sessions[\"$DIR\"].version // empty" "$SESSIONS")
+                  S_EDITION=$(jq -r ".sessions[\"$DIR\"].edition // empty" "$SESSIONS")
+               else
+                  S_VERSION=$(sed -n "s/^session_version\[$DIR\]=//p" "$SESSIONS")
+                  S_EDITION=$(sed -n "s/^session_edition\[$DIR\]=//p" "$SESSIONS")
+               fi
 
-         SELECTED=$(ncurses-menu -t 'Select action:' -o 'Start a new session' -f /tmp/sessions.txt 2>&1 >/dev/tty1 </dev/tty1)
+               INFO_PARTS=""
+               [ -n "$S_VERSION" ] && INFO_PARTS="$S_VERSION"
+               if [ -n "$S_EDITION" ]; then
+                  [ -n "$INFO_PARTS" ] && INFO_PARTS="$INFO_PARTS, "
+                  INFO_PARTS="$INFO_PARTS$S_EDITION"
+               fi
 
-         if echo "$SELECTED" | grep -q "new"; then
-            ACTION="new"
-         else
-            PERCHDIR=$(echo "$SELECTED" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')
-            if command -v jq >/dev/null 2>&1; then
-               PERCHMODE=$(jq -r ".sessions[\"$PERCHDIR\"].mode // \"unknown\"" "$SESSIONS")
-            else
-               PERCHMODE=$(grep "^session\[$PERCHDIR\]=" "$SESSIONS" | cut -d'=' -f2)
+               [ -n "$INFO_PARTS" ] && SESSION_INFO=" ($INFO_PARTS)"
+
+               USAGE=$(du -s -h "$CHANDIR/$DIR" 2>/dev/null | sed -r "s/[[:space:]].*//")
+               LASTMOD=$(date -r "$CHANDIR/$DIR" "+%Y-%m-%d %H:%M:%S")
+               DAYS=$(date_diff_since_now "$LASTMOD")
+
+               echo "$LASTMOD Resume session #$DIR$SESSION_INFO - last access $DAYS ago - using $USAGE" | sed -r "s/(.)\$/ \1B/"
+
+            done | sort -r | cut -d " " -f 3- >/tmp/sessions.txt
+
+            SELECTED=$(ncurses-menu -t 'Select action:' -o 'Start a new session' -f /tmp/sessions.txt 2>&1 >/dev/tty1 </dev/tty1)
+
+            if [ -z "$SELECTED" ]; then
+               continue
             fi
-         fi
+
+            if echo "$SELECTED" | grep -q "new"; then
+               ACTION="new"
+               SESSION_CONFIRMED="true"
+            else
+               PERCHDIR=$(echo "$SELECTED" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')
+               local SELECTED_VERSION SELECTED_EDITION
+               if command -v jq >/dev/null 2>&1; then
+                  PERCHMODE=$(jq -r ".sessions[\"$PERCHDIR\"].mode // \"unknown\"" "$SESSIONS")
+                  SELECTED_VERSION=$(jq -r ".sessions[\"$PERCHDIR\"].version // \"unknown\"" "$SESSIONS")
+                  SELECTED_EDITION=$(jq -r ".sessions[\"$PERCHDIR\"].edition // \"unknown\"" "$SESSIONS")
+               else
+                  PERCHMODE=$(sed -n "s/^session_mode\[$PERCHDIR\]=//p" "$SESSIONS")
+                  SELECTED_VERSION=$(sed -n "s/^session_version\[$PERCHDIR\]=//p" "$SESSIONS")
+                  SELECTED_EDITION=$(sed -n "s/^session_edition\[$PERCHDIR\]=//p" "$SESSIONS")
+               fi
+
+               local WARNING_TITLE=""
+               if [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ] && [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
+                  WARNING_TITLE="Warning: Incompatible Session\n"
+                  WARNING_TITLE="${WARNING_TITLE}Reason: OS Version and Edition Mismatch\n"
+                  WARNING_TITLE="${WARNING_TITLE}System: $SYSTEM_VERSION/$SYSTEM_EDITION | Session: $SELECTED_VERSION/$SELECTED_EDITION"
+               elif [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ]; then
+                  WARNING_TITLE="Warning: Incompatible Session\n"
+                  WARNING_TITLE="${WARNING_TITLE}Reason: OS Version Mismatch\n"
+                  WARNING_TITLE="${WARNING_TITLE}System: $SYSTEM_VERSION | Session: $SELECTED_VERSION"
+               elif [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
+                  WARNING_TITLE="Warning: Incompatible Session\n"
+                  WARNING_TITLE="${WARNING_TITLE}Reason: OS Edition Mismatch\n"
+                  WARNING_TITLE="${WARNING_TITLE}System: $SYSTEM_EDITION | Session: $SELECTED_EDITION"
+               fi
+
+               if [ -n "$WARNING_TITLE" ]; then
+                  WARNING_TITLE="${WARNING_TITLE}\nUsing this session may cause system instability.\nProceed anyway?"
+
+                  WARNING_CHOICE=$(ncurses-menu \
+                     -t "${WARNING_TITLE}" \
+                     -o "Yes, proceed at my own risk" \
+                     -o "No, return to session list" \
+                     2>&1 >/dev/tty1 </dev/tty1)
+
+                  if echo "$WARNING_CHOICE" | grep -q "Yes"; then
+                     VERSION="$SELECTED_VERSION"
+                     EDITION="$SELECTED_EDITION"
+                     SESSION_CONFIRMED="true"
+                  fi
+               else
+                  VERSION="$SELECTED_VERSION"
+                  EDITION="$SELECTED_EDITION"
+                  SESSION_CONFIRMED="true"
+               fi
+            fi
+         done
+      # Check for mode change
       elif [ -n "$PERCHMODE" ] && [ "$PERCHMODE" != "$LASTMODE" ]; then
+         echo_white_star >&2
+         echo "Persistence mode has changed. Creating new session." >&2 >/dev/tty1
+         ACTION="new"
+      # Check for version/edition mismatch (only if a previous version exists)
+      elif [ "$ACTION" = "resume" ] && [ -n "$LASTVERSION" ] && { [ "$SYSTEM_VERSION" != "$LASTVERSION" ] || [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; }; then
+         if [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ] && [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
+            echo_white_star >&2
+            echo "OS version and edition mismatch (System: $SYSTEM_VERSION/$SYSTEM_EDITION, Session: $LASTVERSION/$LASTEDITION). Creating new session." >&2 >/dev/tty1
+         elif [ "$SYSTEM_VERSION" != "$LASTVERSION" ]; then
+            echo_white_star >&2
+            echo "OS version mismatch (System: $SYSTEM_VERSION, Session: $LASTVERSION). Creating new session." >&2 >/dev/tty1
+         elif [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; then
+            echo_white_star >&2
+            echo "OS edition mismatch (System: $SYSTEM_EDITION, Session: $LASTEDITION). Creating new session." >&2 >/dev/tty1
+         fi
          ACTION="new"
       elif [ "$ACTION" = "resume" ]; then
          PERCHDIR="$LASTSESSION"
          PERCHMODE="$LASTMODE"
+         VERSION="$LASTVERSION"
+         EDITION="$LASTEDITION"
       else
          ACTION="new"
       fi
@@ -970,6 +1069,8 @@ restore_perch_session() {
       NEW=$(($NEW + 1))
       mkdir -p "$CHANDIR/$NEW"
       PERCHDIR="$NEW"
+      VERSION="$SYSTEM_VERSION"
+      EDITION="$SYSTEM_EDITION"
    fi
 
    : "${PERCHMODE:=native}"
@@ -977,14 +1078,20 @@ restore_perch_session() {
    if command -v jq >/dev/null 2>&1; then
       jq --arg session "$PERCHDIR" \
          --arg mode "$PERCHMODE" \
-         '.default = $session | .sessions[$session] = {"mode": $mode}' \
+         --arg version "$VERSION" \
+         --arg edition "$EDITION" \
+         '.default = $session | .sessions[$session] = {"mode": $mode, "version": $version, "edition": $edition}' \
          "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
    else
       sed -i \
          -e "s/^default=.*/default=$PERCHDIR/" \
-         -e "/^session\[$PERCHDIR\]=.*/d" \
+         -e "/^session_mode\[$PERCHDIR\]=.*/d" \
+         -e "/^session_version\[$PERCHDIR\]=.*/d" \
+         -e "/^session_edition\[$PERCHDIR\]=.*/d" \
          "$SESSIONS"
-      echo "session[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
+      echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
+      echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
+      echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
    fi
 
    touch "$CHANDIR/$PERCHDIR"
@@ -1146,21 +1253,34 @@ persistent_changes() {
    }
 
    update_session() {
+      local SESSIONS VERSION EDITION
+
+      if [ -f /etc/minios-release ]; then
+         VERSION=$(config_value "/etc/minios-release" VERSION)
+         EDITION=$(config_value "/etc/minios-release" EDITION)
+      fi
+
       if command -v jq >/dev/null 2>&1; then
          SESSIONS="$CHANDIR/session.json"
          [ ! -f "$SESSIONS" ] && echo '{"default": null, "sessions": {}}' >"$SESSIONS"
          jq --arg session "$PERCHDIR" \
             --arg mode "$PERCHMODE" \
-            '.default = $session | .sessions[$session].mode = $mode' \
+            --arg version "$VERSION" \
+            --arg edition "$EDITION" \
+            '.default = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition' \
             "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
       else
          SESSIONS="$CHANDIR/session.conf"
-         [ ! -f "$SESSIONS" ] && echo "default=\nsession=" >"$SESSIONS"
+         [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
          sed -i \
             -e "s/^default=.*/default=$PERCHDIR/" \
-            -e "/^session\[$PERCHDIR\]=.*/d" \
+            -e "/^session_mode\[$PERCHDIR\]=.*/d" \
+            -e "/^session_version\[$PERCHDIR\]=.*/d" \
+            -e "/^session_edition\[$PERCHDIR\]=.*/d" \
             "$SESSIONS"
-         echo "session[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
+         echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
+         echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
+         echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
       fi
    }
 
@@ -1230,7 +1350,6 @@ persistent_changes() {
 
    PERCHDIR=$(echo "$PERCHSESSION" | awk '{print $1}')
    : "${PERCHMODE:=$(echo "$PERCHSESSION" | awk '{print $2}')}"
-   #PERCHDIR=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR")
 
    if [ -z "$PERCHMODE" ]; then
       native_mode
