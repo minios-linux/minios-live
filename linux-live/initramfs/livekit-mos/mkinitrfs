@@ -382,6 +382,7 @@ depmod -b "$INITRAMFS" "$KERNEL"
 
 echo "root::0:0::/root:/bin/bash" >"$INITRAMFS/etc/passwd"
 touch "$INITRAMFS/etc/"{m,fs}tab
+cp /etc/minios-release "$INITRAMFS/etc/"
 
 FILES=(init shutdown lib/livekitlib)
 copy_files "$INITRAMFS" "${FILES[@]}"
