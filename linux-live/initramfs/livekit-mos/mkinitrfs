@@ -25,6 +25,7 @@ Options:
   -c,  --cloud                           Enable or disable cloud support
   -cm, --compress-modules               Compress kernel modules
   -dm, --decompress-modules             Decompress kernel modules
+  -cs, --cryptsetup                     Include cryptsetup and its dependencies
   -h,  --help                            Display this help message and exit
 
 Example:
@@ -41,6 +42,7 @@ INITRD_COMPRESS="auto"
 MODULE_COMPRESS="auto"
 DECOMPRESS_MODULES="false"
 COMPRESS_MODULES="false"
+CRYPTSETUP="false"
 
 # Parse options
 while [[ $# -gt 0 ]]; do
@@ -51,11 +53,11 @@ while [[ $# -gt 0 ]]; do
         ;;
     -n | --network)
         NETWORK="true"
-        shift 2
+        shift
         ;;
     -c | --cloud)
         CLOUD="true"
-        shift 2
+        shift
         ;;
     -dm | --decompress-modules)
         DECOMPRESS_MODULES="true"
@@ -63,6 +65,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     -cm | --compress-modules)
         COMPRESS_MODULES="true"
+        shift
+        ;;
+    -cs|--cryptsetup)
+        CRYPTSETUP="true"
         shift
         ;;
     -h | --help)
@@ -125,6 +131,123 @@ copy_including_deps() {
     fi
 }
 
+# Copy cryptsetup and its dependencies
+copy_cryptsetup_and_deps() {
+    echo "--- Copying cryptsetup and its dependencies ---" >&2
+
+    # Step 1: Define binaries and symlinks to copy/create
+
+    # Real binaries
+    local REAL_BINS=(
+        "usr/sbin/cryptsetup"
+        "usr/sbin/dmsetup"
+        "usr/sbin/lvm"
+    )
+
+    # LVM symlinks (all point to 'lvm')
+    local LVM_SYMLINKS=(
+        "lvscan" "vgscan" "pvscan"
+        "vgchange"
+        "lvs" "vgs" "pvs"
+    )
+
+    # Step 2: Copy real binaries
+
+    for BIN_REL_PATH in "${REAL_BINS[@]}"; do
+        if [ -f "$ORIGIN_DIR/$BIN_REL_PATH" ]; then
+            mkdir -p "$INITRAMFS/$(dirname "$BIN_REL_PATH")"
+            cp -a "$ORIGIN_DIR/$BIN_REL_PATH" "$INITRAMFS/$BIN_REL_PATH"
+        else
+            echo "WARNING: Binary not found, skipping: $BIN_REL_PATH" >&2
+        fi
+    done
+
+    # Step 3: Create symlinks for LVM
+
+    for LNK in "${LVM_SYMLINKS[@]}"; do
+        # Create relative symlink: /usr/sbin/lvscan -> lvm
+        ln -sf lvm "$INITRAMFS/usr/sbin/$LNK"
+    done
+
+    # Step 4: Find and copy all libraries and their symlinks
+
+    local COPIED_FILES=":" # POSIX-compatible "database"
+
+    for BIN_REL_PATH in "${REAL_BINS[@]}"; do
+        local BIN_ABS_PATH="$ORIGIN_DIR/$BIN_REL_PATH"
+        if [ ! -f "$BIN_ABS_PATH" ]; then continue; fi
+
+        local MUSL_LOADER=$(find "$ORIGIN_DIR/lib" -name "ld-musl-*.so.1" -print -quit)
+        local DEPS=""
+        if [ -n "$MUSL_LOADER" ] && [ -x "$MUSL_LOADER" ]; then
+            DEPS=$(LD_LIBRARY_PATH="$ORIGIN_DIR/lib:$ORIGIN_DIR/usr/lib" "$MUSL_LOADER" --list "$BIN_ABS_PATH" 2>/dev/null)
+        fi
+        if [ -z "${DEPS:-}" ]; then
+            DEPS=$(ldd "$BIN_ABS_PATH" 2>/dev/null)
+        fi
+
+        for LIB_ABS_PATH in $(echo "$DEPS" | sed -r "s/.*=>|[(].*//g" | sed -r "s:^\\s+|\\s+$::g"); do
+            if [ -z "$LIB_ABS_PATH" ] || [[ "$LIB_ABS_PATH" == *"/ld-musl-"* ]]; then
+                continue
+            fi
+
+            # Start with the library found by ldd
+            local CURRENT_FILE="$LIB_ABS_PATH"
+
+            # Follow symlink chain to find all links
+            local REAL_FILE=$(readlink -f "$CURRENT_FILE")
+            local LIB_DIR=$(dirname "$REAL_FILE")
+            local REAL_FILENAME=$(basename "$REAL_FILE")
+
+            # Find all symlinks in the directory pointing to our real file
+            for LINK in $(find "$LIB_DIR" -maxdepth 1 -type l); do
+                if [[ "$(readlink -f "$LINK")" == "$REAL_FILE" ]]; then
+                    # This is a symlink to our library, copy it
+                    case "$COPIED_FILES" in
+                        *:"$LINK":*) ;; # Already copied
+                        *)
+                            local LINK_REL_PATH="${LINK#$ORIGIN_DIR}"
+                            mkdir -p "$INITRAMFS/$(dirname "$LINK_REL_PATH")"
+                            cp -a "$LINK" "$INITRAMFS/$LINK_REL_PATH"
+                            COPIED_FILES="${COPIED_FILES}${LINK}:"
+                            echo "Created symlink: $LINK_REL_PATH" >&2
+                        ;;
+                    esac
+                fi
+            done
+
+            # Copy the real file if not already copied
+            case "$COPIED_FILES" in
+                *:"$REAL_FILE":*) ;; # Already copied
+                *)
+                    local FILE_REL_PATH="${REAL_FILE#$ORIGIN_DIR}"
+                    mkdir -p "$INITRAMFS/$(dirname "$FILE_REL_PATH")"
+                    cp -a "$REAL_FILE" "$INITRAMFS/$FILE_REL_PATH"
+                    COPIED_FILES="${COPIED_FILES}${REAL_FILE}:"
+                    echo "Copied library: $FILE_REL_PATH" >&2
+                ;;
+            esac
+        done
+    done
+
+    # Step 5: Explicitly copy musl loader and its target (libc.so)
+    local MUSL_LOADER=$(find "$ORIGIN_DIR/lib" -name "ld-musl-*.so.1" -print -quit)
+    if [ -n "$MUSL_LOADER" ]; then
+        # Copy symlink
+        local LOADER_REL_PATH="${MUSL_LOADER#$ORIGIN_DIR}"
+        mkdir -p "$INITRAMFS/$(dirname "$LOADER_REL_PATH")"
+        cp -a "$MUSL_LOADER" "$INITRAMFS/$LOADER_REL_PATH"
+        # Copy symlink target
+        local LIBC_TARGET=$(readlink -f "$MUSL_LOADER")
+        if [ -e "$LIBC_TARGET" ]; then
+            local LIBC_REL_PATH="${LIBC_TARGET#$ORIGIN_DIR}"
+            mkdir -p "$INITRAMFS/$(dirname "$LIBC_REL_PATH")"
+            cp -a "$LIBC_TARGET" "$INITRAMFS/$LIBC_REL_PATH"
+        fi
+        echo "Copied musl loader and its target (libc.so)" >&2
+    fi
+}
+
 copy_files() {
     local DEST_DIR FILES DIR FILE
     DEST_DIR=$1
@@ -137,7 +260,7 @@ copy_files() {
 
         mkdir -p "$DEST_DIR/$DIR"
         if [ ! -f "$ORIGIN_DIR/$DIR/$FILE" ]; then
-            echo "ERROR: File \"$ORIGIN_DIR/$DIR/$FILE\" not found."
+            echo "ERROR: File \"$ORIGIN_DIR/$DIR/$FILE\" not found." >&2
             exit 1
         fi
         cp "$ORIGIN_DIR/$DIR/$FILE" "$DEST_DIR/$DIR/$FILE"
@@ -207,7 +330,7 @@ if [ -f "$SCRIPT_DIR/lib/livekitlib" ]; then
 elif [ -f "/run/initramfs/lib/livekitlib" ]; then
     ORIGIN_DIR="/run/initramfs"
 else
-    echo "ERROR: Required path not found."
+    echo "ERROR: Required path not found." >&2
     exit 1
 fi
 
@@ -231,8 +354,22 @@ FILES=(
 )
 copy_files "$INITRAMFS" "${FILES[@]}"
 
+
+# --- CRYPTSETUP ---
+if [ "$CRYPTSETUP" = "true" ]; then
+    copy_cryptsetup_and_deps
+fi
+# --- CRYPTSETUP ---
+
 chmod a+x "$INITRAMFS/bin/"*
 chmod a+x "$INITRAMFS/mkinitrfs"
+
+# --- CRYPTSETUP ---
+if [ "$CRYPTSETUP" = "true" ]; then
+    chmod a+x "$INITRAMFS/usr/sbin/"* 2>/dev/null || true
+fi
+# --- CRYPTSETUP ---
+
 mkdir -p "$INITRAMFS/etc/modprobe.d"
 echo "options loop max_loop=64" >"$INITRAMFS/etc/modprobe.d/local-loop.conf"
 
@@ -269,6 +406,18 @@ copy_including_deps "/$LMK/kernel/fs/squashfs"
 copy_including_deps "/$LMK/kernel/fs/btrfs"
 copy_including_deps "/$LMK/kernel/fs/xfs"
 copy_including_deps "/$LMK/kernel/fs/efivarfs" # for Clonezilla
+
+# --- CRYPTSETUP ---
+if [ "$CRYPTSETUP" = "true" ]; then
+    copy_including_deps "/$LMK/kernel/crypto/dm-crypt.ko"
+    copy_including_deps "/$LMK/kernel/crypto/aes_x86_64.ko"
+    copy_including_deps "/$LMK/kernel/crypto/sha256_ssse3.ko"
+    copy_including_deps "/$LMK/kernel/crypto/sha512_ssse3.ko"
+    copy_including_deps "/$LMK/kernel/crypto/xts.ko"
+    copy_including_deps "/$LMK/kernel/crypto/lrw.ko"
+    copy_including_deps "/$LMK/kernel/crypto/cryptd.ko"
+fi
+# --- CRYPTSETUP ---
 
 copy_including_deps "/$LMK/kernel/crypto/lz4"*.*
 copy_including_deps "/$LMK/kernel/crypto/zstd."*
