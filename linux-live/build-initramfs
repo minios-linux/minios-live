@@ -24,7 +24,7 @@ TMPFILE=$(mktemp)
 if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
 	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE"
 else
-	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm -cs >"$TMPFILE"
+	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE"
 fi
 
 INITRAMFS=$(tail -n 1 "$TMPFILE" | xargs)
