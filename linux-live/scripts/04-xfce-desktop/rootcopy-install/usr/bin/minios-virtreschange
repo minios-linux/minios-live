@@ -19,7 +19,37 @@ is_virtual() {
 
 # Function to check if guest utilities are installed and running
 guest_utils_active() {
-    pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [[ -d /proc/xen ]]
+    # Check for VirtualBox Guest Additions GUI processes that handle display resolution
+    if pgrep -x 'VBoxClient' >/dev/null 2>&1 || pgrep -f 'VBoxClient.*--display' >/dev/null 2>&1 || pgrep -f 'VBoxClient.*--seamless' >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Check for VMware Tools display management process
+    if pgrep -x 'vmtoolsd' >/dev/null 2>&1 || pgrep -f 'vmware-user' >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Check for SPICE vdagent (QEMU/KVM)
+    if pgrep -x 'spice-vdagent' >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Check for QEMU Guest Agent with display capability
+    if pgrep -x 'qemu-ga' >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Check for Hyper-V display service
+    if pgrep -f 'hv_kvp_daemon' >/dev/null 2>&1 || pgrep -f 'hypervvssd' >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Check for Xen display management
+    if [[ -d /proc/xen ]] && pgrep -f 'xenstore' >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    return 1
 }
 
 # Function to extract resolution from kernel parameters
