@@ -99,6 +99,18 @@ run_with_spinner "Updating package lists" apt-get update --allow-releaseinfo-cha
 
 run_with_spinner "Upgrading installed packages" apt-get upgrade -y
 
+# Add Docker official repository for ultra variant
+if [ "$PACKAGE_VARIANT" = "ultra" ]; then
+    install -m 0755 -d /etc/apt/keyrings
+    if run_with_spinner "Downloading Docker GPG key" curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc; then
+        chmod a+r /etc/apt/keyrings/docker.asc
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+        if ! run_with_spinner "Updating package lists with Docker repository" apt-get update; then
+            rm -f /etc/apt/sources.list.d/docker.list /etc/apt/keyrings/docker.asc
+        fi
+    fi
+fi
+
 chmod +x /linux-live/condinapt
 /linux-live/condinapt -l "${SCRIPT_DIR}/packages.list" -c "/minios_build.conf" -m "/linux-live/condinapt.map"
 if [ $? -ne 0 ]; then
