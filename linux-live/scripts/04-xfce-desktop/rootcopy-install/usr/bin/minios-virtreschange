@@ -14,7 +14,7 @@ log_message() {
 
 # Function to check if running in a virtual environment
 is_virtual() {
-    grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "(Oracle|microsoft corporation|Bochs)" /sys/class/dmi/id/sys_vendor 2>/dev/null
+    grep -qEi "(VirtualBox|VMware|KVM|QEMU|Xen|microsoft corporation|Bochs)" /sys/class/dmi/id/product_name 2>/dev/null || grep -qEi "(Oracle|microsoft corporation|Bochs|QEMU)" /sys/class/dmi/id/sys_vendor 2>/dev/null
 }
 
 # Function to check if guest utilities are installed and running
