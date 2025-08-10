@@ -266,14 +266,81 @@ aufs_is_supported() {
    cat /proc/filesystems | grep aufs >/dev/null 2>&1
 }
 
-# load the AUFS kernel driver. If not found,
-# load overlayfs instead.
+# Detect which union filesystem to use
+# Can be overridden with union= kernel parameter
 #
-init_aufs() {
-   debug_log "init_aufs" "$*"
-   modprobe aufs 2>/dev/null
-   if ! aufs_is_supported >/dev/null; then
+get_union_fs() {
+   local UNION_PARAM=$(cmdline_value union)
+
+   if [ -n "$UNION_PARAM" ]; then
+      case "$UNION_PARAM" in
+      aufs)
+         if aufs_is_supported >/dev/null; then
+            echo "aufs"
+            return
+         else
+            echo "Warning: aufs not supported, using overlayfs" >&2
+            echo "overlayfs"
+            return
+         fi
+         ;;
+      overlayfs)
+         echo "overlayfs"
+         return
+         ;;
+      *)
+         echo "Warning: invalid union parameter '$UNION_PARAM'" >&2
+         ;;
+      esac
+   fi
+
+   if aufs_is_supported >/dev/null; then
+      echo "aufs"
+   else
+      echo "overlayfs"
+   fi
+}
+
+# Get currently running kernel version
+#
+get_running_kernel() {
+   local CMDLINE=$(cat /proc/cmdline)
+   local VERSION
+   
+   VERSION=$(echo "$CMDLINE" | grep -o 'vmlinuz-[^ ]*' | sed 's|vmlinuz-||' | head -n1)
+   
+   # Fallback to uname -r if cmdline parsing failed
+   if [ -z "$VERSION" ]; then
+      VERSION=$(uname -r)
+   fi
+   
+   echo "$VERSION"
+}
+
+# Load union filesystem kernel modules
+# $1 = optional union parameter override
+#
+init_union_modules() {
+   debug_log "init_union_modules" "$*"
+   local UNION_PARAM=$(cmdline_value union)
+
+   if [ "$UNION_PARAM" = "aufs" ]; then
+      echo_white_star
+      echo "Loading aufs module"
+      modprobe aufs 2>/dev/null
+      if ! aufs_is_supported >/dev/null; then
+         echo "Warning: aufs not supported, using overlayfs" >&2
+         modprobe overlay 2>/dev/null
+      fi
+   elif [ "$UNION_PARAM" = "overlayfs" ]; then
+      echo_white_star
+      echo "Loading overlay module"
       modprobe overlay 2>/dev/null
+   else
+      modprobe aufs 2>/dev/null
+      if ! aufs_is_supported >/dev/null; then
+         modprobe overlay 2>/dev/null
+      fi
    fi
    refresh_devs
 }
@@ -288,13 +355,18 @@ init_union() {
    mkdir -p "$1"
    mkdir -p "$2"
 
-   if aufs_is_supported >/dev/null; then
+   local UNION_TYPE=$(get_union_fs)
+   local UNION_PARAM=$(cmdline_value union)
+
+   if [ "$UNION_TYPE" = "aufs" ]; then
       echo_white_star
       echo "Setting up empty union using aufs"
+      [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "aufs" ] && echo "(forced by union=$UNION_PARAM parameter)"
       mount -t aufs -o xino="/.xino",trunc_xino,br="$1" aufs "$2"
    else
       echo_white_star
       echo "Setting up union using overlayfs"
+      [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "overlayfs" ] && echo "(forced by union=$UNION_PARAM parameter)"
       mkdir -p "$1/changes"
       mkdir -p "$1/workdir"
       mount -t overlay overlay -o lowerdir=$(find "$3" -mindepth 1 -maxdepth 1 | sortmod | tac | tr '\n' ':' | sed -r 's/:$//'),upperdir=$1/changes,workdir=$1/workdir $2
@@ -900,7 +972,7 @@ mount_perch_drive() {
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION
+   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION
 
    DRIVE="$1"
    CHANDIR="$2"
@@ -916,6 +988,9 @@ restore_perch_session() {
    # Set the main VERSION/EDITION variables to the system's version by default
    VERSION="$SYSTEM_VERSION"
    EDITION="$SYSTEM_EDITION"
+
+   # Get current system's union filesystem
+   SYSTEM_UNION=$(get_union_fs)
 
    # Supported syntax allows perchdir=/dev/sda1/changes
    # In this case, perchdir is mounted on $CHANDIR and action is prompted
@@ -936,6 +1011,7 @@ restore_perch_session() {
       LASTMODE=$(jq -r ".sessions[\"$LASTSESSION\"].mode // empty" "$SESSIONS")
       LASTVERSION=$(jq -r ".sessions[\"$LASTSESSION\"].version // empty" "$SESSIONS")
       LASTEDITION=$(jq -r ".sessions[\"$LASTSESSION\"].edition // empty" "$SESSIONS")
+      LASTUNION=$(jq -r ".sessions[\"$LASTSESSION\"].union // empty" "$SESSIONS")
    else
       SESSIONS="$CHANDIR/session.conf"
       [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
@@ -944,6 +1020,7 @@ restore_perch_session() {
       LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTVERSION=$(sed -n "s/^session_version\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTEDITION=$(sed -n "s/^session_edition\[$LASTSESSION\]=//p" "$SESSIONS")
+      LASTUNION=$(sed -n "s/^session_union\[$LASTSESSION\]=//p" "$SESSIONS")
    fi
 
    if [ -n "$LASTSESSION" ]; then
@@ -952,13 +1029,15 @@ restore_perch_session() {
          local SESSION_CONFIRMED="false"
          while [ "$SESSION_CONFIRMED" = "false" ]; do
             ls -1 $CHANDIR | grep -E "^[0-9]+" | while read DIR; do
-               local S_VERSION S_EDITION INFO_PARTS SESSION_INFO
+               local S_VERSION S_EDITION S_UNION INFO_PARTS SESSION_INFO
                if command -v jq >/dev/null 2>&1; then
                   S_VERSION=$(jq -r ".sessions[\"$DIR\"].version // empty" "$SESSIONS")
                   S_EDITION=$(jq -r ".sessions[\"$DIR\"].edition // empty" "$SESSIONS")
+                  S_UNION=$(jq -r ".sessions[\"$DIR\"].union // empty" "$SESSIONS")
                else
                   S_VERSION=$(sed -n "s/^session_version\[$DIR\]=//p" "$SESSIONS")
                   S_EDITION=$(sed -n "s/^session_edition\[$DIR\]=//p" "$SESSIONS")
+                  S_UNION=$(sed -n "s/^session_union\[$DIR\]=//p" "$SESSIONS")
                fi
 
                INFO_PARTS=""
@@ -966,6 +1045,10 @@ restore_perch_session() {
                if [ -n "$S_EDITION" ]; then
                   [ -n "$INFO_PARTS" ] && INFO_PARTS="$INFO_PARTS, "
                   INFO_PARTS="$INFO_PARTS$S_EDITION"
+               fi
+               if [ -n "$S_UNION" ]; then
+                  [ -n "$INFO_PARTS" ] && INFO_PARTS="$INFO_PARTS, "
+                  INFO_PARTS="$INFO_PARTS$S_UNION"
                fi
 
                [ -n "$INFO_PARTS" ] && SESSION_INFO=" ($INFO_PARTS)"
@@ -989,15 +1072,17 @@ restore_perch_session() {
                SESSION_CONFIRMED="true"
             else
                PERCHDIR=$(echo "$SELECTED" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')
-               local SELECTED_VERSION SELECTED_EDITION
+               local SELECTED_VERSION SELECTED_EDITION SELECTED_UNION
                if command -v jq >/dev/null 2>&1; then
                   PERCHMODE=$(jq -r ".sessions[\"$PERCHDIR\"].mode // \"unknown\"" "$SESSIONS")
                   SELECTED_VERSION=$(jq -r ".sessions[\"$PERCHDIR\"].version // \"unknown\"" "$SESSIONS")
                   SELECTED_EDITION=$(jq -r ".sessions[\"$PERCHDIR\"].edition // \"unknown\"" "$SESSIONS")
+                  SELECTED_UNION=$(jq -r ".sessions[\"$PERCHDIR\"].union // \"unknown\"" "$SESSIONS")
                else
                   PERCHMODE=$(sed -n "s/^session_mode\[$PERCHDIR\]=//p" "$SESSIONS")
                   SELECTED_VERSION=$(sed -n "s/^session_version\[$PERCHDIR\]=//p" "$SESSIONS")
                   SELECTED_EDITION=$(sed -n "s/^session_edition\[$PERCHDIR\]=//p" "$SESSIONS")
+                  SELECTED_UNION=$(sed -n "s/^session_union\[$PERCHDIR\]=//p" "$SESSIONS")
                fi
 
                local WARNING_TITLE=""
@@ -1013,6 +1098,10 @@ restore_perch_session() {
                   WARNING_TITLE="Warning: Incompatible Session\n"
                   WARNING_TITLE="${WARNING_TITLE}Reason: OS Edition Mismatch\n"
                   WARNING_TITLE="${WARNING_TITLE}System: $SYSTEM_EDITION | Session: $SELECTED_EDITION"
+               elif [ -n "$SELECTED_UNION" ] && [ "$SYSTEM_UNION" != "$SELECTED_UNION" ]; then
+                  WARNING_TITLE="Warning: Incompatible Session\n"
+                  WARNING_TITLE="${WARNING_TITLE}Reason: Union Filesystem Mismatch\n"
+                  WARNING_TITLE="${WARNING_TITLE}System: $SYSTEM_UNION | Session: $SELECTED_UNION"
                fi
 
                if [ -n "$WARNING_TITLE" ]; then
@@ -1027,11 +1116,13 @@ restore_perch_session() {
                   if echo "$WARNING_CHOICE" | grep -q "Yes"; then
                      VERSION="$SELECTED_VERSION"
                      EDITION="$SELECTED_EDITION"
+                     UNION="$SELECTED_UNION"
                      SESSION_CONFIRMED="true"
                   fi
                else
                   VERSION="$SELECTED_VERSION"
                   EDITION="$SELECTED_EDITION"
+                  UNION="$SELECTED_UNION"
                   SESSION_CONFIRMED="true"
                fi
             fi
@@ -1040,6 +1131,11 @@ restore_perch_session() {
       elif [ -n "$PERCHMODE" ] && [ "$PERCHMODE" != "$LASTMODE" ]; then
          echo_white_star >&2
          echo "Persistence mode has changed. Creating new session." >&2 >/dev/tty1
+         ACTION="new"
+      # Check for union filesystem mismatch first (complete incompatibility)
+      elif [ "$ACTION" = "resume" ] && [ "$SYSTEM_UNION" != "${LASTUNION:-overlayfs}" ]; then
+         echo_white_star >&2
+         echo "Union filesystem incompatible (System: $SYSTEM_UNION, Session: ${LASTUNION:-overlayfs}). Creating new session." >&2 >/dev/tty1
          ACTION="new"
       # Check for version/edition mismatch (only if a previous version exists)
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTVERSION" ] && { [ "$SYSTEM_VERSION" != "$LASTVERSION" ] || [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; }; then
@@ -1059,6 +1155,7 @@ restore_perch_session() {
          PERCHMODE="$LASTMODE"
          VERSION="$LASTVERSION"
          EDITION="$LASTEDITION"
+         UNION="$LASTUNION"
       else
          ACTION="new"
       fi
@@ -1071,6 +1168,7 @@ restore_perch_session() {
       PERCHDIR="$NEW"
       VERSION="$SYSTEM_VERSION"
       EDITION="$SYSTEM_EDITION"
+      UNION="$SYSTEM_UNION"
    fi
 
    : "${PERCHMODE:=native}"
@@ -1080,7 +1178,8 @@ restore_perch_session() {
          --arg mode "$PERCHMODE" \
          --arg version "$VERSION" \
          --arg edition "$EDITION" \
-         '.default = $session | .sessions[$session] = {"mode": $mode, "version": $version, "edition": $edition}' \
+         --arg union "$UNION" \
+         '.default = $session | .sessions[$session] = {"mode": $mode, "version": $version, "edition": $edition, "union": $union}' \
          "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
    else
       sed -i \
@@ -1088,10 +1187,12 @@ restore_perch_session() {
          -e "/^session_mode\[$PERCHDIR\]=.*/d" \
          -e "/^session_version\[$PERCHDIR\]=.*/d" \
          -e "/^session_edition\[$PERCHDIR\]=.*/d" \
+         -e "/^session_union\[$PERCHDIR\]=.*/d" \
          "$SESSIONS"
       echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
       echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
       echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
+      echo "session_union[$PERCHDIR]=$UNION" >>"$SESSIONS"
    fi
 
    touch "$CHANDIR/$PERCHDIR"
@@ -1253,12 +1354,13 @@ persistent_changes() {
    }
 
    update_session() {
-      local SESSIONS VERSION EDITION
+      local SESSIONS VERSION EDITION UNION
 
       if [ -f /etc/minios-release ]; then
          VERSION=$(config_value "/etc/minios-release" VERSION)
          EDITION=$(config_value "/etc/minios-release" EDITION)
       fi
+      UNION=$(get_union_fs)
 
       if command -v jq >/dev/null 2>&1; then
          SESSIONS="$CHANDIR/session.json"
@@ -1267,7 +1369,8 @@ persistent_changes() {
             --arg mode "$PERCHMODE" \
             --arg version "$VERSION" \
             --arg edition "$EDITION" \
-            '.default = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition' \
+            --arg union "$UNION" \
+            '.default = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition | .sessions[$session].union = $union' \
             "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
       else
          SESSIONS="$CHANDIR/session.conf"
@@ -1277,10 +1380,12 @@ persistent_changes() {
             -e "/^session_mode\[$PERCHDIR\]=.*/d" \
             -e "/^session_version\[$PERCHDIR\]=.*/d" \
             -e "/^session_edition\[$PERCHDIR\]=.*/d" \
+            -e "/^session_union\[$PERCHDIR\]=.*/d" \
             "$SESSIONS"
          echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
          echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
          echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
+         echo "session_union[$PERCHDIR]=$UNION" >>"$SESSIONS"
       fi
    }
 
@@ -1533,6 +1638,79 @@ filter() {
 #
 sortmod() {
    cat - | sed -r "s,(.*/(.*)),\\2:\\1," | sort -n | cut -d : -f 2-
+}
+
+# Setup kernel files based on currently running kernel
+# $1 = data directory containing kernels/
+#
+setup_running_kernel() {
+   debug_log "setup_running_kernel" "$*"
+
+   local DATA RUNNING_KERNEL BOOT_DIR
+   local KERNEL_SB_SRC KERNEL_SB_DST VMLINUZ_SRC VMLINUZ_DST INITRFS_SRC INITRFS_DST
+   local KERNEL_FILE INACTIVE_VERSION
+
+   DATA="$1"
+   BOOT_DIR="$DATA/boot"
+   RUNNING_KERNEL=$(get_running_kernel)
+
+   debug_log "setup_running_kernel: Running kernel detected: $RUNNING_KERNEL"
+
+   # Define file paths for running kernel
+   KERNEL_SB_DST="$DATA/01-kernel-$RUNNING_KERNEL.sb"
+   VMLINUZ_DST="$BOOT_DIR/vmlinuz-$RUNNING_KERNEL"
+   INITRFS_DST="$BOOT_DIR/initrfs-$RUNNING_KERNEL.img"
+
+   # Check if all required files exist, if not try to activate from repository
+   if [ ! -f "$KERNEL_SB_DST" ] || [ ! -f "$VMLINUZ_DST" ] || [ ! -f "$INITRFS_DST" ]; then
+      echo_red_star
+      echo "WARNING: Running kernel files missing for $RUNNING_KERNEL!"
+      
+      # Define source paths in repository
+      KERNEL_SB_SRC="$DATA/kernels/$RUNNING_KERNEL/01-kernel-$RUNNING_KERNEL.sb"
+      VMLINUZ_SRC="$DATA/kernels/$RUNNING_KERNEL/vmlinuz-$RUNNING_KERNEL"
+      INITRFS_SRC="$DATA/kernels/$RUNNING_KERNEL/initrfs-$RUNNING_KERNEL.img"
+      
+      # Check if all files exist in repository
+      if [ -f "$KERNEL_SB_SRC" ] && [ -f "$VMLINUZ_SRC" ] && [ -f "$INITRFS_SRC" ]; then
+         echo "Found in repository, attempting to activate..."
+         mkdir -p "$BOOT_DIR" 2>/dev/null
+         
+         # Copy all files atomically (if any fail, cleanup)
+         if cp "$KERNEL_SB_SRC" "$DATA/" && cp "$VMLINUZ_SRC" "$BOOT_DIR/" && cp "$INITRFS_SRC" "$BOOT_DIR/"; then
+            debug_log "setup_running_kernel: Successfully activated kernel from repository"
+         else
+            debug_log "setup_running_kernel: Failed to copy kernel files from repository"
+            # Cleanup partial files
+            rm -f "$KERNEL_SB_DST" "$VMLINUZ_DST" "$INITRFS_DST" 2>/dev/null
+            return 1
+         fi
+      else
+         debug_log "setup_running_kernel: Kernel $RUNNING_KERNEL not found in repository or incomplete"
+         return 1
+      fi
+   fi
+
+   # Clean up other kernel files and move them to repository
+   for KERNEL_FILE in $(find "$DATA" -maxdepth 1 -name "01-kernel-*.sb" 2>/dev/null); do
+      if [ "$KERNEL_FILE" != "$KERNEL_SB_DST" ]; then
+         INACTIVE_VERSION="$(basename "$KERNEL_FILE" | sed -e 's/01-kernel-//' -e 's/\.sb//')"
+         if [ -n "$INACTIVE_VERSION" ]; then
+            debug_log "setup_running_kernel: Moving inactive kernel $INACTIVE_VERSION to repository"
+            mkdir -p "$DATA/kernels/$INACTIVE_VERSION" 2>/dev/null
+            
+            # Move all three file types for this version
+            mv "$KERNEL_FILE" "$DATA/kernels/$INACTIVE_VERSION/" 2>/dev/null
+            [ -f "$BOOT_DIR/vmlinuz-$INACTIVE_VERSION" ] && mv "$BOOT_DIR/vmlinuz-$INACTIVE_VERSION" "$DATA/kernels/$INACTIVE_VERSION/" 2>/dev/null
+            [ -f "$BOOT_DIR/initrfs-$INACTIVE_VERSION.img" ] && mv "$BOOT_DIR/initrfs-$INACTIVE_VERSION.img" "$DATA/kernels/$INACTIVE_VERSION/" 2>/dev/null
+         fi
+      fi
+   done
+
+   echo_green_star
+   echo "Running kernel: $RUNNING_KERNEL"
+
+   return 0
 }
 
 # Mount squashfs filesystem bundles

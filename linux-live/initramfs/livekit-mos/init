@@ -30,7 +30,7 @@ debug_start
                                                                                                                                                       debug_shell
 # load some modules manually first, then modprobe everything we have
 init_devs
-init_aufs
+init_union_modules
 if [ "$KERNEL_TYPE" != "cloud" ]; then
     init_zram
 fi
@@ -50,6 +50,9 @@ DATA="$(copy_to_ram "$DATA" "$CHANGES")"
                                                                                                                                                       debug_shell
 # setup persistent changes, if possible
 persistent_changes "$DATA" "$CHANGES"
+                                                                                                                                                      debug_shell
+# setup running kernel files
+setup_running_kernel "$DATA"
                                                                                                                                                       debug_shell
 # mount bundles
 mount_bundles "$DATA" "$BUNDLES"
