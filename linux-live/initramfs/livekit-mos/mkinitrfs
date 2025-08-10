@@ -4,8 +4,25 @@
 # Author: crims0n <https://minios.dev>
 set -euo pipefail
 
+# Use TMPDIR environment variable or default to /tmp
+TMPDIR="${TMPDIR:-/tmp}"
+
+# Validate temporary directory
+if [ ! -d "$TMPDIR" ]; then
+    echo "E: Temporary directory does not exist: $TMPDIR" >&2
+    exit 1
+fi
+if [ ! -w "$TMPDIR" ]; then
+    echo "E: Temporary directory is not writable: $TMPDIR" >&2
+    exit 1
+fi
+
+if [ "$TMPDIR" != "/tmp" ]; then
+    echo "I: Using custom temporary directory: $TMPDIR" >&2
+fi
+
 # Prepare log file descriptor for xtrace
-LOG_FILE="/initramfs-$$.log"
+LOG_FILE="$TMPDIR/initramfs-$$.log"
 
 # FD 19 writes only to log file; suppress stderr fallback
 exec 19>>"$LOG_FILE"
@@ -21,34 +38,45 @@ Usage: $(basename "$0") [OPTIONS]
 
 Options:
   -k,  --kernel <KERNEL VERSION>         Specify the kernel version (required)
-  -n,  --network                         Enable or disable network support
-  -c,  --cloud                           Enable or disable cloud support
-  -cm, --compress-modules               Compress kernel modules
-  -dm, --decompress-modules             Decompress kernel modules
-  -cs, --cryptsetup                     Include cryptsetup and its dependencies
+  --config-file <PATH>                   Path to kernel config file
+  -n,  --network                         Enable network support
+  -c,  --cloud                           Enable cloud support
+  -cm, --compress-modules                Compress kernel modules
+  -dm, --decompress-modules              Decompress kernel modules
+  -d,  --debug                           Keep debug files
   -h,  --help                            Display this help message and exit
 
-Example:
-  $(basename "$0") --kernel 5.10.0-8-amd64 --compression auto --network true --cloud false
+Environment variables:
+  TMPDIR                                 Custom temporary directory for initramfs creation
+
+Examples:
+  $(basename "$0") --kernel 5.10.0-8-amd64 --cloud --network --decompress-modules
+  $(basename "$0") -k 5.10.0-8-amd64 -c -n -dm
+  TMPDIR=/run/initramfs/memory/changes/tmp $(basename "$0") --kernel 5.10.0-8-amd64
 EOF
     exit 1
 }
 
 # Default parameters
 KERNEL=""
+CONFIG_FILE=""
 NETWORK="false"
 CLOUD="false"
 INITRD_COMPRESS="auto"
 MODULE_COMPRESS="auto"
 DECOMPRESS_MODULES="false"
 COMPRESS_MODULES="false"
-CRYPTSETUP="false"
+DEBUG="false"
 
 # Parse options
 while [[ $# -gt 0 ]]; do
     case "$1" in
     -k | --kernel)
         KERNEL="$2"
+        shift 2
+        ;;
+    --config-file)
+        CONFIG_FILE="$2"
         shift 2
         ;;
     -n | --network)
@@ -67,11 +95,15 @@ while [[ $# -gt 0 ]]; do
         COMPRESS_MODULES="true"
         shift
         ;;
+    -d | --debug)
+        DEBUG="true"
+        shift
+        ;;
     -h | --help)
         usage
         ;;
     -*)
-        echo "Unknown option: $1"
+        echo "E: Unknown option: $1" >&2
         usage
         ;;
     *)
@@ -82,9 +114,11 @@ done
 
 [ -z "$KERNEL" ] && usage
 
+echo "I: Using kernel version: $KERNEL" >&2
+
 # Check for root privileges
 if [[ "$EUID" -ne 0 ]]; then
-    echo "ERROR: This script must be run as root."
+    echo "E: This script must be run as root."
     exit 1
 fi
 
@@ -139,7 +173,7 @@ copy_files() {
 
         mkdir -p "$DEST_DIR/$DIR"
         if [ ! -f "$ORIGIN_DIR/$DIR/$FILE" ]; then
-            echo "ERROR: File \"$ORIGIN_DIR/$DIR/$FILE\" not found." >&2
+            echo "E: File \"$ORIGIN_DIR/$DIR/$FILE\" not found." >&2
             exit 1
         fi
         cp "$ORIGIN_DIR/$DIR/$FILE" "$DEST_DIR/$DIR/$FILE"
@@ -164,22 +198,31 @@ pick() {
 }
 
 # Load kernel config into KCONFIG
-if [[ -f /boot/config-$KERNEL ]]; then
+if [[ -f "$CONFIG_FILE" ]]; then
+    KCONFIG=$(<"$CONFIG_FILE")
+    echo "I: Loaded kernel config from $CONFIG_FILE" >&2
+elif [[ -f /boot/config-$KERNEL ]]; then
     KCONFIG=$(</boot/config-$KERNEL)
+    echo "I: Loaded kernel config from /boot/config-$KERNEL" >&2
 elif [[ -f /proc/config.gz ]]; then
     KCONFIG=$(zcat /proc/config.gz)
+    echo "I: Loaded kernel config from /proc/config.gz" >&2
 else
     KCONFIG=""
+    echo "W: Kernel config not found. Continuing without it." >&2
 fi
 
-# Set MODULE_COMPRESS (kernel modules) if auto
-if [[ "${MODULE_COMPRESS:-auto}" == auto ]]; then
+# Set MODULE_COMPRESS (kernel modules) if auto and compression is needed
+# Skip if we're decompressing modules (no need to determine compression type)
+if [[ "${MODULE_COMPRESS:-auto}" == auto ]] && [[ "$COMPRESS_MODULES" == "true" ]] && [[ "$DECOMPRESS_MODULES" != "true" ]]; then
     MODULE_COMPRESS=$(pick MODULE_COMPRESS gzip)
+    echo "I: Auto-detected module compression: $MODULE_COMPRESS" >&2
 fi
 
 # Set INITRD_COMPRESS (initrd) if auto
 if [[ "${INITRD_COMPRESS:-auto}" == auto ]]; then
     INITRD_COMPRESS=$(pick RD gzip)
+    echo "I: Auto-detected initrd compression: $INITRD_COMPRESS" >&2
 fi
 
 # Compression parameters for initrd
@@ -195,7 +238,7 @@ BEXT="sb"
 
 # Set paths and filenames
 LMK="lib/modules/$KERNEL"
-INITRAMFS="/tmp/initrfs-$KERNEL-$$"
+INITRAMFS="$TMPDIR/initrfs-$KERNEL-$$"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 if [ -d "$INITRAMFS" ]; then
@@ -209,7 +252,7 @@ if [ -f "$SCRIPT_DIR/lib/livekitlib" ]; then
 elif [ -f "/run/initramfs/lib/livekitlib" ]; then
     ORIGIN_DIR="/run/initramfs"
 else
-    echo "ERROR: Required path not found." >&2
+    echo "E: livekitlib path not found." >&2
     exit 1
 fi
 
@@ -396,5 +439,14 @@ cd "$INITRAMFS"
 find . -print | cpio -o -H newc | $INITRD_COMPRESS $INITRD_COMPRESS_PARAMS >"$INITRAMFS.img"
 echo "$INITRAMFS.img"
 
-cd "$INITRAMFS/.."
-mv "$INITRAMFS" /
+# Clean up temporary files unless debug mode is enabled
+if [ "$DEBUG" = "true" ]; then
+    cd "$INITRAMFS/.."
+    mv "$INITRAMFS" /
+    mv "$LOG_FILE" /
+    echo "Debug files preserved: /$INITRAMFS and /$LOG_FILE" >&2
+else
+    cd "$INITRAMFS/.."
+    rm -rf "$INITRAMFS"
+    rm -f "$LOG_FILE"
+fi
