@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g., v4.1.0)'
+        description: 'Release tag (e.g., v5.0.0)'
         required: true
         default: 'latest'
 
@@ -33,7 +33,7 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger bookworm-xfce-standard-amd64
+      - name: Trigger trixie-xfce-standard-amd64
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -41,14 +41,14 @@ jobs:
             github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'bookworm-xfce-standard-amd64.yml',
+              workflow_id: 'trixie-xfce-standard-amd64.yml',
               ref: 'master',
               inputs: {
                 tag: '${{ needs.release.outputs.tag_name }}'
               }
             })
 
-      - name: Trigger bookworm-xfce-standard-i386
+      - name: Trigger trixie-xfce-toolbox-amd64
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -56,14 +56,14 @@ jobs:
             github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'bookworm-xfce-standard-i386.yml',
+              workflow_id: 'trixie-xfce-toolbox-amd64.yml',
               ref: 'master',
               inputs: {
                 tag: '${{ needs.release.outputs.tag_name }}'
               }
             })
 
-      - name: Trigger bookworm-xfce-toolbox-amd64
+      - name: Trigger trixie-xfce-ultra-amd64
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -71,22 +71,7 @@ jobs:
             github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'bookworm-xfce-toolbox-amd64.yml',
-              ref: 'master',
-              inputs: {
-                tag: '${{ needs.release.outputs.tag_name }}'
-              }
-            })
-
-      - name: Trigger bookworm-xfce-ultra-amd64
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'bookworm-xfce-ultra-amd64.yml',
+              workflow_id: 'trixie-xfce-ultra-amd64.yml',
               ref: 'master',
               inputs: {
                 tag: '${{ needs.release.outputs.tag_name }}'

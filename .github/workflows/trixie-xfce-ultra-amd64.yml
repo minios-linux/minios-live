@@ -1,4 +1,4 @@
-name: bookworm-xfce-standard-i386
+name: trixie-xfce-ultra-amd64
 
 on:
   workflow_dispatch:
@@ -24,20 +24,20 @@ jobs:
           grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd \
           curl rsync
 
-    - name: Run build - Debian 12 XFCE Standard i386
+    - name: Run build - Debian 13 XFCE Ultra amd64
       run: |
         cd minios-live
-        echo "Starting build for Debian 12 XFCE Standard i386..."
-        sudo ./minios-cmd -d bookworm -a i386 -de xfce -pv standard -aufs -kl
-        sudo mkdir -p build/output/bookworm-xfce-standard-i386
-        sudo mv build/iso/*.iso build/output/bookworm-xfce-standard-i386/
-        echo "Build completed for Debian 12 XFCE Standard i386."
+        echo "Starting build for Debian 13 XFCE Ultra amd64..."
+        sudo ./minios-cmd -d trixie -a amd64 -de xfce -pv ultra -dkms -kl
+        sudo mkdir -p build/output/trixie-xfce-ultra-amd64
+        sudo mv build/iso/*.iso build/output/trixie-xfce-ultra-amd64/
+        echo "Build completed for Debian 13 XFCE Ultra amd64."
 
-    - name: Archive build output - Debian 12 XFCE Standard i386
+    - name: Archive build output - Debian 13 XFCE Ultra amd64
       uses: actions/upload-artifact@v4
       with:
-        name: minios-bookworm-xfce-standard-i386
-        path: minios-live/build/output/bookworm-xfce-standard-i386
+        name: minios-trixie-xfce-ultra-amd64
+        path: minios-live/build/output/trixie-xfce-ultra-amd64
 
   release:
     needs: build
