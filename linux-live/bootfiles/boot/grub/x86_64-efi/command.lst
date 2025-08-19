@@ -2,6 +2,7 @@
 *all_functional_test: functional_test
 *background_image: gfxterm_background
 *cat: cat
+*cmp: cmp
 *cpuid: cpuid
 *crc: hashsum
 *cryptomount: cryptodisk
@@ -32,8 +33,10 @@
 *md5sum: hashsum
 *menuentry: normal
 *pcidump: pcidump
+*plainmount: plainmount
 *probe: probe
 *rdmsr: rdmsr
+*read: read
 *read_byte: memrw
 *read_dword: memrw
 *read_word: memrw
@@ -72,7 +75,6 @@ cat: minicmd
 cbmemc: cbmemc
 chainloader: chain
 clear: normal
-cmp: cmp
 configfile: configfile
 continue: normal
 coreboot_boottime: cbtime
@@ -80,6 +82,7 @@ cutmem: mmap
 date: date
 distrust: pgp
 dump: minicmd
+efitextmode: efitextmode
 eval: eval
 exit: minicmd
 export: normal
@@ -97,7 +100,6 @@ help: minicmd
 hexdump_random: random
 initrd16: linux16
 initrd: linux
-initrdefi: linuxefi
 keymap: keylayouts
 kfreebsd_loadenv: bsd
 kfreebsd_module: bsd
@@ -114,7 +116,6 @@ legacy_password: legacycfg
 legacy_source: legacycfg
 linux16: linux16
 linux: linux
-linuxefi: linuxefi
 list_trusted: pgp
 loadbios: loadbios
 loadfont: font
@@ -149,6 +150,7 @@ net_ls_cards: net
 net_ls_dns: net
 net_ls_routes: net
 net_nslookup: net
+net_set_vlan: net
 normal: normal
 normal_exit: normal
 outb: iorw
@@ -158,7 +160,6 @@ parttool: parttool
 password: password
 password_pbkdf2: password_pbkdf2
 play: play
-read: read
 reboot: reboot
 return: normal
 rmmod: minicmd
