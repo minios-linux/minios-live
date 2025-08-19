@@ -46,9 +46,10 @@ gpm
 rfkill
 usb-modeswitch
 htop -de=flux
-systemd-timesyncd
-#polkitd || policykit-1
-#pkexec || policykit-1
+systemd-timesyncd -d=buster
+systemd-timesyncd@buster-backports +d=buster
+polkitd || policykit-1
+pkexec || policykit-1
 tlp
 wpasupplicant
 
@@ -67,7 +68,7 @@ nfs-common -pv=minimum
 ipset -pv=minimum
 fuse3 -pv=minimum || fuse -pv=minimum
 libfuse2 -pv=minimum
-dynfilefs -pv=minimum
+dynfilefs -pv=minimum -d=buster -d=bullseye
 parted -pv=minimum
 7zip -pv=minimum
 whois -pv=minimum

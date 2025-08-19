@@ -6,58 +6,237 @@
 # Requires: Debian
 #
 
-set -e
+set -euo pipefail
 
+# Function to cleanup temporary files on exit
+cleanup() {
+    local exit_code=$?
+    if [ -d "/tmp/syslinux" ]; then
+        echo "Cleaning up temporary files..."
+        rm -rf /tmp/syslinux
+    fi
+    exit $exit_code
+}
+
+# Function to log messages with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Function to validate directory path
+validate_path() {
+    local path="$1"
+    if [[ ! "$path" =~ ^/[a-zA-Z0-9_/-]+$ ]]; then
+        echo "Error: Invalid path format. Path must start with / and contain only alphanumeric characters, underscores, and hyphens."
+        return 1
+    fi
+    return 0
+}
+
+# Set trap for cleanup on exit
+trap cleanup EXIT INT TERM
+
+# Check if running as root (required for apt operations)
+if [ "$EUID" -eq 0 ]; then
+    log "Warning: Running as root. This is required for apt operations but may be risky."
+fi
+
+# Store current working directory
 CWD=$(pwd)
+if [ ! -w "$CWD" ]; then
+    echo "Error: Current directory is not writable: $CWD"
+    exit 1
+fi
 
+# Check if required commands are available
+for cmd in apt-get make sed strip uname; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "Error: Required command '$cmd' not found"
+        exit 1
+    fi
+done
+
+log "Starting isolinux.bin update script"
 echo
 echo "--------------------------------------------------------------------"
 echo "Add directory to isolinux search paths (usually /\$LIVEKITNAME/boot)"
-echo -n "(for example /slax/boot or /linux/boot): "
-read DIR
+echo -n "Default is /minios/boot/syslinux. Press Enter for default or type custom path: "
+read -r DIR
+
+# Use default path if no input provided
+if [ -z "$DIR" ]; then
+    DIR="/minios/boot/syslinux"
+    log "Using default path: $DIR"
+else
+    # Validate custom path
+    if ! validate_path "$DIR"; then
+        exit 1
+    fi
+    log "Using custom path: $DIR"
+fi
 
 
 # download, unpack, and patch syslinux
 
+log "Installing build dependencies for syslinux"
 if ! apt-get --yes build-dep syslinux; then
-   echo "the most common cause of build-dep failures can be solved by following the steps described here: https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list"
+   echo "Error: Failed to install build dependencies."
+   echo "The most common cause of build-dep failures can be solved by following the steps described here:"
+   echo "https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list"
    exit 1
 fi
-mkdir -m 0777 /tmp/syslinux
-cd /tmp/syslinux
-apt-get source syslinux
-apt-get --yes install upx
-cd syslinux*/core
 
+log "Creating temporary directory and downloading syslinux source"
+if [ -d "/tmp/syslinux" ]; then
+    log "Removing existing temporary directory"
+    rm -rf /tmp/syslinux
+fi
+mkdir -m 0755 /tmp/syslinux
+cd /tmp/syslinux
+
+if ! apt-get source syslinux; then
+    echo "Error: Failed to download syslinux source"
+    exit 1
+fi
+
+log "Installing additional build tools"
+if ! apt-get --yes install upx-ucl; then
+    echo "Error: Failed to install upx-ucl"
+    exit 1
+fi
+
+# Verify syslinux directory exists and enter core directory
+if ! cd syslinux*/core 2>/dev/null; then
+    echo "Error: Could not find syslinux source directory"
+    exit 1
+fi
+
+log "Entered syslinux core directory: $(pwd)"
+
+log "Patching syslinux source files with custom path: $DIR"
 for file in fs/iso9660/iso9660.c fs/lib/loadconfig.c elflink/load_env32.c; do
-   sed -i -r 's:"/",:"'$DIR'",\n\t"/",:' $file
+   if [ ! -f "$file" ]; then
+       echo "Error: Source file not found: $file"
+       exit 1
+   fi
+   log "Patching file: $file"
+   if ! sed -i -r 's:"/",:"'"$DIR"'",\n\t"/",:' "$file"; then
+       echo "Error: Failed to patch file: $file"
+       exit 1
+   fi
 done
 
 cd ../
 
+log "Cleaning previous build artifacts"
 rm -f bios/core/isolinux.bin
+rm -f bios/core/pxelinux.0
+rm -f bios/core/lpxelinux.0
 rm -f bios/com32/elflink/ldlinux/ldlinux.c32
 rm -f bios/com32/lib/libcom32.c32
 rm -f bios/com32/libutil/libutil.c32
 rm -f bios/com32/menu/vesamenu.c32
+rm -f bios/com32/menu/menu.c32
+rm -f bios/mbr/isohdpfx.bin
+rm -f bios/mbr/mbr.bin
+rm -f bios/dos/syslinux.com
+rm -f bios/win32/syslinux.exe
 rm -f bios/extlinux/extlinux
 
-make -j 8 -i
+# Determine number of CPU cores for parallel compilation
+NPROC=$(nproc 2>/dev/null || echo "4")
+log "Starting compilation with $NPROC parallel jobs"
+if ! make -j "$NPROC" -i; then
+    echo "Error: Compilation failed"
+    exit 1
+fi
+log "Compilation completed successfully"
 
 echo
-echo "Copying files to $CWD ..."
+log "Copying compiled files to $CWD"
 
-cp bios/core/isolinux.bin $CWD
-cp bios/com32/elflink/ldlinux/ldlinux.c32 $CWD
-cp bios/com32/lib/libcom32.c32 $CWD
-cp bios/com32/libutil/libutil.c32 $CWD
-cp bios/com32/menu/vesamenu.c32 $CWD
+# List of files to copy with their destinations
+declare -A files_to_copy=(
+    ["bios/core/isolinux.bin"]="isolinux.bin"
+    ["bios/com32/elflink/ldlinux/ldlinux.c32"]="ldlinux.c32"
+    ["bios/com32/lib/libcom32.c32"]="libcom32.c32"
+    ["bios/com32/libutil/libutil.c32"]="libutil.c32"
+    ["bios/com32/menu/vesamenu.c32"]="vesamenu.c32"
+    ["bios/com32/menu/menu.c32"]="menu.c32"
+    ["bios/core/pxelinux.0"]="pxelinux.0"
+    ["bios/core/lpxelinux.0"]="lpxelinux.0"
+    ["bios/mbr/isohdpfx.bin"]="isohdpfx.bin"
+    ["bios/mbr/mbr.bin"]="mbr.bin"
+    ["bios/dos/syslinux.com"]="syslinux.com"
+    ["bios/win32/syslinux.exe"]="syslinux.exe"
+)
 
-ARCH=$(uname -m)
-if [ "$ARCH" = "x86_64" ]; then ARCH=64; else ARCH=32; fi
-EXTLINUX=extlinux.x$ARCH
+# Copy files with verification (some files are optional)
+for src in "${!files_to_copy[@]}"; do
+    dest="${files_to_copy[$src]}"
+    if [ -f "$src" ]; then
+        log "Copying $src to $dest"
+        if ! cp "$src" "$CWD/$dest"; then
+            echo "Error: Failed to copy $src to $CWD/$dest"
+            exit 1
+        fi
+    else
+        log "Optional file not found, skipping: $src"
+    fi
+done
 
-strip --strip-unneeded bios/extlinux/extlinux
-cp bios/extlinux/extlinux $CWD/extlinux.x$ARCH
+# Handle extlinux binary
+# Detect architecture properly - check both kernel and userspace architecture
+KERNEL_ARCH=$(uname -m)
+USERSPACE_ARCH=$(dpkg --print-architecture 2>/dev/null || echo "unknown")
 
-echo "done"
+log "Detected kernel architecture: $KERNEL_ARCH"
+log "Detected userspace architecture: $USERSPACE_ARCH"
+
+# Determine architecture suffix based on the build environment
+case "$USERSPACE_ARCH" in
+    amd64|x86_64)
+        ARCH_SUFFIX=64
+        ;;
+    i386|i686)
+        ARCH_SUFFIX=32
+        ;;
+    *)
+        # Fallback to kernel architecture
+        case "$KERNEL_ARCH" in
+            x86_64)
+                ARCH_SUFFIX=64
+                ;;
+            i*86)
+                ARCH_SUFFIX=32
+                ;;
+            *)
+                echo "Warning: Unknown architecture $KERNEL_ARCH/$USERSPACE_ARCH, defaulting to 32-bit"
+                ARCH_SUFFIX=32
+                ;;
+        esac
+        ;;
+esac
+
+EXTLINUX="extlinux.x$ARCH_SUFFIX"
+log "Using architecture suffix: $ARCH_SUFFIX (extlinux filename: $EXTLINUX)"
+
+if [ ! -f "bios/extlinux/extlinux" ]; then
+    echo "Error: extlinux binary not found"
+    exit 1
+fi
+
+log "Stripping and copying extlinux binary as $EXTLINUX"
+if ! strip --strip-unneeded bios/extlinux/extlinux; then
+    echo "Error: Failed to strip extlinux binary"
+    exit 1
+fi
+
+if ! cp bios/extlinux/extlinux "$CWD/$EXTLINUX"; then
+    echo "Error: Failed to copy extlinux to $CWD/$EXTLINUX"
+    exit 1
+fi
+
+log "All files copied successfully to $CWD"
+log "Script completed successfully"
+echo "Done! Files have been updated with search path: $DIR"

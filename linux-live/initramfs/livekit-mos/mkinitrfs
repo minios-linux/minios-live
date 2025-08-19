@@ -279,7 +279,6 @@ copy_files "$INITRAMFS" "${FILES[@]}"
 
 chmod a+x "$INITRAMFS/bin/"*
 chmod a+x "$INITRAMFS/mkinitrfs"
-
 mkdir -p "$INITRAMFS/etc/modprobe.d"
 echo "options loop max_loop=64" >"$INITRAMFS/etc/modprobe.d/local-loop.conf"
 
@@ -317,6 +316,9 @@ copy_including_deps "/$LMK/kernel/fs/btrfs"
 copy_including_deps "/$LMK/kernel/fs/xfs"
 copy_including_deps "/$LMK/kernel/fs/efivarfs" # for Clonezilla
 
+copy_including_deps "/$LMK/kernel/crypto/lz4"*.*
+copy_including_deps "/$LMK/kernel/crypto/zstd."*
+
 # crc32c is needed for ext4, but I don't know which one, add them all, they are small
 find "/$LMK/kernel/" | grep crc32c | while read LINE; do
     copy_including_deps "$LINE"
@@ -346,6 +348,8 @@ copy_including_deps "/$LMK/kernel/drivers/scsi/scsi_mod."*
 copy_including_deps "/$LMK/kernel/drivers/scsi/sg."*
 
 # virtual disk drivers
+copy_including_deps "/$LMK/kernel/drivers/scsi/hv_storvsc."*
+
 if [ "$CLOUD" = "true" ]; then
     copy_including_deps "/$LMK/kernel/drivers/virtio/virtio."*
     copy_including_deps "/$LMK/kernel/drivers/virtio/virtio_mmio."*

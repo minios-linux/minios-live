@@ -306,14 +306,14 @@ get_union_fs() {
 get_running_kernel() {
    local CMDLINE=$(cat /proc/cmdline)
    local VERSION
-   
+
    VERSION=$(echo "$CMDLINE" | grep -o 'vmlinuz-[^ ]*' | sed 's|vmlinuz-||' | head -n1)
-   
+
    # Fallback to uname -r if cmdline parsing failed
    if [ -z "$VERSION" ]; then
       VERSION=$(uname -r)
    fi
-   
+
    echo "$VERSION"
 }
 
@@ -649,7 +649,7 @@ ask_disk() {
    if echo "$WHERE" | grep -q "^$COMMAND"; then
       (while true; do
          # Among other things, filter out swap, since the user may have a hard disk with a swap partition on the actual hardware.
-         blkid -o full -s TYPE -s LABEL | grep -E -v "/loop|/ram|/zram|TYPE=\"swap\"" | while read -r LINE; do
+         blkid -o full -s TYPE -s LABEL /dev/sd* /dev/hd* /dev/vd* /dev/xvd* /dev/nvme* /dev/mmcblk* /dev/sr* /dev/mapper/* /dev/dm-* /dev/nbd* /dev/md* /dev/rbd* 2>/dev/null | grep -E -v "TYPE=\"swap\"" | while read -r LINE; do
             PARTITION=$(echo "$LINE" | awk '{print $1}' | awk -F':' '{print $1}')
             SIZE=$(fdisk -l "$PARTITION" 2>/dev/null | head -n 1 | awk '/Disk \// {print $3, $4}' | tr -d ",")
             TYPE=$(echo $LINE | awk -F'TYPE="' '{print $2}' | awk -F'"' '{print $1}')
@@ -693,7 +693,7 @@ find_data_try() {
 
    mkdir -p "$1"
 
-   blkid /dev/* | sort | cut -d: -f 1 | grep -E -v "/loop|/ram|/zram" | while read DRIVE; do
+   blkid /dev/sd* /dev/hd* /dev/vd* /dev/xvd* /dev/nvme* /dev/mmcblk* /dev/sr* /dev/mapper/* /dev/dm-* /dev/nbd* /dev/md* /dev/rbd* 2>/dev/null | sort | cut -d: -f 1 | while read DRIVE; do
       FROM="$2"
 
       # supported syntax is even like from=/dev/sr0/livekitname. It is not so much
@@ -972,7 +972,7 @@ mount_perch_drive() {
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION
+   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION
 
    DRIVE="$1"
    CHANDIR="$2"
@@ -1012,6 +1012,7 @@ restore_perch_session() {
       LASTVERSION=$(jq -r ".sessions[\"$LASTSESSION\"].version // empty" "$SESSIONS")
       LASTEDITION=$(jq -r ".sessions[\"$LASTSESSION\"].edition // empty" "$SESSIONS")
       LASTUNION=$(jq -r ".sessions[\"$LASTSESSION\"].union // empty" "$SESSIONS")
+      LASTSIZE=$(jq -r ".sessions[\"$LASTSESSION\"].size // empty" "$SESSIONS")
    else
       SESSIONS="$CHANDIR/session.conf"
       [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
@@ -1021,6 +1022,7 @@ restore_perch_session() {
       LASTVERSION=$(sed -n "s/^session_version\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTEDITION=$(sed -n "s/^session_edition\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTUNION=$(sed -n "s/^session_union\[$LASTSESSION\]=//p" "$SESSIONS")
+      LASTSIZE=$(sed -n "s/^session_size\[$LASTSESSION\]=//p" "$SESSIONS")
    fi
 
    if [ -n "$LASTSESSION" ]; then
@@ -1072,17 +1074,19 @@ restore_perch_session() {
                SESSION_CONFIRMED="true"
             else
                PERCHDIR=$(echo "$SELECTED" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')
-               local SELECTED_VERSION SELECTED_EDITION SELECTED_UNION
+               local SELECTED_VERSION SELECTED_EDITION SELECTED_UNION SELECTED_SIZE
                if command -v jq >/dev/null 2>&1; then
                   PERCHMODE=$(jq -r ".sessions[\"$PERCHDIR\"].mode // \"unknown\"" "$SESSIONS")
                   SELECTED_VERSION=$(jq -r ".sessions[\"$PERCHDIR\"].version // \"unknown\"" "$SESSIONS")
                   SELECTED_EDITION=$(jq -r ".sessions[\"$PERCHDIR\"].edition // \"unknown\"" "$SESSIONS")
                   SELECTED_UNION=$(jq -r ".sessions[\"$PERCHDIR\"].union // \"unknown\"" "$SESSIONS")
+                  SELECTED_SIZE=$(jq -r ".sessions[\"$PERCHDIR\"].size // empty" "$SESSIONS")
                else
                   PERCHMODE=$(sed -n "s/^session_mode\[$PERCHDIR\]=//p" "$SESSIONS")
                   SELECTED_VERSION=$(sed -n "s/^session_version\[$PERCHDIR\]=//p" "$SESSIONS")
                   SELECTED_EDITION=$(sed -n "s/^session_edition\[$PERCHDIR\]=//p" "$SESSIONS")
                   SELECTED_UNION=$(sed -n "s/^session_union\[$PERCHDIR\]=//p" "$SESSIONS")
+                  SELECTED_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" "$SESSIONS")
                fi
 
                local WARNING_TITLE=""
@@ -1117,12 +1121,20 @@ restore_perch_session() {
                      VERSION="$SELECTED_VERSION"
                      EDITION="$SELECTED_EDITION"
                      UNION="$SELECTED_UNION"
+                     # Restore session size if available and not overridden by command line (dynfilefs only)
+                     if [ "$PERCHSIZE" = "0" ] && [ "$PERCHMODE" = "dynfilefs" ] && [ -n "$SELECTED_SIZE" ] && [ "$SELECTED_SIZE" != "empty" ]; then
+                        PERCHSIZE="$SELECTED_SIZE"
+                     fi
                      SESSION_CONFIRMED="true"
                   fi
                else
                   VERSION="$SELECTED_VERSION"
                   EDITION="$SELECTED_EDITION"
                   UNION="$SELECTED_UNION"
+                  # Restore session size if available and not overridden by command line (dynfilefs only)
+                  if [ "$PERCHSIZE" = "0" ] && [ "$PERCHMODE" = "dynfilefs" ] && [ -n "$SELECTED_SIZE" ] && [ "$SELECTED_SIZE" != "empty" ]; then
+                     PERCHSIZE="$SELECTED_SIZE"
+                  fi
                   SESSION_CONFIRMED="true"
                fi
             fi
@@ -1156,6 +1168,10 @@ restore_perch_session() {
          VERSION="$LASTVERSION"
          EDITION="$LASTEDITION"
          UNION="$LASTUNION"
+         # Restore session size if available and not overridden by command line (dynfilefs only)
+         if [ "$PERCHSIZE" = "0" ] && [ "$PERCHMODE" = "dynfilefs" ] && [ -n "$LASTSIZE" ] && [ "$LASTSIZE" != "empty" ]; then
+            PERCHSIZE="$LASTSIZE"
+         fi
       else
          ACTION="new"
       fi
@@ -1297,6 +1313,13 @@ persistent_changes() {
          mke2fs -t ext4 -F "$1" >/dev/null 2>&1
       else
          echo "* Resuming persistent changes for session #$PERCHDIR"
+
+         # Check filesystem before any resize operations
+         if command -v e2fsck >/dev/null; then
+            echo "- checking filesystem for errors"
+            e2fsck -p "$1" >/dev/null 2>&1
+         fi
+
          echo "- grow if needed"
          case "$PERCHMODE" in
          "raw")
@@ -1305,16 +1328,14 @@ persistent_changes() {
                echo "- expanding raw image from ${CURRENT_SIZE}MB to ${PERCHSIZE}MB"
                truncate -s "${PERCHSIZE}M" "$1"
             fi
+            echo "- resizing filesystem to match image"
             resize2fs -f "$1" >/dev/null 2>&1
             ;;
          "dynfilefs")
+            echo "- resizing filesystem to match container"
             resize2fs -f "$1" >/dev/null 2>&1
             ;;
          esac
-         if command -v e2fsck >/dev/null; then
-            echo "- checking filesystem for errors"
-            e2fsck -p "$1"
-         fi
       fi
       echo "- mounting persistent changes"
       mount -o loop "$1" "$CHANGES"
@@ -1354,7 +1375,7 @@ persistent_changes() {
    }
 
    update_session() {
-      local SESSIONS VERSION EDITION UNION
+      local SESSIONS VERSION EDITION UNION EXISTING_SIZE
 
       if [ -f /etc/minios-release ]; then
          VERSION=$(config_value "/etc/minios-release" VERSION)
@@ -1365,34 +1386,84 @@ persistent_changes() {
       if command -v jq >/dev/null 2>&1; then
          SESSIONS="$CHANDIR/session.json"
          [ ! -f "$SESSIONS" ] && echo '{"default": null, "sessions": {}}' >"$SESSIONS"
-         jq --arg session "$PERCHDIR" \
-            --arg mode "$PERCHMODE" \
-            --arg version "$VERSION" \
-            --arg edition "$EDITION" \
-            --arg union "$UNION" \
-            '.default = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition | .sessions[$session].union = $union' \
-            "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
+
+         # Read existing size to preserve it if PERCHSIZE is not set
+         if [ "$PERCHMODE" = "dynfilefs" ]; then
+            EXISTING_SIZE=$(jq -r ".sessions[\"$PERCHDIR\"].size // empty" "$SESSIONS" 2>/dev/null)
+            if [ -z "$PERCHSIZE" ] || [ "$PERCHSIZE" = "0" ]; then
+               if [ -n "$EXISTING_SIZE" ] && [ "$EXISTING_SIZE" != "empty" ]; then
+                  PERCHSIZE="$EXISTING_SIZE"
+               fi
+            fi
+         fi
+
+         if [ "$PERCHMODE" = "dynfilefs" ]; then
+            jq --arg session "$PERCHDIR" \
+               --arg mode "$PERCHMODE" \
+               --arg version "$VERSION" \
+               --arg edition "$EDITION" \
+               --arg union "$UNION" \
+               --arg size "$PERCHSIZE" \
+               '.default = $session | .running = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition | .sessions[$session].union = $union | .sessions[$session].size = $size' \
+               "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
+         else
+            jq --arg session "$PERCHDIR" \
+               --arg mode "$PERCHMODE" \
+               --arg version "$VERSION" \
+               --arg edition "$EDITION" \
+               --arg union "$UNION" \
+               '.default = $session | .running = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition | .sessions[$session].union = $union' \
+               "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
+         fi
       else
          SESSIONS="$CHANDIR/session.conf"
          [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
+
+         # Read existing size to preserve it if PERCHSIZE is not set
+         if [ "$PERCHMODE" = "dynfilefs" ]; then
+            EXISTING_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" "$SESSIONS" 2>/dev/null)
+            if [ -z "$PERCHSIZE" ] || [ "$PERCHSIZE" = "0" ]; then
+               if [ -n "$EXISTING_SIZE" ]; then
+                  PERCHSIZE="$EXISTING_SIZE"
+               fi
+            fi
+         fi
          sed -i \
             -e "s/^default=.*/default=$PERCHDIR/" \
+            -e "/^running=.*/d" \
             -e "/^session_mode\[$PERCHDIR\]=.*/d" \
             -e "/^session_version\[$PERCHDIR\]=.*/d" \
             -e "/^session_edition\[$PERCHDIR\]=.*/d" \
             -e "/^session_union\[$PERCHDIR\]=.*/d" \
+            -e "/^session_size\[$PERCHDIR\]=.*/d" \
             "$SESSIONS"
+         echo "running=$PERCHDIR" >>"$SESSIONS"
          echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
          echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
          echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
          echo "session_union[$PERCHDIR]=$UNION" >>"$SESSIONS"
+
+         if [ "$PERCHMODE" = "dynfilefs" ]; then
+            echo "session_size[$PERCHDIR]=$PERCHSIZE" >>"$SESSIONS"
+         fi
       fi
    }
 
    native_mode() {
       local T1="$CHANDIR/.empty"
       local T2="${T1}2"
+      local FS
       PERCHMODE="native"
+      
+      # Check filesystem type first - reject non-POSIX filesystems
+      FS="$(device_bestfs "$DRIVE")"
+      if [ "$FS" = "ntfs3" ] || [ "$FS" = "ntfs-3g" ] || [ "$FS" = "vfat" ] || [ "$FS" = "exfat" ]; then
+         echo "* Native mode not supported on $FS filesystem, using DynFileFS"
+         dynfilefs_mode
+         return
+      fi
+      
+      # Test POSIX compatibility
       if touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null &&
          chmod +x "$T1" 2>/dev/null && test -x "$T1" &&
          chmod -x "$T1" 2>/dev/null && test ! -x "$T1" &&
@@ -1665,17 +1736,17 @@ setup_running_kernel() {
    if [ ! -f "$KERNEL_SB_DST" ] || [ ! -f "$VMLINUZ_DST" ] || [ ! -f "$INITRFS_DST" ]; then
       echo_red_star
       echo "WARNING: Running kernel files missing for $RUNNING_KERNEL!"
-      
+
       # Define source paths in repository
       KERNEL_SB_SRC="$DATA/kernels/$RUNNING_KERNEL/01-kernel-$RUNNING_KERNEL.sb"
       VMLINUZ_SRC="$DATA/kernels/$RUNNING_KERNEL/vmlinuz-$RUNNING_KERNEL"
       INITRFS_SRC="$DATA/kernels/$RUNNING_KERNEL/initrfs-$RUNNING_KERNEL.img"
-      
+
       # Check if all files exist in repository
       if [ -f "$KERNEL_SB_SRC" ] && [ -f "$VMLINUZ_SRC" ] && [ -f "$INITRFS_SRC" ]; then
          echo "Found in repository, attempting to activate..."
          mkdir -p "$BOOT_DIR" 2>/dev/null
-         
+
          # Copy all files atomically (if any fail, cleanup)
          if cp "$KERNEL_SB_SRC" "$DATA/" && cp "$VMLINUZ_SRC" "$BOOT_DIR/" && cp "$INITRFS_SRC" "$BOOT_DIR/"; then
             debug_log "setup_running_kernel: Successfully activated kernel from repository"
@@ -1698,7 +1769,7 @@ setup_running_kernel() {
          if [ -n "$INACTIVE_VERSION" ]; then
             debug_log "setup_running_kernel: Moving inactive kernel $INACTIVE_VERSION to repository"
             mkdir -p "$DATA/kernels/$INACTIVE_VERSION" 2>/dev/null
-            
+
             # Move all three file types for this version
             mv "$KERNEL_FILE" "$DATA/kernels/$INACTIVE_VERSION/" 2>/dev/null
             [ -f "$BOOT_DIR/vmlinuz-$INACTIVE_VERSION" ] && mv "$BOOT_DIR/vmlinuz-$INACTIVE_VERSION" "$DATA/kernels/$INACTIVE_VERSION/" 2>/dev/null
@@ -1706,9 +1777,6 @@ setup_running_kernel() {
          fi
       fi
    done
-
-   echo_green_star
-   echo "Running kernel: $RUNNING_KERNEL"
 
    return 0
 }
@@ -1771,7 +1839,7 @@ fstab_create() {
 
    echo >>$FSTAB
 
-   blkid /dev/* | grep -v "^/dev/loop" | grep -v "^/dev/zram" | cut -d: -f 1 | while read DRIVE; do
+   blkid /dev/sd* /dev/hd* /dev/vd* /dev/xvd* /dev/nvme* /dev/mmcblk* /dev/sr* /dev/mapper/* /dev/dm-* /dev/nbd* /dev/md* /dev/rbd* 2>/dev/null | cut -d: -f 1 | while read DRIVE; do
       FS="$(device_bestfs $DRIVE)"
       LABEL="$(basename $DRIVE)"
       OPTS="defaults,noatime,nofail,x-systemd.device-timeout=10"

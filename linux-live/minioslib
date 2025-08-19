@@ -20,7 +20,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_TYPE KERNEL_BPO KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD USE_SYSLINUX_BIOS KEEP_SYSLINUX_FILES"
 
     : "${container:=}"
     : "${MODULE:=}"
@@ -94,8 +94,10 @@ common_variables() {
     if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
         if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
             DISTRIBUTION_URL="https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}"
+        elif [ "${DISTRIBUTION}" = "buster" ]; then
+            DISTRIBUTION_URL="http://deb.freexian.com/extended-lts"
         else
-            DISTRIBUTION_URL="http://ftp.debian.org/debian"
+            DISTRIBUTION_URL="http://deb.debian.org/debian"
         fi
     elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
@@ -1527,67 +1529,50 @@ create_config_files() {
         BOOT_SETTINGS="${BOOT_SETTINGS} apparmor=0 selinux=0"
     fi
 
-    cat <<EOF | iconv -f 'UTF-8' -t "CP866//TRANSLIT" >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux.cfg"
-UI vesamenu.c32
-
+    # Create SYSLINUX configuration if enabled
+    if [ "${USE_SYSLINUX_BIOS}" = "true" ] || [ "${KEEP_SYSLINUX_FILES}" = "true" ]; then
+        # Create minimalist SYSLINUX config
+        mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+        cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
 PROMPT 0
-TIMEOUT 100
+TIMEOUT 1
 
-MENU CLEAR
-MENU HIDDEN
-MENU HIDDENKEY Enter default
-MENU BACKGROUND bootlogo.png
-MENU RESOLUTION 1024 768
+DEFAULT grub2
 
-MENU WIDTH 125
-MENU MARGIN 20
-MENU ROWS 5
-MENU TABMSGROW 14
-MENU CMDLINEROW 12
-MENU HSHIFT 0
-MENU VSHIFT 32
-
-MENU COLOR BORDER  30;40      #00000000 #00000000 none
-MENU COLOR SEL     47;30      #FF000000 #99FFFFFF none
-MENU COLOR UNSEL   37;40      #99FFFFFF #FF000000 none
-MENU COLOR TABMSG 32;40 #FFA500 #FF000000 none
-
-F1 help.txt zblack.png
-
-MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
-MENU TABMSG [F1] help                                                        [Tab] cmdline >
-
-LABEL default
-MENU LABEL Run MiniOS (Resume previous session)
-KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume
-
-LABEL perch
-MENU LABEL Run MiniOS (Start a new session)
-KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new
-
-LABEL asksession
-MENU LABEL Run MiniOS (Choose session during startup)
-KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask
-
-LABEL live
-MENU LABEL Run MiniOS (Fresh start)
-KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}
-
-LABEL toram
-MENU LABEL Run MiniOS (Copy to RAM)
-KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram
+LABEL grub2
+MENU LABEL GRUB2
+LINUX /${LIVEKITNAME}/boot/grub/i386-pc/lnxboot.img
+INITRD /${LIVEKITNAME}/boot/grub/i386-pc/core.img
 
 EOF
+        information "Created minimalist SYSLINUX configuration"
+    fi
 
-    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+    # Create multilingual GRUB configuration
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg"
 set default=0
 set timeout=10
 set message="Loading kernel and ramdisk..."
+
+insmod regexp
+insmod gettext
+set localedir=\$prefix/locale
+
+# Language selection (title in theme)
+
+# Language selection
+for langstr in en_US=English ru_RU=Русский de_DE=Deutsch es_ES=Español id_ID="Bahasa Indonesia" it_IT=Italiano pt_BR="Português (Brasil)" ; do
+    regexp -s 2:langname -s 1:langcode '(.*)=(.*)' "\$langstr"
+    menuentry "\${langname}" "\$langcode" {
+        lang=\$2
+        lang_utf="\${2}.UTF-8"
+        export lang
+        export lang_utf
+        configfile /${LIVEKITNAME}/boot/grub/main.cfg
+    }
+done
+
+# Help text handled by theme
 
 loadfont \$prefix/dejavu-bold-16.pf2
 loadfont \$prefix/dejavu-bold-14.pf2
@@ -1597,9 +1582,12 @@ loadfont \$prefix/unicode.pf2
 
 if [ "\$grub_platform" = "pc" ]; then
     set gfxmode=1024x768x32
-    set vga="vga=791"
+    set gfxpayload=1024x768x32,1024x768
+    set vga=""
 else
     set gfxmode=auto
+    set gfxpayload=auto
+    set vga=""
 fi
 
 insmod all_video
@@ -1621,44 +1609,209 @@ terminal_output gfxterm
 insmod play
 play 960 440 1 0 4 440 1
 
-set default_settings="${DEFAULT_SETTINGS}"
-set console_settings="console=tty0 console=ttyS0,115200"
-set debug_settings="${DEBUG_SETTINGS}"
-set linux_image="/${LIVEKITNAME}/boot/${VMLINUZNAME}"
-set initrd_img="/${LIVEKITNAME}/boot/${INITRFSNAME}"
+EOF
 
-menuentry "Run MiniOS (Resume previous session)" --class resume {
+    # Create main menu config
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/main.cfg"
+set default=0
+set timeout=10
+
+# Initialize gettext support
+insmod regexp
+insmod gettext
+set localedir=\$prefix/locale
+
+# Use exported language variables or default to English
+if [ -z "\$lang_utf" ]; then
+    set lang_utf="en_US.UTF-8"
+fi
+
+# Set GRUB language for gettext
+if [ -n "\$lang" ]; then
+    set locale="\$lang"
+fi
+
+# Gettext-based localized menu strings
+set OS=\$"MiniOS"
+set resume=\$"Resume previous session"
+set newsession=\$"Start a new session"
+set choosesession=\$"Choose session during startup"
+set freshstart=\$"Fresh start"
+set copyram=\$"Copy to RAM"
+set loading=\$"Loading kernel and ramdisk..."
+
+# Export variables for proper gettext functionality
+export OS
+export resume
+export newsession
+export choosesession
+export freshstart
+export copyram
+export backtolang
+export loading
+
+loadfont \$prefix/dejavu-bold-16.pf2
+loadfont \$prefix/dejavu-bold-14.pf2
+loadfont \$prefix/roboto-bold-20.pf2
+loadfont \$prefix/roboto-regular-20.pf2
+loadfont \$prefix/unicode.pf2
+
+if [ "\$grub_platform" = "pc" ]; then
+    set gfxmode=1024x768x32
+    set gfxpayload=1024x768x32,1024x768
+else
+    set gfxmode=auto
+    set gfxpayload=auto
+fi
+
+insmod all_video
+insmod gfxterm
+insmod png
+
+set color_normal=light-gray/black
+set color_highlight=white/black
+
+# Set theme based on language
+if [ -n "\$lang" ]; then
+    if [ -e /${LIVEKITNAME}/boot/grub/minios-theme/theme_\$lang.txt ]; then
+        set theme=/${LIVEKITNAME}/boot/grub/minios-theme/theme_\$lang.txt
+    elif [ -e /${LIVEKITNAME}/boot/bootlogo.png ]; then
+        set theme=/${LIVEKITNAME}/boot/grub/minios-theme/theme.txt
+    else
+        set color_normal=white/black
+        set color_highlight=black/white
+    fi
+else
+    if [ -e /${LIVEKITNAME}/boot/bootlogo.png ]; then
+        set theme=/${LIVEKITNAME}/boot/grub/minios-theme/theme.txt
+    else
+        set color_normal=white/black
+        set color_highlight=black/white
+    fi
+fi
+
+terminal_output gfxterm
+
+insmod play
+play 960 440 1 0 4 440 1
+
+menuentry "\$resume" --class resume {
+    echo \$loading
+    search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=\$lang_utf
+    initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
+}
+menuentry "\$newsession" --class new {
+    echo \$loading
+    search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new locales=\$lang_utf
+    initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
+}
+menuentry "\$choosesession" --class switch {
+    echo \$loading
+    search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=\$lang_utf
+    initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
+}
+menuentry "\$freshstart" --class live {
+    echo \$loading
+    search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=\$lang_utf
+    initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
+}
+menuentry "\$copyram" --class ram {
+    echo \$loading
+    search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=\$lang_utf
+    initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
+}
+
+EOF
+
+    # Create English template GRUB configuration for installer
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg"
+set default=0
+set timeout=10
+set message="Loading kernel and ramdisk..."
+
+loadfont \$prefix/dejavu-bold-16.pf2
+loadfont \$prefix/dejavu-bold-14.pf2
+loadfont \$prefix/roboto-bold-20.pf2
+loadfont \$prefix/roboto-regular-20.pf2
+loadfont \$prefix/unicode.pf2
+
+if [ "\$grub_platform" = "pc" ]; then
+    set gfxmode=1024x768x32
+    set gfxpayload=1024x768x32,1024x768
+else
+    set gfxmode=auto
+    set gfxpayload=auto
+fi
+
+insmod all_video
+insmod gfxterm
+insmod png
+
+set color_normal=light-gray/black
+set color_highlight=white/black
+
+if [ -e /minios/boot/bootlogo.png ]; then
+    set theme=/minios/boot/grub/minios-theme/theme.txt
+else
+    set color_normal=white/black
+    set color_highlight=black/white
+fi
+
+terminal_output gfxterm
+
+insmod play
+play 960 440 1 0 4 440 1
+
+menuentry "Resume previous session" --class resume {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Run MiniOS (Start a new session)" --class new {
+menuentry "Start a new session" --class new {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Run MiniOS (Choose session during startup)" --class switch {
+menuentry "Choose session during startup" --class switch {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Run MiniOS (Fresh start)" --class live {
+menuentry "Fresh start" --class live {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Run MiniOS (Copy to RAM)" --class ram {
+menuentry "Copy to RAM" --class ram {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
+    set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 
 EOF
+
+    # Create active grub.cfg as copy of multilingual configuration (default)
+    cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
 }
 
 build_initrd() {
@@ -1731,6 +1884,89 @@ build_boot() {
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
 
+    # Create GRUB translations from bootfiles po files
+    information "Creating GRUB translations..."
+    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale"
+
+    # Copy GRUB po files and compile them to mo files
+    for po_file in "${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/"*.po; do
+        if [ -f "$po_file" ]; then
+            # Extract language code from filename (e.g., ru_RU from ru_RU.po)
+            lang_full=$(basename "$po_file" .po)
+
+            # Create mo file directly in locale directory
+            if command -v msgfmt >/dev/null 2>&1; then
+                msgfmt "$po_file" -o "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${lang_full}.mo"
+                information "Created translation: ${lang_full}"
+            else
+                warning "msgfmt not found, translations will not work properly"
+            fi
+        fi
+    done
+
+    # Remove SYSLINUX/ISOLINUX files if not using SYSLINUX for BIOS boot
+    if [ "${USE_SYSLINUX_BIOS}" != "true" ] && [ "${KEEP_SYSLINUX_FILES}" != "true" ]; then
+        information "Removing all SYSLINUX/ISOLINUX files (using GRUB only)..."
+        rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+
+        information "Removed all SYSLINUX files and Windows installation scripts"
+    fi
+
+    # Generate GRUB BIOS boot files
+    information "Generating GRUB BIOS boot files..."
+    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc"
+
+    # Copy GRUB PC modules
+    if [ -d "/usr/lib/grub/i386-pc" ]; then
+        cp -r /usr/lib/grub/i386-pc/* "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/"
+    fi
+
+    # Generate eltorito boot image for BIOS
+    grub-mkimage -d /usr/lib/grub/i386-pc -O i386-pc-eltorito \
+        -p "/${LIVEKITNAME}/boot/grub" \
+        -o "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/eltorito.img" \
+        --compression=xz \
+        biosdisk vbe \
+        iso9660 udf fat ext2 btrfs ntfs exfat \
+        part_msdos part_gpt part_acorn part_apple part_bsd part_dvh part_plan part_sun part_sunpc \
+        search search_fs_file search_fs_uuid search_label \
+        normal boot linux chain configfile loopback \
+        all_video gfxterm gfxmenu \
+        loadenv minicmd cat echo ls test true help probe font terminal \
+        gettext regexp \
+        play png
+
+    # Generate core.img for installed systems
+    grub-mkimage -d /usr/lib/grub/i386-pc -O i386-pc \
+        -c "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/stub.cfg" \
+        -p "/${LIVEKITNAME}/boot/grub" \
+        -o "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/core.img" \
+        --compression=xz \
+        biosdisk vbe \
+        iso9660 udf fat ext2 btrfs ntfs exfat \
+        part_msdos part_gpt part_acorn part_apple part_bsd part_dvh part_plan part_sun part_sunpc \
+        search search_fs_file search_fs_uuid search_label \
+        normal boot linux chain configfile loopback \
+        all_video gfxterm gfxmenu \
+        loadenv minicmd cat echo ls test true help probe font terminal \
+        gettext regexp \
+        play png
+
+    # Copy lnxboot.img for SYSLINUX compatibility only if needed
+    if [ "${USE_SYSLINUX_BIOS}" = "true" ] || [ "${KEEP_SYSLINUX_FILES}" = "true" ]; then
+        if [ -f "/usr/lib/grub/i386-pc/lnxboot.img" ]; then
+            cp "/usr/lib/grub/i386-pc/lnxboot.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/"
+            information "Copied lnxboot.img for SYSLINUX compatibility"
+        else
+            warning "lnxboot.img not found, SYSLINUX compatibility may not work"
+        fi
+    fi
+
+    # Generate hybrid boot image
+    if [ -f "/usr/lib/grub/i386-pc/boot_hybrid.img" ]; then
+        cp "/usr/lib/grub/i386-pc/boot_hybrid.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/"
+    fi
+
     build_initrd
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
@@ -1747,6 +1983,8 @@ source \$prefix/${ARCH}-efi/grub.cfg
 EOF
 
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/${ARCH}-efi/grub.cfg"
+# GRUB EFI bootstrap configuration
+
 insmod part_acorn
 insmod part_amiga
 insmod part_apple
@@ -1758,6 +1996,28 @@ insmod part_msdos
 insmod part_plan
 insmod part_sun
 insmod part_sunpc
+
+search --file --set=root /.disk/info
+source /${LIVEKITNAME}/boot/grub/grub.cfg
+EOF
+
+    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc"
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/grub.cfg"
+# GRUB BIOS bootstrap configuration
+
+insmod part_acorn
+insmod part_amiga
+insmod part_apple
+insmod part_bsd
+insmod part_dfly
+insmod part_dvh
+insmod part_gpt
+insmod part_msdos
+insmod part_plan
+insmod part_sun
+insmod part_sunpc
+
+search --file --set=root /.disk/info
 source /${LIVEKITNAME}/boot/grub/grub.cfg
 EOF
 
@@ -1823,17 +2083,38 @@ build_iso() {
 
     PERCHIMG=$(mktemp --suffix=.img)
 
-    if [[ "${VERBOSITY_LEVEL}" -ge 1 ]]; then
-        dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
-        mkfs.ext2 -b 1024 -L resizeme "${PERCHIMG}"
+    # Set bootloader-specific parameters
+    if [ "${USE_SYSLINUX_BIOS}" = "true" ]; then
+        # SYSLINUX/ISOLINUX parameters
+        BIOS_BOOT_IMG="${LIVEKITNAME}/boot/syslinux/isolinux.bin"
+        BIOS_BOOT_CATALOG="${LIVEKITNAME}/boot/syslinux/isolinux.boot"
+        BIOS_MBR_IMG="${DIR}/${LIVEKITNAME}/boot/syslinux/isohdpfx.bin"
+        BIOS_BOOT_PARAMS="-eltorito-catalog ${BIOS_BOOT_CATALOG}"
+        HYBRID_PARAMS="-isohybrid-gpt-basdat"
+        HYBRID_PARAMS=""
+    else
+        # GRUB parameters
+        BIOS_BOOT_IMG="${LIVEKITNAME}/boot/grub/i386-pc/eltorito.img"
+        BIOS_BOOT_CATALOG="${LIVEKITNAME}/boot/grub/boot.cat"
+        BIOS_MBR_IMG="${DIR}/${LIVEKITNAME}/boot/grub/i386-pc/boot_hybrid.img"
+        BIOS_BOOT_PARAMS="-eltorito-catalog ${BIOS_BOOT_CATALOG}"
+        HYBRID_PARAMS=""
+    fi
+
+    # Prepare persistence image
+    dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
+    mkfs.ext2 -b 1024 -L resizeme "${PERCHIMG}"
+
+    # Build ISO creation command
+    create_iso_cmd() {
         xorriso \
             --as mkisofs \
             -iso-level 3 \
             -volid "MINIOS" \
             -A "MiniOS" \
             -joliet -joliet-long -rational-rock \
-            -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin" \
-            -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot" \
+            -eltorito-boot "${BIOS_BOOT_IMG}" \
+            ${BIOS_BOOT_PARAMS} \
             -no-emul-boot \
             -boot-load-size 4 \
             -boot-info-table \
@@ -1843,42 +2124,21 @@ build_iso() {
             -eltorito-alt-boot \
             -e "${LIVEKITNAME}/boot/grub/efi32.img" \
             -no-emul-boot \
-            --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin" \
+            --isohybrid-mbr "${BIOS_MBR_IMG}" \
+            ${HYBRID_PARAMS} \
             -append_partition 2 0x83 "${PERCHIMG}" \
             -partition_cyl_align on \
             -partition_offset 16 \
             -part_like_isohybrid \
             -output "${ISO}" \
-            "${DIR}" && information "The image ${CYAN}${ISO}${ENDCOLOR} has been created." || exit 1
+            "${DIR}"
+    }
+
+    # Execute with appropriate verbosity
+    if [[ "${VERBOSITY_LEVEL}" -ge 1 ]]; then
+        create_iso_cmd && information "The image ${CYAN}${ISO}${ENDCOLOR} has been created." || exit 1
     else
-        (
-            dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
-            mkfs.ext2 -b 1024 -L resizeme "${PERCHIMG}"
-            xorriso \
-                --as mkisofs \
-                -iso-level 3 \
-                -volid "MINIOS" \
-                -A "MiniOS" \
-                -joliet -joliet-long -rational-rock \
-                -eltorito-boot "${LIVEKITNAME}/boot/isolinux.bin" \
-                -eltorito-catalog "${LIVEKITNAME}/boot/isolinux.boot" \
-                -no-emul-boot \
-                -boot-load-size 4 \
-                -boot-info-table \
-                -eltorito-alt-boot \
-                -e "${LIVEKITNAME}/boot/grub/efi64.img" \
-                -no-emul-boot \
-                -eltorito-alt-boot \
-                -e "${LIVEKITNAME}/boot/grub/efi32.img" \
-                -no-emul-boot \
-                --isohybrid-mbr "${DIR}/${LIVEKITNAME}/boot/isohdpfx.bin" \
-                -append_partition 2 0x83 "${PERCHIMG}" \
-                -partition_cyl_align on \
-                -partition_offset 16 \
-                -part_like_isohybrid \
-                -output "${ISO}" \
-                "${DIR}" || exit 1
-        ) >/dev/null 2>&1 &
+        create_iso_cmd >/dev/null 2>&1 &
         iso_pid=$!
         spinner "${iso_pid}" "Creating ISO image"
         wait "${iso_pid}"
@@ -2000,6 +2260,7 @@ chroot_cleanup() {
     rm -f "${BASE_PATH}/var/cache/fontconfig/"* 2>/dev/null
     rm -f "${BASE_PATH}/var/cache/ldconfig/"* 2>/dev/null
     rm -rf "${BASE_PATH}/var/cache/mandb" 2>/dev/null
+    rm -rf "${BASE_PATH}/var/cache/man" 2>/dev/null
     if [ "${USE_APT_CACHE}" = "false" ]; then
         rm -f "${BASE_PATH}/var/cache/apt/archives/"*.deb 2>/dev/null
     fi
