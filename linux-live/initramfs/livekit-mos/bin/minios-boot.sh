@@ -23,15 +23,19 @@ set_log() {
 }
 
 echo_green_star() {
-    printf '\033[0;32m*\033[0;39m '
+   echo -ne "[0;32m""* ""[0;39m"
 }
 
 echo_red_star() {
-    printf '\033[0;31m*\033[0;39m '
+   echo -ne "[0;31m""* ""[0;39m"
+}
+
+echo_yellow_star() {
+   echo -ne "[0;33m""* ""[0;39m"
 }
 
 echo_white_star() {
-    printf '\033[1;37m*\033[0;39m '
+   echo -ne "[1;37m""* ""[0;39m"
 }
 
 read_config() {
