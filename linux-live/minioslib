@@ -2052,9 +2052,12 @@ build_iso() {
     if [[ "${REMOVE_OLD_ISO}" == "true" ]]; then
         toggle_shell_options e
         rm -f "${ISO_DIR}/${IMAGE}-"*".iso"
+        rm -f "${ISO_DIR}/${IMAGE}-"*".iso.sha256"
         rm -f "${ISO_DIR}/${IMAGE}-"*"-${RELEASE_VERSION}.iso"
+        rm -f "${ISO_DIR}/${IMAGE}-"*"-${RELEASE_VERSION}.iso.sha256"
         while [[ -f "${ISO_DIR}/${LIVEKITNAME}.iso" ]]; do
             rm "${ISO_DIR}/${LIVEKITNAME}.iso"
+            rm -f "${ISO_DIR}/${LIVEKITNAME}.iso.sha256"
             sleep 1
         done
         toggle_shell_options e
