@@ -5,6 +5,14 @@
 # Author: crims0n <https://minios.dev>
 
 # =================================================================
+# timing and debug variables
+# =================================================================
+
+TIMING_ENABLED=""
+TIMING_LAST_TIME=""
+TIMING_LAST_FUNCTION=""
+
+# =================================================================
 # debug and output functions
 # =================================================================
 
@@ -15,9 +23,63 @@ debug_start() {
    else
       DEBUG_IS_ENABLED=
    fi
+
+   # Initialize timing if timing parameter is present
+   if grep -q timing /proc/cmdline; then
+      TIMING_ENABLED=1
+      if [ -r /proc/uptime ]; then
+         TIMING_LAST_TIME=$(awk '{print $1}' /proc/uptime)
+      fi
+   else
+      TIMING_ENABLED=
+   fi
+
+   # Start timing with a marker
+   debug_log "init_start" "MiniOS initialization begins"
 }
 
 debug_log() {
+   local FUNC_NAME
+
+   # Extract function name from debug message
+   FUNC_NAME=$(echo "$1" | awk '{print $1}')
+
+   # Handle timing - always process for logging, show on screen if timing enabled
+   if [ -r /proc/uptime ]; then
+      local CURRENT_TIME ELAPSED_TIME MESSAGE
+      CURRENT_TIME=$(awk '{print $1}' /proc/uptime)
+
+      # Initialize timing on first call if not already set
+      if [ -z "$TIMING_LAST_TIME" ]; then
+         TIMING_LAST_TIME="$CURRENT_TIME"
+      fi
+
+      if [ -n "$TIMING_LAST_FUNCTION" ] && [ "$TIMING_LAST_FUNCTION" != "$FUNC_NAME" ]; then
+         # Different function - show transition time
+         ELAPSED_TIME=$(awk "BEGIN {printf \"%.2f\", $CURRENT_TIME - $TIMING_LAST_TIME}")
+         MESSAGE="$TIMING_LAST_FUNCTION -> $FUNC_NAME: +${ELAPSED_TIME}s"
+
+         # Always log timing to debug
+         log "- timing: $MESSAGE"
+
+         # Show on screen only if timing parameter is present
+         if [ "$TIMING_ENABLED" ]; then
+            echo "  $MESSAGE" >&2
+         fi
+      elif [ -z "$TIMING_LAST_FUNCTION" ]; then
+         # First function call
+         MESSAGE="$FUNC_NAME: started"
+         log "- timing: $MESSAGE"
+         if [ "$TIMING_ENABLED" ]; then
+            echo "  $MESSAGE" >&2
+         fi
+      fi
+
+      TIMING_LAST_TIME="$CURRENT_TIME"
+      TIMING_LAST_FUNCTION="$FUNC_NAME"
+   fi
+
+   # Standard debug logging
    if [ "$DEBUG_IS_ENABLED" ]; then
       echo "- debug: $*" >&2
    fi
@@ -75,6 +137,12 @@ echo_green_star() {
 #
 echo_red_star() {
    echo -ne "[0;31m""* ""[0;39m"
+}
+
+# echo yellow star
+#
+echo_yellow_star() {
+   echo -ne "[0;33m""* ""[0;39m"
 }
 
 # echo white star
@@ -139,7 +207,7 @@ config_value() {
    cat $1 | egrep -o "(^|[[:space:]])$2=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1 | sed 's/"//g'
 }
 
-# test if the script is started by root user. If not, exit
+#! test if the script is started by root user. If not, exit
 #
 allow_only_root() {
    if [ "0$UID" -ne 0 ]; then
@@ -148,7 +216,7 @@ allow_only_root() {
    fi
 }
 
-# Create bundle
+#! Create bundle
 # call mksquashfs with apropriate arguments
 # $1 = directory which will be compressed to squashfs bundle
 # $2 = output file
@@ -279,7 +347,6 @@ get_union_fs() {
             echo "aufs"
             return
          else
-            echo "Warning: aufs not supported, using overlayfs" >&2
             echo "overlayfs"
             return
          fi
@@ -325,16 +392,11 @@ init_union_modules() {
    local UNION_PARAM=$(cmdline_value union)
 
    if [ "$UNION_PARAM" = "aufs" ]; then
-      echo_white_star
-      echo "Loading aufs module"
       modprobe aufs 2>/dev/null
       if ! aufs_is_supported >/dev/null; then
-         echo "Warning: aufs not supported, using overlayfs" >&2
          modprobe overlay 2>/dev/null
       fi
    elif [ "$UNION_PARAM" = "overlayfs" ]; then
-      echo_white_star
-      echo "Loading overlay module"
       modprobe overlay 2>/dev/null
    else
       modprobe aufs 2>/dev/null
@@ -571,6 +633,7 @@ mount_data_http() {
    if [ "$(network_device)" != "" ]; then
       echo "* Mounting remote file..." >&2
       mkdir -p "$2"
+      #umount "$2" >/dev/null 2>/dev/null
       @mount.httpfs2 -r 9999 -t 5 $CACHE -c /dev/null "$1" "$2" -o ro >/dev/null 2>/dev/null
       mount -o loop "$2"/* "$2" # self mount
       echo "$2/$LIVEKITNAME"
@@ -1141,24 +1204,24 @@ restore_perch_session() {
          done
       # Check for mode change
       elif [ -n "$PERCHMODE" ] && [ "$PERCHMODE" != "$LASTMODE" ]; then
-         echo_white_star >&2
+         echo_yellow_star >&2
          echo "Persistence mode has changed. Creating new session." >&2 >/dev/tty1
          ACTION="new"
       # Check for union filesystem mismatch first (complete incompatibility)
       elif [ "$ACTION" = "resume" ] && [ "$SYSTEM_UNION" != "${LASTUNION:-overlayfs}" ]; then
-         echo_white_star >&2
+         echo_yellow_star >&2
          echo "Union filesystem incompatible (System: $SYSTEM_UNION, Session: ${LASTUNION:-overlayfs}). Creating new session." >&2 >/dev/tty1
          ACTION="new"
       # Check for version/edition mismatch (only if a previous version exists)
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTVERSION" ] && { [ "$SYSTEM_VERSION" != "$LASTVERSION" ] || [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; }; then
          if [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ] && [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
-            echo_white_star >&2
+            echo_yellow_star >&2
             echo "OS version and edition mismatch (System: $SYSTEM_VERSION/$SYSTEM_EDITION, Session: $LASTVERSION/$LASTEDITION). Creating new session." >&2 >/dev/tty1
          elif [ "$SYSTEM_VERSION" != "$LASTVERSION" ]; then
-            echo_white_star >&2
+            echo_yellow_star >&2
             echo "OS version mismatch (System: $SYSTEM_VERSION, Session: $LASTVERSION). Creating new session." >&2 >/dev/tty1
          elif [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; then
-            echo_white_star >&2
+            echo_yellow_star >&2
             echo "OS edition mismatch (System: $SYSTEM_EDITION, Session: $LASTEDITION). Creating new session." >&2 >/dev/tty1
          fi
          ACTION="new"
@@ -1454,15 +1517,16 @@ persistent_changes() {
       local T2="${T1}2"
       local FS
       PERCHMODE="native"
-      
+
       # Check filesystem type first - reject non-POSIX filesystems
       FS="$(device_bestfs "$DRIVE")"
       if [ "$FS" = "ntfs3" ] || [ "$FS" = "ntfs-3g" ] || [ "$FS" = "vfat" ] || [ "$FS" = "exfat" ]; then
-         echo "* Native mode not supported on $FS filesystem, using DynFileFS"
+         echo_yellow_star
+         echo "Native mode not supported on $FS filesystem, using DynFileFS"
          dynfilefs_mode
          return
       fi
-      
+
       # Test POSIX compatibility
       if touch "$T1" && ln -sf "$T1" "$T2" 2>/dev/null &&
          chmod +x "$T1" 2>/dev/null && test -x "$T1" &&
@@ -1472,7 +1536,8 @@ persistent_changes() {
          mount --bind "$CHANDIR/$PERCHDIR" "$CHANGES"
          update_session
       else
-         echo "* Native mode failed, falling back to DynFileFS"
+         echo_yellow_star
+         echo "Native mode failed, falling back to DynFileFS"
          dynfilefs_mode
       fi
    }
@@ -1518,7 +1583,8 @@ persistent_changes() {
 
    # Check if changes directory exists and is writable
    if ! check_write_access "$CHANDIR" "$PERCHDIR"; then
-      echo "* Persistent changes not writable or not used"
+      echo_yellow_star
+      echo "Persistent changes not writable or not used"
       return
    fi
 
@@ -1535,7 +1601,8 @@ persistent_changes() {
       "dynfilefs") dynfilefs_mode ;;
       "raw") raw_mode ;;
       *)
-         echo "* Unknown type of persistent changes specified, falling back to native"
+         echo_yellow_star
+         echo "Unknown type of persistent changes specified, falling back to native"
          native_mode
          ;;
       esac
@@ -1593,11 +1660,13 @@ copy_to_ram() {
    copy_filtered_bundles() {
       local FILE
       cp -a "$DATA/config.conf" "$RAM/config.conf" || {
+         echo_red_star
          echo "Failed to copy config.conf to RAM" >&2 >/dev/tty1
          exit 1
       }
       if [ -f "$DATA/authorized_keys" ]; then
          cp -a "$DATA/authorized_keys" "$RAM/authorized_keys" || {
+            echo_red_star
             echo "Failed to copy authorized_keys to RAM" >&2 >/dev/tty1
          }
       fi
@@ -1608,6 +1677,7 @@ copy_to_ram() {
       ) | grep '[.]'$BEXT'$' | filter | while read FILE; do
          mkdir -p "$RAM/$(dirname "$FILE")"
          cp -a "$DATA/$FILE" "$RAM/$FILE" || {
+            echo_red_star
             echo "Failed to copy $FILE to RAM" >&2 >/dev/tty1
             exit 1
          }
@@ -1622,6 +1692,7 @@ copy_to_ram() {
       if echo "$CMDLINE" | grep -q "perch"; then
          echo "* Copying changes to RAM..." >&2 >/dev/tty1
          cp -a "$DATA/changes" "$RAM/changes" || {
+            echo_red_star
             echo "Failed to copy data to RAM" >&2 >/dev/tty1
             exit 1
          }
@@ -1725,8 +1796,6 @@ setup_running_kernel() {
    BOOT_DIR="$DATA/boot"
    RUNNING_KERNEL=$(get_running_kernel)
 
-   debug_log "setup_running_kernel: Running kernel detected: $RUNNING_KERNEL"
-
    # Define file paths for running kernel
    KERNEL_SB_DST="$DATA/01-kernel-$RUNNING_KERNEL.sb"
    VMLINUZ_DST="$BOOT_DIR/vmlinuz-$RUNNING_KERNEL"
@@ -1734,8 +1803,8 @@ setup_running_kernel() {
 
    # Check if all required files exist, if not try to activate from repository
    if [ ! -f "$KERNEL_SB_DST" ] || [ ! -f "$VMLINUZ_DST" ] || [ ! -f "$INITRFS_DST" ]; then
-      echo_red_star
-      echo "WARNING: Running kernel files missing for $RUNNING_KERNEL!"
+      echo_yellow_star
+      echo "Running kernel files missing for $RUNNING_KERNEL!" >&2 >/dev/tty1
 
       # Define source paths in repository
       KERNEL_SB_SRC="$DATA/kernels/$RUNNING_KERNEL/01-kernel-$RUNNING_KERNEL.sb"
@@ -1744,20 +1813,18 @@ setup_running_kernel() {
 
       # Check if all files exist in repository
       if [ -f "$KERNEL_SB_SRC" ] && [ -f "$VMLINUZ_SRC" ] && [ -f "$INITRFS_SRC" ]; then
-         echo "Found in repository, attempting to activate..."
+         echo "  Found in repository, attempting to activate..." >&2 >/dev/tty1
          mkdir -p "$BOOT_DIR" 2>/dev/null
 
          # Copy all files atomically (if any fail, cleanup)
          if cp "$KERNEL_SB_SRC" "$DATA/" && cp "$VMLINUZ_SRC" "$BOOT_DIR/" && cp "$INITRFS_SRC" "$BOOT_DIR/"; then
-            debug_log "setup_running_kernel: Successfully activated kernel from repository"
+            echo "  Kernel files activated successfully" >&2 >/dev/tty1
          else
-            debug_log "setup_running_kernel: Failed to copy kernel files from repository"
             # Cleanup partial files
             rm -f "$KERNEL_SB_DST" "$VMLINUZ_DST" "$INITRFS_DST" 2>/dev/null
             return 1
          fi
       else
-         debug_log "setup_running_kernel: Kernel $RUNNING_KERNEL not found in repository or incomplete"
          return 1
       fi
    fi
@@ -1767,7 +1834,6 @@ setup_running_kernel() {
       if [ "$KERNEL_FILE" != "$KERNEL_SB_DST" ]; then
          INACTIVE_VERSION="$(basename "$KERNEL_FILE" | sed -e 's/01-kernel-//' -e 's/\.sb//')"
          if [ -n "$INACTIVE_VERSION" ]; then
-            debug_log "setup_running_kernel: Moving inactive kernel $INACTIVE_VERSION to repository"
             mkdir -p "$DATA/kernels/$INACTIVE_VERSION" 2>/dev/null
 
             # Move all three file types for this version
@@ -1786,6 +1852,7 @@ setup_running_kernel() {
 # $2 = directory where to mount bundles
 #
 mount_bundles() {
+   debug_log "mount_bundles"
    echo_white_star
    echo "Mounting bundles"
    (
@@ -1857,59 +1924,61 @@ fstab_create() {
 # $2 = target mount directory
 #
 minios_boot() {
-   debug_log "minios_boot $*"
+   debug_log "minios_boot" "$*"
    local WRITABLE SRC DST
 
    # Copy the boot binary to the target mount directory.
-   debug_log "minios_boot: Copying /bin/minios-boot to $2/"
    cp /bin/minios-boot "$2/" || {
-      debug_log "ERROR: Failed to copy /bin/minios-boot to '$2/'"
+      echo_red_star >&2
+      echo "Failed to copy /bin/minios-boot to '$2/'" >&2 >/dev/tty1
       return 1
    }
 
    # Save the current kernel command line in the target directory.
-   debug_log "minios_boot: Saving kernel cmdline to $2/cmdline"
    cat /proc/cmdline >"$2/cmdline" || {
-      debug_log "ERROR: Failed to save cmdline to '$2/cmdline'"
+      echo_red_star >&2
+      echo "Failed to save cmdline to '$2/cmdline'" >&2 >/dev/tty1
       return 1
    }
 
    # Mount system directories for chroot
-   debug_log "minios_boot: Mounting /dev, /proc, /sys, /run, /tmp"
-
    mkdir -p "$2/dev" "$2/proc" "$2/sys" "$2/run" "$2/tmp" || {
-      debug_log "ERROR: Failed to create directories in '$2'"
+      echo_red_star >&2
+      echo "Failed to create directories in '$2'" >&2 >/dev/tty1
       return 1
    }
 
    mount --bind /dev "$2/dev" || {
-      debug_log "ERROR: Failed to mount /dev"
+      echo_red_star >&2
+      echo "Failed to mount /dev" >&2 >/dev/tty1
       return 1
    }
    mount -t proc proc "$2/proc" || {
-      debug_log "ERROR: Failed to mount proc"
+      echo_red_star >&2
+      echo "Failed to mount proc" >&2 >/dev/tty1
       return 1
    }
    mount -t sysfs sysfs "$2/sys" || {
-      debug_log "ERROR: Failed to mount sysfs"
+      echo_red_star >&2
+      echo "Failed to mount sysfs" >&2 >/dev/tty1
       return 1
    }
    mount -t tmpfs tmpfs "$2/run" || {
-      debug_log "ERROR: Failed to mount run"
+      echo_red_star >&2
+      echo "Failed to mount run" >&2 >/dev/tty1
       return 1
    }
    mount -t tmpfs tmpfs "$2/tmp" || {
-      debug_log "ERROR: Failed to mount tmpfs"
+      echo_red_star >&2
+      echo "Failed to mount tmpfs" >&2 >/dev/tty1
       return 1
    }
 
    # Check if the data directory is writable.
    if touch "$1/.empty" 2>/dev/null && rm -f "$1/.empty" 2>/dev/null; then
       WRITABLE="true"
-      debug_log "minios_boot: '$1' is writable."
    else
       WRITABLE="false"
-      debug_log "minios_boot: '$1' is NOT writable."
    fi
 
    # Path to the marker file for storing last sync time
@@ -1925,7 +1994,8 @@ minios_boot() {
    if [ -f "$STATE_FILE" ]; then
       local LAST_SYNC=$(cat "$STATE_FILE")
       if [ "$NOW" -lt "$LAST_SYNC" ]; then
-         debug_log "ERROR: System time appears wrong. Skipping timestamp-based sync."
+         echo_red_star >&2
+         echo "System time appears wrong. Skipping timestamp-based sync." >&2
          SKIP_TIME_CHECK=true
       fi
    fi
@@ -1942,20 +2012,18 @@ minios_boot() {
       fi
    }
 
-   debug_log "minios_boot: Starting two-way sync of config.conf and config.conf.d"
-
    # --- Sync main config.conf ---
    if [ -f "$1/config.conf" ] && should_copy "$1/config.conf" "$2/etc/live/config.conf"; then
-      debug_log "Copying $1/config.conf -> $2/etc/live/config.conf"
       cp -fp "$1/config.conf" "$2/etc/live/config.conf" || {
-         debug_log "ERROR: copy failed"
+         echo_red_star >&2
+         echo "Failed to copy config.conf" >&2
          return 1
       }
    elif [ "$WRITABLE" = "true" ] && [ -f "$2/etc/live/config.conf" ] &&
       should_copy "$2/etc/live/config.conf" "$1/config.conf"; then
-      debug_log "Copying $2/etc/live/config.conf -> $1/config.conf"
       cp -fp "$2/etc/live/config.conf" "$1/config.conf" || {
-         debug_log "ERROR: copy failed"
+         echo_red_star >&2
+         echo "Failed to copy config.conf" >&2
          return 1
       }
    fi
@@ -1969,9 +2037,9 @@ minios_boot() {
          [ -e "$SRC" ] || continue
          DST="$2/etc/live/config.conf.d/$(basename "$SRC")"
          if should_copy "$SRC" "$DST"; then
-            debug_log "Copying $SRC -> $DST"
             cp -fp "$SRC" "$DST" || {
-               debug_log "ERROR: copy failed"
+               echo_red_star >&2
+               echo "Failed to copy config file" >&2
                return 1
             }
          fi
@@ -1984,9 +2052,9 @@ minios_boot() {
          [ -e "$SRC" ] || continue
          DST="$1/config.conf.d/$(basename "$SRC")"
          if should_copy "$SRC" "$DST"; then
-            debug_log "Copying $SRC -> $DST"
             cp -fp "$SRC" "$DST" || {
-               debug_log "ERROR: copy failed"
+               echo_red_star >&2
+               echo "Failed to copy config file" >&2
                return 1
             }
          fi
@@ -1995,13 +2063,13 @@ minios_boot() {
 
    # Update the marker if the system time is valid
    if [ "$SKIP_TIME_CHECK" = "false" ]; then
-      echo "$NOW" >"$STATE_FILE" || debug_log "WARNING: Could not write state file"
+      echo "$NOW" >"$STATE_FILE" || {
+         echo_yellow_star >&2
+         echo "Could not write state file" >&2
+      }
    fi
 
-   debug_log "minios_boot: Sync completed"
-
    # Execute the minios-boot script in the target directory.
-   debug_log "minios_boot: Running chroot /bin/bash -c '/minios-boot'"
    chroot "$2" /bin/bash -c "/minios-boot"
    local CHROOT_EXIT=$?
 
@@ -2012,28 +2080,46 @@ minios_boot() {
    local TIME=$(date +%H%M%S)
    if [ "$EXPORT_LOGS" = "true" ] && [ "$WRITABLE" = "true" ]; then
       LOGDIR="$1/log/${DATE}_${TIME}"
-      debug_log "minios_boot: Creating export directories $LOGDIR/minios and $LOGDIR/live"
       mkdir -p "$LOGDIR/minios" "$LOGDIR/live" || {
-         debug_log "ERROR: Failed to create export directories"
+         echo_red_star >&2
+         echo "Failed to create export directories" >&2
       }
-      debug_log "minios_boot: Copying logs"
-      cp -a "$2/var/log/minios/." "$LOGDIR/minios/" || debug_log "ERROR: Failed to copy /var/log/minios"
-      cp -a "$2/var/log/live/." "$LOGDIR/live/" || debug_log "ERROR: Failed to copy /var/log/live"
+      # Copying logs
+      cp -a "$2/var/log/minios/." "$LOGDIR/minios/" || {
+         echo_red_star >&2
+         echo "Failed to copy /var/log/minios" >&2 >/dev/tty1
+      }
+      cp -a "$2/var/log/live/." "$LOGDIR/live/" || {
+         echo_red_star >&2
+         echo "Failed to copy /var/log/live" >&2 >/dev/tty1
+      }
    fi
 
    # Clean up temporary boot files.
-   debug_log "minios_boot: Cleaning up temporary files"
    rm -f "$2/cmdline" "$2/minios-boot"
 
    # Unmount system directories
-   debug_log "minios_boot: Unmounting /tmp, /run, /sys, /proc, /dev"
-   umount "$2/tmp" || debug_log "WARNING: Failed to unmount tmp"
-   umount "$2/run" || debug_log "WARNING: Failed to unmount run"
-   umount "$2/sys" || debug_log "WARNING: Failed to unmount sys"
-   umount "$2/proc" || debug_log "WARNING: Failed to unmount proc"
-   umount "$2/dev" || debug_log "WARNING: Failed to unmount dev"
+   umount "$2/tmp" || {
+      echo_yellow_star >&2
+      echo "Failed to unmount tmp" >&2
+   }
+   umount "$2/run" || {
+      echo_yellow_star >&2
+      echo "Failed to unmount run" >&2
+   }
+   umount "$2/sys" || {
+      echo_yellow_star >&2
+      echo "Failed to unmount sys" >&2
+   }
+   umount "$2/proc" || {
+      echo_yellow_star >&2
+      echo "Failed to unmount proc" >&2
+   }
+   umount "$2/dev" || {
+      echo_yellow_star >&2
+      echo "Failed to unmount dev" >&2
+   }
 
-   debug_log "minios_boot: Finished with exit code $CHROOT_EXIT."
    return $CHROOT_EXIT
 }
 
