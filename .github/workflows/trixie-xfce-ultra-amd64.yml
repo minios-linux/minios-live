@@ -31,6 +31,7 @@ jobs:
         sudo ./minios-cmd -d trixie -a amd64 -de xfce -pv ultra -dkms -kl
         sudo mkdir -p build/output/trixie-xfce-ultra-amd64
         sudo mv build/iso/*.iso build/output/trixie-xfce-ultra-amd64/
+        sudo mv build/iso/*.sha256 build/output/trixie-xfce-ultra-amd64/ || true
         echo "Build completed for Debian 13 XFCE Ultra amd64."
 
     - name: Archive build output - Debian 13 XFCE Ultra amd64
