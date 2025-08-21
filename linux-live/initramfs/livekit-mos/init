@@ -76,6 +76,16 @@ fstab_create "$UNION" "$DATAMNT"
 user_preinit "$DATA" "$UNION"
 
 header -t "Live Kit done, starting MiniOS"
+
+# show final timing before starting MiniOS
+if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
+    FINAL_TIME=$(awk '{print $1}' /proc/uptime)
+    if [ -n "$TIMING_LAST_TIME" ]; then
+        TOTAL_TIME=$(awk "BEGIN {printf \"%.2f\", $FINAL_TIME}")
+        echo "  initramfs complete: ${TOTAL_TIME}s total" >&2
+    fi
+fi
+
 change_root "$UNION"
 
 header -t "!!ERROR occured, you shouldn't be here!!"
