@@ -14,9 +14,34 @@ jobs:
     outputs:
       tag_name: ${{ steps.set_tag.outputs.tag_name }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set Release Tag Name
         id: set_tag
         run: echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+
+      - name: Extract Release Notes
+        id: extract_notes
+        run: |
+          tag_name=${{ steps.set_tag.outputs.tag_name }}
+          
+          # Make the script executable
+          chmod +x tools/extract-release-notes.sh
+          
+          # Try to extract release notes from CHANGES.md
+          if ./tools/extract-release-notes.sh "$tag_name" > release_notes.txt 2>/dev/null; then
+            echo "Found release notes in CHANGES.md for $tag_name"
+            # Use multi-line output format for GitHub Actions
+            {
+              echo 'RELEASE_NOTES<<EOF'
+              cat release_notes.txt
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            echo "No specific release notes found in CHANGES.md for $tag_name, using default notes"
+            echo "RELEASE_NOTES=Release notes for $tag_name" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create Release
         env:
@@ -24,9 +49,10 @@ jobs:
         run: |
           repo=${{ github.repository }}
           tag_name=${{ steps.set_tag.outputs.tag_name }}
+          
           gh release create "$tag_name" \
-            --title "Release $tag_name" \
-            --notes "Release notes for $tag_name" \
+            --title "$tag_name" \
+            --notes "${{ steps.extract_notes.outputs.RELEASE_NOTES }}" \
             --repo "$repo" || true
 
   trigger_workflows:
