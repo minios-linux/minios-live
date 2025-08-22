@@ -411,7 +411,7 @@
 
 ### A Brief Overview of the Work Done
 
-From March to August 2025, the MiniOS project underwent a fundamental modernization phase. During this period, over 300 significant changes were made, affecting all aspects of the system: from the basic architecture and build process to user applications and the visual interface.
+From March to August 2025, the MiniOS project underwent a fundamental modernization phase. During this period, over 600 commits were made, including more than 300 significant changes affecting all aspects of the system: from the basic architecture and build process to user applications and the visual interface.
 
 ### 1. Core Architecture Modernization
 
