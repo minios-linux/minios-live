@@ -30,6 +30,7 @@ MiniOS was created by:
 - [crims0n](https://github.com/crim50n) - the original author and maintainer of MiniOS
 - [.nemesis](https://github.com/zukhovich) - designer and developer of the MiniOS graphical interface
 - [FershoUno](https://github.com/fershouno) - tester and contributor to the MiniOS project
+- [sfs-pra](https://github.com/sfs-pra) - developer of the PuppyRus Linux and contributor to the MiniOS project
 - [betcher](https://github.com/betcher) - developer of the ROSA Barium and contributor to the MiniOS project
 - [gumanzoy](https://github.com/gumanzoy) - developer of the PocketHandyBox and contributor to the MiniOS project
 - [xDoofy92](https://github.com/xDoofy92) - media support for the MiniOS project
