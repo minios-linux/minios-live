@@ -28,7 +28,12 @@ jobs:
       run: |
         cd minios-live
         echo "Starting build for Debian 13 XFCE Standard amd64..."
-        sudo ./minios-cmd -d trixie -a amd64 -de xfce -pv standard -aufs -dkms -kl
+        # Extract version from tag (remove 'v' prefix if present)
+        RELEASE_VERSION="${{ github.event.inputs.tag }}"
+        RELEASE_VERSION="${RELEASE_VERSION#v}"
+        export RELEASE_VERSION
+        echo "Building with RELEASE_VERSION: $RELEASE_VERSION"
+        sudo -E ./minios-cmd -d trixie -a amd64 -de xfce -pv standard -aufs -dkms -kl
         sudo mkdir -p build/output/trixie-xfce-standard-amd64
         sudo mv build/iso/*.iso build/output/trixie-xfce-standard-amd64/
         sudo mv build/iso/*.sha256 build/output/trixie-xfce-standard-amd64/ || true
