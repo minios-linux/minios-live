@@ -1,6 +1,6 @@
 # ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/minios-linux/minios-live/total?style=for-the-badge&logoSize=30&label=%20TOTAL%20DOWNLOADS&labelColor=white&color=orange)
 
-![MiniOS](images/minios.png)
+<img width="1280" height="800" alt="MiniOS Standard" src="https://github.com/user-attachments/assets/e1026126-1a33-4a62-9122-f1ac4d23399d" />
 
 MiniOS is a reliable and user-friendly portable system with a graphical interface. These scripts build a bootable MiniOS ISO image.
 
