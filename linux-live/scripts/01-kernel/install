@@ -14,11 +14,11 @@ if [ "${KERNEL_BPO}" = "true" ]; then
     # Use backports target.
     BPO_TARGET="${DISTRIBUTION}-backports"
     if [ "${KERNEL_AUFS}" = "true" ]; then
-        KERNEL_VERSION="6.10"
+        KERNEL_VERSION="6.12"
     fi
 else
     BPO_TARGET=""
-    KERNEL_VERSION="6.1"
+    KERNEL_VERSION="6.12"
 fi
 
 if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
