@@ -8,12 +8,13 @@ Homepage: https://minios.dev
 
 Package: minios-live
 Architecture: amd64
-Depends: ${misc:Depends}, debootstrap, xorriso, binutils, squashfs-tools, grub-pc-bin, grub-efi-amd64-bin, dosfstools, mtools, xz-utils, liblz4-tool, zstd, curl, rsync, gettext-base
+Depends: ${misc:Depends}, debootstrap, xorriso, binutils, squashfs-tools, grub-common, mtools, xz-utils, liblz4-tool, zstd, curl, rsync, gpg, gettext, cpio
 Suggests: apt-cacher-ng
 Description: Scripts to build a bootable MiniOS ISO image.
- MiniOS-live provides scripts to build a bootable MiniOS ISO image,
- supporting various configurations such as Debian 10, Debian 12,
- Debian Unstable, Ubuntu 22.04, and Ubuntu 24.04 with desktop
- environments like Xfce4, Fluxbox, and LXQT. It offers a portable,
- user-friendly system with a graphical interface, ideal for creating
- lightweight, customizable live systems.
+ MiniOS-live provides scripts to build a bootable MiniOS ISO image.
+ It supports various configurations such as Debian 10–13, Debian Unstable,
+ Ubuntu 22.04, and Ubuntu 24.04 with desktop environments like Xfce4,
+ Fluxbox, and LXQT.
+ .
+ The system offers a portable, user-friendly graphical interface,
+ ideal for creating lightweight and customizable live systems.
