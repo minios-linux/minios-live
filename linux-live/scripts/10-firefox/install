@@ -12,9 +12,18 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 # Conditional statements for package installation
 if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-    if [ "${DISTRIBUTION}" = "jammy" ] || [ "${DISTRIBUTION}" = "noble" ]; then
+    if [ "${DISTRIBUTION}" = "jammy" ]; then
         apt-get install software-properties-common
         add-apt-repository ppa:mozillateam/ppa
+        cat <<EOF >/etc/apt/preferences.d/mozilla-firefox
+Package: *
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+EOF
+    elif [ "${DISTRIBUTION}" = "noble" ]; then
+        apt-key adv --keyserver keyserver.ubuntu.com --recv-keys AEBDF4819BE21867 9BDB3D89CE49EC21
+        echo "deb https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu noble main" > /etc/apt/sources.list.d/mozillateam-ppa.list
+        apt-get update
         cat <<EOF >/etc/apt/preferences.d/mozilla-firefox
 Package: *
 Pin: release o=LP-PPA-mozillateam
@@ -23,6 +32,7 @@ EOF
     fi
 fi
 
+# Conditional statements for package installation
 /condinapt -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
 if [ $? -ne 0 ]; then
     echo "Failed to install packages."
