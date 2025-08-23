@@ -279,7 +279,11 @@ mkdir -p "/usr/share/minios" #"/etc/minios"
 #sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="adm cdrom sudo dip plugdev users lpadmin sambashare audio docker libvirt wireshark"/' /etc/adduser.conf
 #sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
 
-run_with_spinner "Purging packages" apt-get purge -y vim* grub* debconf-i18n installation-report
+if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+    run_with_spinner "Purging packages" apt-get purge -y vim* grub* debconf-i18n installation-report
+else
+    run_with_spinner "Purging packages" apt-get purge -y vim* grub* debconf-i18n
+fi
 
 if [ "${LOCALE}" != "en_US" ]; then
     if ! grep -q LANG /etc/default/locale; then
