@@ -20,9 +20,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          debootstrap xorriso genisoimage binutils squashfs-tools \
-          grub-pc-bin grub-efi-amd64-bin dosfstools mtools xz-utils zstd \
-          curl rsync
+          sudo binutils debootstrap squashfs-tools xz-utils lz4 zstd \
+          xorriso mtools rsync grub-common gettext \
+          dosfstools curl
 
     - name: Run build - Debian 13 XFCE Standard amd64
       run: |
