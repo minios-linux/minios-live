@@ -28,6 +28,7 @@ else
     : "${BUILD_DIR:="$SCRIPT_DIR/build"}"
 fi
 export DEBIAN_FRONTEND=noninteractive
+export LIBMOUNT_FORCE_MOUNT2=always
 
 MINIOSLIB="${BUILD_SCRIPTS_DIR}/minioslib"
 
