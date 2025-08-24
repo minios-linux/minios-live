@@ -1,14 +1,19 @@
-firmware-linux-free
-firmware-linux-nonfree
-firmware-atheros
-firmware-iwlwifi
-firmware-zd1211
-firmware-realtek
-firmware-bnx2
-firmware-brcm80211
-firmware-cavium
-firmware-ipw2x00
-firmware-libertas
-firmware-ti-connectivity
-firmware-b43-installer -d=bionic
-firmware-sof-signed -da=i386
+# Debian firmware packages
+firmware-linux-free -dt=ubuntu
+firmware-linux-nonfree -dt=ubuntu
+firmware-atheros -dt=ubuntu
+firmware-iwlwifi -dt=ubuntu
+firmware-zd1211 -dt=ubuntu
+firmware-realtek -dt=ubuntu
+firmware-bnx2 -dt=ubuntu
+firmware-brcm80211 -dt=ubuntu
+firmware-cavium -dt=ubuntu
+firmware-ipw2x00 -dt=ubuntu
+firmware-libertas -dt=ubuntu
+firmware-ti-connectivity -dt=ubuntu
+firmware-b43-installer -d=bionic -dt=ubuntu
+firmware-sof-signed -da=i386 -dt=ubuntu
+
+# Ubuntu firmware packages
+linux-firmware +dt=ubuntu
+firmware-sof-signed +dt=ubuntu -da=i386
