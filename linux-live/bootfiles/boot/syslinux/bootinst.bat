@@ -54,12 +54,12 @@ if %OS% == Windows_NT goto setupNT
 goto setup95
 
 :setupNT
-\minios\boot\syslinux.exe -maf -d /minios/boot/ %DISK%:
+\minios\boot\syslinux\syslinux.exe -maf -d /minios/boot/syslinux/ %DISK%:
 if %ERRORLEVEL% == 0 goto setupEFI
 goto errorFound
 
 :setup95
-\minios\boot\syslinux.com -maf -d /minios/boot/ %DISK%:
+\minios\boot\syslinux\syslinux.com -maf -d /minios/boot/syslinux/ %DISK%:
 if %ERRORLEVEL% == 0 goto setupEFI
 goto errorFound
 
