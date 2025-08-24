@@ -14,11 +14,21 @@ if [ "${KERNEL_BPO}" = "true" ]; then
     # Use backports target.
     BPO_TARGET="${DISTRIBUTION}-backports"
     if [ "${KERNEL_AUFS}" = "true" ]; then
-        KERNEL_VERSION="6.12"
+        if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
+            KERNEL_VERSION="6.12"
+        elif [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
+            KERNEL_VERSION="6.1"
+        fi
     fi
 else
     BPO_TARGET=""
-    KERNEL_VERSION="6.12"
+    if [ "${KERNEL_AUFS}" = "true" ]; then
+        if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
+            KERNEL_VERSION="6.12"
+        elif [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
+            KERNEL_VERSION="6.1"
+        fi
+    fi
 fi
 
 if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
@@ -32,7 +42,11 @@ if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
         fi
     fi
 elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-    KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
+    if [ "${KERNEL_TYPE}" = "default" ]; then
+        KERNEL_IMAGE="linux-image-generic"
+    else
+        KERNEL_IMAGE="linux-image-${KERNEL_TYPE}"
+    fi
 fi
 
 # Create a temporary package list file for condinapt.
