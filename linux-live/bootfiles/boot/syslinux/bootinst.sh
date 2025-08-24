@@ -67,7 +67,7 @@ if [ "$DEV" != "$PART" ]; then
 fi
 
 # UEFI boot loader
-cp -r "EFI" "$BOOT/../../"
+cp -r "../EFI" "$BOOT/../../../"
 
 echo "Boot installation finished."
 
