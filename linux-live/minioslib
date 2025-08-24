@@ -2674,6 +2674,8 @@ build_modules() {
                     read_config "${OVERLAY[upper]}/minios_build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                     update_config "${WORK_DIR}/minios_build.conf" KERNEL KERNEL_ARCH KERNEL_VERSION KERNEL_BUILD_ARCH
                     mkdir -p "${WORK_DIR}/kernel/"
+                    # Clear existing kernel files before copying new ones
+                    rm -f "${WORK_DIR}/kernel/vmlinuz"-* "${WORK_DIR}/kernel/config"-*
                     cp "${OVERLAY[merged]}/boot/vmlinuz"-* "${WORK_DIR}/kernel/"
                     cp "${OVERLAY[merged]}/boot/config"-* "${WORK_DIR}/kernel/"
                 fi
