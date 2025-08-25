@@ -19,7 +19,7 @@ fbmenu >${HOME}/.fluxbox/menu
 fbdesktop
 
 # Change your keymap:
-xmodmap "${HOME}/.Xmodmap"
+[ -f "${HOME}/.Xmodmap" ] && xmodmap "${HOME}/.Xmodmap"
 
 # merge xresource settings
 xrdb -merge ~/.Xresources
@@ -33,15 +33,15 @@ fi
 # setup bookmarks for file manager
 
 if [ "$(id -u)" -eq 0 ]; then
-    gtk-bookmarks-update
+    gtk-bookmarks-update 2>/dev/null
 fi
 
 if [ "$(id -u)" -eq 0 ]; then
     # Share common directories with guest user. This is necessary
     # because some apps like chromium must be running under guest
     for dir in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-        if ! mountpoint ${HOME}/$dir; then
-            mount --bind /home/guest/$dir ${HOME}/$dir
+        if ! mountpoint ${HOME}/$dir >/dev/null 2>&1; then
+            mount --bind /home/guest/$dir ${HOME}/$dir 2>/dev/null
         fi
     done
 fi
@@ -128,7 +128,7 @@ is_virtual() {
 
 # Function to check if guest utilities are installed and running
 guest_utils_active() {
-    pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [[ -d /proc/xen ]]
+    pgrep -f 'vboxadd|vmtoolsd|qemu-ga|hv_utils' >/dev/null 2>&1 || [ -d /proc/xen ]
 }
 
 if is_virtual && ! guest_utils_active; then
