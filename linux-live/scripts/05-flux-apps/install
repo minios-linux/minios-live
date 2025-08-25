@@ -11,16 +11,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [ $LOCALE = "en_US" ]; then
-    sed -i '114G' /etc/skel/.fluxbox/startup
-    sed -i '115i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
-    sed -i '116iexec connman-gtk &' /etc/skel/.fluxbox/startup
-else
-    sed -i '117G' /etc/skel/.fluxbox/startup
-    sed -i '118i# Launch connman, we no longer need the network manager icon in the application menu.' /etc/skel/.fluxbox/startup
-    sed -i '119iexec connman-gtk &' /etc/skel/.fluxbox/startup
-fi
-
 rm -f /usr/share/applications/mousepad.desktop
 rm -f /usr/share/applications/org.xfce.mousepad.desktop
 rm -f /usr/share/applications/org.xfce.mousepad-settings.desktop
@@ -32,28 +22,3 @@ rm -f /usr/share/applications/nm-applet.desktop
 rm -f /usr/share/applications/nm-connection-editor.desktop
 rm -f /usr/share/applications/xarchiver.desktop
 rm -f /usr/share/applications/lxtask.desktop
-
-# For each .desktop file in the /usr/share/applications directory
-for FILE in /usr/share/applications/*.desktop; do
-
-    # If the file contains a translated name for the current language layout
-    if grep -q "Name\[$LAYOUTID\]" $FILE; then
-
-        # Find and store the translated name, generic name, and comment
-        TRANSLATED_NAME=$(grep "Name\[$LAYOUTID\]" $FILE | head -1 | cut -d= -f2-)
-        TRANSLATED_GENERIC_NAME=$(grep "GenericName\[$LAYOUTID\]" $FILE | head -1 | cut -d= -f2-)
-        TRANSLATED_COMMENT=$(grep "Comment\[$LAYOUTID\]" $FILE | head -1 | cut -d= -f2-)
-
-        # If the translated name is not empty, replace the original name with it
-        [ ! -z "$TRANSLATED_NAME" ] && sed -i -e "s/^Name=.*/Name=$TRANSLATED_NAME/g" $FILE
-
-        # If the generic name is not empty, replace the original generic name with it
-        [ ! -z "$TRANSLATED_GENERIC_NAME" ] && sed -i -e "s/^GenericName=.*/GenericName=$TRANSLATED_GENERIC_NAME/g" $FILE
-
-        # If the comment is not empty, replace the original comment with it
-        [ ! -z "$TRANSLATED_COMMENT" ] && sed -i -e "s/^Comment=.*/Comment=$TRANSLATED_COMMENT/g" $FILE
-
-        # Remove the lines with translated names, generic names, and comments
-        sed -i -e "/Name\[/d;/GenericName\[/d;/Comment\[/d" $FILE
-    fi
-done
