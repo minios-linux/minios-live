@@ -1,0 +1,39 @@
+Welcome to MiniOS.
+
+Select a pre-configured option from the boot menu, or press [Tab] key to
+manually edit the boot command line in order to customize how MiniOS boots.
+A detailed description of various boot parameters is provided below.
+
+* text: Boot into text mode without graphical interface
+* automount: Enable automatic mounting of storage devices
+
+* toram: Copy all data to RAM, allows ejecting boot device
+  - toram=full: Copy everything to RAM
+  - toram=trim: Copy only filtered modules to RAM
+
+* nozram: Disable RAM compression (zRAM)
+* zramcomp=[lzo|lzo-rle|lz4|lz4hc|zstd]: Set zRAM compression algorithm
+* zramsize=[MB]: Set zRAM size in megabytes
+
+* from=[path/device/URL]: Specify MiniOS data location
+  - from=/minios: Use /minios directory
+  - from=/dev/sda1/minios: Use specific device and path
+  - from=http://server/file.iso: Download from HTTP
+  - from=askdisk: Interactively select disk
+
+* perch: Enable persistent changes (requires writable storage)
+* perchdir=[resume/new/ask/#]: Choose persistence session
+  - resume: Auto-resume last session
+  - new: Always create new session
+  - ask: Interactively select session
+  - #: Use specific session number
+* perchmode=[native/dynfilefs/raw]: Set persistence mode
+  - native: Direct filesystem (best performance, POSIX only)
+  - dynfilefs: Dynamic file container (default, works on all filesystems)
+  - raw: Fixed-size raw image
+* perchsize=[MB]: Set persistence container size in megabytes
+
+* load=[filter]: Load only matching modules (regex or range)
+  Examples: load=00,01,02 or load=1-5 or load=core|apps
+* noload=[filter]: Exclude matching modules
+  Examples: noload=04-apps or noload=chromium
