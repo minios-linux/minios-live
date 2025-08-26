@@ -1532,7 +1532,7 @@ create_config_files() {
     # Create SYSLINUX configuration based on bootloader choice
     if [ "${BOOTLOADER}" = "syslinux-grub" ] || [ "${BOOTLOADER}" = "syslinux-native" ]; then
         mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
-        
+
         if [ "${BOOTLOADER}" = "syslinux-native" ]; then
             # Create native SYSLINUX configuration with vesamenu
             cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
@@ -1544,7 +1544,7 @@ TIMEOUT 100
 MENU CLEAR
 MENU HIDDEN
 MENU HIDDENKEY Enter default
-MENU BACKGROUND bootlogo.png
+MENU BACKGROUND ../bootlogo.png
 MENU RESOLUTION 1024 768
 
 MENU WIDTH 125
@@ -1553,12 +1553,12 @@ MENU ROWS 5
 MENU TABMSGROW 14
 MENU CMDLINEROW 12
 MENU HSHIFT 0
-MENU VSHIFT 32
+MENU VSHIFT 16
 
 MENU COLOR BORDER  30;40      #00000000 #00000000 none
 MENU COLOR SEL     47;30      #FF000000 #99FFFFFF none
-MENU COLOR UNSEL   37;40      #99FFFFFF #FF000000 none
-MENU COLOR TABMSG  32;40      #FFA500   #FF000000 none
+MENU COLOR UNSEL   37;40      #99FFFFFF #00000000 none
+MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
 
 F1 help.txt zblack.png
 
@@ -1939,14 +1939,14 @@ debug_ssh_keys() {
 remove_unused_grub_modules() {
     # Auto-optimize GRUB modules based on bootloader choice
     local should_optimize=false
-    
+
     if [ "${GRUB_REMOVE_UNUSED_MODULES}" = "true" ]; then
         should_optimize=true
     elif [ "${BOOTLOADER}" = "syslinux-native" ]; then
         # Always optimize when using syslinux-native (GRUB only for EFI)
         should_optimize=true
     fi
-    
+
     if [ "$should_optimize" != "true" ]; then
         return 0
     fi
@@ -1958,53 +1958,53 @@ remove_unused_grub_modules() {
     local ESSENTIAL_MODULES=(
         # Core boot functionality
         "normal.mod" "boot.mod" "linux.mod" "chain.mod" "configfile.mod" "loopback.mod"
-        
+
         # File systems (commonly used)
         "iso9660.mod" "udf.mod" "fat.mod" "ext2.mod" "btrfs.mod" "ntfs.mod" "exfat.mod"
-        
+
         # Partition support
-        "part_msdos.mod" "part_gpt.mod" "part_acorn.mod" "part_apple.mod" "part_bsd.mod" 
+        "part_msdos.mod" "part_gpt.mod" "part_acorn.mod" "part_apple.mod" "part_bsd.mod"
         "part_dvh.mod" "part_plan.mod" "part_sun.mod" "part_sunpc.mod"
-        
+
         # Search functionality
         "search.mod" "search_fs_file.mod" "search_fs_uuid.mod" "search_label.mod"
-        
+
         # Video and graphics
         "all_video.mod" "gfxterm.mod" "gfxmenu.mod" "png.mod" "jpeg.mod"
         "video.mod" "video_fb.mod" "video_colors.mod"
-        
+
         # EFI specific
         "efi_gop.mod" "efi_uga.mod" "efinet.mod" "efitextmode.mod"
-        
+
         # BIOS specific (i386-pc only)
         "biosdisk.mod" "vbe.mod" "vga.mod"
-        
+
         # Font and terminal
         "font.mod" "terminal.mod" "gfxterm_background.mod" "gfxterm_menu.mod"
-        
+
         # Utilities used in configs
-        "loadenv.mod" "minicmd.mod" "cat.mod" "echo.mod" "ls.mod" "test.mod" 
+        "loadenv.mod" "minicmd.mod" "cat.mod" "echo.mod" "ls.mod" "test.mod"
         "true.mod" "help.mod" "probe.mod" "gettext.mod" "regexp.mod"
-        
+
         # Audio
         "play.mod"
-        
+
         # Archive and compression
         "gzio.mod" "xzio.mod" "lzopio.mod"
-        
+
         # Basic file operations
         "file.mod" "bufio.mod" "blocklist.mod"
-        
+
         # Disk and hardware
         "disk.mod" "ahci.mod" "ata.mod" "pata.mod" "scsi.mod" "ohci.mod" "uhci.mod" "ehci.mod"
         "usb.mod" "usbms.mod" "usb_keyboard.mod"
-        
+
         # Crypto (for secure boot)
         "crypto.mod" "gcry_sha256.mod" "gcry_sha512.mod" "gcry_rsa.mod"
-        
+
         # Memory and CPU
         "relocator.mod" "mmap.mod" "cpuid.mod"
-        
+
         # Other essential
         "halt.mod" "reboot.mod" "sleep.mod" "date.mod" "keystatus.mod"
     )
@@ -2014,14 +2014,14 @@ remove_unused_grub_modules() {
         if [ -d "$grub_dir" ]; then
             local removed_count=0
             local total_count=0
-            
+
             for module in "$grub_dir"/*.mod; do
                 [ -f "$module" ] || continue
                 total_count=$((total_count + 1))
-                
+
                 local module_name=$(basename "$module")
                 local keep_module=false
-                
+
                 # Check if this module is in our essential list
                 for essential in "${ESSENTIAL_MODULES[@]}"; do
                     if [ "$module_name" = "$essential" ]; then
@@ -2029,14 +2029,14 @@ remove_unused_grub_modules() {
                         break
                     fi
                 done
-                
+
                 # Remove non-essential modules
                 if [ "$keep_module" = false ]; then
                     rm -f "$module"
                     removed_count=$((removed_count + 1))
                 fi
             done
-            
+
             information "$(basename "$grub_dir"): Removed $removed_count/$total_count modules"
         fi
     done
@@ -2156,8 +2156,10 @@ search --file --set=root /.disk/info
 source /${LIVEKITNAME}/boot/grub/grub.cfg
 EOF
 
-    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc"
-    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/grub.cfg"
+    # Create GRUB BIOS configuration only if not using syslinux-native
+    if [ "${BOOTLOADER}" != "syslinux-native" ]; then
+        mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc"
+        cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc/grub.cfg"
 # GRUB BIOS bootstrap configuration
 
 insmod part_acorn
@@ -2175,6 +2177,7 @@ insmod part_sunpc
 search --file --set=root /.disk/info
 source /${LIVEKITNAME}/boot/grub/grub.cfg
 EOF
+    fi
 
     mkdir -p "${WORK_DIR}/image/EFI"
     cp -r "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/"* "${WORK_DIR}/image/EFI"
