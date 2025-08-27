@@ -48,13 +48,13 @@ echo "export QT_QPA_PLATFORMTHEME=gtk2" >>/etc/environment
 case "$LOCALE" in
 "en_US" | "C")
     xmlstarlet ed -L \
-        -u '/channel/property/property[@name="XkbOptions"]/property[@name="XkbLayout"]/@value' \
+        -u '/channel/property/property[@name="XkbLayout"]/@value' \
         -v "us" \
         "/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml"
     ;;
 *)
     xmlstarlet ed -L \
-        -u '/channel/property/property[@name="XkbOptions"]/property[@name="XkbLayout"]/@value' \
+        -u '/channel/property/property[@name="XkbLayout"]/@value' \
         -v "us,$LAYOUTID" \
         "/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml"
     ;;
