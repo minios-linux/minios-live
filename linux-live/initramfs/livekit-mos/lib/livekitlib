@@ -44,7 +44,7 @@ debug_log() {
    # Extract function name from debug message
    FUNC_NAME=$(echo "$1" | awk '{print $1}')
 
-   # Handle timing - always process for logging, show on screen if timing enabled
+   # Handle timing
    if [ -r /proc/uptime ]; then
       local CURRENT_TIME ELAPSED_TIME MESSAGE
       CURRENT_TIME=$(awk '{print $1}' /proc/uptime)
@@ -55,22 +55,17 @@ debug_log() {
       fi
 
       if [ -n "$TIMING_LAST_FUNCTION" ] && [ "$TIMING_LAST_FUNCTION" != "$FUNC_NAME" ]; then
-         # Different function - show transition time
          ELAPSED_TIME=$(awk "BEGIN {printf \"%.2f\", $CURRENT_TIME - $TIMING_LAST_TIME}")
          MESSAGE="$TIMING_LAST_FUNCTION -> $FUNC_NAME: +${ELAPSED_TIME}s"
 
-         # Always log timing to debug
-         log "- timing: $MESSAGE"
-
-         # Show on screen only if timing parameter is present
          if [ "$TIMING_ENABLED" ]; then
+            log "- timing: $MESSAGE"
             echo "  $MESSAGE" >&2
          fi
       elif [ -z "$TIMING_LAST_FUNCTION" ]; then
-         # First function call
          MESSAGE="$FUNC_NAME: started"
-         log "- timing: $MESSAGE"
          if [ "$TIMING_ENABLED" ]; then
+            log "- timing: $MESSAGE"
             echo "  $MESSAGE" >&2
          fi
       fi
@@ -2003,13 +1998,35 @@ minios_boot() {
    # Function: determine whether to copy src ($1) to dst ($2)
    should_copy() {
       # $1 = source path, $2 = destination path
+      local SRC="$1" DST="$2"
+      local RESULT=false
+      
+      debug_log "should_copy" "Checking: $SRC -> $DST"
+      
       if [ "$SKIP_TIME_CHECK" = true ]; then
          # if time is reset — only copy when destination does not exist
-         [ ! -f "$2" ]
+         if [ ! -f "$DST" ]; then
+            debug_log "should_copy" "Time check skipped, destination missing: COPY"
+            RESULT=true
+         else
+            debug_log "should_copy" "Time check skipped, destination exists: SKIP"
+            RESULT=false
+         fi
       else
          # otherwise — copy if dst missing or src is newer than dst
-         [ ! -f "$2" ] || [ "$1" -nt "$2" ]
+         if [ ! -f "$DST" ]; then
+            debug_log "should_copy" "Destination missing: COPY"
+            RESULT=true
+         elif [ "$SRC" -nt "$DST" ]; then
+            debug_log "should_copy" "Source newer than destination: COPY"
+            RESULT=true
+         else
+            debug_log "should_copy" "Destination up-to-date: SKIP"
+            RESULT=false
+         fi
       fi
+      
+      [ "$RESULT" = true ]
    }
 
    # --- Sync main config.conf ---
