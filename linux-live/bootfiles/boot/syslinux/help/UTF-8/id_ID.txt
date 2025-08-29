@@ -1,0 +1,40 @@
+Selamat datang di MiniOS.
+
+Pilih opsi yang telah dikonfigurasi sebelumnya dari menu boot, atau tekan tombol [Tab] untuk mengedit baris perintah boot
+secara manual untuk menyesuaikan cara MiniOS boot. Deskripsi terperinci dari berbagai parameter boot disediakan di bawah ini.
+
+* text: Boot ke mode teks tanpa antarmuka grafis
+* automount: Aktifkan pemasangan otomatis perangkat penyimpanan
+
+* toram: Salin semua data ke RAM, memungkinkan mengeluarkan perangkat boot
+  - toram=full: Salin semuanya ke RAM
+  - toram=trim: Salin hanya modul yang difilter ke RAM
+
+* nozram: Nonaktifkan kompresi RAM (zRAM)
+* zramcomp=[lzo|lzo-rle|lz4|lz4hc|zstd]: Atur algoritma kompresi zRAM
+* zramsize=[MB]: Atur ukuran zRAM dalam megabita
+
+* from=[path/device/URL]: Tentukan lokasi data MiniOS
+  - from=/minios: Gunakan direktori /minios
+  - from=/dev/sda1/minios: Gunakan perangkat dan jalur tertentu
+  - from=http://server/file.iso: Unduh dari HTTP
+  - from=askdisk: Pilih disk secara interaktif
+
+* perch: Aktifkan perubahan persisten (memerlukan penyimpanan yang dapat ditulis)
+* perchdir=[resume/new/ask/#]: Pilih sesi persistensi
+  - resume: Lanjutkan otomatis sesi terakhir
+  - new: Selalu buat sesi baru
+  - ask: Pilih sesi secara interaktif
+  - #: Gunakan nomor sesi tertentu
+* perchmode=[native/dynfilefs/raw]: Atur mode persistensi
+  - native: Sistem file langsung (default, kinerja terbaik, hanya POSIX)
+  - dynfilefs: Kontainer file dinamis (berfungsi di semua sistem file)
+  - raw: Gambar mentah ukuran tetap
+* perchsize=[MB]: Atur ukuran wadah persistensi dalam megabita
+
+* load=[filter]: Muat hanya modul yang cocok (regex atau rentang)
+  Contoh: load=00-core atau load=core,kernel,firmware atau load=00,01,02
+* noload=[filter]: Kecualikan modul yang cocok
+  Contoh: noload=05-xfce-apps atau noload=xfce-apps,firefox atau noload=05,06
+
+Untuk informasi lebih lanjut, kunjungi https://minios.dev/docs

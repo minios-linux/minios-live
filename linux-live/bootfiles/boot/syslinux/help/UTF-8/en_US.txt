@@ -1,8 +1,7 @@
 Welcome to MiniOS.
 
-Select a pre-configured option from the boot menu, or press [Tab] key to
-manually edit the boot command line in order to customize how MiniOS boots.
-A detailed description of various boot parameters is provided below.
+Select a pre-configured option from the boot menu, or press [Tab] key to manually edit the boot command line in order to
+customize how MiniOS boots. A detailed description of various boot parameters is provided below.
 
 * text: Boot into text mode without graphical interface
 * automount: Enable automatic mounting of storage devices
@@ -28,12 +27,14 @@ A detailed description of various boot parameters is provided below.
   - ask: Interactively select session
   - #: Use specific session number
 * perchmode=[native/dynfilefs/raw]: Set persistence mode
-  - native: Direct filesystem (best performance, POSIX only)
-  - dynfilefs: Dynamic file container (default, works on all filesystems)
+  - native: Direct filesystem (default, best performance, POSIX only)
+  - dynfilefs: Dynamic file container (works on all filesystems)
   - raw: Fixed-size raw image
 * perchsize=[MB]: Set persistence container size in megabytes
 
 * load=[filter]: Load only matching modules (regex or range)
-  Examples: load=00,01,02 or load=1-5 or load=core|apps
-* noload=[filter]: Exclude matching modules
-  Examples: noload=04-apps or noload=chromium
+  Examples: load=00-core or load=core,kernel,firmware or load=00,01,02
+* noload=[filter]: Exclude matching modules  
+  Examples: noload=05-xfce-apps or noload=xfce-apps,firefox or noload=05,06
+
+For more information, visit https://minios.dev/docs

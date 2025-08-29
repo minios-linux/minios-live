@@ -1,0 +1,41 @@
+Bem-vindo ao MiniOS.
+
+Selecione uma opção pré-configurada no menu de arranque ou prima a tecla [Tab] para editar manualmente a linha de comandos de
+arranque e personalizar a forma como o MiniOS arranca. É fornecida abaixo uma descrição detalhada dos vários parâmetros de
+arranque.
+
+* text: Arranca em modo de texto, sem interface gráfica.
+* automount: Ativa a montagem automática de dispositivos de armazenamento.
+
+* toram: Copia todos os dados para a RAM, o que permite ejetar o dispositivo de arranque.
+  - toram=full: Copia tudo para a RAM.
+  - toram=trim: Copia para a RAM apenas os módulos filtrados.
+
+* nozram: Desativa a compressão de RAM (zRAM).
+* zramcomp=[lzo|lzo-rle|lz4|lz4hc|zstd]: Define o algoritmo de compressão da zRAM.
+* zramsize=[MB]: Define o tamanho da zRAM em megabytes.
+
+* from=[caminho/dispositivo/URL]: Especifica a localização dos dados do MiniOS.
+  - from=/minios: Usa o diretório /minios.
+  - from=/dev/sda1/minios: Usa um dispositivo e um caminho específicos.
+  - from=http://server/file.iso: Transfere de um servidor HTTP.
+  - from=askdisk: Permite selecionar o disco de forma interativa.
+
+* perch: Ativa as alterações persistentes (requer um dispositivo de armazenamento gravável).
+* perchdir=[resume/new/ask/#]: Escolhe uma sessão de persistência.
+  - resume: Retoma automaticamente a última sessão.
+  - new: Cria sempre uma nova sessão.
+  - ask: Permite selecionar a sessão de forma interativa.
+  - #: Usa um número de sessão específico.
+* perchmode=[native/dynfilefs/raw]: Define o modo de persistência.
+  - native: Sistema de ficheiros nativo (padrão, melhor desempenho, apenas POSIX).
+  - dynfilefs: Contentor de ficheiros dinâmico (funciona em todos os sistemas de ficheiros).
+  - raw: Imagem raw de tamanho fixo.
+* perchsize=[MB]: Define o tamanho do contentor de persistência em megabytes.
+
+* load=[filtro]: Carrega apenas os módulos correspondentes (regex ou intervalo).
+  Exemplos: load=00-core ou load=core,kernel,firmware ou load=00,01,02
+* noload=[filtro]: Exclui os módulos correspondentes.
+  Exemplos: noload=05-xfce-apps ou noload=xfce-apps,firefox ou noload=05,06
+
+Para mais informações, visite https://minios.dev/docs

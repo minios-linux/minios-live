@@ -1529,13 +1529,161 @@ create_config_files() {
         BOOT_SETTINGS="${BOOT_SETTINGS} apparmor=0 selinux=0"
     fi
 
+    get_language_font() {
+        local LANG="$1"
+        case "$LANG" in
+        ru_RU) echo "fonts/ruscii_8x16.psf" ;;
+        de_DE | es_ES | fr_FR | id_ID | it_IT | pt_BR) echo "fonts/lat1_8x16.psf" ;;
+        *) echo "fonts/lat1_8x16.psf" ;;
+        esac
+    }
+
     # Create SYSLINUX configuration based on bootloader choice
     if [ "${BOOTLOADER}" = "syslinux-grub" ] || [ "${BOOTLOADER}" = "syslinux-native" ]; then
         mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
 
         if [ "${BOOTLOADER}" = "syslinux-native" ]; then
-            # Create native SYSLINUX configuration with vesamenu
+            # Create multilingual SYSLINUX configuration similar to GRUB
+            information "Creating multilingual SYSLINUX configuration..."
+
+            # Create main language selection menu
             cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
+UI vesamenu.c32
+
+PROMPT 0
+TIMEOUT 100
+
+MENU CLEAR
+MENU BACKGROUND ../bootlogo.png
+MENU RESOLUTION 1024 768
+
+MENU WIDTH 125
+MENU MARGIN 20
+MENU ROWS 9
+MENU TABMSGROW 31
+MENU CMDLINEROW 27
+MENU HSHIFT 0
+MENU VSHIFT 15
+MENU HELPMSGENDROW 32
+MENU TIMEOUTROW 28
+
+MENU COLOR BORDER  30;40      #00000000 #00000000 none
+MENU COLOR SEL     47;30      #FF000000 #40FFFFFF none
+MENU COLOR UNSEL   37;40      #99FFFFFF #00000000 none
+MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
+
+F1 help/en_US.txt zblack.png
+
+MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
+MENU TABMSG [F1] help                                                        [Tab] cmdline >
+
+MENU TITLE Choose Language
+
+LABEL en_US
+MENU LABEL English
+CONFIG lang/en_US.cfg
+
+LABEL ru_RU
+MENU LABEL Russian
+CONFIG lang/ru_RU.cfg
+
+LABEL de_DE
+MENU LABEL German
+CONFIG lang/de_DE.cfg
+
+LABEL es_ES
+MENU LABEL Spanish
+CONFIG lang/es_ES.cfg
+
+LABEL fr_FR
+MENU LABEL French
+CONFIG lang/fr_FR.cfg
+
+LABEL id_ID
+MENU LABEL Indonesian
+CONFIG lang/id_ID.cfg
+
+LABEL it_IT
+MENU LABEL Italian
+CONFIG lang/it_IT.cfg
+
+LABEL pt_BR
+MENU LABEL Portuguese (Brazil)
+CONFIG lang/pt_BR.cfg
+
+LABEL pt_PT
+MENU LABEL Portuguese (Portugal)
+CONFIG lang/pt_PT.cfg
+
+EOF
+
+            # Create fonts and lang directories
+            mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang"
+
+            # Copy fonts from bootfiles
+            if [ -d "${BUILD_SCRIPTS_DIR}/bootfiles/boot/syslinux/fonts" ]; then
+                cp "${BUILD_SCRIPTS_DIR}/bootfiles/boot/syslinux/fonts/"*.psf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts/"
+                information "Copied PSF1 fonts for multilingual support"
+            else
+                warning "PSF1 fonts not found in bootfiles, using default font"
+            fi
+
+            # Generate configurations for each language
+            for CURRENT_LANG in en_US ru_RU de_DE es_ES fr_FR id_ID it_IT pt_BR pt_PT; do
+                local MO_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${CURRENT_LANG}.mo"
+                local FONT_FILE=$(get_language_font "$CURRENT_LANG")
+                local LOCALE_UTF="${CURRENT_LANG}.UTF-8"
+
+                # Extract translations from mo file if it exists
+                local RESUME="Resume previous session"
+                local START_NEW="Start a new session"
+                local CHOOSE_SESSION="Choose session during startup"
+                local FRESH_START="Fresh start"
+                local COPY_RAM="Copy to RAM"
+
+                # Parse translations from po file
+                local PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${CURRENT_LANG}.po"
+                if [ -f "$PO_FILE" ]; then
+                    local TEMP_RESUME=$(awk '/^msgid "Resume previous session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_START_NEW=$(awk '/^msgid "Start a new session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose session during startup"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_FRESH_START=$(awk '/^msgid "Fresh start"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_COPY_RAM=$(awk '/^msgid "Copy to RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+
+                    # Use translations if found
+                    [ -n "$TEMP_RESUME" ] && RESUME="$TEMP_RESUME"
+                    [ -n "$TEMP_START_NEW" ] && START_NEW="$TEMP_START_NEW"
+                    [ -n "$TEMP_CHOOSE_SESSION" ] && CHOOSE_SESSION="$TEMP_CHOOSE_SESSION"
+                    [ -n "$TEMP_FRESH_START" ] && FRESH_START="$TEMP_FRESH_START"
+                    [ -n "$TEMP_COPY_RAM" ] && COPY_RAM="$TEMP_COPY_RAM"
+                fi
+
+                # Create configuration with appropriate encoding based on language
+                local ENCODING=""
+                local OUTPUT_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang/${CURRENT_LANG}.cfg"
+
+                case "$CURRENT_LANG" in
+                ru_RU)
+                    ENCODING="CP866"
+                    ;;
+                de_DE | es_ES | fr_FR | it_IT | pt_BR | pt_PT)
+                    ENCODING="ISO-8859-1"
+                    ;;
+                *)
+                    # No encoding conversion for other languages
+                    ;;
+                esac
+
+                # Determine help file (localized or fallback to English)
+                local HELP_FILE="help/${CURRENT_LANG}.txt"
+                if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/${HELP_FILE}" ]; then
+                    HELP_FILE="help/en_US.txt"
+                fi
+
+                # Generate configuration
+                (
+                    cat <<EOF
+FONT ${FONT_FILE}
 UI vesamenu.c32
 
 PROMPT 0
@@ -1550,48 +1698,57 @@ MENU RESOLUTION 1024 768
 MENU WIDTH 125
 MENU MARGIN 20
 MENU ROWS 5
-MENU TABMSGROW 14
-MENU CMDLINEROW 12
+MENU TABMSGROW 31
+MENU CMDLINEROW 27
 MENU HSHIFT 0
-MENU VSHIFT 16
+MENU VSHIFT 15
+MENU HELPMSGENDROW 32
+MENU TIMEOUTROW 28
 
 MENU COLOR BORDER  30;40      #00000000 #00000000 none
-MENU COLOR SEL     47;30      #FF000000 #99FFFFFF none
+MENU COLOR SEL     47;30      #FF000000 #40FFFFFF none
 MENU COLOR UNSEL   37;40      #99FFFFFF #00000000 none
 MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
 
-F1 help.txt zblack.png
+F1 ${HELP_FILE} zblack.png
 
 MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
 MENU TABMSG [F1] help                                                        [Tab] cmdline >
 
 LABEL default
-MENU LABEL Resume previous session
+MENU LABEL ${RESUME}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=${LOCALE_UTF}
 
 LABEL perch
-MENU LABEL Start a new session
+MENU LABEL ${START_NEW}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new locales=${LOCALE_UTF}
 
 LABEL asksession
-MENU LABEL Choose session during startup
+MENU LABEL ${CHOOSE_SESSION}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=${LOCALE_UTF}
 
 LABEL live
-MENU LABEL Fresh start
+MENU LABEL ${FRESH_START}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=${LOCALE_UTF}
 
 LABEL toram
-MENU LABEL Copy to RAM
+MENU LABEL ${COPY_RAM}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram
+APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=${LOCALE_UTF}
 
 EOF
-            information "Created native SYSLINUX configuration with vesamenu"
+                ) | if [ -n "$ENCODING" ] && command -v iconv >/dev/null 2>&1; then
+                    iconv -f UTF-8 -t "$ENCODING" >"$OUTPUT_FILE" 2>/dev/null
+                else
+                    cat >"$OUTPUT_FILE"
+                fi
+            done
+
+            information "Created multilingual SYSLINUX configuration with support for all available languages"
         else
             # Create minimalist SYSLINUX config that loads GRUB
             cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
@@ -1610,7 +1767,8 @@ EOF
         fi
     fi
 
-    # Create multilingual GRUB configuration
+    # Create multilingual GRUB configuration (always needed for UEFI)
+    information "Creating multilingual GRUB configuration..."
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg"
 set default=0
 set timeout=10
@@ -1623,7 +1781,7 @@ set localedir=\$prefix/locale
 # Language selection (title in theme)
 
 # Language selection
-for langstr in en_US=English ru_RU=Русский de_DE=Deutsch es_ES=Español id_ID="Bahasa Indonesia" it_IT=Italiano pt_BR="Português (Brasil)" ; do
+for langstr in en_US=English ru_RU=Русский de_DE=Deutsch es_ES=Español fr_FR=Français id_ID="Bahasa Indonesia" it_IT=Italiano pt_BR="Português (Brasil)" pt_PT="Português (Portugal)" ; do
     regexp -s 2:langname -s 1:langcode '(.*)=(.*)' "\$langstr"
     menuentry "\${langname}" "\$langcode" {
         lang=\$2
@@ -1645,11 +1803,9 @@ loadfont \$prefix/unicode.pf2
 if [ "\$grub_platform" = "pc" ]; then
     set gfxmode=1024x768x32
     set gfxpayload=1024x768x32,1024x768
-    set vga=""
 else
     set gfxmode=auto
     set gfxpayload=auto
-    set vga=""
 fi
 
 insmod all_video
@@ -1874,6 +2030,7 @@ EOF
 
     # Create active grub.cfg as copy of multilingual configuration (default)
     cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+    information "Created multilingual GRUB configuration"
 }
 
 build_initrd() {
@@ -2051,18 +2208,50 @@ build_boot() {
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
+    
+    # Generate SYSLINUX help files from UTF-8 sources
+    if [ -d "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8" ]; then
+        information "Generating SYSLINUX help files..."
+        mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help"
+        
+        for LANG_FILE in "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8"/*.txt; do
+            if [ -f "$LANG_FILE" ]; then
+                local CURRENT_LANG=$(basename "$LANG_FILE" .txt)
+                local TARGET_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/${CURRENT_LANG}.txt"
+                
+                case "$CURRENT_LANG" in
+                    ru_RU)
+                        # Russian uses CP866 encoding
+                        iconv -f UTF-8 -t CP866 "$LANG_FILE" > "$TARGET_HELP" 2>/dev/null
+                        ;;
+                    de_DE|es_ES|pt_PT|pt_BR|it_IT|fr_FR)
+                        # Latin languages use ISO-8859-1 encoding
+                        iconv -f UTF-8 -t ISO-8859-1 "$LANG_FILE" > "$TARGET_HELP" 2>/dev/null
+                        ;;
+                    *)
+                        # English and Indonesian remain UTF-8
+                        cp "$LANG_FILE" "$TARGET_HELP"
+                        ;;
+                esac
+                information "Generated help file: $TARGET_HELP"
+            fi
+        done
+        
+        # Remove UTF-8 help directory from final image (used only as source for generation)
+        rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8"
+    fi
 
-    # Create GRUB translations from bootfiles po files
-    information "Creating GRUB translations..."
+    # Create translations for both GRUB and SYSLINUX
+    information "Creating translations..."
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale"
 
-    # Copy GRUB po files and compile them to mo files
+    # Copy po files and compile them to mo files in shared locale directory
     for po_file in "${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/"*.po; do
         if [ -f "$po_file" ]; then
             # Extract language code from filename (e.g., ru_RU from ru_RU.po)
             lang_full=$(basename "$po_file" .po)
 
-            # Create mo file directly in locale directory
+            # Create mo file in shared locale directory
             if command -v msgfmt >/dev/null 2>&1; then
                 msgfmt "$po_file" -o "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${lang_full}.mo"
                 information "Created translation: ${lang_full}"

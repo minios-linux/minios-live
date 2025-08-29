@@ -1,0 +1,40 @@
+Benvenuto in MiniOS.
+
+Seleziona un'opzione preconfigurata dal menu di avvio o premi il tasto [Tab] per modificare manualmente la riga di comando
+di avvio per personalizzare l'avvio di MiniOS. Di seguito è fornita una descrizione dettagliata dei vari parametri di avvio.
+
+* text: Avvia in modalità testo senza interfaccia grafica
+* automount: Abilita il montaggio automático dei dispositivi di archiviazione
+
+* toram: Copia tutti i dati nella RAM, consente l'espulsione del dispositivo di avvio
+  - toram=full: Copia tutto nella RAM
+  - toram=trim: Copia solo i moduli filtrati nella RAM
+
+* nozram: Disabilita la compressione della RAM (zRAM)
+* zramcomp=[lzo|lzo-rle|lz4|lz4hc|zstd]: Imposta l'algoritmo di compressione zRAM
+* zramsize=[MB]: Imposta la dimensione di zRAM in megabyte
+
+* from=[percorso/dispositivo/URL]: Specifica la posizione dei dati di MiniOS
+  - from=/minios: Usa la directory /minios
+  - from=/dev/sda1/minios: Usa un dispositivo e un percorso specifici
+  - from=http://server/file.iso: Scarica da HTTP
+  - from=askdisk: Seleziona il disco in modo interattivo
+
+* perch: Abilita le modifiche persistenti (richiede uno spazio di archiviazione scrivibile)
+* perchdir=[resume/new/ask/#]: Scegli la sessione di persistenza
+  - resume: Riprendi automaticamente l'ultima sessione
+  - new: Crea sempre una nuova sessione
+  - ask: Seleziona la sessione in modo interattivo
+  - #: Usa un numero di sessione specifico
+* perchmode=[native/dynfilefs/raw]: Imposta la modalità di persistenza
+  - native: Filesystem diretto (predefinito, migliori prestazioni, solo POSIX)
+  - dynfilefs: Contenitore di file dinamico (funziona su tutti i filesystem)
+  - raw: Immagine raw a dimensione fissa
+* perchsize=[MB]: Imposta la dimensione del contenitore di persistenza in megabyte
+
+* load=[filtro]: Carica solo i moduli corrispondenti (regex o intervallo)
+  Esempi: load=00-core o load=core,kernel,firmware o load=00,01,02
+* noload=[filtro]: Escludi i moduli corrispondenti
+  Esempi: noload=05-xfce-apps o noload=xfce-apps,firefox o noload=05,06
+
+Per maggiori informazioni, visita https://minios.dev/docs
