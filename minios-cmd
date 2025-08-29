@@ -79,19 +79,19 @@ help() {
     echo -e "  $(gettext "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'toolbox' package variant, and Russian locale:")"
     echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU"
     echo ""
-    echo -e "  $(gettext "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'standard' package variant and 'lxqt' desktop environment:")"
+    echo -e "  $(gettext "4. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'standard' package variant and 'lxqt' desktop environment:")"
     echo -e "     $(basename $0) -d bookworm -a amd64 -de lxqt -pv standard"
     echo ""
-    echo -e "  $(gettext "4. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:")"
+    echo -e "  $(gettext "5. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:")"
     echo -e "     $(basename $0) -d buster -a i386 -de xfce -pv standard"
     echo ""
-    echo -e "  $(gettext "5. Create a system image with the 'bookworm' distribution, 'amd64' architecture, and 'xfce' desktop environment and with kernel from backports:")"
+    echo -e "  $(gettext "6. Create a system image with the 'bookworm' distribution, 'amd64' architecture, and 'xfce' desktop environment and with kernel from backports:")"
     echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -bpo"
     echo ""
-    echo -e "  $(gettext "6. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
+    echo -e "  $(gettext "7. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
     echo -e "     $(basename $0) -d jammy -pv standard -a amd64 -de xfce"
     echo ""
-    echo -e "  $(gettext "7. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
+    echo -e "  $(gettext "8. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
     echo -e "     $(basename $0) -d trixie -a amd64 -de xfce -pv standard -ml"
     echo ""
     echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
@@ -170,6 +170,10 @@ while (("$#")); do
     -kl | --keep-locales)
         KEEP_LOCALES=true
         shift
+        ;;
+    -tz | --timezone)
+        LIVE_TIMEZONE="$2"
+        shift 2
         ;;
     -h | --help)
         help
