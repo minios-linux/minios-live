@@ -3,11 +3,10 @@ _minios_live() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD - 1]}"
-    opts="build_bootstrap build_chroot build_live build_boot build_config build_modules build_iso remove_sources"
+    opts="build-bootstrap build-chroot build-live build-modules build-boot build-config build-iso remove-sources -"
 
-    if [[ ${cur} == * ]]; then
-        COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
-    fi
+    # Complete commands and the range operator
+    COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
 
     return 0
 }

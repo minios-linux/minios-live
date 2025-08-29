@@ -3,7 +3,7 @@ _minios_cmd() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD - 1]}"
-    opts="--help --version --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-type --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone"
+    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-type --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone -b -d -a -de -pv -c -kt -bpo -aufs -dkms -l -ml -kl -tz"
 
     if [[ ${cur} == -* ]]; then
         COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
@@ -19,11 +19,11 @@ _minios_cmd() {
         COMPREPLY=($(compgen -W "${build_dirs}" -- ${cur}))
         ;;
     --distribution | -d)
-        local distributions="bookworm buster sid trixie jammy noble"
+        local distributions="buster bullseye bookworm trixie jammy noble"
         COMPREPLY=($(compgen -W "${distributions}" -- ${cur}))
         ;;
     --architecture | -a)
-        local architectures="amd64 i386 i386-pae"
+        local architectures="amd64 i386"
         COMPREPLY=($(compgen -W "${architectures}" -- ${cur}))
         ;;
     --desktop-environment | -de)
@@ -31,7 +31,7 @@ _minios_cmd() {
         COMPREPLY=($(compgen -W "${desktop_environments}" -- ${cur}))
         ;;
     --package-variant | -pv)
-        local package_variants="minimum standard toolbox ultra puzzle"
+        local package_variants="minimum standard toolbox ultra"
         COMPREPLY=($(compgen -W "${package_variants}" -- ${cur}))
         ;;
     --compression-type | -c)
@@ -42,32 +42,12 @@ _minios_cmd() {
         local kernel_types="default rt cloud"
         COMPREPLY=($(compgen -W "${kernel_types}" -- ${cur}))
         ;;
-    --kernel-backports | -bpo)
-        local kernel_backports="true false"
-        COMPREPLY=($(compgen -W "${kernel_backports}" -- ${cur}))
-        ;;
-    --kernel-aufs | -aufs)
-        local kernel_aufs="true false"
-        COMPREPLY=($(compgen -W "${kernel_aufs}" -- ${cur}))
-        ;;
-    --kernel-build-dkms | -dkms)
-        local kernel_build_dkms="true false"
-        COMPREPLY=($(compgen -W "${kernel_build_dkms}" -- ${cur}))
-        ;;
     --locale | -l)
-        local locales="en_US ru_RU es_ES bt_BR"
+        local locales="en_US ru_RU es_ES de_DE fr_FR it_IT pt_PT pt_BR id_ID"
         COMPREPLY=($(compgen -W "${locales}" -- ${cur}))
         ;;
-    --multilingual | -ml)
-        local multilingual_opts="true false"
-        COMPREPLY=($(compgen -W "${multilingual_opts}" -- ${cur}))
-        ;;
-    --keep-locales | -kl)
-        local keep_locales_opts="true false"
-        COMPREPLY=($(compgen -W "${keep_locales_opts}" -- ${cur}))
-        ;;
     --timezone | -tz)
-        local timezones="Etc/UTC Europe/Moscow"
+        local timezones="Etc/UTC Europe/Moscow Europe/London Europe/Berlin Europe/Paris Europe/Rome Europe/Madrid America/New_York America/Los_Angeles America/Sao_Paulo Asia/Tokyo"
         COMPREPLY=($(compgen -W "${timezones}" -- ${cur}))
         ;;
     esac
