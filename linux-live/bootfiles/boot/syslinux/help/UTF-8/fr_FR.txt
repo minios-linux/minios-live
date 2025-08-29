@@ -1,0 +1,41 @@
+Bienvenue sur MiniOS.
+
+Sélectionnez une option préconfigurée dans le menu de démarrage ou appuyez sur la touche [Tab] pour modifier manuellement la
+ligne de commande de démarrage afin de personnaliser le démarrage de MiniOS. Une description détaillée des différents
+paramètres de démarrage est fournie ci-dessous.
+
+* text : Démarrer en mode texte sans interface graphique
+* automount : Activer le montage automatique des périphériques de stockage
+
+* toram : Copier toutes les données en RAM, permet d'éjecter le périphérique de démarrage
+  - toram=full : Tout copier en RAM
+  - toram=trim : Copier uniquement les modules filtrés en RAM
+
+* nozram : Désactiver la compression de la RAM (zRAM)
+* zramcomp=[lzo|lzo-rle|lz4|lz4hc|zstd] : Définir l'algorithme de compression zRAM
+* zramsize=[MB] : Définir la taille de zRAM en mégaoctets
+
+* from=[chemin/périphérique/URL] : Spécifier l'emplacement des données MiniOS
+  - from=/minios : Utiliser le répertoire /minios
+  - from=/dev/sda1/minios : Utiliser un périphérique et un chemin spécifiques
+  - from=http://server/file.iso : Télécharger depuis HTTP
+  - from=askdisk : Sélectionner le disque de manière interactive
+
+* perch : Activer les modifications persistantes (nécessite un stockage inscriptible)
+* perchdir=[resume/new/ask/#] : Choisir la session de persistance
+  - resume : Reprendre automatiquement la dernière session
+  - new : Toujours créer une nouvelle session
+  - ask : Sélectionner la session de manière interactive
+  - # : Utiliser un numéro de session específico
+* perchmode=[native/dynfilefs/raw] : Définir le mode de persistance
+  - native : Système de fichiers direct (par défaut, meilleures performances, POSIX uniquement)
+  - dynfilefs : Conteneur de fichiers dynamique (fonctionne sur tous les systèmes de fichiers)
+  - raw : Image brute de taille fixe
+* perchsize=[MB] : Définir la taille du conteneur de persistance en mégaoctets
+
+* load=[filtre] : Charger uniquement les modules correspondants (expression régulière ou plage)
+  Exemples : load=00-core ou load=core,kernel,firmware ou load=00,01,02
+* noload=[filtre] : Exclure les modules correspondants
+  Exemples : noload=05-xfce-apps ou noload=xfce-apps,firefox ou noload=05,06
+
+Pour plus d'informations, visitez https://minios.dev/docs
