@@ -1,6 +1,97 @@
 #!/usr/bin/make -f
 
+# Executable and build scripts
+EXECUTABLES := minios-live minios-cmd
+BUILD_SCRIPTS := linux-live
+BASH_COMPLETIONS := completions/minios-live completions/minios-cmd
+
+# Directories
+BIN_DIR := usr/bin
+SHARE_DIR := usr/share
+ETC_DIR := etc/minios-live
+LOCALE_DIR := usr/share/locale
+BASH_COMPLETIONS_DIR := usr/share/bash-completion/completions
+MAN_DIR := usr/share/man
+
+# Documentation and localization files
+DOC_FILES := $(shell find docs -name "*.md")
+MAN_FILES := $(patsubst docs/%.md, man/%.1, $(DOC_FILES))
+
+PO_FILES := $(shell find po -name "*.po" -maxdepth 1)
+MO_FILES := $(patsubst %.po,%.mo,$(PO_FILES))
+
 %:
 	dh $@
+
+# Build targets
+override_dh_auto_build:
+ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
+	mkdir -p man
+	for DOC_FILE in $(DOC_FILES); do \
+		MAN_FILE=$$(echo $$DOC_FILE | sed 's|docs/|man/|' | sed 's|\.md$$|.1|'); \
+		echo "Generating man file for $$DOC_FILE"; \
+		pandoc -s -t man "$$DOC_FILE" -o "$$MAN_FILE"; \
+	done
+endif
+	for PO_FILE in $(PO_FILES); do \
+		MO_FILE=$$(echo $$PO_FILE | sed 's|\.po$$|.mo|'); \
+		echo "Generating mo file for $$PO_FILE"; \
+		msgfmt -o "$$MO_FILE" "$$PO_FILE"; \
+		chmod 644 "$$MO_FILE"; \
+	done
+
+# Man pages
+man: $(MAN_FILES)
+man/%.1: docs/%.md
+	@mkdir -p $(@D)
+	@echo "Generating man file for $<"
+	pandoc -s -t man $< -o $@
+
+# Localization
+locale: $(MO_FILES)
+%.mo: %.po
+	@echo "Generating mo file for $<"
+	msgfmt -o $@ $<
+	chmod 644 $@
+
+# Clean target
+override_dh_auto_clean:
+	rm -rf man $(MO_FILES)
+
+# Install target
+override_dh_auto_install:
+	install -d debian/minios-live/$(BIN_DIR) \
+		debian/minios-live/$(SHARE_DIR) \
+		debian/minios-live/$(ETC_DIR) \
+		debian/minios-live/$(LOCALE_DIR) \
+		debian/minios-live/$(BASH_COMPLETIONS_DIR)
+
+	cp $(EXECUTABLES) debian/minios-live/$(BIN_DIR)
+	cp -r $(BUILD_SCRIPTS) debian/minios-live/$(SHARE_DIR)/minios-live
+	cp $(BUILD_SCRIPTS)/build.conf debian/minios-live/$(ETC_DIR)
+	cp $(BASH_COMPLETIONS) debian/minios-live/$(BASH_COMPLETIONS_DIR)
+	
+	# Install lintian overrides
+	install -d debian/minios-live/usr/share/lintian/overrides
+	cp debian/minios-live.lintian-overrides debian/minios-live/usr/share/lintian/overrides/minios-live
+
+	# Copy MO files
+	for MO_FILE in $(MO_FILES); do \
+		LOCALE=$$(basename $$MO_FILE .mo); \
+		echo "Copying mo file $$MO_FILE to debian/minios-live/usr/share/locale/$$LOCALE/LC_MESSAGES/minios-live.mo"; \
+		install -Dm644 "$$MO_FILE" "debian/minios-live/usr/share/locale/$$LOCALE/LC_MESSAGES/minios-live.mo"; \
+	done
+
+	# Copy man files
+	find man -type f -name '*.1' | while read -r MAN_FILE; do \
+		MAN_LANG_DIR=$$(dirname $$MAN_FILE | sed 's/^man//'); \
+		MAN_BASENAME=$$(basename $$MAN_FILE); \
+		install -d "debian/minios-live/$(MAN_DIR)/$$MAN_LANG_DIR/man1"; \
+		echo "Copying man file $$MAN_FILE to debian/minios-live/$(MAN_DIR)/$$MAN_LANG_DIR/man1/$$MAN_BASENAME"; \
+		install -Dm644 "$$MAN_FILE" "debian/minios-live/$(MAN_DIR)/$$MAN_LANG_DIR/man1/$$MAN_BASENAME"; \
+	done
+
+override_dh_shlibdeps:
+	dh_shlibdeps -X/bootfiles/
 
 override_dh_strip:

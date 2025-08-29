@@ -1,73 +1,45 @@
-# Executable and build scripts
-EXECUTABLES := minios-live minios-cmd
-BUILD_SCRIPTS := linux-live
-BASH_COMPLETIONS := completions/minios-live completions/minios-cmd
+.PHONY: all prepare-source orig add-debian check-deps build-package lintian clean
 
-# Directories
-BIN_DIR := usr/bin
-SHARE_DIR := usr/share
-ETC_DIR := etc/minios-live
-LOCALE_DIR := usr/share/locale
-BASH_COMPLETIONS_DIR := usr/share/bash-completion/completions
-MAN_DIR := usr/share/man
+PACKAGE   := minios-live
+VERSION   := $(shell dpkg-parsechangelog --show-field Version | sed "s/-[^-]*$$//")
+BUILD_DIR := build/$(PACKAGE)-$(VERSION)
 
-# Documentation and localization files
-DOC_FILES := $(shell find docs -name "*.md")
-MAN_FILES := $(patsubst docs/%.md, man/%.1, $(DOC_FILES))
+all: check-deps build-package
 
-PO_FILES := $(shell find po -name "*.po" -maxdepth 1)
-MO_FILES := $(patsubst %.po,%.mo,$(PO_FILES))
+prepare-source:
+	@echo "Preparing source for $(PACKAGE) $(VERSION)..."
+	@mkdir -p $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR)/*
+	@cp -r completions docs linux-live po $(BUILD_DIR)/
+	@cp LICENSE minios-cmd minios-live $(BUILD_DIR)/
 
-# Build targets
-ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
-build: man
-endif
-build: locale
+orig: prepare-source
+	@echo "Creating orig tarball..."
+	@tar czf build/$(PACKAGE)_$(VERSION).orig.tar.gz -C build $(PACKAGE)-$(VERSION)
 
-# Man pages
-man: $(MAN_FILES)
-man/%.1: docs/%.md
-	@mkdir -p $(@D)
-	@echo "Generating man file for $<"
-	pandoc -s -t man $< -o $@
+add-debian: orig
+	@echo "Adding debian directory..."
+	@cp -r debian $(BUILD_DIR)/
 
-# Localization
-locale: $(MO_FILES)
-%.mo: %.po
-	@echo "Generating mo file for $<"
-	msgfmt -o $@ $<
-	chmod 644 $@
+check-deps: add-debian
+	@echo "Checking build dependencies..."
+	@cd $(BUILD_DIR) && MISSING=$$(dpkg-checkbuilddeps 2>&1 | sed -n 's/^.*Unmet build dependencies: //p'); \
+	if [ -n "$$MISSING" ]; then \
+		echo "Missing build-deps: $$MISSING"; \
+		echo "Installing..."; \
+		sudo apt-get update && sudo apt-get install -y $$MISSING; \
+	else \
+		echo "All build-dependencies satisfied."; \
+	fi
 
-# Clean target
+build-package: add-debian check-deps
+	@echo "Building package..."
+	@cd $(BUILD_DIR) && dpkg-buildpackage -us -uc
+
+lintian:
+	@echo "Running lintian..."
+	@lintian --show-overrides build/$(PACKAGE)_*.changes
+
 clean:
-	rm -rf man $(MO_FILES)
-
-# Install target
-install: build
-	install -d $(DESTDIR)/$(BIN_DIR) \
-		$(DESTDIR)/$(SHARE_DIR) \
-		$(DESTDIR)/$(ETC_DIR) \
-		$(DESTDIR)/$(LOCALE_DIR) \
-		$(DESTDIR)/$(BASH_COMPLETIONS_DIR)
-
-	cp $(EXECUTABLES) $(DESTDIR)/$(BIN_DIR)
-	cp -r $(BUILD_SCRIPTS) $(DESTDIR)/$(SHARE_DIR)/minios-live
-	cp $(DESTDIR)/$(SHARE_DIR)/minios-live/general.conf $(DESTDIR)/$(ETC_DIR)
-	cp $(DESTDIR)/$(SHARE_DIR)/minios-live/build.conf $(DESTDIR)/$(ETC_DIR)
-	cp $(BASH_COMPLETIONS) $(DESTDIR)/$(BASH_COMPLETIONS_DIR)
-
-	# Copy MO files
-	for MO_FILE in $(MO_FILES); do \
-		LOCALE=$$(basename $$MO_FILE .mo); \
-		echo "Copying mo file $$MO_FILE to $(DESTDIR)/usr/share/locale/$$LOCALE/LC_MESSAGES/minios-live.mo"; \
-		install -Dm644 "$$MO_FILE" "$(DESTDIR)/usr/share/locale/$$LOCALE/LC_MESSAGES/minios-live.mo"; \
-	done
-
-	# Copy man files
-	find man -type f -name '*.1' | while read -r MAN_FILE; do \
-		MAN_LANG_DIR=$$(dirname $$MAN_FILE | sed 's/^man//'); \
-		MAN_BASENAME=$$(basename $$MAN_FILE); \
-		install -d "$(DESTDIR)/$(MAN_DIR)/$$MAN_LANG_DIR/man1"; \
-		echo "Copying man file $$MAN_FILE to $(DESTDIR)/$(MAN_DIR)/$$MAN_LANG_DIR/man1/$$MAN_BASENAME"; \
-		install -Dm644 "$$MAN_FILE" "$(DESTDIR)/$(MAN_DIR)/$$MAN_LANG_DIR/man1/$$MAN_BASENAME"; \
-	done
+	@echo "Cleaning up..."
+	@rm -rf build
