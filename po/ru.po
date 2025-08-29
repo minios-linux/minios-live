@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 4.0.0\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-06-11 20:59+0300\n"
+"Report-Msgid-Bugs-To: support@minios.dev\n"
+"POT-Creation-Date: 2025-08-29 22:41+0300\n"
 "PO-Revision-Date: 2024-11-23 20:23+0300\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
 "Language-Team: none\n"
@@ -18,15 +18,15 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: minios-live:52
+#: minios-live:52 minios-live:56
 msgid "This script builds bootable MiniOS ISO image."
 msgstr "Этот скрипт создаёт загрузочный ISO-образ MiniOS."
 
-#: minios-live:56
+#: minios-live:56 minios-live:61
 msgid "Run the build from start to finish."
 msgstr "Запустить сборку от начала до конца."
 
-#: minios-live:57
+#: minios-live:57 minios-live:62
 msgid ""
 "Start the build by building the base environment and finish by installing "
 "the entire system in chroot."
@@ -34,51 +34,51 @@ msgstr ""
 "Начать сборку со сборки базовой среды и завершить установкой всей системы в "
 "chroot."
 
-#: minios-live:58
+#: minios-live:58 minios-live:63
 msgid ""
 "Start the build from the beginning and finish by installing the entire "
 "system in chroot."
 msgstr ""
 "Начать сборку с самого начала и завершить установкой всей системы в chroot."
 
-#: minios-live:59
+#: minios-live:59 minios-live:64
 msgid "Start the build by building the base environment and run to completion."
 msgstr "Начать сборку со сборки базовой среды и выполнить до завершения."
 
-#: minios-live:60
+#: minios-live:60 minios-live:65
 msgid "Build only ISO image from previously prepared data."
 msgstr "Собрать только ISO-образ из ранее подготовленных данных."
 
-#: minios-live:64
+#: minios-live:64 minios-live:69
 msgid "Supported commands:"
 msgstr "Поддерживаемые команды:"
 
-#: minios-live:65 minios-cmd:31
+#: minios-live:65 minios-cmd:31 minios-live:70
 msgid "Usage:"
 msgstr "Использование:"
 
-#: minios-live:66
+#: minios-live:66 minios-live:71
 msgid "  Run from start_cmd to end_cmd"
 msgstr "  Запуск с start_cmd до end_cmd"
 
-#: minios-live:67
+#: minios-live:67 minios-live:72
 msgid "  If start_cmd is omitted, start from the first command"
 msgstr "  Если start_cmd пропущен, начать с первой команды"
 
-#: minios-live:68
+#: minios-live:68 minios-live:73
 msgid "  If end_cmd is omitted, end with the last command"
 msgstr "  Если end_cmd пропущен, закончить последней командой"
 
-#: minios-live:69
+#: minios-live:69 minios-live:74
 msgid "  Enter a single cmd to run the specific command"
 msgstr "  Введите одну команду cmd для запуска конкретной команды"
 
-#: minios-live:70
+#: minios-live:70 minios-live:75
 msgid "  Enter '-' as the only argument to run all commands\\n"
 msgstr ""
 "  Введите '-' в качестве единственного аргумента для запуска всех команд\\n"
 
-#: minios-live:71 minios-cmd:71
+#: minios-live:71 minios-cmd:71 minios-live:76
 msgid "Examples:"
 msgstr "Примеры:"
 
@@ -252,3 +252,43 @@ msgid ""
 msgstr ""
 "имеет гораздо больше доступных параметров.  Для получения более подробной "
 "информации обратитесь к списку параметров выше."
+
+#: minios-cmd:82
+msgid ""
+"4. Create a system image with the 'bookworm' distribution, 'amd64' "
+"architecture, 'standard' package variant and 'lxqt' desktop environment:"
+msgstr ""
+"4. Создать образ системы с дистрибутивом 'bookworm', архитектурой 'amd64', "
+"стандартным вариантом пакета и средой рабочего стола 'lxqt':"
+
+#: minios-cmd:85
+msgid ""
+"5. Create a system image with 'buster' distribution, 'i386' architecture, "
+"and 'xfce' desktop environment:"
+msgstr ""
+"5. Создать образ системы с дистрибутивом 'buster', архитектурой 'i386' и "
+"средой рабочего стола 'xfce':"
+
+#: minios-cmd:88
+msgid ""
+"6. Create a system image with the 'bookworm' distribution, 'amd64' "
+"architecture, and 'xfce' desktop environment and with kernel from backports:"
+msgstr ""
+"6. Создать образ системы с дистрибутивом 'bookworm', архитектурой 'amd64', "
+"средой рабочего стола 'xfce' и ядром из backports:"
+
+#: minios-cmd:91
+msgid ""
+"7. Create a system image with the 'jammy' distribution and 'standard' "
+"package variant:"
+msgstr ""
+"7. Создать образ системы с дистрибутивом 'jammy' и стандартным вариантом "
+"пакета:"
+
+#: minios-cmd:94
+msgid ""
+"8. Create a system image with 'trixie' distribution, 'amd64' architecture, "
+"and 'xfce' desktop environment with multilingual support enabled:"
+msgstr ""
+"8. Создать образ системы с дистрибутивом 'trixie', архитектурой 'amd64', "
+"средой рабочего стола 'xfce' и включенной поддержкой нескольких языков:"
