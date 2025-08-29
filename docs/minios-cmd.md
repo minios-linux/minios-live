@@ -8,13 +8,18 @@
 
 With `minios-cmd`, you can customize various aspects of your MiniOS image, including:
 
-- **Distribution:** Choose from Debian releases (e.g., `bookworm`, `trixie`).
-- **Architecture:** Specify the target architecture (e.g., `amd64`, `i386` (`bookworm` only)).
-- **Desktop Environment:** Select your preferred desktop environment (e.g., `xfce`, `lxqt`).
-- **Package Variant:** Use pre-defined package sets like `standard`, `toolbox` or `ultra`.
-- **Compression Type:** Specify the image compression method (e.g., `zstd`).
-- **Kernel:** Configure kernel type, enable backports, AUFS support, and DKMS module compilation.
-- **Locale and Timezone:** Set the system locale and timezone.
+- **Distribution:** Choose from Debian releases (`buster`, `bullseye`, `bookworm`, `trixie`) and Ubuntu releases (`jammy`, `noble`)
+- **Architecture:** Specify the target architecture (`amd64`, `i386` for older distributions)
+- **Desktop Environment:** 
+  - **Debian:** `xfce` (standard), `flux` (minimum), `lxqt` (bookworm/trixie only)
+  - **Ubuntu:** `xfce` only
+- **Package Variant:** 
+  - **All Debian:** `standard` (xfce), `minimum` (flux)
+  - **Bookworm/Trixie only:** `toolbox`, `ultra`
+  - **Ubuntu:** `standard` only
+- **Compression Type:** Specify the image compression method (`zstd`)
+- **Kernel:** Configure kernel type, enable backports, AUFS support, and DKMS module compilation
+- **Locale and Timezone:** Set the system locale and timezone with multilingual support
 
 ---
 
@@ -30,37 +35,44 @@ minios-cmd [OPTIONS]
 
 ### Options
 
-#### Required Options
+#### Configuration Options
+- `--config-file FILE`: Specify the configuration file path. All other options are ignored.
+- `--config-only`: Generate the configuration file only and do not start the build process.
+
+#### Build Options
+- `-b, --build-dir DIR`: Specify the build directory.
+
+#### System Options (Required)
 These options **must be provided** unless a configuration file is used:
 
-- `-d, --distribution NAME`: Specify the distribution (e.g., `bookworm`).
-- `-a, --architecture NAME`: Specify the architecture (e.g., `amd64`).
-- `-de, --desktop-environment NAME`: Select the desktop environment (e.g., `xfce`).
-- `-pv, --package-variant NAME`: Choose the package variant (e.g., `standard`).
+- `-d, --distribution NAME`: Specify the distribution name (e.g., 'bookworm'). **REQUIRED**
+- `-a, --architecture NAME`: Specify the architecture (e.g., 'amd64'). **REQUIRED** 
+- `-de, --desktop-environment NAME`: Specify the desktop environment (e.g., 'xfce'). **REQUIRED**
+- `-pv, --package-variant NAME`: Specify the package variant (e.g., 'standard'). **REQUIRED**
+- `-c, --compression-type NAME`: Specify the compression type (e.g., 'zstd').
 
-#### Optional Options
+#### Kernel Options
+- `-kt, --kernel-type NAME`: Specify the kernel type (e.g., 'default').
+- `-bpo, --kernel-backports`: Enable the use of the Linux kernel from backports.
+- `-aufs, --kernel-aufs`: Enable AUFS support in the kernel.
+- `-dkms, --kernel-build-dkms`: Enable compilation of additional drivers during kernel installation.
 
-- **Configuration Options:**
-  - `--config-file FILE`: Use a configuration file (ignores all other options).
-  - `--config-only`: Generate a configuration file without building the image.
+#### Locale and Timezone Options
+- `-l, --locale NAME`: Specify the system locale (e.g., 'en_US').
+- `-ml, --multilingual`: Enable multilingual support.
+- `-kl, --keep-locales`: Keep all available locales.
+- `-tz, --timezone NAME`: Specify the timezone (e.g., 'Etc/UTC').
 
-- **Build Options:**
-  - `-b, --build-dir DIR`: Specify the build directory.
+---
 
-- **Kernel Options:**
-  - `-kt, --kernel-type NAME`: Specify the kernel type (e.g., `default`).
-  - `-bpo, --kernel-backports`: Enable kernel backports.
-  - `-aufs, --kernel-aufs`: Enable AUFS support.
-  - `-dkms, --kernel-build-dkms`: Compile additional drivers with DKMS.
+### Default Settings
 
-- **Locale and Timezone Options:**
-  - `-l, --locale NAME`: Set the system locale (e.g., `en_US`).
-  - `-ml, --multilingual`: Enable multilingual support.
-  - `-kl, --keep-locales`: Retain all available locales.
-  - `-tz, --timezone NAME`: Specify the timezone (e.g., `Etc/UTC`).
+#### Kernel Settings
+- **KERNEL_TYPE:** "default"
 
-- **Compression Option:**
-  - `-c, --compression-type NAME`: Specify compression type (e.g., `zstd`).
+#### Locale & Timezone Settings  
+- **LOCALE:** "en_US"
+- **LIVE_TIMEZONE:** "Etc/UTC"
 
 ---
 
@@ -70,20 +82,41 @@ These options **must be provided** unless a configuration file is used:
 
 ---
 
-### Quick Start Examples
+### Examples
 
-#### Minimal Build
-Build a MiniOS system with Debian 12, amd64 architecture, XFCE desktop, and the standard package variant:
+#### Standard Build (Default Settings)
+Create a MiniOS Standard system image with default settings:
 
 ```bash
-minios-cmd -d bookworm -a amd64 -de xfce -pv standard
+minios-cmd -d bookworm -a amd64 -de xfce -pv standard -c zstd -aufs -dkms -kl
 ```
 
-#### Customized Build
-Build a MiniOS system with Debian 12, amd64 architecture, XFCE desktop, the toolbox package variant, zstd compression, and a Russian locale:
+#### Toolbox Build (Default Settings)
+Create a MiniOS Toolbox system image with default settings:
 
 ```bash
-minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -l ru_RU
+minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -aufs -dkms -kl
+```
+
+#### Custom Locale
+Create a system image with Russian locale:
+
+```bash
+minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU
+```
+
+#### LXQt Desktop Environment
+Create a system image with LXQt desktop environment:
+
+```bash
+minios-cmd -d bookworm -a amd64 -de lxqt -pv standard
+```
+
+#### Legacy Architecture (i386)
+Create a system image for 32-bit architecture:
+
+```bash
+minios-cmd -d buster -a i386 -de xfce -pv standard
 ```
 
 #### Kernel Backports
@@ -93,8 +126,15 @@ Enable the kernel from backports:
 minios-cmd -d bookworm -a amd64 -de xfce -pv standard -bpo
 ```
 
+#### Ubuntu Distribution
+Create a system image with Ubuntu Jammy:
+
+```bash
+minios-cmd -d jammy -pv standard -a amd64 -de xfce
+```
+
 #### Multilingual Support
-Enable multilingual support: This option generates system locales for English, Spanish, German, French, Italian, Brazilian Portuguese, and Russian, while removing all other unused locales.
+Enable multilingual support (generates locales for English, Spanish, German, French, Italian, Portuguese, Brazilian Portuguese, Russian, and Indonesian):
 
 ```bash
 minios-cmd -d trixie -a amd64 -de xfce -pv standard -ml
@@ -132,4 +172,6 @@ For more advanced configurations and the most up-to-date information, refer to t
 ```bash
 minios-cmd --help
 ```
+
+`minios-cmd` has many more options available. Please refer to the above options list for more details.
 
