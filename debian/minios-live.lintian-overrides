@@ -1,0 +1,76 @@
+# Boot files are architecture-dependent by design but placed in usr/share for live system
+minios-live: arch-dependent-file-in-usr-share usr/share/minios-live/bootfiles/boot/grub/i386-efi/*
+minios-live: arch-dependent-file-in-usr-share usr/share/minios-live/bootfiles/boot/grub/i386-pc/*
+minios-live: arch-dependent-file-in-usr-share usr/share/minios-live/bootfiles/boot/grub/x86_64-efi/*
+minios-live: arch-dependent-file-in-usr-share usr/share/minios-live/bootfiles/boot/syslinux/*
+
+# ELF files in bootfiles are boot loaders, not regular executables
+minios-live: unstripped-binary-or-object usr/share/minios-live/bootfiles/boot/syslinux/*
+minios-live: unstripped-binary-or-object usr/share/minios-live/bootfiles/boot/grub/i386-efi/*
+minios-live: unstripped-binary-or-object usr/share/minios-live/bootfiles/boot/grub/i386-pc/*
+minios-live: unstripped-binary-or-object usr/share/minios-live/bootfiles/boot/grub/x86_64-efi/*
+
+# Boot loader libraries have specific requirements
+minios-live: library-not-linked-against-libc usr/share/minios-live/bootfiles/boot/syslinux/*
+minios-live: missing-dependency-on-libc usr/share/minios-live/bootfiles/boot/grub/i386-pc/*
+minios-live: shared-library-is-executable usr/share/minios-live/bootfiles/boot/syslinux/*
+minios-live: statically-linked-binary usr/share/minios-live/bootfiles/boot/grub/i386-pc/*
+minios-live: statically-linked-binary usr/share/minios-live/initramfs/livekit-mos/bin/*
+minios-live: embedded-library usr/share/minios-live/bootfiles/boot/syslinux/*
+minios-live: embedded-library usr/share/minios-live/initramfs/livekit-mos/bin/*
+minios-live: executable-stack-in-shared-library usr/share/minios-live/bootfiles/boot/syslinux/*
+minios-live: hardening-no-relro usr/share/minios-live/bootfiles/boot/syslinux/*
+
+# Scripts are intentionally not executable - they are copied by build system
+minios-live: script-not-executable usr/share/minios-live/build-initramfs
+minios-live: script-not-executable usr/share/minios-live/condinapt
+minios-live: script-not-executable usr/share/minios-live/initramfs/livekit-mos/bin/minios-boot.sh
+minios-live: script-not-executable usr/share/minios-live/initramfs/livekit-mos/init
+minios-live: script-not-executable usr/share/minios-live/initramfs/livekit-mos/lib/livekitlib
+minios-live: script-not-executable usr/share/minios-live/initramfs/livekit-mos/shutdown
+minios-live: script-not-executable usr/share/minios-live/install-chroot
+minios-live: script-not-executable usr/share/minios-live/minioslib
+minios-live: script-not-executable usr/share/minios-live/scripts/00-core/install
+minios-live: script-not-executable usr/share/minios-live/scripts/00-debug/install
+minios-live: script-not-executable usr/share/minios-live/scripts/01-kernel/build
+minios-live: script-not-executable usr/share/minios-live/scripts/01-kernel/install
+minios-live: script-not-executable usr/share/minios-live/scripts/02-firmware/install
+minios-live: script-not-executable usr/share/minios-live/scripts/03-gui-base/install
+minios-live: script-not-executable usr/share/minios-live/scripts/04-flux-desktop/install
+minios-live: script-not-executable usr/share/minios-live/scripts/04-lxqt-desktop/install
+minios-live: script-not-executable usr/share/minios-live/scripts/04-xfce-desktop/install
+minios-live: script-not-executable usr/share/minios-live/scripts/05-apps/install
+minios-live: script-not-executable usr/share/minios-live/scripts/05-flux-apps/install
+minios-live: script-not-executable usr/share/minios-live/scripts/05-lxqt-apps/install
+minios-live: script-not-executable usr/share/minios-live/scripts/10-example/build_
+minios-live: script-not-executable usr/share/minios-live/scripts/10-example/install
+minios-live: script-not-executable usr/share/minios-live/scripts/10-example/postinstall
+minios-live: script-not-executable usr/share/minios-live/scripts/10-firefox/install
+minios-live: script-not-executable usr/share/minios-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.config/openbox/autostart
+minios-live: script-not-executable usr/share/minios-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.fluxbox/fbpotgen.sh
+minios-live: script-not-executable usr/share/minios-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.fluxbox/startup
+minios-live: script-not-executable usr/share/minios-live/scripts/04-lxqt-desktop/rootcopy-install/etc/skel/.xinitrc
+minios-live: script-not-executable usr/share/minios-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.xinitrc
+minios-live: script-not-executable usr/share/minios-live/scripts/04-xfce-desktop/rootcopy-install/usr/bin/thunar.sh
+minios-live: script-not-executable usr/share/minios-live/test_condinapt.sh
+
+# Icon size mismatches are from upstream packages, not fixable
+minios-live: icon-size-and-directory-name-mismatch *
+
+# Windows boot files are required for UEFI/BIOS boot on Windows systems  
+minios-live source: source-contains-prebuilt-windows-binary linux-live/bootfiles/boot/EFI/boot/bootia32.efi
+minios-live source: source-contains-prebuilt-windows-binary linux-live/bootfiles/boot/EFI/boot/bootx64.efi
+minios-live source: source-contains-prebuilt-windows-binary linux-live/bootfiles/boot/EFI/boot/grubia32.efi
+minios-live source: source-contains-prebuilt-windows-binary linux-live/bootfiles/boot/EFI/boot/grubx64.efi
+minios-live source: source-contains-prebuilt-windows-binary linux-live/bootfiles/boot/syslinux/syslinux.com
+minios-live source: source-contains-prebuilt-windows-binary linux-live/bootfiles/boot/syslinux/syslinux.exe
+
+# Other expected issues for live system
+minios-live: uses-dpkg-database-directly usr/share/minios-live/minioslib
+minios-live: executable-not-elf-or-script usr/share/minios-live/bootfiles/boot/syslinux/syslinux.com
+minios-live: executable-not-elf-or-script usr/share/minios-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-1/launcher.desktop
+minios-live: duplicate-font-file usr/share/minios-live/scripts/03-gui-base/rootcopy-install/usr/share/fonts/opentype/inter/Inter-Regular.otf
+minios-live: duplicate-font-file usr/share/minios-live/scripts/03-gui-base/rootcopy-install/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Regular.ttf
+minios-live: bad-whatis-entry usr/share/man/man1/minios-cmd.1.gz
+minios-live: bad-whatis-entry usr/share/man/man1/minios-live.1.gz
+minios-live source: absolute-symbolic-link-target-in-source /usr/share/zoneinfo/Etc/UTC linux-live/scripts/00-core/rootcopy-postinstall/etc/localtime
