@@ -1547,7 +1547,7 @@ create_config_files() {
             information "Creating multilingual SYSLINUX configuration..."
 
             # Create main language selection menu
-            cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
+            cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
 UI vesamenu.c32
 
 PROMPT 0
@@ -2211,6 +2211,154 @@ remove_unused_grub_modules() {
     done
 }
 
+# Function to parse .po files for translations
+parse_po_file() {
+    local PO_FILE="$1"
+    local TEMP_FILE=$(mktemp)
+
+    if [ ! -e "$PO_FILE" ]; then
+        rm -f "$TEMP_FILE"
+        return 1
+    fi
+
+    # Extract msgid and msgstr pairs, handling multiline strings
+    awk '
+    BEGIN { msgid = ""; msgstr = ""; in_msgid = 0; in_msgstr = 0; }
+
+    /^msgid / {
+        if (msgid != "" && msgstr != "") {
+            # Remove quotes and unescape
+            gsub(/^"|"$/, "", msgid); gsub(/\\n/, "\n", msgid); gsub(/\\"/, "\"", msgid);
+            gsub(/^"|"$/, "", msgstr); gsub(/\\n/, "\n", msgstr); gsub(/\\"/, "\"", msgstr);
+            if (msgid != "" && msgstr != "") print msgid "|||" msgstr;
+        }
+        msgid = substr($0, 7); in_msgid = 1; in_msgstr = 0;
+    }
+
+    /^msgstr / {
+        msgstr = substr($0, 8); in_msgstr = 1; in_msgid = 0;
+    }
+
+    /^"/ {
+        if (in_msgid) msgid = msgid substr($0, 2, length($0) - 2);
+        else if (in_msgstr) msgstr = msgstr substr($0, 2, length($0) - 2);
+    }
+
+    /^$/ { in_msgid = 0; in_msgstr = 0; }
+
+    END {
+        if (msgid != "" && msgstr != "") {
+            gsub(/^"|"$/, "", msgid); gsub(/\\n/, "\n", msgid); gsub(/\\"/, "\"", msgid);
+            gsub(/^"|"$/, "", msgstr); gsub(/\\n/, "\n", msgstr); gsub(/\\"/, "\"", msgstr);
+            if (msgid != "" && msgstr != "") print msgid "|||" msgstr;
+        }
+    }
+    ' "$PO_FILE" >"$TEMP_FILE"
+
+    if [ -s "$TEMP_FILE" ]; then
+        echo "$TEMP_FILE"
+        return 0
+    else
+        rm -f "$TEMP_FILE"
+        return 1
+    fi
+}
+
+# Function to get translation from parsed po file
+get_translation() {
+    local TRANSLATIONS_FILE="$1"
+    local MSGID="$2"
+
+    if [ ! -e "$TRANSLATIONS_FILE" ]; then
+        echo "$MSGID"
+        return
+    fi
+
+    local RESULT=$(grep -F "${MSGID}|||" "$TRANSLATIONS_FILE" 2>/dev/null | head -n1 | cut -d'|' -f4-)
+    if [ -n "$RESULT" ]; then
+        echo "$RESULT"
+    else
+        echo "$MSGID"
+    fi
+}
+
+# Function to generate localized GRUB config
+generate_localized_grub_config() {
+    local GRUB_DIR="$1"
+    local LANG_CODE="$2"
+    local OUTPUT_FILE="$3"
+
+    # Parse po file for the language
+    local PO_FILE="$GRUB_DIR/po/${LANG_CODE}.po"
+    local TRANSLATIONS_FILE
+
+    if ! TRANSLATIONS_FILE=$(parse_po_file "$PO_FILE"); then
+        warning "$(gettext "No translations found for $LANG_CODE, using English fallback")"
+        return 1
+    fi
+
+    # Get template config
+    local TEMPLATE_CFG="$GRUB_DIR/grub.template.cfg"
+    if [ ! -e "$TEMPLATE_CFG" ]; then
+        error "$(gettext "grub.template.cfg template not found")"
+        rm -f "$TRANSLATIONS_FILE"
+        return 1
+    fi
+
+    # Read template content
+    local TEMPLATE_CONTENT=$(cat "$TEMPLATE_CFG")
+    local LOCALIZED_CONTENT="$TEMPLATE_CONTENT"
+
+    # Define menu entries to translate (same as installer)
+    local ENGLISH_TEXTS=(
+        "Resume previous session"
+        "Start a new session"
+        "Choose session during startup"
+        "Fresh start"
+        "Copy to RAM"
+        "Loading kernel and ramdisk..."
+        "MiniOS"
+    )
+
+    local VAR_NAMES=(
+        "resume"
+        "newsession"
+        "choosesession"
+        "freshstart"
+        "copyram"
+        "loading"
+        "OS"
+    )
+
+    # Replace English menu text with localized versions
+    for i in "${!ENGLISH_TEXTS[@]}"; do
+        local ENGLISH_TEXT="${ENGLISH_TEXTS[$i]}"
+        local VAR_NAME="${VAR_NAMES[$i]}"
+        local LOCALIZED_TEXT=$(get_translation "$TRANSLATIONS_FILE" "$ENGLISH_TEXT")
+
+        if [ "$LOCALIZED_TEXT" != "$ENGLISH_TEXT" ]; then
+            # Replace menuentry labels
+            LOCALIZED_CONTENT=$(echo "$LOCALIZED_CONTENT" | sed "s/menuentry \"$ENGLISH_TEXT\"/menuentry \"$LOCALIZED_TEXT\"/g")
+            # Replace variable assignments
+            LOCALIZED_CONTENT=$(echo "$LOCALIZED_CONTENT" | sed "s/set ${VAR_NAME}=\"$ENGLISH_TEXT\"/set ${VAR_NAME}=\"$LOCALIZED_TEXT\"/g")
+        fi
+    done
+
+    # Set localized theme if available
+    local THEME_PATH="/minios/boot/grub/minios-theme/theme_${LANG_CODE}.txt"
+    if [ -e "$GRUB_DIR/minios-theme/theme_${LANG_CODE}.txt" ]; then
+        # Replace theme setting with localized version
+        LOCALIZED_CONTENT=$(echo "$LOCALIZED_CONTENT" | sed "s|set theme=/minios/boot/grub/minios-theme/theme\.txt|set theme=$THEME_PATH|g")
+    fi
+
+    # Write localized config
+    echo "$LOCALIZED_CONTENT" >"$OUTPUT_FILE"
+
+    # Cleanup
+    rm -f "$TRANSLATIONS_FILE"
+    return 0
+}
+
 build_boot() {
     current_process
 
@@ -2283,27 +2431,38 @@ build_boot() {
             cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" \
                 "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
         fi
-        # Keep all SYSLINUX help files for multilingual support
+
+        # For SYSLINUX native mode, use multilingual configuration
+        if [ "${BOOTLOADER}" = "syslinux-native" ]; then
+            local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+            if [ -f "${SYSLINUX_DIR}/syslinux.multilang.cfg" ]; then
+                information "Using multilingual SYSLINUX menu"
+                cp "${SYSLINUX_DIR}/syslinux.multilang.cfg" "${SYSLINUX_DIR}/syslinux.cfg"
+            fi
+        fi
         ;;
     en_US | ru_RU | de_DE | es_ES | it_IT | id_ID | pt_BR | pt_PT | fr_FR)
         # Generate localized GRUB configuration
-        if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" ]; then
-            information "Generating localized GRUB menu for: ${MENU_LANG}"
-            # TODO: Add function to generate localized GRUB config from template
-            # For now, fallback to default config
-            information "Localized GRUB generation not yet implemented, using default"
-        fi
+        generate_localized_grub_config "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub" "${MENU_LANG}" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg" || {
+            warning "Failed to generate localized GRUB config for ${MENU_LANG}, using template"
+            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" ]; then
+                cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" \
+                   "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+            fi
+        }
 
-        # For SYSLINUX native mode, create main help.txt from localized version
+        # For SYSLINUX native mode, use localized configuration
         if [ "${BOOTLOADER}" = "syslinux-native" ]; then
-            local SYSLINUX_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/${MENU_LANG}.txt"
-            local MAIN_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help.txt"
-            if [ -f "$SYSLINUX_HELP" ]; then
-                information "Using localized SYSLINUX help for: ${MENU_LANG}"
-                cp "$SYSLINUX_HELP" "$MAIN_HELP"
-            elif [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/en_US.txt" ]; then
-                information "Localized help not found for ${MENU_LANG}, using English"
-                cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/en_US.txt" "$MAIN_HELP"
+            local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+            local LANG_CFG="${SYSLINUX_DIR}/lang/${MENU_LANG}.cfg"
+
+            # Copy localized configuration to main syslinux.cfg
+            if [ -f "$LANG_CFG" ]; then
+                information "Using localized SYSLINUX configuration for: ${MENU_LANG}"
+                cp "$LANG_CFG" "${SYSLINUX_DIR}/syslinux.cfg"
+            else
+                information "Localized SYSLINUX config not found for ${MENU_LANG}, using English"
+                cp "${SYSLINUX_DIR}/lang/en_US.cfg" "${SYSLINUX_DIR}/syslinux.cfg"
             fi
         fi
         ;;
