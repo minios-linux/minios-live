@@ -1640,6 +1640,10 @@ EOF
                 local CHOOSE_SESSION="Choose session during startup"
                 local FRESH_START="Fresh start"
                 local COPY_RAM="Copy to RAM"
+                local PRESS_ESC="Press Esc for options, automatic boot in # second{,s} ..."
+                local F1_HELP="[F1] help"
+                local TAB_CMDLINE="[Tab] cmdline >"
+                local CHOOSE_LANGUAGE="Choose Language"
 
                 # Parse translations from po file
                 local PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${CURRENT_LANG}.po"
@@ -1649,6 +1653,10 @@ EOF
                     local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose session during startup"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
                     local TEMP_FRESH_START=$(awk '/^msgid "Fresh start"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
                     local TEMP_COPY_RAM=$(awk '/^msgid "Copy to RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_PRESS_ESC=$(awk '/^msgid "Press Esc for options, automatic boot in # second/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_F1_HELP=$(awk '/^msgid "\[F1\] help"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_TAB_CMDLINE=$(awk '/^msgid "\[Tab\] cmdline >"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                    local TEMP_CHOOSE_LANGUAGE=$(awk '/^msgid "Choose Language"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
 
                     # Use translations if found
                     [ -n "$TEMP_RESUME" ] && RESUME="$TEMP_RESUME"
@@ -1656,6 +1664,10 @@ EOF
                     [ -n "$TEMP_CHOOSE_SESSION" ] && CHOOSE_SESSION="$TEMP_CHOOSE_SESSION"
                     [ -n "$TEMP_FRESH_START" ] && FRESH_START="$TEMP_FRESH_START"
                     [ -n "$TEMP_COPY_RAM" ] && COPY_RAM="$TEMP_COPY_RAM"
+                    [ -n "$TEMP_PRESS_ESC" ] && PRESS_ESC="$TEMP_PRESS_ESC"
+                    [ -n "$TEMP_F1_HELP" ] && F1_HELP="$TEMP_F1_HELP"
+                    [ -n "$TEMP_TAB_CMDLINE" ] && TAB_CMDLINE="$TEMP_TAB_CMDLINE"
+                    [ -n "$TEMP_CHOOSE_LANGUAGE" ] && CHOOSE_LANGUAGE="$TEMP_CHOOSE_LANGUAGE"
                 fi
 
                 # Create configuration with appropriate encoding based on language
@@ -1712,8 +1724,8 @@ MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
 
 F1 ${HELP_FILE} zblack.png
 
-MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
-MENU TABMSG [F1] help                                                        [Tab] cmdline >
+MENU AUTOBOOT ${PRESS_ESC}
+MENU TABMSG ${F1_HELP}                                                        ${TAB_CMDLINE}
 
 LABEL default
 MENU LABEL ${RESUME}
