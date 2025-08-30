@@ -2208,35 +2208,35 @@ build_boot() {
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
     cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
-    
+
     # Generate SYSLINUX help files from UTF-8 sources
     if [ -d "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8" ]; then
         information "Generating SYSLINUX help files..."
         mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help"
-        
+
         for LANG_FILE in "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8"/*.txt; do
             if [ -f "$LANG_FILE" ]; then
                 local CURRENT_LANG=$(basename "$LANG_FILE" .txt)
                 local TARGET_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/${CURRENT_LANG}.txt"
-                
+
                 case "$CURRENT_LANG" in
-                    ru_RU)
-                        # Russian uses CP866 encoding
-                        iconv -f UTF-8 -t CP866 "$LANG_FILE" > "$TARGET_HELP" 2>/dev/null
-                        ;;
-                    de_DE|es_ES|pt_PT|pt_BR|it_IT|fr_FR)
-                        # Latin languages use ISO-8859-1 encoding
-                        iconv -f UTF-8 -t ISO-8859-1 "$LANG_FILE" > "$TARGET_HELP" 2>/dev/null
-                        ;;
-                    *)
-                        # English and Indonesian remain UTF-8
-                        cp "$LANG_FILE" "$TARGET_HELP"
-                        ;;
+                ru_RU)
+                    # Russian uses CP866 encoding
+                    iconv -f UTF-8 -t CP866 "$LANG_FILE" >"$TARGET_HELP" 2>/dev/null
+                    ;;
+                de_DE | es_ES | pt_PT | pt_BR | it_IT | fr_FR)
+                    # Latin languages use ISO-8859-1 encoding
+                    iconv -f UTF-8 -t ISO-8859-1 "$LANG_FILE" >"$TARGET_HELP" 2>/dev/null
+                    ;;
+                *)
+                    # English and Indonesian remain UTF-8
+                    cp "$LANG_FILE" "$TARGET_HELP"
+                    ;;
                 esac
                 information "Generated help file: $TARGET_HELP"
             fi
         done
-        
+
         # Remove UTF-8 help directory from final image (used only as source for generation)
         rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8"
     fi
@@ -2264,40 +2264,40 @@ build_boot() {
     # Configure menu language based on MENU_LANG setting
     information "Configuring menu language: ${MENU_LANG:-multilang}"
     case "${MENU_LANG:-multilang}" in
-        multilang)
-            # Use multilingual menus with language selection
-            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" ]; then
-                information "Using multilingual GRUB menu"
-                cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" \
-                   "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+    multilang)
+        # Use multilingual menus with language selection
+        if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" ]; then
+            information "Using multilingual GRUB menu"
+            cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" \
+                "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+        fi
+        # Keep all SYSLINUX help files for multilingual support
+        ;;
+    en_US | ru_RU | de_DE | es_ES | it_IT | id_ID | pt_BR | pt_PT | fr_FR)
+        # Generate localized GRUB configuration
+        if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" ]; then
+            information "Generating localized GRUB menu for: ${MENU_LANG}"
+            # TODO: Add function to generate localized GRUB config from template
+            # For now, fallback to default config
+            information "Localized GRUB generation not yet implemented, using default"
+        fi
+
+        # For SYSLINUX native mode, create main help.txt from localized version
+        if [ "${BOOTLOADER}" = "syslinux-native" ]; then
+            local SYSLINUX_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/${MENU_LANG}.txt"
+            local MAIN_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help.txt"
+            if [ -f "$SYSLINUX_HELP" ]; then
+                information "Using localized SYSLINUX help for: ${MENU_LANG}"
+                cp "$SYSLINUX_HELP" "$MAIN_HELP"
+            elif [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/en_US.txt" ]; then
+                information "Localized help not found for ${MENU_LANG}, using English"
+                cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/en_US.txt" "$MAIN_HELP"
             fi
-            # Keep all SYSLINUX help files for multilingual support
-            ;;
-        en_US|ru_RU|de_DE|es_ES|it_IT|id_ID|pt_BR|pt_PT|fr_FR)
-            # Generate localized GRUB configuration
-            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" ]; then
-                information "Generating localized GRUB menu for: ${MENU_LANG}"
-                # TODO: Add function to generate localized GRUB config from template
-                # For now, fallback to default config
-                information "Localized GRUB generation not yet implemented, using default"
-            fi
-            
-            # For SYSLINUX native mode, create main help.txt from localized version
-            if [ "${BOOTLOADER}" = "syslinux-native" ]; then
-                local SYSLINUX_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/${MENU_LANG}.txt"
-                local MAIN_HELP="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help.txt"
-                if [ -f "$SYSLINUX_HELP" ]; then
-                    information "Using localized SYSLINUX help for: ${MENU_LANG}"
-                    cp "$SYSLINUX_HELP" "$MAIN_HELP"
-                elif [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/en_US.txt" ]; then
-                    information "Localized help not found for ${MENU_LANG}, using English"
-                    cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/en_US.txt" "$MAIN_HELP"
-                fi
-            fi
-            ;;
-        *)
-            warning "Invalid MENU_LANG setting: ${MENU_LANG}, using multilingual"
-            ;;
+        fi
+        ;;
+    *)
+        warning "Invalid MENU_LANG setting: ${MENU_LANG}, using multilingual"
+        ;;
     esac
 
     # Handle SYSLINUX files based on bootloader choice
@@ -2543,7 +2543,9 @@ build_iso() {
     rm -f "${PERCHIMG}"
 
     if [[ -f "${ISO}" ]]; then
-        sha256sum "${ISO}" >"${ISO}.sha256"
+        pushd "$(dirname "${ISO}")" >/dev/null
+        sha256sum "$(basename "${ISO}")" >"${ISO}.sha256"
+        popd >/dev/null
         information "SHA256 checksum saved to ${CYAN}${ISO}.sha256${ENDCOLOR}."
     fi
 
