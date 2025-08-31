@@ -596,7 +596,7 @@ declare_locales() {
 #    CMDLINE: The rest of the command-line arguments. The function will stop parsing arguments once another flag (an argument starting with "-" or "--") is encountered.
 #
 # Returns:
-#    The function returns the number of arguments processed (including the flag itself). This is typically used
+#    The function returns the number of arguments processed.
 #    with 'shift' command to remove the processed arguments from the positional parameters list.
 #
 # It's commonly called inside a loop that goes through each command-line argument, like so:
@@ -617,7 +617,7 @@ declare_locales() {
 #    process_flag "check" "string" "AUTOLOGIN" "${@}"
 #
 # Note:
-#    This function, including the functions it calls (i.e., check_option, parse_arguments), will not work as expected when 'set -e' is enabled in the script.
+#    This function will not work as expected when 'set -e' is enabled in the script.
 #    To handle errors within these functions and keep the script running after an error, consider using custom error handling and avoid using 'set -e'.
 
 # Check if an option has a valid argument.
@@ -781,7 +781,7 @@ unmount_dirs() {
     local MOUNTS
     local FAILED=0
 
-    # 1) Collect all mount points strictly inside DIR_PATH (deepest first)
+    # Collect all mount points inside DIR_PATH
     mapfile -t MOUNTS < <(
         findmnt -rn -o TARGET |
             while read -r TARGET; do
@@ -801,7 +801,7 @@ unmount_dirs() {
         return 0
     fi
 
-    # 2) Attempt to unmount each mount point (without killing processes)
+    # Attempt to unmount each mount point
     for MOUNT in "${MOUNTS[@]}"; do
         if [ ${VERBOSITY_LEVEL:-1} -ge 2 ]; then
             information "Processing mount point: ${MOUNT}"
@@ -1542,12 +1542,11 @@ create_config_files() {
     if [ "${BOOTLOADER}" = "syslinux-grub" ] || [ "${BOOTLOADER}" = "syslinux-native" ]; then
         mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
 
-        if [ "${BOOTLOADER}" = "syslinux-native" ]; then
-            # Create multilingual SYSLINUX configuration similar to GRUB
-            information "Creating multilingual SYSLINUX configuration..."
+        # Create multilingual SYSLINUX configuration for all SYSLINUX modes
+        information "Creating multilingual SYSLINUX configuration..."
 
-            # Create main language selection menu
-            cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
+        # Create main language selection menu
+        cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
 UI vesamenu.c32
 
 PROMPT 0
@@ -1617,84 +1616,84 @@ CONFIG lang/pt_PT.cfg
 
 EOF
 
-            # Create fonts and lang directories
-            mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang"
+        # Create fonts and lang directories
+        mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang"
 
-            # Copy fonts from bootfiles
-            if [ -d "${BUILD_SCRIPTS_DIR}/bootfiles/boot/syslinux/fonts" ]; then
-                cp "${BUILD_SCRIPTS_DIR}/bootfiles/boot/syslinux/fonts/"*.psf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts/"
-                information "Copied PSF1 fonts for multilingual support"
-            else
-                warning "PSF1 fonts not found in bootfiles, using default font"
+        # Copy fonts from bootfiles
+        if [ -d "${BUILD_SCRIPTS_DIR}/bootfiles/boot/syslinux/fonts" ]; then
+            cp "${BUILD_SCRIPTS_DIR}/bootfiles/boot/syslinux/fonts/"*.psf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts/"
+            information "Copied PSF1 fonts for multilingual support"
+        else
+            warning "PSF1 fonts not found in bootfiles, using default font"
+        fi
+
+        # Generate configurations for each language
+        for CURRENT_LANG in en_US ru_RU de_DE es_ES fr_FR id_ID it_IT pt_BR pt_PT; do
+            local MO_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${CURRENT_LANG}.mo"
+            local FONT_FILE=$(get_language_font "$CURRENT_LANG")
+            local LOCALE_UTF="${CURRENT_LANG}.UTF-8"
+
+            # Extract translations from mo file if it exists
+            local RESUME="Resume previous session"
+            local START_NEW="Start a new session"
+            local CHOOSE_SESSION="Choose session during startup"
+            local FRESH_START="Fresh start"
+            local COPY_RAM="Copy to RAM"
+            local PRESS_ESC="Press Esc for options, automatic boot in # second{,s} ..."
+            local F1_HELP="[F1] help"
+            local TAB_CMDLINE="[Tab] cmdline >"
+            local CHOOSE_LANGUAGE="Choose Language"
+
+            # Parse translations from po file
+            local PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${CURRENT_LANG}.po"
+            if [ -f "$PO_FILE" ]; then
+                local TEMP_RESUME=$(awk '/^msgid "Resume previous session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_START_NEW=$(awk '/^msgid "Start a new session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose session during startup"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_FRESH_START=$(awk '/^msgid "Fresh start"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_COPY_RAM=$(awk '/^msgid "Copy to RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_PRESS_ESC=$(awk '/^msgid "Press Esc for options, automatic boot in # second/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_F1_HELP=$(awk '/^msgid "\[F1\] help"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_TAB_CMDLINE=$(awk '/^msgid "\[Tab\] cmdline >"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_CHOOSE_LANGUAGE=$(awk '/^msgid "Choose Language"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+
+                # Use translations if found
+                [ -n "$TEMP_RESUME" ] && RESUME="$TEMP_RESUME"
+                [ -n "$TEMP_START_NEW" ] && START_NEW="$TEMP_START_NEW"
+                [ -n "$TEMP_CHOOSE_SESSION" ] && CHOOSE_SESSION="$TEMP_CHOOSE_SESSION"
+                [ -n "$TEMP_FRESH_START" ] && FRESH_START="$TEMP_FRESH_START"
+                [ -n "$TEMP_COPY_RAM" ] && COPY_RAM="$TEMP_COPY_RAM"
+                [ -n "$TEMP_PRESS_ESC" ] && PRESS_ESC="$TEMP_PRESS_ESC"
+                [ -n "$TEMP_F1_HELP" ] && F1_HELP="$TEMP_F1_HELP"
+                [ -n "$TEMP_TAB_CMDLINE" ] && TAB_CMDLINE="$TEMP_TAB_CMDLINE"
+                [ -n "$TEMP_CHOOSE_LANGUAGE" ] && CHOOSE_LANGUAGE="$TEMP_CHOOSE_LANGUAGE"
             fi
 
-            # Generate configurations for each language
-            for CURRENT_LANG in en_US ru_RU de_DE es_ES fr_FR id_ID it_IT pt_BR pt_PT; do
-                local MO_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${CURRENT_LANG}.mo"
-                local FONT_FILE=$(get_language_font "$CURRENT_LANG")
-                local LOCALE_UTF="${CURRENT_LANG}.UTF-8"
+            # Create configuration with appropriate encoding based on language
+            local ENCODING=""
+            local OUTPUT_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang/${CURRENT_LANG}.cfg"
 
-                # Extract translations from mo file if it exists
-                local RESUME="Resume previous session"
-                local START_NEW="Start a new session"
-                local CHOOSE_SESSION="Choose session during startup"
-                local FRESH_START="Fresh start"
-                local COPY_RAM="Copy to RAM"
-                local PRESS_ESC="Press Esc for options, automatic boot in # second{,s} ..."
-                local F1_HELP="[F1] help"
-                local TAB_CMDLINE="[Tab] cmdline >"
-                local CHOOSE_LANGUAGE="Choose Language"
+            case "$CURRENT_LANG" in
+            ru_RU)
+                ENCODING="CP866"
+                ;;
+            de_DE | es_ES | fr_FR | it_IT | pt_BR | pt_PT)
+                ENCODING="ISO-8859-1"
+                ;;
+            *)
+                # No encoding conversion for other languages
+                ;;
+            esac
 
-                # Parse translations from po file
-                local PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${CURRENT_LANG}.po"
-                if [ -f "$PO_FILE" ]; then
-                    local TEMP_RESUME=$(awk '/^msgid "Resume previous session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_START_NEW=$(awk '/^msgid "Start a new session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose session during startup"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_FRESH_START=$(awk '/^msgid "Fresh start"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_COPY_RAM=$(awk '/^msgid "Copy to RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_PRESS_ESC=$(awk '/^msgid "Press Esc for options, automatic boot in # second/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_F1_HELP=$(awk '/^msgid "\[F1\] help"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_TAB_CMDLINE=$(awk '/^msgid "\[Tab\] cmdline >"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                    local TEMP_CHOOSE_LANGUAGE=$(awk '/^msgid "Choose Language"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+            # Determine help file (localized or fallback to English)
+            local HELP_FILE="help/${CURRENT_LANG}.txt"
+            if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/${HELP_FILE}" ]; then
+                HELP_FILE="help/en_US.txt"
+            fi
 
-                    # Use translations if found
-                    [ -n "$TEMP_RESUME" ] && RESUME="$TEMP_RESUME"
-                    [ -n "$TEMP_START_NEW" ] && START_NEW="$TEMP_START_NEW"
-                    [ -n "$TEMP_CHOOSE_SESSION" ] && CHOOSE_SESSION="$TEMP_CHOOSE_SESSION"
-                    [ -n "$TEMP_FRESH_START" ] && FRESH_START="$TEMP_FRESH_START"
-                    [ -n "$TEMP_COPY_RAM" ] && COPY_RAM="$TEMP_COPY_RAM"
-                    [ -n "$TEMP_PRESS_ESC" ] && PRESS_ESC="$TEMP_PRESS_ESC"
-                    [ -n "$TEMP_F1_HELP" ] && F1_HELP="$TEMP_F1_HELP"
-                    [ -n "$TEMP_TAB_CMDLINE" ] && TAB_CMDLINE="$TEMP_TAB_CMDLINE"
-                    [ -n "$TEMP_CHOOSE_LANGUAGE" ] && CHOOSE_LANGUAGE="$TEMP_CHOOSE_LANGUAGE"
-                fi
-
-                # Create configuration with appropriate encoding based on language
-                local ENCODING=""
-                local OUTPUT_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang/${CURRENT_LANG}.cfg"
-
-                case "$CURRENT_LANG" in
-                ru_RU)
-                    ENCODING="CP866"
-                    ;;
-                de_DE | es_ES | fr_FR | it_IT | pt_BR | pt_PT)
-                    ENCODING="ISO-8859-1"
-                    ;;
-                *)
-                    # No encoding conversion for other languages
-                    ;;
-                esac
-
-                # Determine help file (localized or fallback to English)
-                local HELP_FILE="help/${CURRENT_LANG}.txt"
-                if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/${HELP_FILE}" ]; then
-                    HELP_FILE="help/en_US.txt"
-                fi
-
-                # Generate configuration
-                (
-                    cat <<EOF
+            # Generate configuration
+            (
+                cat <<EOF
 FONT ${FONT_FILE}
 UI vesamenu.c32
 
@@ -1753,16 +1752,17 @@ KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
 APPEND vga=791 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=${LOCALE_UTF}
 
 EOF
-                ) | if [ -n "$ENCODING" ] && command -v iconv >/dev/null 2>&1; then
-                    iconv -f UTF-8 -t "$ENCODING" >"$OUTPUT_FILE" 2>/dev/null
-                else
-                    cat >"$OUTPUT_FILE"
-                fi
-            done
+            ) | if [ -n "$ENCODING" ] && command -v iconv >/dev/null 2>&1; then
+                iconv -f UTF-8 -t "$ENCODING" >"$OUTPUT_FILE" 2>/dev/null
+            else
+                cat >"$OUTPUT_FILE"
+            fi
+        done
 
-            information "Created multilingual SYSLINUX configuration with support for all available languages"
-        else
-            # Create minimalist SYSLINUX config that loads GRUB
+        information "Created multilingual SYSLINUX configuration with support for all available languages"
+
+        # For syslinux-grub mode, also create a minimalist config that loads GRUB as default
+        if [ "${BOOTLOADER}" = "syslinux-grub" ]; then
             cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
 PROMPT 0
 TIMEOUT 1
@@ -2040,7 +2040,7 @@ menuentry "Copy to RAM" --class ram {
 
 EOF
 
-    # Create active grub.cfg as copy of multilingual configuration (default)
+    # Create active grub.cfg as copy of multilingual configuration
     cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
     information "Created multilingual GRUB configuration"
 }
@@ -2096,13 +2096,36 @@ debug_ssh_keys() {
     fi
     current_function
 
-    # Generate SSH key pair (without passphrase)
-    ssh-keygen -t rsa -b 4096 -N "" -f "${WORK_DIR}/image/${LIVEKITNAME}/id_rsa" -C "minios-live" <<<y >/dev/null 2>&1
+    # Generate SSH key pair in temporary location
+    local TEMP_SSH_DIR=$(mktemp -d)
+    ssh-keygen -t rsa -b 4096 -N "" -f "${TEMP_SSH_DIR}/id_rsa" -C "minios-debug" <<<y >/dev/null 2>&1
 
-    # Copy public key to authorized_keys
-    cp "${WORK_DIR}/image/${LIVEKITNAME}/id_rsa.pub" "${WORK_DIR}/image/${LIVEKITNAME}/authorized_keys"
+    # Create authorized_keys files for system users
+    # Root user
+    cp "${TEMP_SSH_DIR}/id_rsa.pub" "${WORK_DIR}/image/${LIVEKITNAME}/authorized_keys.root"
 
-    information "SSH key pair generated in ${WORK_DIR}/image/${LIVEKITNAME} and public key added to authorized_keys."
+    # Live user
+    if [ -n "${LIVE_USERNAME}" ] && [ "${LIVE_USERNAME}" != "root" ]; then
+        cp "${TEMP_SSH_DIR}/id_rsa.pub" "${WORK_DIR}/image/${LIVEKITNAME}/authorized_keys.${LIVE_USERNAME}"
+    fi
+
+    # Save private key for debugging access
+    cp "${TEMP_SSH_DIR}/id_rsa" "${WORK_DIR}/image/${LIVEKITNAME}/debug_ssh_key"
+    chmod 600 "${WORK_DIR}/image/${LIVEKITNAME}/debug_ssh_key"
+
+    # Also save in build directory
+    cp "${TEMP_SSH_DIR}/id_rsa" "${WORK_DIR}/debug_ssh_key"
+    chmod 600 "${WORK_DIR}/debug_ssh_key"
+
+    # Cleanup temporary directory
+    rm -rf "${TEMP_SSH_DIR}"
+
+    information "Debug SSH keys created: authorized_keys.root"
+    if [ -n "${LIVE_USERNAME}" ] && [ "${LIVE_USERNAME}" != "root" ]; then
+        information "Debug SSH keys created: authorized_keys.${LIVE_USERNAME}"
+    fi
+    information "Private key saved on media: ${WORK_DIR}/image/${LIVEKITNAME}/debug_ssh_key"
+    information "Private key saved in build dir: ${WORK_DIR}/debug_ssh_key"
 }
 
 remove_unused_grub_modules() {
@@ -2112,7 +2135,7 @@ remove_unused_grub_modules() {
     if [ "${GRUB_REMOVE_UNUSED_MODULES}" = "true" ]; then
         should_optimize=true
     elif [ "${BOOTLOADER}" = "syslinux-native" ]; then
-        # Always optimize when using syslinux-native (GRUB only for EFI)
+        # Always optimize when using syslinux-native
         should_optimize=true
     fi
 
@@ -2123,12 +2146,12 @@ remove_unused_grub_modules() {
     information "Removing unused GRUB modules to save space (bootloader: ${BOOTLOADER})..."
 
     # Essential modules needed for MiniOS boot process
-    # These modules are used in grub-mkimage (embedded) or in GRUB config files
+    # GRUB modules
     local ESSENTIAL_MODULES=(
         # Core boot functionality
         "normal.mod" "boot.mod" "linux.mod" "chain.mod" "configfile.mod" "loopback.mod"
 
-        # File systems (commonly used)
+        # File systems
         "iso9660.mod" "udf.mod" "fat.mod" "ext2.mod" "btrfs.mod" "ntfs.mod" "exfat.mod"
 
         # Partition support
@@ -2168,7 +2191,7 @@ remove_unused_grub_modules() {
         "disk.mod" "ahci.mod" "ata.mod" "pata.mod" "scsi.mod" "ohci.mod" "uhci.mod" "ehci.mod"
         "usb.mod" "usbms.mod" "usb_keyboard.mod"
 
-        # Crypto (for secure boot)
+        # Crypto
         "crypto.mod" "gcry_sha256.mod" "gcry_sha512.mod" "gcry_rsa.mod"
 
         # Memory and CPU
@@ -2309,7 +2332,7 @@ generate_localized_grub_config() {
     local TEMPLATE_CONTENT=$(cat "$TEMPLATE_CFG")
     local LOCALIZED_CONTENT="$TEMPLATE_CONTENT"
 
-    # Define menu entries to translate (same as installer)
+    # Define menu entries to translate
     local ENGLISH_TEXTS=(
         "Resume previous session"
         "Start a new session"
@@ -2397,7 +2420,7 @@ build_boot() {
             fi
         done
 
-        # Remove UTF-8 help directory from final image (used only as source for generation)
+        # Remove UTF-8 help directory from final image
         rm -rf "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8"
     fi
 
@@ -2408,7 +2431,7 @@ build_boot() {
     # Copy po files and compile them to mo files in shared locale directory
     for po_file in "${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/"*.po; do
         if [ -f "$po_file" ]; then
-            # Extract language code from filename (e.g., ru_RU from ru_RU.po)
+            # Extract language code from filename
             lang_full=$(basename "$po_file" .po)
 
             # Create mo file in shared locale directory
@@ -2421,56 +2444,6 @@ build_boot() {
         fi
     done
 
-    # Configure menu language based on MENU_LANG setting
-    information "Configuring menu language: ${MENU_LANG:-multilang}"
-    case "${MENU_LANG:-multilang}" in
-    multilang)
-        # Use multilingual menus with language selection
-        if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" ]; then
-            information "Using multilingual GRUB menu"
-            cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" \
-                "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
-        fi
-
-        # For SYSLINUX native mode, use multilingual configuration
-        if [ "${BOOTLOADER}" = "syslinux-native" ]; then
-            local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
-            if [ -f "${SYSLINUX_DIR}/syslinux.multilang.cfg" ]; then
-                information "Using multilingual SYSLINUX menu"
-                cp "${SYSLINUX_DIR}/syslinux.multilang.cfg" "${SYSLINUX_DIR}/syslinux.cfg"
-            fi
-        fi
-        ;;
-    en_US | ru_RU | de_DE | es_ES | it_IT | id_ID | pt_BR | pt_PT | fr_FR)
-        # Generate localized GRUB configuration
-        generate_localized_grub_config "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub" "${MENU_LANG}" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg" || {
-            warning "Failed to generate localized GRUB config for ${MENU_LANG}, using template"
-            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" ]; then
-                cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" \
-                   "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
-            fi
-        }
-
-        # For SYSLINUX native mode, use localized configuration
-        if [ "${BOOTLOADER}" = "syslinux-native" ]; then
-            local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
-            local LANG_CFG="${SYSLINUX_DIR}/lang/${MENU_LANG}.cfg"
-
-            # Copy localized configuration to main syslinux.cfg
-            if [ -f "$LANG_CFG" ]; then
-                information "Using localized SYSLINUX configuration for: ${MENU_LANG}"
-                cp "$LANG_CFG" "${SYSLINUX_DIR}/syslinux.cfg"
-            else
-                information "Localized SYSLINUX config not found for ${MENU_LANG}, using English"
-                cp "${SYSLINUX_DIR}/lang/en_US.cfg" "${SYSLINUX_DIR}/syslinux.cfg"
-            fi
-        fi
-        ;;
-    *)
-        warning "Invalid MENU_LANG setting: ${MENU_LANG}, using multilingual"
-        ;;
-    esac
-
     # Handle SYSLINUX files based on bootloader choice
     if [ "${BOOTLOADER}" = "grub-only" ]; then
         information "Removing all SYSLINUX/ISOLINUX files (using GRUB only)..."
@@ -2478,7 +2451,7 @@ build_boot() {
         information "Removed all SYSLINUX files and Windows installation scripts"
     fi
 
-    # Generate GRUB BIOS boot files (skip only if using syslinux-native)
+    # Generate GRUB BIOS boot files
     if [ "${BOOTLOADER}" != "syslinux-native" ]; then
         information "Generating GRUB BIOS boot files..."
 
@@ -2587,6 +2560,56 @@ EOF
     create_config_files
 
     remove_unused_grub_modules
+
+    # Configure menu language based on MENU_LANG setting
+    information "Configuring menu language: ${MENU_LANG:-multilang}"
+    case "${MENU_LANG:-multilang}" in
+    multilang)
+        # Use multilingual menus with language selection
+        if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" ]; then
+            information "Using multilingual GRUB menu"
+            cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" \
+                "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+        fi
+
+        # For SYSLINUX modes, use multilingual configuration
+        if [ "${BOOTLOADER}" = "syslinux-native" ] || [ "${BOOTLOADER}" = "syslinux-grub" ]; then
+            local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+            if [ -f "${SYSLINUX_DIR}/syslinux.multilang.cfg" ]; then
+                information "Using multilingual SYSLINUX menu"
+                cp "${SYSLINUX_DIR}/syslinux.multilang.cfg" "${SYSLINUX_DIR}/syslinux.cfg"
+            fi
+        fi
+        ;;
+    en_US | ru_RU | de_DE | es_ES | it_IT | id_ID | pt_BR | pt_PT | fr_FR)
+        # Generate localized GRUB configuration
+        generate_localized_grub_config "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub" "${MENU_LANG}" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg" || {
+            warning "Failed to generate localized GRUB config for ${MENU_LANG}, using template"
+            if [ -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" ]; then
+                cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.template.cfg" \
+                    "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
+            fi
+        }
+
+        # For SYSLINUX modes, use localized configuration
+        if [ "${BOOTLOADER}" = "syslinux-native" ] || [ "${BOOTLOADER}" = "syslinux-grub" ]; then
+            local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+            local LANG_CFG="${SYSLINUX_DIR}/lang/${MENU_LANG}.cfg"
+
+            # Copy localized configuration to main syslinux.cfg
+            if [ -f "$LANG_CFG" ]; then
+                information "Using localized SYSLINUX configuration for: ${MENU_LANG}"
+                cp "$LANG_CFG" "${SYSLINUX_DIR}/syslinux.cfg"
+            else
+                information "Localized SYSLINUX config not found for ${MENU_LANG}, using English"
+                cp "${SYSLINUX_DIR}/lang/en_US.cfg" "${SYSLINUX_DIR}/syslinux.cfg"
+            fi
+        fi
+        ;;
+    *)
+        warning "Invalid MENU_LANG setting: ${MENU_LANG}, using multilingual"
+        ;;
+    esac
 
     debug_ssh_keys
 }
