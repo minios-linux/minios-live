@@ -3,7 +3,7 @@ _minios_cmd() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD - 1]}"
-    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-type --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone -b -d -a -de -pv -c -kt -bpo -aufs -dkms -l -ml -kl -tz"
+    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-flavour --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone -b -d -a -de -pv -c -kf -bpo -aufs -dkms -l -ml -kl -tz"
 
     if [[ ${cur} == -* ]]; then
         COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
@@ -38,9 +38,9 @@ _minios_cmd() {
         local compression_types="zstd lz4 xz"
         COMPREPLY=($(compgen -W "${compression_types}" -- ${cur}))
         ;;
-    --kernel-type | -kt)
-        local kernel_types="default rt cloud"
-        COMPREPLY=($(compgen -W "${kernel_types}" -- ${cur}))
+    --kernel-flavour | -kf)
+        local kernel_flavours="none rt cloud"
+        COMPREPLY=($(compgen -W "${kernel_flavours}" -- ${cur}))
         ;;
     --locale | -l)
         local locales="en_US ru_RU es_ES de_DE fr_FR it_IT pt_PT pt_BR id_ID"

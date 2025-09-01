@@ -48,7 +48,7 @@ help() {
     echo -e "  ${LIGHTGREEN}-c, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}-kt, --kernel-type${ENDCOLOR} NAME           $(gettext "Specify the kernel type (e.g., 'default').")"
+    echo -e "  ${LIGHTGREEN}-kf, --kernel-flavour${ENDCOLOR} NAME           $(gettext "Specify the kernel flavour (e.g., 'none').")"
     echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR}          $(gettext "Enable the use of the Linux kernel from backports.")"
     echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}              $(gettext "Enable AUFS support in the kernel.")"
     echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}       $(gettext "Enable compilation of additional drivers during kernel installation.")"
@@ -62,7 +62,7 @@ help() {
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}KERNEL_TYPE=${ENDCOLOR} \"default\""
+    echo -e "  ${LIGHTGREEN}KERNEL_FLAVOUR=${ENDCOLOR} \"none\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}LOCALE=${ENDCOLOR} \"en_US\""
@@ -143,8 +143,8 @@ while (("$#")); do
         COMP_TYPE="$2"
         shift 2
         ;;
-    -kt | --kernel-type)
-        KERNEL_TYPE="$2"
+    -kf | --kernel-flavour)
+        KERNEL_FLAVOUR="$2"
         shift 2
         ;;
     -aufs | --kernel-aufs)
@@ -202,7 +202,8 @@ done
 : "${DESKTOP_ENVIRONMENT:=}"
 : "${PACKAGE_VARIANT:=}"
 : "${COMP_TYPE:="zstd"}"
-: "${KERNEL_TYPE:="default"}"
+: "${INSTALL_KERNEL:=true}"
+: "${KERNEL_FLAVOUR:="none"}"
 : "${KERNEL_AUFS:=false}"
 : "${KERNEL_BUILD_DKMS:=false}"
 : "${LOCALE:="en_US"}"
