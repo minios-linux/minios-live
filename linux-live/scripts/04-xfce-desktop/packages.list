@@ -45,11 +45,11 @@ eject -pv=minimum
 engrampa -pv=minimum
 lightdm -dt=ubuntu -pv=minimum
 lightdm-gtk-greeter -dt=ubuntu -pv=minimum
-minios-configurator -pv=minimum
-minios-installer -pv=minimum
-minios-session-manager -pv=minimum
-minios-kernel-manager -pv=minimum
-driveutility -pv=minimum && python3-zstandard -pv=minimum
+minios-configurator -pv=minimum -d=bionic
+minios-installer -pv=minimum -d=bionic
+minios-session-manager -pv=minimum -d=bionic
+minios-kernel-manager -pv=minimum -d=bionic
+driveutility -pv=minimum -d=bionic && python3-zstandard -pv=minimum -d=bionic
 pavucontrol -pv=minimum
 pulseaudio -pv=minimum
 pulseaudio-module-bluetooth -pv=minimum
