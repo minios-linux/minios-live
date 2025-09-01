@@ -3,15 +3,33 @@
 # This script will update the file ../bootfiles/isolinux.bin to match
 # your LiveKit name. Note you may need to run this on a 32bit system.
 #
+# Usage: ./isolinux.bin.update [--source-dir /path/to/syslinux/sources]
+#
 # Requires: Debian
 #
 
 set -euo pipefail
 
+# Global variables
+SYSLINUX_SOURCE_DIR=""
+USE_EXISTING_SOURCES=false
+
+# Function to show usage
+usage() {
+    echo "Usage: $0 [--source-dir /path/to/syslinux/sources]"
+    echo ""
+    echo "Options:"
+    echo "  --source-dir PATH    Use existing syslinux sources from PATH instead of downloading"
+    echo "  -h, --help          Show this help message"
+    echo ""
+    echo "If --source-dir is not specified, the script will download syslinux sources using apt-get."
+    exit 0
+}
+
 # Function to cleanup temporary files on exit
 cleanup() {
     local exit_code=$?
-    if [ -d "/tmp/syslinux" ]; then
+    if [ "$USE_EXISTING_SOURCES" = false ] && [ -d "/tmp/syslinux" ]; then
         echo "Cleaning up temporary files..."
         rm -rf /tmp/syslinux
     fi
@@ -33,12 +51,48 @@ validate_path() {
     return 0
 }
 
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --source-dir)
+            if [ -z "${2:-}" ]; then
+                echo "Error: --source-dir requires a path argument"
+                exit 1
+            fi
+            SYSLINUX_SOURCE_DIR="$2"
+            USE_EXISTING_SOURCES=true
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Error: Unknown option $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 # Set trap for cleanup on exit
 trap cleanup EXIT INT TERM
 
-# Check if running as root (required for apt operations)
-if [ "$EUID" -eq 0 ]; then
-    log "Warning: Running as root. This is required for apt operations but may be risky."
+# Validate existing source directory if provided
+if [ "$USE_EXISTING_SOURCES" = true ]; then
+    if [ ! -d "$SYSLINUX_SOURCE_DIR" ]; then
+        echo "Error: Source directory does not exist: $SYSLINUX_SOURCE_DIR"
+        exit 1
+    fi
+    if [ ! -d "$SYSLINUX_SOURCE_DIR/core" ]; then
+        echo "Error: Invalid syslinux source directory. Missing 'core' subdirectory: $SYSLINUX_SOURCE_DIR"
+        exit 1
+    fi
+    log "Using existing syslinux sources from: $SYSLINUX_SOURCE_DIR"
+else
+    # Check if running as root (required for apt operations)
+    if [ "$EUID" -eq 0 ]; then
+        log "Warning: Running as root. This is required for apt operations but may be risky."
+    fi
 fi
 
 # Store current working directory
@@ -49,7 +103,12 @@ if [ ! -w "$CWD" ]; then
 fi
 
 # Check if required commands are available
-for cmd in apt-get make sed strip uname; do
+REQUIRED_COMMANDS="make sed strip uname"
+if [ "$USE_EXISTING_SOURCES" = false ]; then
+    REQUIRED_COMMANDS="$REQUIRED_COMMANDS apt-get"
+fi
+
+for cmd in $REQUIRED_COMMANDS; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         echo "Error: Required command '$cmd' not found"
         exit 1
@@ -76,38 +135,61 @@ else
 fi
 
 
-# download, unpack, and patch syslinux
+# Setup syslinux sources and dependencies
 
-log "Installing build dependencies for syslinux"
-if ! apt-get --yes build-dep syslinux; then
-   echo "Error: Failed to install build dependencies."
-   echo "The most common cause of build-dep failures can be solved by following the steps described here:"
-   echo "https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list"
-   exit 1
+if [ "$USE_EXISTING_SOURCES" = true ]; then
+    log "Using existing syslinux sources"
+    SYSLINUX_DIR="$SYSLINUX_SOURCE_DIR"
+    
+    # Still need upx-ucl for build
+    if ! command -v upx >/dev/null 2>&1; then
+        log "Installing additional build tools"
+        if ! apt-get --yes install upx-ucl; then
+            echo "Error: Failed to install upx-ucl"
+            exit 1
+        fi
+    else
+        log "upx is already available"
+    fi
+else
+    log "Installing build dependencies for syslinux"
+    if ! apt-get --yes build-dep syslinux; then
+       echo "Error: Failed to install build dependencies."
+       echo "The most common cause of build-dep failures can be solved by following the steps described here:"
+       echo "https://askubuntu.com/questions/496549/error-you-must-put-some-source-uris-in-your-sources-list"
+       exit 1
+    fi
+
+    log "Creating temporary directory and downloading syslinux source"
+    if [ -d "/tmp/syslinux" ]; then
+        log "Removing existing temporary directory"
+        rm -rf /tmp/syslinux
+    fi
+    mkdir -m 0755 /tmp/syslinux
+    cd /tmp/syslinux
+
+    if ! apt-get source syslinux; then
+        echo "Error: Failed to download syslinux source"
+        exit 1
+    fi
+
+    log "Installing additional build tools"
+    if ! apt-get --yes install upx-ucl; then
+        echo "Error: Failed to install upx-ucl"
+        exit 1
+    fi
+
+    # Find syslinux directory
+    if ! SYSLINUX_DIR=$(find . -maxdepth 1 -type d -name "syslinux*" | head -n1); then
+        echo "Error: Could not find syslinux source directory"
+        exit 1
+    fi
+    SYSLINUX_DIR="$(pwd)/$SYSLINUX_DIR"
 fi
 
-log "Creating temporary directory and downloading syslinux source"
-if [ -d "/tmp/syslinux" ]; then
-    log "Removing existing temporary directory"
-    rm -rf /tmp/syslinux
-fi
-mkdir -m 0755 /tmp/syslinux
-cd /tmp/syslinux
-
-if ! apt-get source syslinux; then
-    echo "Error: Failed to download syslinux source"
-    exit 1
-fi
-
-log "Installing additional build tools"
-if ! apt-get --yes install upx-ucl; then
-    echo "Error: Failed to install upx-ucl"
-    exit 1
-fi
-
-# Verify syslinux directory exists and enter core directory
-if ! cd syslinux*/core 2>/dev/null; then
-    echo "Error: Could not find syslinux source directory"
+# Enter core directory
+if ! cd "$SYSLINUX_DIR/core"; then
+    echo "Error: Could not enter syslinux core directory: $SYSLINUX_DIR/core"
     exit 1
 fi
 
@@ -126,7 +208,8 @@ for file in fs/iso9660/iso9660.c fs/lib/loadconfig.c elflink/load_env32.c; do
    fi
 done
 
-cd ../
+# Return to syslinux main directory
+cd "$SYSLINUX_DIR"
 
 log "Cleaning previous build artifacts"
 rm -f bios/core/isolinux.bin
