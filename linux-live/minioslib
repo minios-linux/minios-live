@@ -20,7 +20,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE DISTRIBUTION_PHASE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG"
 
     : "${container:=}"
     : "${MODULE:=}"
@@ -74,37 +74,29 @@ common_variables() {
         ;;
     esac
 
+    # Set distribution repository URL
     case "${DISTRIBUTION}" in
-    stretch | buster | orel | bionic)
-        DISTRIBUTION_PHASE="legacy"
-        ;;
-    bullseye | bookworm | focal | jammy | noble)
-        DISTRIBUTION_PHASE="current"
-        ;;
-    trixie | kali-rolling | sid)
-        DISTRIBUTION_PHASE="future"
-        ;;
-    *)
-        error "Unknown distribution: ${DISTRIBUTION}"
-        exit 1
-        ;;
-    esac
-
-    # We need to change this.
-    if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+    buster)
         if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
             DISTRIBUTION_URL="https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}"
-        elif [ "${DISTRIBUTION}" = "buster" ]; then
+        else
             DISTRIBUTION_URL="http://deb.freexian.com/extended-lts"
+        fi
+        ;;
+    bullseye | bookworm | trixie | sid)
+        if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
+            DISTRIBUTION_URL="https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}"
         else
             DISTRIBUTION_URL="http://deb.debian.org/debian"
         fi
-    elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+        ;;
+    focal | jammy | noble)
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
-    fi
-    if [ "${DISTRIBUTION}" = "kali-rolling" ]; then
+        ;;
+    kali-rolling)
         DISTRIBUTION_URL="http://archive.kali.org/kali"
-    fi
+        ;;
+    esac
 
     if [ -d /run/initramfs/memory/bundles ]; then
         BUNDLES=/run/initramfs/memory/bundles
@@ -1077,7 +1069,7 @@ new_run() {
 
 generate_chroot_configuration_file() {
     toggle_shell_options u
-    if [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then
+    if [ "${DISTRIBUTION}" = "buster" ]; then
         LIVE_ROOT_PASSWORD_CRYPTED="${LIVE_ROOT_PASSWORD_CRYPTED_LEGACY}"
     fi
     cat <<EOF >"${1}"
@@ -1091,7 +1083,6 @@ DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
 PACKAGE_VARIANT="${PACKAGE_VARIANT}"
 COMP_TYPE="${COMP_TYPE}"
 DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
-DISTRIBUTION_PHASE="${DISTRIBUTION_PHASE}"
 
 # Kernel settings
 KERNEL_ARCH="${KERNEL_ARCH}"
@@ -1469,7 +1460,7 @@ build_live() {
 build_config() {
     current_process
 
-    if [ "${DISTRIBUTION_PHASE}" = "legacy" ]; then
+    if [ "${DISTRIBUTION}" = "buster" ]; then
         LIVE_USER_PASSWORD_CRYPTED="${LIVE_USER_PASSWORD_CRYPTED_LEGACY}"
         LIVE_ROOT_PASSWORD_CRYPTED="${LIVE_ROOT_PASSWORD_CRYPTED_LEGACY}"
     fi
