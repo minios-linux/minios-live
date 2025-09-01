@@ -10,24 +10,19 @@ set -u          # treat unset variable as error
 # Kernel Installation Section
 #------------------------------------------------------------------------------
 
-if [ "${KERNEL_BPO}" = "true" ]; then
-    # Use backports target.
-    BPO_TARGET="${DISTRIBUTION}-backports"
-    if [ "${KERNEL_AUFS}" = "true" ]; then
-        if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
-            KERNEL_VERSION="6.12"
-        elif [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
-            KERNEL_VERSION="6.1"
-        fi
-    fi
-else
-    BPO_TARGET=""
-    if [ "${KERNEL_AUFS}" = "true" ]; then
-        if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
-            KERNEL_VERSION="6.12"
-        elif [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
-            KERNEL_VERSION="6.1"
-        fi
+if [ "${KERNEL_AUFS}" = "true" ]; then
+    if [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
+        # i386 architecture always uses 6.1
+        KERNEL_VERSION="6.1"
+    elif [ "${DISTRIBUTION}" = "buster" ] || [ "${DISTRIBUTION}" = "bullseye" ] || [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "jammy" ]; then
+        # Older distributions use 6.1
+        KERNEL_VERSION="6.1"
+    elif [ "${DISTRIBUTION}" = "trixie" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "sid" ]; then
+        # Newer distributions use 6.12
+        KERNEL_VERSION="6.12"
+    else
+        # Default fallback for unknown distributions
+        KERNEL_VERSION="6.1"
     fi
 fi
 
@@ -67,20 +62,11 @@ if [ "${KERNEL_TYPE}" != "none" ]; then
             echo "${DEB_PATH}" >"${TMP_PKGLIST}"
         else
             # No local .deb found; use repository package.
-            if [ -n "${BPO_TARGET}" ]; then
-                # Append target release using the '@' syntax.
-                echo "${KERNEL_IMAGE}@${BPO_TARGET}" >"${TMP_PKGLIST}"
-            else
-                echo "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
-            fi
+            echo "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
         fi
     else
         # No /rootcopy-install directory; install from repository.
-        if [ -n "${BPO_TARGET}" ]; then
-            echo "${KERNEL_IMAGE}@${BPO_TARGET}" >"${TMP_PKGLIST}"
-        else
-            echo "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
-        fi
+        echo "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
     fi
 
     # Call the external condinapt script.
