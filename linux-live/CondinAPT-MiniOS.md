@@ -55,8 +55,8 @@ dt=DISTRIBUTION_TYPE
 dp=DISTRIBUTION_PHASE
 de=DESKTOP_ENVIRONMENT
 pv=PACKAGE_VARIANT
-kt=KERNEL_TYPE
-kb=KERNEL_BPO
+ik=INSTALL_KERNEL
+kf=KERNEL_FLAVOUR
 ka=KERNEL_AUFS
 kbd=KERNEL_BUILD_DKMS
 lo=LOCALE
@@ -71,8 +71,8 @@ kl=KEEP_LOCALES
 - `DISTRIBUTION_ARCH` - architecture (amd64, i386, i386-pae)
 - `DESKTOP_ENVIRONMENT` - desktop environment (core, flux, xfce, lxqt)
 - `PACKAGE_VARIANT` - package variant (minimum, standard, toolbox, ultra)
-- `KERNEL_TYPE` - kernel type (none, default, rt, cloud)
-- `KERNEL_BPO` - use backports kernel (true/false)
+- `INSTALL_KERNEL` - install kernel package (true/false)
+- `KERNEL_FLAVOUR` - kernel flavour (none, rt, cloud)
 - `KERNEL_AUFS` - AUFS support (true/false)
 - `KERNEL_BUILD_DKMS` - build DKMS modules (true/false)
 - `LOCALE` - system locale (C, en_US, ru_RU, es_ES, pt_BR)
@@ -163,7 +163,7 @@ language-pack-fr +lo=fr_FR
 ```text
 # DKMS modules with kernel and distribution conditions
 ntfs3-dkms -ka=true -dp=legacy -d=trixie -d=sid
-zfs-dkms +{pv=toolbox|pv=ultra} +da=amd64 +kbd=true -kt=none
+zfs-dkms +{pv=toolbox|pv=ultra} +da=amd64 +kbd=true -kf=none
 
 # Drivers for old systems
 broadcom-sta-dkms -d=jammy -ka=true -da=i386

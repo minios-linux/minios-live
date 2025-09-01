@@ -196,16 +196,19 @@ create_common_files() {
 DISTRIBUTION="trixie"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
-KERNEL_TYPE="default"
+INSTALL_KERNEL="true"
+KERNEL_FLAVOUR="none"
+KERNEL_AUFS="false"
 # These variables are intentionally not in the filter map
-KERNEL_BPO="false"
 KERNEL_BUILD_DKMS="true"
 EOF
     cat >"${TEST_DIR}/filter.map" <<EOF
 d=DISTRIBUTION
 de=DESKTOP_ENVIRONMENT
 pv=PACKAGE_VARIANT
-kt=KERNEL_TYPE
+ik=INSTALL_KERNEL
+kf=KERNEL_FLAVOUR
+ka=KERNEL_AUFS
 EOF
 }
 
@@ -353,8 +356,8 @@ test_direct_variable_pass() {
 test_direct_variable_fail() {
     create_common_files
     export TEST_AVAILABLE_PACKAGES="linux-image-rt-amd64:6.1"
-    # KERNEL_BPO is "false" in config. This filter requires "true", so it should fail.
-    echo "linux-image-rt-amd64 +KERNEL_BPO=true" >"${TEST_DIR}/packages.list"
+    # KERNEL_AUFS is "false" in config. This filter requires "true", so it should fail.
+    echo "linux-image-rt-amd64 +KERNEL_AUFS=true" >"${TEST_DIR}/packages.list"
     "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -s
     assert_not_installs "linux-image-rt-amd64"
 }

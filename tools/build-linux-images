@@ -55,8 +55,8 @@ set_kernel_type_suffix() {
 
 get_latest_kernel_version() {
     local MAJOR_VERSION=$1
-    local KERNEL_TYPE_SUFFIX_ESCAPED=$(echo "$KERNEL_TYPE_SUFFIX" | sed 's/-/\\-/g')
-    local PACKAGES=$(apt-cache search linux-image | grep -E "linux-image-$MAJOR_VERSION" | grep "$KERNEL_ARCH" | grep -E "$KERNEL_TYPE_SUFFIX_ESCAPED" | grep -v -- '-dbg\|unsigned')
+    local KERNEL_FLAVOUR_SUFFIX_ESCAPED=$(echo "$KERNEL_FLAVOUR_SUFFIX" | sed 's/-/\\-/g')
+    local PACKAGES=$(apt-cache search linux-image | grep -E "linux-image-$MAJOR_VERSION" | grep "$KERNEL_ARCH" | grep -E "$KERNEL_FLAVOUR_SUFFIX_ESCAPED" | grep -v -- '-dbg\|unsigned')
     local VERSIONS=($(echo "$PACKAGES" | grep -oP "${MAJOR_VERSION}\.\d+[-\+][a-zA-Z0-9\.]*"))
     IFS=$'\n' SORTED_VERSIONS=($(sort -Vr <<<"${VERSIONS[*]}"))
     echo "${SORTED_VERSIONS[0]}"
@@ -202,7 +202,7 @@ if [[ -z "$KERNEL_FLAVOUR" ]]; then
         "cloud" "" 3>&1 1>&2 2>&3 || echo "none")
 fi
 
-KERNEL_TYPE_SUFFIX=$(set_kernel_type_suffix "$KERNEL_FLAVOUR")
+KERNEL_FLAVOUR_SUFFIX=$(set_kernel_type_suffix "$KERNEL_FLAVOUR")
 
 if [[ -z "$DISTRIBUTION" ]]; then
     DISTRIBUTION=$(source /etc/os-release && echo $VERSION_CODENAME)
@@ -314,7 +314,7 @@ EOF
 
     export DEBFULLNAME="MiniOS Kernel Team"
     export DEBEMAIL="team@minios.dev"
-    make -j"$CPU" bindeb-pkg DEBUG_INFO=n EXTRAVERSION="-mos$KERNEL_TYPE_SUFFIX" LOCALVERSION="-$KERNEL_ARCH"
+    make -j"$CPU" bindeb-pkg DEBUG_INFO=n EXTRAVERSION="-mos$KERNEL_FLAVOUR_SUFFIX" LOCALVERSION="-$KERNEL_ARCH"
 else
     apt-get update -qq
     KERNEL_VERSION=$(apt show "linux-source-$KERNEL_MAJOR_VERSION" | grep 'Version:' | awk '{print $2}')

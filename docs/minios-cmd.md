@@ -52,7 +52,7 @@ These options **must be provided** unless a configuration file is used:
 - `-c, --compression-type NAME`: Specify the compression type (e.g., 'zstd').
 
 #### Kernel Options
-- `-kt, --kernel-type NAME`: Specify the kernel type (e.g., 'default').
+- `-kf, --kernel-flavour NAME`: Specify the kernel flavour (e.g., 'none').
 - `-bpo, --kernel-backports`: Enable the use of the Linux kernel from backports.
 - `-aufs, --kernel-aufs`: Enable AUFS support in the kernel.
 - `-dkms, --kernel-build-dkms`: Enable compilation of additional drivers during kernel installation.
@@ -68,7 +68,7 @@ These options **must be provided** unless a configuration file is used:
 ### Default Settings
 
 #### Kernel Settings
-- **KERNEL_TYPE:** "default"
+- **KERNEL_FLAVOUR:** "none"
 
 #### Locale & Timezone Settings  
 - **LOCALE:** "en_US"

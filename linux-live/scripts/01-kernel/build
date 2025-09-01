@@ -18,10 +18,10 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
             HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
         else
-            if [ "${KERNEL_TYPE}" = "default" ]; then
+            if [ "${KERNEL_FLAVOUR}" = "none" ]; then
                 HEADERS="linux-headers-${KERNEL_ARCH}"
             else
-                HEADERS="linux-headers-${KERNEL_TYPE}-${KERNEL_ARCH}"
+                HEADERS="linux-headers-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
             fi
         fi
         ;;

@@ -30,24 +30,24 @@ if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
     if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
         KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
     else
-        if [ "${KERNEL_TYPE}" = "default" ]; then
+        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
             KERNEL_IMAGE="linux-image-${KERNEL_ARCH}"
         else
-            KERNEL_IMAGE="linux-image-${KERNEL_TYPE}-${KERNEL_ARCH}"
+            KERNEL_IMAGE="linux-image-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
         fi
     fi
 elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
-    if [ "${KERNEL_TYPE}" = "default" ]; then
+    if [ "${KERNEL_FLAVOUR}" = "none" ]; then
         KERNEL_IMAGE="linux-image-generic"
     else
-        KERNEL_IMAGE="linux-image-${KERNEL_TYPE}"
+        KERNEL_IMAGE="linux-image-${KERNEL_FLAVOUR}"
     fi
 fi
 
 # Create a temporary package list file for condinapt.
 TMP_PKGLIST=$(mktemp /tmp/kernel-package.list.XXXXXX)
 
-if [ "${KERNEL_TYPE}" != "none" ]; then
+if [ "${INSTALL_KERNEL}" = "true" ]; then
     run_with_spinner "Updating package lists" apt-get update --allow-releaseinfo-change
     run_with_spinner "Installing initramfs-tools" apt-get install -y --no-install-recommends initramfs-tools
     chmod -x /etc/kernel/postinst.d/initramfs-tools

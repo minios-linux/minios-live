@@ -27,13 +27,11 @@ header -u "https://minios.dev"
 init_proc_sysfs
 
 debug_start
-                                                                                                                                                      debug_shell
+debug_shell
 # load some modules manually first, then modprobe everything we have
 init_devs
 init_union_modules
-if [ "$KERNEL_TYPE" != "cloud" ]; then
-    init_zram
-fi
+init_zram
 
 # modprobe all devices excluding network drivers
 modprobe_everything -v /drivers/net/
@@ -44,34 +42,34 @@ init_blkid_cache
 # find data dir with filesystem bundles
 DATA="$(find_data 45 "$DATAMNT")"
 check_data_found "$DATA"
-                                                                                                                                                      debug_shell
+debug_shell
 # copy to RAM if needed
 DATA="$(copy_to_ram "$DATA" "$CHANGES")"
-                                                                                                                                                      debug_shell
+debug_shell
 # setup persistent changes, if possible
 persistent_changes "$DATA" "$CHANGES"
-                                                                                                                                                      debug_shell
+debug_shell
 # setup running kernel files
 setup_running_kernel "$DATA"
-                                                                                                                                                      debug_shell
+debug_shell
 # mount bundles
 mount_bundles "$DATA" "$BUNDLES"
-                                                                                                                                                      debug_shell
+debug_shell
 # init aufs union, or setup overlayfs union
 init_union "$CHANGES" "$UNION" "$BUNDLES"
 
 # add data to aufs union
 union_append_bundles "$BUNDLES" "$UNION"
-                                                                                                                                                      debug_shell
+debug_shell
 # rootcopy
 copy_rootcopy_content "$DATA" "$UNION"
 
 # MiniOS setup
 minios_boot "$DATA" "$UNION"
-                                                                                                                                                      debug_shell
+debug_shell
 # create fstab
 fstab_create "$UNION" "$DATAMNT"
-                                                                                                                                                      debug_shell
+debug_shell
 # run user custom preinit
 user_preinit "$DATA" "$UNION"
 
