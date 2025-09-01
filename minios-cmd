@@ -147,10 +147,6 @@ while (("$#")); do
         KERNEL_TYPE="$2"
         shift 2
         ;;
-    -bpo | --kernel-backports)
-        KERNEL_BPO=true
-        shift
-        ;;
     -aufs | --kernel-aufs)
         KERNEL_AUFS=true
         shift
@@ -207,7 +203,6 @@ done
 : "${PACKAGE_VARIANT:=}"
 : "${COMP_TYPE:="zstd"}"
 : "${KERNEL_TYPE:="default"}"
-: "${KERNEL_BPO:=false}"
 : "${KERNEL_AUFS:=false}"
 : "${KERNEL_BUILD_DKMS:=false}"
 : "${LOCALE:="en_US"}"
