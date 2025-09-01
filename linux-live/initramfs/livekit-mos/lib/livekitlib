@@ -1200,24 +1200,34 @@ restore_perch_session() {
       # Check for mode change
       elif [ -n "$PERCHMODE" ] && [ "$PERCHMODE" != "$LASTMODE" ]; then
          echo_yellow_star >&2
-         echo "Persistence mode has changed. Creating new session." >&2 >/dev/tty1
+         echo "Session #$LASTSESSION: Persistence mode changed." >&2 >/dev/tty1
+         echo "($LASTMODE -> $PERCHMODE) Creating new session." >&2 >/dev/tty1
          ACTION="new"
-      # Check for union filesystem mismatch first (complete incompatibility)
-      elif [ "$ACTION" = "resume" ] && [ "$SYSTEM_UNION" != "${LASTUNION:-overlayfs}" ]; then
+      # Check for union filesystem mismatch first
+      elif [ "$ACTION" = "resume" ] && [ -n "$LASTUNION" ] && [ "$SYSTEM_UNION" != "$LASTUNION" ]; then
          echo_yellow_star >&2
-         echo "Union filesystem incompatible (System: $SYSTEM_UNION, Session: ${LASTUNION:-overlayfs}). Creating new session." >&2 >/dev/tty1
+         echo "Session #$LASTSESSION: Union FS mismatch detected." >&2 >/dev/tty1
+         echo "* System: $SYSTEM_UNION, Session: $LASTUNION" >&2 >/dev/tty1
+         echo "* Creating new session." >&2 >/dev/tty1
          ACTION="new"
-      # Check for version/edition mismatch (only if a previous version exists)
+      # Check for version/edition mismatch
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTVERSION" ] && { [ "$SYSTEM_VERSION" != "$LASTVERSION" ] || [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; }; then
          if [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ] && [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
             echo_yellow_star >&2
-            echo "OS version and edition mismatch (System: $SYSTEM_VERSION/$SYSTEM_EDITION, Session: $LASTVERSION/$LASTEDITION). Creating new session." >&2 >/dev/tty1
+            echo "Session #$LASTSESSION: OS version and edition mismatch." >&2 >/dev/tty1
+            echo "* System: $SYSTEM_VERSION/$SYSTEM_EDITION" >&2 >/dev/tty1
+            echo "* Session: $LASTVERSION/$LASTEDITION" >&2 >/dev/tty1
+            echo "* Creating new session." >&2 >/dev/tty1
          elif [ "$SYSTEM_VERSION" != "$LASTVERSION" ]; then
             echo_yellow_star >&2
-            echo "OS version mismatch (System: $SYSTEM_VERSION, Session: $LASTVERSION). Creating new session." >&2 >/dev/tty1
+            echo "Session #$LASTSESSION: OS version mismatch detected." >&2 >/dev/tty1
+            echo "* System: $SYSTEM_VERSION, Session: $LASTVERSION" >&2 >/dev/tty1
+            echo "* Creating new session." >&2 >/dev/tty1
          elif [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; then
             echo_yellow_star >&2
-            echo "OS edition mismatch (System: $SYSTEM_EDITION, Session: $LASTEDITION). Creating new session." >&2 >/dev/tty1
+            echo "Session #$LASTSESSION: OS edition mismatch detected." >&2 >/dev/tty1
+            echo "* System: $SYSTEM_EDITION, Session: $LASTEDITION" >&2 >/dev/tty1
+            echo "* Creating new session." >&2 >/dev/tty1
          fi
          ACTION="new"
       elif [ "$ACTION" = "resume" ]; then
