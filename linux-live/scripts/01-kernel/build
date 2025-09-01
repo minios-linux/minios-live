@@ -12,23 +12,23 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     # Determine the kernel version (major.minor).
     KERNEL_VERSION=$(echo "$KERNEL" | cut -d'.' -f1,2)
 
-    # Determine the appropriate kernel headers package.
-    case "${DISTRIBUTION_TYPE}" in
-    "debian")
-        if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
-            HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
-        else
-            if [ "${KERNEL_FLAVOUR}" = "none" ]; then
-                HEADERS="linux-headers-${KERNEL_ARCH}"
-            else
-                HEADERS="linux-headers-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
-            fi
-        fi
-        ;;
-    "ubuntu")
+    # AUFS kernel headers selection (MiniOS custom kernel)
+    if [ "${KERNEL_AUFS}" = "true" ]; then
         HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
-        ;;
-    esac
+    # Standard kernel headers selection
+    elif [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
+            HEADERS="linux-headers-${KERNEL_ARCH}"
+        else
+            HEADERS="linux-headers-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
+        fi
+    elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
+            HEADERS="linux-headers-generic"
+        else
+            HEADERS="linux-headers-${KERNEL_FLAVOUR}"
+        fi
+    fi
 
     # Check that the fixed build package list exists.
     if [ ! -f "/packages.list" ]; then
