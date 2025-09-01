@@ -90,7 +90,7 @@ common_variables() {
             DISTRIBUTION_URL="http://deb.debian.org/debian"
         fi
         ;;
-    focal | jammy | noble)
+    bionic | focal | jammy | noble)
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
         ;;
     kali-rolling)
@@ -3344,12 +3344,12 @@ build_modules() {
 
                 # Copy modules into squashfs-root for packaging
                 toggle_shell_options e
-                mkdir -p "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}"
                 ([ -d "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}" ] &&
+                    mkdir -p "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}" &&
                     cd "${OVERLAY[upper]}/usr/lib/modules/${KERNEL}" &&
                     cp --parents -afr * "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}/")
-                mkdir -p "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}"
                 ([ -d "${OVERLAY[upper]}/lib/modules/${KERNEL}" ] &&
+                    mkdir -p "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}" &&
                     cd "${OVERLAY[upper]}/lib/modules/${KERNEL}" &&
                     cp --parents -afr * "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}/")
                 toggle_shell_options e

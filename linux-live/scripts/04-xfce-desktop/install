@@ -160,7 +160,7 @@ if [ -f /usr/share/applications/nm-connection-editor.desktop ]; then
 fi
 
 if pkg_is_installed "xfce4-whiskermenu-plugin"; then
-    if [ "$DISTRIBUTION" = "buster" ]; then
+    if [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "bionic" ]; then
         echo "favorites=exo-terminal-emulator.desktop,exo-file-manager.desktop,exo-mail-reader.desktop,exo-web-browser.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
     else
         echo "favorites=xfce4-terminal-emulator.desktop,xfce4-file-manager.desktop,xfce4-web-browser.desktop,xfce4-mail-reader.desktop" >/etc/skel/.config/xfce4/panel/whiskermenu-1.rc
