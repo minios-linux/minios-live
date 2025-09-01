@@ -26,15 +26,15 @@ if [ "${KERNEL_AUFS}" = "true" ]; then
     fi
 fi
 
-if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
-    if [ "${KERNEL_AUFS}" = "true" ] && { [ "${DISTRIBUTION_PHASE}" = "current" ] || [ "${DISTRIBUTION_PHASE}" = "future" ]; }; then
-        KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
+# AUFS kernel selection (MiniOS custom kernel)
+if [ "${KERNEL_AUFS}" = "true" ]; then
+    KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
+# Standard kernel selection
+elif [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+    if [ "${KERNEL_FLAVOUR}" = "none" ]; then
+        KERNEL_IMAGE="linux-image-${KERNEL_ARCH}"
     else
-        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
-            KERNEL_IMAGE="linux-image-${KERNEL_ARCH}"
-        else
-            KERNEL_IMAGE="linux-image-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
-        fi
+        KERNEL_IMAGE="linux-image-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
     fi
 elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
     if [ "${KERNEL_FLAVOUR}" = "none" ]; then
