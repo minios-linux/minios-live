@@ -12,13 +12,6 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
     # Determine the kernel version (major.minor).
     KERNEL_VERSION=$(echo "$KERNEL" | cut -d'.' -f1,2)
 
-    # Set backports target if applicable.
-    if [ "${KERNEL_BPO}" = "true" ] && [ "${DISTRIBUTION}" = "bookworm" ]; then
-        BPO_TARGET="${DISTRIBUTION}-backports"
-    else
-        BPO_TARGET=""
-    fi
-
     # Determine the appropriate kernel headers package.
     case "${DISTRIBUTION_TYPE}" in
     "debian")
@@ -36,11 +29,6 @@ if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
         HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
         ;;
     esac
-
-    # Append the backports target to the headers package if applicable.
-    if [ -n "${BPO_TARGET}" ]; then
-        HEADERS="${HEADERS}@${BPO_TARGET}"
-    fi
 
     # Check that the fixed build package list exists.
     if [ ! -f "/packages.list" ]; then
