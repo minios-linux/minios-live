@@ -1460,7 +1460,7 @@ build_live() {
 build_config() {
     current_process
 
-    if [ "${DISTRIBUTION}" = "buster" ]; then
+    if [ "${DISTRIBUTION}" = "buster" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
         LIVE_USER_PASSWORD_CRYPTED="${LIVE_USER_PASSWORD_CRYPTED_LEGACY}"
         LIVE_ROOT_PASSWORD_CRYPTED="${LIVE_ROOT_PASSWORD_CRYPTED_LEGACY}"
     fi
