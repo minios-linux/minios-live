@@ -2081,6 +2081,14 @@ build_initrd() {
     cp "${OVERLAY[merged]}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
     cp "${OVERLAY[merged]}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
 
+    # Create compatibility symlinks for Ventoy
+    if [ "$NAMED_BOOT_FILES" = "true" ]; then
+        cd "${WORK_DIR}/image/${LIVEKITNAME}/boot"
+        ln -sf "${VMLINUZNAME}" "vmlinuz" 2>/dev/null || true
+        ln -sf "${INITRFSNAME}" "initrfs.img" 2>/dev/null || true
+        cd - >/dev/null
+    fi
+
     overlay_chroot_finish_up
 
     overlay_unmount_dirs
