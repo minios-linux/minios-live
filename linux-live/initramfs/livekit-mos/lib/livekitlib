@@ -1369,6 +1369,46 @@ persistent_changes() {
    PERCHMODE="$(cmdline_value perchmode)"
    PERCHSIZE="$(cmdline_value perchsize)"
    : "${PERCHSIZE:=0}"
+
+   # Parse size with units (MB, GB, TB) and convert to MB
+   parse_size() {
+      local SIZE="$1"
+      local NUMBER UNIT
+
+      # Remove any whitespace
+      SIZE=$(echo "$SIZE" | tr -d ' ')
+
+      # Extract number and unit
+      NUMBER=$(echo "$SIZE" | sed 's/[A-Za-z]*$//')
+      UNIT=$(echo "$SIZE" | sed 's/^[0-9]*//' | tr '[:lower:]' '[:upper:]')
+
+      # Validate number
+      if ! echo "$NUMBER" | grep -q '^[0-9]\+$'; then
+         echo "0"
+         return
+      fi
+
+      # Convert to MB based on unit
+      case "$UNIT" in
+      "" | "M" | "MB")
+         echo "$NUMBER"
+         ;;
+      "G" | "GB")
+         echo $((NUMBER * 1000))
+         ;;
+      "T" | "TB")
+         echo $((NUMBER * 1000000))
+         ;;
+      *)
+         echo "0"
+         ;;
+      esac
+   }
+
+   # Parse PERCHSIZE if it contains units
+   if [ "$PERCHSIZE" != "0" ] && echo "$PERCHSIZE" | grep -q '[A-Za-z]'; then
+      PERCHSIZE=$(parse_size "$PERCHSIZE")
+   fi
    CHANDIR="$DATA/$(basename "$CHANGES")"
    DRIVE="$(df "$DATA" | tail -n 1 | awk '{print $1}')"
 
@@ -1429,6 +1469,9 @@ persistent_changes() {
       fi
 
       MAX_SIZE=$((AVAILABLE_SPACE - 100))
+
+      # Limit maximum size to 1TB (1,000,000 MB)
+      [ "$MAX_SIZE" -gt 1000000 ] && MAX_SIZE=1000000
 
       if [ "$PERCHSIZE" -gt "$MAX_SIZE" ]; then
          echo "- persistent changes size ${PERCHSIZE}MB exceeds available space"
@@ -2010,9 +2053,9 @@ minios_boot() {
       # $1 = source path, $2 = destination path
       local SRC="$1" DST="$2"
       local RESULT=false
-      
+
       debug_log "should_copy" "Checking: $SRC -> $DST"
-      
+
       if [ "$SKIP_TIME_CHECK" = true ]; then
          # if time is reset — only copy when destination does not exist
          if [ ! -f "$DST" ]; then
@@ -2035,7 +2078,7 @@ minios_boot() {
             RESULT=false
          fi
       fi
-      
+
       [ "$RESULT" = true ]
    }
 
