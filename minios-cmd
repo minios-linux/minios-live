@@ -49,7 +49,6 @@ help() {
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-kf, --kernel-flavour${ENDCOLOR} NAME           $(gettext "Specify the kernel flavour (e.g., 'none').")"
-    echo -e "  ${LIGHTGREEN}-bpo, --kernel-backports${ENDCOLOR}          $(gettext "Enable the use of the Linux kernel from backports.")"
     echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}              $(gettext "Enable AUFS support in the kernel.")"
     echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}       $(gettext "Enable compilation of additional drivers during kernel installation.")"
     echo ""
@@ -59,6 +58,9 @@ help() {
     echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}              $(gettext "Keep all available locales.")"
     echo -e "  ${LIGHTGREEN}-tz, --timezone${ENDCOLOR} NAME              $(gettext "Specify the timezone (e.g., 'Etc/UTC').")"
     echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Boot Menu Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-mln, --menu-language${ENDCOLOR} NAME      $(gettext "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').")"
+    echo ""
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
@@ -67,6 +69,9 @@ help() {
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}LOCALE=${ENDCOLOR} \"en_US\""
     echo -e "  ${LIGHTGREEN}LIVE_TIMEZONE=${ENDCOLOR} \"Etc/UTC\""
+    echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Boot Menu Settings:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}MENU_LANG=${ENDCOLOR} \"multilang\""
     echo ""
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
     echo ""
@@ -85,14 +90,14 @@ help() {
     echo -e "  $(gettext "5. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:")"
     echo -e "     $(basename $0) -d buster -a i386 -de xfce -pv standard"
     echo ""
-    echo -e "  $(gettext "6. Create a system image with the 'bookworm' distribution, 'amd64' architecture, and 'xfce' desktop environment and with kernel from backports:")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -bpo"
-    echo ""
-    echo -e "  $(gettext "7. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
+    echo -e "  $(gettext "6. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
     echo -e "     $(basename $0) -d jammy -pv standard -a amd64 -de xfce"
     echo ""
-    echo -e "  $(gettext "8. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
+    echo -e "  $(gettext "7. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
     echo -e "     $(basename $0) -d trixie -a amd64 -de xfce -pv standard -ml"
+    echo ""
+    echo -e "  $(gettext "8. Create a system image with Russian boot menu language:")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU"
     echo ""
     echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
     exit 0
@@ -171,6 +176,10 @@ while (("$#")); do
         LIVE_TIMEZONE="$2"
         shift 2
         ;;
+    -mln | --menu-language)
+        MENU_LANG="$2"
+        shift 2
+        ;;
     -h | --help)
         help
         shift
@@ -210,6 +219,7 @@ done
 : "${MULTILINGUAL:=false}"
 : "${KEEP_LOCALES:=false}"
 : "${LIVE_TIMEZONE:="Etc/UTC"}"
+: "${MENU_LANG:="multilang"}"
 
 # Check if mandatory parameters are set ONLY if config file is NOT provided
 if [[ -z "$BUILD_CONF" && ! -f "$BUILD_CONF" && (-z "$DISTRIBUTION" || -z "$DISTRIBUTION_ARCH" || -z "$DESKTOP_ENVIRONMENT" || -z "$PACKAGE_VARIANT") ]]; then
