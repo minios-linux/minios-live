@@ -259,12 +259,13 @@ else
       <property name="position" type="string" value="p=8;x=512;y=752"/>
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
-      <property name="size" type="uint" value="34"/>
+      <property name="size" type="uint" value="48"/>
       <property name="background-alpha" type="uint" value="90"/>
       <property name="mode" type="uint" value="0"/>
       <property name="enter-opacity" type="uint" value="100"/>
       <property name="leave-opacity" type="uint" value="100"/>
       <property name="plugin-ids" type="array">
+        <value type="int" value="15"/>
         <value type="int" value="1"/>
         <value type="int" value="2"/>
         <value type="int" value="3"/>
@@ -279,10 +280,14 @@ else
         <value type="int" value="13"/>
         <value type="int" value="14"/>
       </property>
+      <property name="icon-size" type="uint" value="32"/>
     </property>
-    <property name="dark-mode" type="bool" value="true"/>
+    <property name="dark-mode" type="bool" value="false"/>
   </property>
   <property name="plugins" type="empty">
+    <property name="plugin-15" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
     <property name="plugin-1" type="string" value="applicationsmenu">
       <property name="button-icon" type="string" value="/usr/share/pixmaps/MiniOS-white.svg"/>
       <property name="show-button-title" type="bool" value="false"/>
@@ -311,8 +316,10 @@ else
     <property name="plugin-7" type="string" value="tasklist">
       <property name="show-handle" type="bool" value="false"/>
       <property name="flat-buttons" type="bool" value="true"/>
-      <property name="show-labels" type="bool" value="true"/>
+      <property name="show-labels" type="bool" value="false"/>
       <property name="grouping" type="uint" value="1"/>
+      <property name="include-all-workspaces" type="bool" value="true"/>
+      <property name="show-wireframes" type="bool" value="false"/>
     </property>
     <property name="plugin-8" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
@@ -320,7 +327,7 @@ else
     </property>
     <property name="plugin-9" type="string" value="xkb">
       <property name="display-type" type="uint" value="2"/>
-      <property name="display-name" type="uint" value="0"/>
+      <property name="display-name" type="uint" value="1"/>
       <property name="group-policy" type="uint" value="0"/>
     </property>
     <property name="plugin-10" type="string" value="battery"/>
@@ -330,9 +337,17 @@ else
         <value type="string" value="volumeicon"/>
         <value type="string" value="networkmanager applet"/>
       </property>
+      <property name="icon-size" type="int" value="22"/>
+      <property name="square-icons" type="bool" value="true"/>
+      <property name="hidden-legacy-items" type="array">
+      </property>
     </property>
     <property name="plugin-13" type="string" value="clock">
       <property name="digital-format" type="string" value="%_H:%M"/>
+      <property name="digital-time-format" type="string" value="%R"/>
+      <property name="digital-layout" type="uint" value="1"/>
+      <property name="timezone" type="string" value=""/>
+      <property name="digital-time-font" type="string" value="Inter Bold 12"/>
     </property>
     <property name="plugin-14" type="string" value="showdesktop"/>
   </property>
@@ -553,6 +568,11 @@ FileManager=Thunar
 WebBrowser=
 
 EOF
+fi
+
+# Show Settings category in application menu for minimum variant
+if ! pkg_is_installed "xfce4-whiskermenu-plugin"; then
+    sed -i 's/NoDisplay=true/NoDisplay=false/' /etc/skel/.local/share/desktop-directories/xfce-settings.directory
 fi
 
 if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
