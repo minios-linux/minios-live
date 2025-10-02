@@ -1827,9 +1827,6 @@ fi
 
 terminal_output gfxterm
 
-insmod play
-play 960 440 1 0 4 440 1
-
 EOF
 
     # Create main menu config
@@ -1918,9 +1915,6 @@ fi
 
 terminal_output gfxterm
 
-insmod play
-play 960 440 1 0 4 440 1
-
 menuentry "\$resume" --class resume {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
@@ -1994,9 +1988,6 @@ else
 fi
 
 terminal_output gfxterm
-
-insmod play
-play 960 440 1 0 4 440 1
 
 menuentry "Resume previous session" --class resume {
     echo \$message
