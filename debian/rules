@@ -17,7 +17,7 @@ MAN_DIR := usr/share/man
 DOC_FILES := $(shell find docs -name "*.md")
 MAN_FILES := $(patsubst docs/%.md, man/%.1, $(DOC_FILES))
 
-PO_FILES := $(shell find po -name "*.po" -maxdepth 1)
+PO_FILES := $(shell find po -maxdepth 1 -name "*.po")
 MO_FILES := $(patsubst %.po,%.mo,$(PO_FILES))
 
 %:
@@ -26,12 +26,18 @@ MO_FILES := $(patsubst %.po,%.mo,$(PO_FILES))
 # Build targets
 override_dh_auto_build:
 ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
-	mkdir -p man
-	for DOC_FILE in $(DOC_FILES); do \
-		MAN_FILE=$$(echo $$DOC_FILE | sed 's|docs/|man/|' | sed 's|\.md$$|.1|'); \
-		echo "Generating man file for $$DOC_FILE"; \
-		pandoc -s -t man "$$DOC_FILE" -o "$$MAN_FILE"; \
-	done
+	# Generate English man pages from markdown
+	if [ -d manpages ]; then \
+		cd manpages && \
+		pandoc -s -t man ../docs/minios-live.1.md -o minios-live.1 && \
+		pandoc -s -t man ../docs/minios-cmd.1.md -o minios-cmd.1 && \
+		pandoc -s -t man ../docs/condinapt.1.md -o condinapt.1 && \
+		pandoc -s -t man ../docs/condinapt-minios.7.md -o condinapt-minios.7; \
+	fi
+	# Generate translations with po4a
+	if [ -d manpages ]; then \
+		cd manpages && po4a --keep 0 --package-name minios-live po4a.cfg; \
+	fi
 endif
 	for PO_FILE in $(PO_FILES); do \
 		MO_FILE=$$(echo $$PO_FILE | sed 's|\.po$$|.mo|'); \
@@ -57,6 +63,10 @@ locale: $(MO_FILES)
 # Clean target
 override_dh_auto_clean:
 	rm -rf man $(MO_FILES)
+	if [ -d manpages ]; then \
+		cd manpages && rm -rf pot ru pt pt_BR it id fr es de ja && \
+		rm -f minios-live.1 minios-cmd.1 condinapt.1 condinapt-minios.7; \
+	fi
 
 # Install target
 override_dh_auto_install:
@@ -82,14 +92,33 @@ override_dh_auto_install:
 		install -Dm644 "$$MO_FILE" "debian/minios-live/usr/share/locale/$$LOCALE/LC_MESSAGES/minios-live.mo"; \
 	done
 
-	# Copy man files
-	find man -type f -name '*.1' | while read -r MAN_FILE; do \
-		MAN_LANG_DIR=$$(dirname $$MAN_FILE | sed 's/^man//'); \
-		MAN_BASENAME=$$(basename $$MAN_FILE); \
-		install -d "debian/minios-live/$(MAN_DIR)/$$MAN_LANG_DIR/man1"; \
-		echo "Copying man file $$MAN_FILE to debian/minios-live/$(MAN_DIR)/$$MAN_LANG_DIR/man1/$$MAN_BASENAME"; \
-		install -Dm644 "$$MAN_FILE" "debian/minios-live/$(MAN_DIR)/$$MAN_LANG_DIR/man1/$$MAN_BASENAME"; \
-	done
+	# Copy English man pages (section 1)
+	if [ -d manpages ]; then \
+		install -d "debian/minios-live/$(MAN_DIR)/man1"; \
+		[ -f "manpages/minios-live.1" ] && install -Dm644 manpages/minios-live.1 "debian/minios-live/$(MAN_DIR)/man1/"; \
+		[ -f "manpages/minios-cmd.1" ] && install -Dm644 manpages/minios-cmd.1 "debian/minios-live/$(MAN_DIR)/man1/"; \
+		[ -f "manpages/condinapt.1" ] && install -Dm644 manpages/condinapt.1 "debian/minios-live/$(MAN_DIR)/man1/"; \
+	fi
+
+	# Copy English man pages (section 7)
+	if [ -d manpages ]; then \
+		install -d "debian/minios-live/$(MAN_DIR)/man7"; \
+		[ -f "manpages/condinapt-minios.7" ] && install -Dm644 manpages/condinapt-minios.7 "debian/minios-live/$(MAN_DIR)/man7/"; \
+	fi
+
+	# Copy translated man pages
+	if [ -d manpages ]; then \
+		for LANG in ru pt pt_BR it id fr es de; do \
+			if [ -d "manpages/$$LANG" ]; then \
+				install -d "debian/minios-live/$(MAN_DIR)/$$LANG/man1"; \
+				install -d "debian/minios-live/$(MAN_DIR)/$$LANG/man7"; \
+				[ -f "manpages/$$LANG/minios-live.1" ] && install -Dm644 "manpages/$$LANG/minios-live.1" "debian/minios-live/$(MAN_DIR)/$$LANG/man1/"; \
+				[ -f "manpages/$$LANG/minios-cmd.1" ] && install -Dm644 "manpages/$$LANG/minios-cmd.1" "debian/minios-live/$(MAN_DIR)/$$LANG/man1/"; \
+				[ -f "manpages/$$LANG/condinapt.1" ] && install -Dm644 "manpages/$$LANG/condinapt.1" "debian/minios-live/$(MAN_DIR)/$$LANG/man1/"; \
+				[ -f "manpages/$$LANG/condinapt-minios.7" ] && install -Dm644 "manpages/$$LANG/condinapt-minios.7" "debian/minios-live/$(MAN_DIR)/$$LANG/man7/"; \
+			fi; \
+		done; \
+	fi
 
 override_dh_shlibdeps:
 	dh_shlibdeps -X/bootfiles/
