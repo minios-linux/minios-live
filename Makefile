@@ -10,7 +10,7 @@ prepare-source:
 	@echo "Preparing source for $(PACKAGE) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	@rm -rf $(BUILD_DIR)/*
-	@cp -r completions docs linux-live po $(BUILD_DIR)/
+	@cp -r completions docs linux-live manpages po $(BUILD_DIR)/
 	@cp LICENSE minios-cmd minios-live $(BUILD_DIR)/
 
 orig: prepare-source
