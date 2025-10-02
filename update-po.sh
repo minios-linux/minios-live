@@ -61,7 +61,7 @@ show_stats() {
         return 1
     fi
     
-    log_info "Translation statistics for $APPNAME:"
+    log_info "Translation statistics for $APPNAME"
     
     # Get total number of messages
     local total=$(msgcat "$POTFILE" | grep -c '^msgid ' 2>/dev/null || echo "0")
@@ -71,30 +71,91 @@ show_stats() {
         return 1
     fi
     
-    printf "%-8s %-12s %-12s %-8s\n" "Lang" "Translated" "Fuzzy" "Percent"
-    echo "----------------------------------------"
+    printf "\n%-10s %-8s %-12s %-12s %-8s\n" "Component" "Lang" "Translated" "Fuzzy" "Percent"
+    echo "-------------------------------------------------------"
     
+    # Program translations
     for lang in "${LANGUAGES[@]}"; do
         local pofile="po/${lang}.po"
         
         if [ -f "$pofile" ]; then
-            local stats=$(msgfmt --statistics -o /dev/null "$pofile" 2>&1)
+            local stats=$(LANG=C msgfmt --statistics -o /dev/null "$pofile" 2>&1)
             local translated=$(echo "$stats" | grep -o '[0-9]\+ translated' | grep -o '[0-9]\+' || echo "0")
             local fuzzy=$(echo "$stats" | grep -o '[0-9]\+ fuzzy' | grep -o '[0-9]\+' || echo "0")
+            local untranslated=$(echo "$stats" | grep -o '[0-9]\+ untranslated' | grep -o '[0-9]\+' || echo "0")
             local percent=0
             
             if [ "$total" -gt 0 ]; then
                 percent=$((translated * 100 / total))
             fi
             
-            printf "%-8s %-12s %-12s %-8s%%\n" "$lang" "$translated" "$fuzzy" "$percent"
+            printf "%-10s %-8s %-12s %-12s %-8s%%\n" "Programs" "$lang" "$translated" "$fuzzy" "$percent"
         else
-            printf "%-8s %-12s %-12s %-8s\n" "$lang" "missing" "-" "-"
+            printf "%-10s %-8s %-12s %-12s %-8s\n" "Programs" "$lang" "missing" "-" "-"
         fi
     done
     
-    echo "----------------------------------------"
-    log_info "Total messages: $total"
+    # Man page translations
+    if [ -d "manpages/po" ]; then
+        for lang in "${LANGUAGES[@]}"; do
+            local man_po_dir="manpages/po/$lang"
+            if [ -d "$man_po_dir" ]; then
+                local man_translated=0
+                local man_fuzzy=0
+                local man_total=0
+                
+                for pofile in "$man_po_dir"/*.po; do
+                    if [ -f "$pofile" ]; then
+                        local stats=$(LANG=C msgfmt --statistics -o /dev/null "$pofile" 2>&1)
+                        local translated=$(echo "$stats" | grep -o '[0-9]\+ translated' | grep -o '[0-9]\+' || echo "0")
+                        local fuzzy=$(echo "$stats" | grep -o '[0-9]\+ fuzzy' | grep -o '[0-9]\+' || echo "0")
+                        local untranslated=$(echo "$stats" | grep -o '[0-9]\+ untranslated' | grep -o '[0-9]\+' || echo "0")
+                        
+                        man_translated=$((man_translated + translated))
+                        man_fuzzy=$((man_fuzzy + fuzzy))
+                        man_total=$((man_total + translated + fuzzy + untranslated))
+                    fi
+                done
+                
+                local man_percent=0
+                if [ "$man_total" -gt 0 ]; then
+                    man_percent=$((man_translated * 100 / man_total))
+                fi
+                
+                if [ "$man_total" -gt 0 ]; then
+                    printf "%-10s %-8s %-12s %-12s %-8s%%\n" "Man pages" "$lang" "$man_translated" "$man_fuzzy" "$man_percent"
+                fi
+            fi
+        done
+    fi
+    
+    echo "-------------------------------------------------------"
+    log_info "Summary:"
+    log_info "  Program messages: $total"
+    
+    # Add man page summary
+    if [ -d "manpages/po" ]; then
+        local total_man_messages=0
+        for lang in "${LANGUAGES[@]}"; do
+            local man_po_dir="manpages/po/$lang"
+            if [ -d "$man_po_dir" ]; then
+                for pofile in "$man_po_dir"/*.po; do
+                    if [ -f "$pofile" ]; then
+                        local stats=$(LANG=C msgfmt --statistics -o /dev/null "$pofile" 2>&1)
+                        local translated=$(echo "$stats" | grep -o '[0-9]\+ translated' | grep -o '[0-9]\+' || echo "0")
+                        local fuzzy=$(echo "$stats" | grep -o '[0-9]\+ fuzzy' | grep -o '[0-9]\+' || echo "0")
+                        local untranslated=$(echo "$stats" | grep -o '[0-9]\+ untranslated' | grep -o '[0-9]\+' || echo "0")
+                        local file_total=$((translated + fuzzy + untranslated))
+                        total_man_messages=$((total_man_messages + file_total))
+                    fi
+                done
+                break # Only count once, not per language
+            fi
+        done
+        if [ "$total_man_messages" -gt 0 ]; then
+            log_info "  Man page messages: $total_man_messages"
+        fi
+    fi
     
     # Show summary of issues
     local has_issues=false
@@ -235,7 +296,7 @@ generate_pot() {
 }
 
 update_po_files() {
-    log_info "Updating .po files for languages: ${LANGUAGES[*]}"
+    log_info "Updating translation files for languages: ${LANGUAGES[*]}"
     
     if [ ! -f "$POTFILE" ]; then
         log_error "Translation template not found: $POTFILE"
@@ -276,14 +337,91 @@ update_po_files() {
     fi
 }
 
+# Update man page translations
+update_man_translations() {
+    log_info "Updating man page translations"
+    
+    if [ ! -d "manpages" ] || [ ! -f "manpages/po4a.cfg" ]; then
+        log_warning "Man pages directory or po4a.cfg not found, skipping"
+        return
+    fi
+    
+    # Check if pandoc is available
+    if ! command -v pandoc >/dev/null 2>&1; then
+        log_warning "pandoc not found, skipping man page generation"
+        return
+    fi
+    
+    # Generate English man pages from markdown
+    log_info "Generating English man pages from markdown..."
+    local generated=0
+    local failed=0
+    
+    if [ -f "docs/minios-live.1.md" ]; then
+        if pandoc -s -t man docs/minios-live.1.md -o manpages/minios-live.1 2>/dev/null; then
+            ((generated++))
+        else
+            ((failed++))
+        fi
+    fi
+    
+    if [ -f "docs/minios-cmd.1.md" ]; then
+        if pandoc -s -t man docs/minios-cmd.1.md -o manpages/minios-cmd.1 2>/dev/null; then
+            ((generated++))
+        else
+            ((failed++))
+        fi
+    fi
+    
+    if [ -f "docs/condinapt.1.md" ]; then
+        if pandoc -s -t man docs/condinapt.1.md -o manpages/condinapt.1 2>/dev/null; then
+            ((generated++))
+        else
+            ((failed++))
+        fi
+    fi
+    
+    if [ -f "docs/condinapt-minios.7.md" ]; then
+        if pandoc -s -t man docs/condinapt-minios.7.md -o manpages/condinapt-minios.7 2>/dev/null; then
+            ((generated++))
+        else
+            ((failed++))
+        fi
+    fi
+    
+    if [ $generated -eq 0 ]; then
+        log_warning "No man pages were generated"
+        return
+    fi
+    
+    log_success "Generated $generated man page(s)"
+    [ $failed -gt 0 ] && log_warning "Failed to generate $failed man page(s)"
+    
+    # Create necessary directories for po4a
+    for lang in "${LANGUAGES[@]}"; do
+        mkdir -p "manpages/po/$lang"
+    done
+    mkdir -p "manpages/pot"
+    
+    # Generate translations with po4a
+    cd manpages
+    if po4a --keep 0 --package-name "$APPNAME" po4a.cfg 2>/dev/null; then
+        log_success "Man page translations updated"
+    else
+        log_warning "Failed to update man page translations with po4a"
+    fi
+    cd ..
+}
+
 # Main execution
-log_info "Starting translation workflow for $APPNAME (version $VERSION)..."
+log_info "Starting translation workflow for $APPNAME (version $VERSION)"
 log_info "Languages: ${LANGUAGES[*]}"
 
 if generate_pot; then
     update_po_files
+    update_man_translations
     show_stats
-    log_success "Translation workflow completed!"
+    log_success "Translation workflow completed"
 else
     log_error "Workflow failed during template generation"
     exit 1
