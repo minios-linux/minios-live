@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 4.0.0\n"
 "Report-Msgid-Bugs-To: support@minios.dev\n"
-"POT-Creation-Date: 2025-08-29 22:41+0300\n"
+"POT-Creation-Date: 2025-10-02 14:42+0300\n"
 "PO-Revision-Date: 2024-11-23 21:29+0300\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
 "Language-Team: none\n"
@@ -80,7 +80,7 @@ msgstr ""
 msgid "  Enter '-' as the only argument to run all commands\\n"
 msgstr "  Gib '-' als einziges Argument ein, um alle Befehle auszuführen\\n"
 
-#: minios-live:71 minios-cmd:71 minios-live:76
+#: minios-live:71 minios-cmd:71 minios-live:76 minios-cmd:76
 msgid "Examples:"
 msgstr "Beispiele:"
 
@@ -153,59 +153,59 @@ msgstr "Geben Sie den Kernel-Typ an (z. B. 'default')."
 msgid "Enable the use of the Linux kernel from backports."
 msgstr "Aktivieren Sie die Verwendung des Linux-Kernels aus Backports."
 
-#: minios-cmd:53
+#: minios-cmd:53 minios-cmd:52
 msgid "Enable AUFS support in the kernel."
 msgstr "Aktivieren Sie die AUFS-Unterstützung im Kernel."
 
-#: minios-cmd:54
+#: minios-cmd:54 minios-cmd:53
 msgid "Enable compilation of additional drivers during kernel installation."
 msgstr ""
 "Aktivieren Sie die Kompilierung zusätzlicher Treiber während der Kernel-"
 "Installation."
 
-#: minios-cmd:56
+#: minios-cmd:56 minios-cmd:55
 msgid "Locale and Timezone Options:"
 msgstr "Locale- und Zeitzonenoptionen:"
 
-#: minios-cmd:57
+#: minios-cmd:57 minios-cmd:56
 msgid "Specify the system locale (e.g., 'en_US')."
 msgstr "Geben Sie die Systemlocale an (z. B. 'en_US')."
 
-#: minios-cmd:58
+#: minios-cmd:58 minios-cmd:57
 msgid "Enable multilingual support."
 msgstr "Aktivieren Sie die mehrsprachige Unterstützung."
 
-#: minios-cmd:59
+#: minios-cmd:59 minios-cmd:58
 msgid "Keep all available locales."
 msgstr "Behalten Sie alle verfügbaren Locales bei."
 
-#: minios-cmd:60
+#: minios-cmd:60 minios-cmd:59
 msgid "Specify the timezone (e.g., 'Etc/UTC')."
 msgstr "Geben Sie die Zeitzone an (z. B. 'Etc/UTC')."
 
-#: minios-cmd:62
+#: minios-cmd:62 minios-cmd:64
 msgid "Default Settings:"
 msgstr "Standardeinstellungen:"
 
-#: minios-cmd:64
+#: minios-cmd:64 minios-cmd:66
 msgid "Kernel Settings:"
 msgstr "Kernel-Einstellungen:"
 
-#: minios-cmd:67
+#: minios-cmd:67 minios-cmd:69
 msgid "Locale & Timezone Settings:"
 msgstr "Locale- & Zeitzoneneinstellungen:"
 
-#: minios-cmd:73
+#: minios-cmd:73 minios-cmd:78
 msgid "1. Create a MiniOS Standard system image (default settings):"
 msgstr ""
 "1. Erstellen Sie ein MiniOS Standard-Systemabbild (Standardeinstellungen):"
 
-#: minios-cmd:76
+#: minios-cmd:76 minios-cmd:81
 msgid "2. Create a MiniOS Toolbox system image (default settings):"
 msgstr ""
 "2. Erstellen Sie ein MiniOS Toolbox-Systemabbild (Standardeinstellungen):"
 
-#: minios-cmd:79
+#: minios-cmd:79 minios-cmd:84
 msgid ""
 "3. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'toolbox' package variant, and Russian locale:"
@@ -239,7 +239,7 @@ msgstr ""
 "Architektur 'amd64', der Desktop-Umgebung 'xfce' und dem Kernel aus "
 "Backports:"
 
-#: minios-cmd:91
+#: minios-cmd:91 minios-cmd:93
 msgid ""
 "6. Create a system image with the 'jammy' distribution and 'standard' "
 "package variant:"
@@ -247,7 +247,7 @@ msgstr ""
 "6. Erstellen Sie ein Systemabbild mit der Distribution 'jammy' und der "
 "Paketvariante 'standard':"
 
-#: minios-cmd:94
+#: minios-cmd:94 minios-cmd:96
 msgid ""
 "7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
 "and 'xfce' desktop environment with multilingual support enabled:"
@@ -256,7 +256,7 @@ msgstr ""
 "Architektur 'amd64', der Desktop-Umgebung 'xfce' und aktivierter "
 "mehrsprachiger Unterstützung:"
 
-#: minios-cmd:97
+#: minios-cmd:97 minios-cmd:102
 msgid ""
 "has many more options available. Please refer to the above options list for "
 "more details."
@@ -264,7 +264,7 @@ msgstr ""
 "bietet viele weitere Optionen. Weitere Informationen finden Sie in der "
 "obigen Optionsliste."
 
-#: minios-cmd:82
+#: minios-cmd:82 minios-cmd:87
 msgid ""
 "4. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'standard' package variant and 'lxqt' desktop environment:"
@@ -273,7 +273,7 @@ msgstr ""
 "Architektur 'amd64', der Paketvariante 'standard' und der Desktop-Umgebung "
 "'lxqt':"
 
-#: minios-cmd:85
+#: minios-cmd:85 minios-cmd:90
 msgid ""
 "5. Create a system image with 'buster' distribution, 'i386' architecture, "
 "and 'xfce' desktop environment:"
@@ -306,3 +306,28 @@ msgstr ""
 "8. Erstellen Sie ein Systemabbild mit der Distribution 'trixie', der "
 "Architektur 'amd64', der Desktop-Umgebung 'xfce' und aktivierter "
 "mehrsprachiger Unterstützung:"
+
+#: minios-cmd:51
+msgid "Specify the kernel flavour (e.g., 'none')."
+msgstr "Geben Sie die Kernel-Variante an (z. B. 'none')."
+
+#: minios-cmd:61
+msgid "Boot Menu Options:"
+msgstr "Bootmenü-Optionen:"
+
+#: minios-cmd:62
+msgid ""
+"Specify the boot menu language ('multilang' for language selection or "
+"specific language code like 'ru_RU')."
+msgstr ""
+"Geben Sie die Sprache des Bootmenüs an ('multilang' für Sprachauswahl oder "
+"spezifischen Sprachcode wie 'ru_RU')."
+
+#: minios-cmd:73
+msgid "Boot Menu Settings:"
+msgstr "Bootmenü-Einstellungen:"
+
+#: minios-cmd:99
+msgid "8. Create a system image with Russian boot menu language:"
+msgstr ""
+"8. Erstellen Sie ein Systemabbild mit russischer Bootmenü-Sprache:"

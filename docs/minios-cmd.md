@@ -53,7 +53,6 @@ These options **must be provided** unless a configuration file is used:
 
 #### Kernel Options
 - `-kf, --kernel-flavour NAME`: Specify the kernel flavour (e.g., 'none').
-- `-bpo, --kernel-backports`: Enable the use of the Linux kernel from backports.
 - `-aufs, --kernel-aufs`: Enable AUFS support in the kernel.
 - `-dkms, --kernel-build-dkms`: Enable compilation of additional drivers during kernel installation.
 
@@ -63,6 +62,9 @@ These options **must be provided** unless a configuration file is used:
 - `-kl, --keep-locales`: Keep all available locales.
 - `-tz, --timezone NAME`: Specify the timezone (e.g., 'Etc/UTC').
 
+#### Boot Menu Options
+- `-mln, --menu-language NAME`: Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').
+
 ---
 
 ### Default Settings
@@ -70,9 +72,12 @@ These options **must be provided** unless a configuration file is used:
 #### Kernel Settings
 - **KERNEL_FLAVOUR:** "none"
 
-#### Locale & Timezone Settings  
+#### Locale & Timezone Settings
 - **LOCALE:** "en_US"
 - **LIVE_TIMEZONE:** "Etc/UTC"
+
+#### Boot Menu Settings
+- **MENU_LANG:** "multilang"
 
 ---
 
@@ -119,13 +124,6 @@ Create a system image for 32-bit architecture:
 minios-cmd -d buster -a i386 -de xfce -pv standard
 ```
 
-#### Kernel Backports
-Enable the kernel from backports:
-
-```bash
-minios-cmd -d bookworm -a amd64 -de xfce -pv standard -bpo
-```
-
 #### Ubuntu Distribution
 Create a system image with Ubuntu Jammy:
 
@@ -138,6 +136,13 @@ Enable multilingual support (generates locales for English, Spanish, German, Fre
 
 ```bash
 minios-cmd -d trixie -a amd64 -de xfce -pv standard -ml
+```
+
+#### Boot Menu Language
+Create a system image with Russian boot menu language:
+
+```bash
+minios-cmd -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU
 ```
 
 ---
