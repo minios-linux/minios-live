@@ -71,6 +71,10 @@ if [ "$DISTRIBUTION" = "bionic" ]; then
     rm /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
 fi
 
+if { [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "bionic" ] || [ "$DISTRIBUTION" = "focal" ]; } && pkg_is_installed "pulseaudio"; then
+    sed -i 's|^onclick=.*|onclick=pavucontrol|' /etc/skel/.config/volumeicon/volumeicon
+fi
+
 if [ -f "/usr/share/applications/xfce4-clipman-settings.desktop" ]; then
     sed -i "15i Name[ru]=Настройки менеджера буфера обмена" /usr/share/applications/xfce4-clipman-settings.desktop
     sed -i "29i Comment[ru]=Настройте свой буфер обмена" /usr/share/applications/xfce4-clipman-settings.desktop
