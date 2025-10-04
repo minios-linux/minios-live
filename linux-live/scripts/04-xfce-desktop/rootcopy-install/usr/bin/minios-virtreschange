@@ -1,16 +1,12 @@
 #!/bin/bash
 
-LOGDIR="$HOME/.log"
-LOGFILE="$LOGDIR/minios-virtreschange.log"
+# Marker file to ensure script runs only once
+MARKER_FILE="$HOME/.minios-virtreschange.done"
 
-mkdir -p $LOGDIR
-
-# Function to log messages with date and time
-log_message() {
-    local MESSAGE="$1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $MESSAGE" >>$LOGFILE
-    echo "$MESSAGE"
-}
+# Exit if already executed
+if [[ -f "$MARKER_FILE" ]]; then
+    exit 0
+fi
 
 # Function to check if running in a virtual environment
 is_virtual() {
@@ -62,24 +58,17 @@ get_resolution() {
 DESIRED_RESOLUTION=$(get_resolution)
 if [[ -z "$DESIRED_RESOLUTION" ]]; then
     DESIRED_RESOLUTION="1280x800"
-    log_message "No virtual resolution specified, using default resolution: $DESIRED_RESOLUTION"
 fi
 
 # Check if the novirtres parameter is set
-if grep -q 'novirtres' /proc/cmdline; then
-    log_message "Changing the virtual resolution is disabled by a kernel parameter."
-else
+if ! grep -q 'novirtres' /proc/cmdline; then
     # Check if running in a virtual environment and if guest utilities are active
-    if is_virtual; then
-        if guest_utils_active; then
-            log_message "Guest utilities are active. No changes made to screen size."
-        else
-            # Switch to the desired screen size
-            OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
-            xrandr --output "$OUTPUT" --mode "$DESIRED_RESOLUTION" -s "$DESIRED_RESOLUTION"
-            log_message "Running in a virtual environment without guest utilities. Screen size set to $DESIRED_RESOLUTION."
-        fi
-    else
-        log_message "Not running in a virtual environment. No changes made to screen size."
+    if is_virtual && ! guest_utils_active; then
+        # Switch to the desired screen size
+        OUTPUT=$(xrandr 2>/dev/null | grep -iv disconnected | grep -i 'connected' | head -n 1 | cut -d " " -f 1)
+        xrandr --output "$OUTPUT" --mode "$DESIRED_RESOLUTION" -s "$DESIRED_RESOLUTION"
     fi
 fi
+
+# Create marker file to prevent future executions
+touch "$MARKER_FILE"
