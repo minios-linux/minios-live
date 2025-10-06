@@ -152,9 +152,28 @@ installkernel() {
     instmods sr_mod sd_mod scsi_mod sg
     instmods =drivers/ata =drivers/nvme =drivers/mmc
     
-    # Virtualization
-    instmods =drivers/virtio =drivers/scsi/virtio_scsi
-    instmods vmw_pvscsi hv_storvsc
+    # Hyper-V
+    instmods hv_storvsc
+    
+    # Cloud/VM support
+    if [ "$MINIOS_CLOUD" = "true" ]; then
+        instmods virtio virtio_mmio virtio_pci virtio_ring
+        instmods =drivers/virtio
+        instmods virtio_blk virtio_scsi
+        instmods vmw_pvscsi
+    fi
+    
+    # Network support
+    if [ "$MINIOS_NETWORK" = "true" ]; then
+        instmods =drivers/net/ethernet
+        instmods =drivers/net/phy
+        
+        # Cloud network drivers
+        if [ "$MINIOS_CLOUD" = "true" ]; then
+            instmods =drivers/net/vmxnet3
+            instmods virtio_net
+        fi
+    fi
     
     # DKMS modules
     instmods ntfs3
