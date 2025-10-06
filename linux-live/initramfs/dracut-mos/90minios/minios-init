@@ -1,0 +1,92 @@
+#!/bin/bash
+# MiniOS initialization script for dracut
+
+. /lib/livekitlib
+
+LIVEKITNAME="minios"
+BEXT="sb"
+MEMORY=/lib/live/mount
+CHANGES=$MEMORY/changes
+DATAMNT=$MEMORY/medium
+BUNDLES=$MEMORY/bundles
+OVERLAY=$MEMORY/overlay
+
+header -t "MiniOS" -s "Fast. Simple. Reliable."
+header -u "https://minios.dev"
+
+mkdir -p $MEMORY
+echo "0" >/proc/sys/kernel/printk 2>/dev/null || true
+mount -n -o remount,rw rootfs / 2>/dev/null || true
+ln -sf /proc/mounts /etc/mtab 2>/dev/null || true
+
+RAM=$(free -m | grep -i "^mem" | awk '{print $2}')
+SWAP=$(free -m | grep -i "^swap" | awk '{print $2}')
+[ -z "$SWAP" ] && SWAP=0
+SIZE="$(expr \( $RAM + $SWAP \) \* 70 / $RAM)%"
+mount -t tmpfs -o "size=$SIZE" tmpfs $MEMORY
+
+init_devs
+init_union_modules
+init_zram
+init_blkid_cache
+
+DATA="$(find_data 45 "$DATAMNT")"
+check_data_found "$DATA"
+DATA="$(copy_to_ram "$DATA" "$CHANGES")"
+persistent_changes "$DATA" "$CHANGES"
+setup_running_kernel "$DATA"
+mount_bundles "$DATA" "$BUNDLES"
+
+NEWROOT=${NEWROOT:-/sysroot}
+UNION=$NEWROOT
+mkdir -p "$UNION"
+
+# Determine which union filesystem to use
+UNION_TYPE=$(get_union_fs)
+UNION_PARAM=$(cmdline_value union)
+
+if [ "$UNION_TYPE" = "aufs" ]; then
+    echo_white_star
+    echo "Setting up union using aufs"
+    [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "aufs" ] && echo "(forced by union=$UNION_PARAM parameter)"
+    
+    # Create empty aufs union with changes directory
+    mount -t aufs -o xino="/.xino",trunc_xino,br="$CHANGES" aufs "$UNION"
+    
+    # Append all bundles to aufs union
+    echo_white_star
+    echo "Adding bundles to union"
+    find "$BUNDLES" -mindepth 1 -maxdepth 1 | sort | while read BUNDLE; do
+        mount -o remount,add:1:"$BUNDLE=rr+wh" aufs "$UNION"
+    done
+else
+    echo_white_star
+    echo "Setting up union using overlayfs"
+    [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "overlayfs" ] && echo "(forced by union=$UNION_PARAM parameter)"
+    
+    # For overlayfs, we need separate changes and workdir subdirectories
+    mkdir -p "$CHANGES/changes" "$CHANGES/workdir"
+    
+    LOWER_DIRS=""
+    for BUNDLE in $(find "$BUNDLES" -mindepth 1 -maxdepth 1 | sort -r); do
+        if [ -n "$LOWER_DIRS" ]; then
+            LOWER_DIRS="$BUNDLE:$LOWER_DIRS"
+        else
+            LOWER_DIRS="$BUNDLE"
+        fi
+    done
+    
+    LIBMOUNT_FORCE_MOUNT2=always mount -t overlay \
+        -o redirect_dir=on,metacopy=off,index=on,lowerdir=${LOWER_DIRS},upperdir=$CHANGES/changes,workdir=$CHANGES/workdir \
+        overlay "$UNION"
+fi
+
+copy_rootcopy_content "$DATA" "$UNION"
+minios_boot "$DATA" "$UNION"	
+fstab_create "$UNION" "$DATAMNT"
+user_preinit "$DATA" "$UNION"
+
+header -t "Initramfs done, starting MiniOS"
+
+mkdir -p "$UNION/proc" "$UNION/sys" "$UNION/dev" "$UNION$MEMORY"
+mount --move "$MEMORY" "$UNION$MEMORY" || mount --bind "$MEMORY" "$UNION$MEMORY"
