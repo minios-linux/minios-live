@@ -21,29 +21,17 @@ case "$INITRAMFS_BUILDER" in
             echo -e "   ${YELLOW}INITRAMFS_BUILDER=dracut${ENDCOLOR}"
         fi
 
-        # Install MiniOS dracut module to system dracut modules directory
-        DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
-        if [ -d "$DRACUT_MODULES_DIR" ]; then
-            rm -rf "$DRACUT_MODULES_DIR/90minios" "$DRACUT_MODULES_DIR/99minios-cleanup"
-            cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/90minios" "$DRACUT_MODULES_DIR/"
-            cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/99minios-cleanup" "$DRACUT_MODULES_DIR/"
-            chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
-            chmod 755 "$DRACUT_MODULES_DIR/99minios-cleanup"/*.sh
+        # Check if mkdracut is available (from minios-dracut package)
+        if ! command -v mkdracut >/dev/null 2>&1; then
+            echo "E: mkdracut not found. Please install minios-dracut package." >&2
+            exit 1
         fi
 
-        # Copy livekitlib to /lib so dracut module can find it
-        if [ -f "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" ]; then
-            cp "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" /lib/livekitlib
-            chmod 644 /lib/livekitlib
-        fi
-
-        cd /$BUILD_SCRIPTS/initramfs/dracut-mos
-        chmod 755 ./mkdracut
-
+        # Build initramfs with mkdracut
         if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL"
+            run_with_spinner "Building dracut initramfs image" mkdracut -k "$KERNEL"
         else
-            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -n -c
+            run_with_spinner "Building dracut initramfs image" mkdracut -k "$KERNEL" -n -c
         fi
 
         # Check if initramfs was created successfully
