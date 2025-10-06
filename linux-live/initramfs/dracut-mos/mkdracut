@@ -1,6 +1,5 @@
 #!/bin/bash
 # Build dracut-based initramfs for MiniOS
-# This script is an alternative to mkinitrfs
 
 set -euo pipefail
 
@@ -31,7 +30,7 @@ NETWORK="false"
 CLOUD="false"
 DEBUG="false"
 DRACUT_MODULES="bash systemd systemd-initrd kernel-modules kernel-modules-extra rootfs-block base fs-lib shutdown"
-DRACUT_ADD_MODULES="minios"
+DRACUT_ADD_MODULES="minios minios-cleanup"
 DRACUT_OMIT_MODULES=""
 COMPRESS="zstd"
 
@@ -48,7 +47,9 @@ while [[ $# -gt 0 ]]; do
         ;;
     -n | --network)
         NETWORK="true"
-        DRACUT_ADD_MODULES="$DRACUT_ADD_MODULES network network-manager"
+        # Network is needed for HTTP boot (mount.httpfs2)
+        # Requires dracut-network package
+        DRACUT_ADD_MODULES="$DRACUT_ADD_MODULES network"
         shift
         ;;
     -c | --cloud)
@@ -97,7 +98,7 @@ if [ ! -d "/lib/modules/$KERNEL" ]; then
     exit 1
 fi
 
-# Build list of available filesystem drivers
+# Build filesystem driver list for --add-drivers
 AVAILABLE_DRIVERS=""
 REQUIRED_DRIVERS="squashfs overlay loop zram ext4 vfat"
 OPTIONAL_DRIVERS="aufs ntfs ntfs3 exfat"
@@ -107,6 +108,10 @@ for driver in $REQUIRED_DRIVERS $OPTIONAL_DRIVERS; do
         AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS $driver"
     fi
 done
+
+# Add VM drivers
+AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS virtio virtio_pci virtio_mmio virtio_ring"
+AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS virtio_blk virtio_scsi vmw_pvscsi hv_storvsc"
 
 # Find dracut.conf
 DRACUT_CONF="$(dirname "$0")/dracut.conf"
