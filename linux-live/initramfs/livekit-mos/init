@@ -2,10 +2,6 @@
 # Initial script for Linux Live Kit
 # Author: Tomas M <http://www.linux-live.org/>
 
-#exec 2>/var/log/init.trace
-#PS4='${LINENO}: '
-#set -xv
-
 export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
 
 LIVEKITNAME="minios"
@@ -28,9 +24,12 @@ init_proc_sysfs
 
 debug_start
 debug_shell
+
 # load some modules manually first, then modprobe everything we have
 init_devs
 init_union_modules
+
+# setup dynamic RAM compression using ZRAM if available
 init_zram
 
 # modprobe all devices excluding network drivers
@@ -43,33 +42,41 @@ init_blkid_cache
 DATA="$(find_data 45 "$DATAMNT")"
 check_data_found "$DATA"
 debug_shell
+
 # copy to RAM if needed
 DATA="$(copy_to_ram "$DATA" "$CHANGES")"
 debug_shell
+
 # setup persistent changes, if possible
 persistent_changes "$DATA" "$CHANGES"
 debug_shell
+
 # setup running kernel files
 setup_running_kernel "$DATA"
 debug_shell
+
 # mount bundles
 mount_bundles "$DATA" "$BUNDLES"
 debug_shell
+
 # init aufs union, or setup overlayfs union
 init_union "$CHANGES" "$UNION" "$BUNDLES"
 
 # add data to aufs union
 union_append_bundles "$BUNDLES" "$UNION"
 debug_shell
+
 # rootcopy
 copy_rootcopy_content "$DATA" "$UNION"
 
 # MiniOS setup
 minios_boot "$DATA" "$UNION"
 debug_shell
+
 # create fstab
 fstab_create "$UNION" "$DATAMNT"
 debug_shell
+
 # run user custom preinit
 user_preinit "$DATA" "$UNION"
 
