@@ -10,24 +10,70 @@ KERNEL="${KERNEL:-$(file /boot/vmlinuz-* | grep -oP 'version \K[^\s]+')}"
 
 console_colors
 
-# build initramfs image
-if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-	echo -e "   ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
-fi
+# Determine which initramfs builder to use
+INITRAMFS_BUILDER="${INITRAMFS_BUILDER:-livekit}"
 
-cd /$BUILD_SCRIPTS/initramfs/livekit-mos
-chmod 755 ./mkinitrfs
+case "$INITRAMFS_BUILDER" in
+    dracut)
+        # Build initramfs using dracut
+        if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+            echo -e "   ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
+            echo -e "   ${YELLOW}INITRAMFS_BUILDER=dracut${ENDCOLOR}"
+        fi
 
-TMPFILE=$(mktemp)
-if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE"
-else
-	run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE"
-fi
+        # Install MiniOS dracut module to system dracut modules directory
+        DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
+        if [ -d "$DRACUT_MODULES_DIR" ]; then
+            rm -rf "$DRACUT_MODULES_DIR/90minios"
+            cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/90minios" "$DRACUT_MODULES_DIR/"
+            chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
+        fi
 
-INITRAMFS=$(tail -n 1 "$TMPFILE" | xargs)
-rm "$TMPFILE"
+        # Copy livekitlib to /lib so dracut module can find it
+        if [ -f "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" ]; then
+            cp "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" /lib/livekitlib
+            chmod 644 /lib/livekitlib
+        fi
 
-if [ -n "$INITRAMFS" ]; then
-	mv "$INITRAMFS" /boot/initrfs.img
-fi
+        cd /$BUILD_SCRIPTS/initramfs/dracut-mos
+        chmod 755 ./mkdracut
+
+        if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
+            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL"
+        else
+            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -n -c
+        fi
+
+        # Check if initramfs was created successfully
+        if [ ! -f /boot/initrfs.img ]; then
+            echo "E: Failed to create initramfs" >&2
+            exit 1
+        fi
+        ;;
+
+    livekit|*)
+        # Build initramfs using livekit (default)
+        if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+            echo -e "   ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
+            echo -e "   ${YELLOW}INITRAMFS_BUILDER=livekit${ENDCOLOR}"
+        fi
+
+        cd /$BUILD_SCRIPTS/initramfs/livekit-mos
+        chmod 755 ./mkinitrfs
+
+        TMPFILE=$(mktemp)
+        if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
+            run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE"
+        else
+            run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE"
+        fi
+
+        INITRAMFS=$(tail -n 1 "$TMPFILE" | xargs)
+        rm "$TMPFILE"
+
+        if [ -n "$INITRAMFS" ]; then
+            mv "$INITRAMFS" /boot/initrfs.img
+        fi
+        ;;
+esac
+
