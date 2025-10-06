@@ -844,7 +844,10 @@ find_data() {
       DATA="$(find_data_try "$2" "$FROM")"
       if [ "$DATA" != "" ]; then
          echo "" >&2 >/dev/tty1
-         echo "* Found on $(mounted_device "$2")" >&2 >/dev/tty1
+         # Use df to get device for DATA path, fallback to mounted_device for mount point
+         DEVICE="$(df "$DATA" 2>/dev/null | tail -n 1 | awk '{print $1}')"
+         [ -z "$DEVICE" ] && DEVICE="$(mounted_device "$2")"
+         echo "* Found on $DEVICE" >&2 >/dev/tty1
          echo "$DATA"
          return
       fi
