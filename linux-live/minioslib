@@ -98,10 +98,13 @@ common_variables() {
         ;;
     esac
 
+    # Detect initramfs type and set BUNDLES path
     if [ -d /run/initramfs/memory/bundles ]; then
+        # livekit initramfs
         BUNDLES=/run/initramfs/memory/bundles
-    elif [ -d /memory/bundles ]; then
-        BUNDLES=/memory/bundles
+    elif [ -d /lib/live/mount/bundles ]; then
+        # dracut initramfs
+        BUNDLES=/lib/live/mount/bundles
     fi
 
     if [[ -n "${LOCALES[$LOCALE]}" ]]; then
