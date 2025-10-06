@@ -1,0 +1,91 @@
+#!/bin/sh
+# MiniOS initialization script for dracut
+
+export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
+
+LIVEKITNAME="minios"
+BEXT="sb"
+
+. /lib/livekitlib
+
+MEMORY=/lib/live/mount
+CHANGES=$MEMORY/changes
+UNION=/sysroot
+DATAMNT=$MEMORY/medium
+BUNDLES=$MEMORY/bundles
+
+header -t "MiniOS" -s "Fast. Simple. Reliable."
+header -u "https://minios.dev"
+
+mkdir -p $MEMORY
+echo "0" >/proc/sys/kernel/printk 2>/dev/null || true
+mount -n -o remount,rw rootfs / 2>/dev/null || true
+ln -sf /proc/mounts /etc/mtab 2>/dev/null || true
+
+mount -t tmpfs tmpfs $MEMORY
+
+debug_start
+debug_shell
+
+# setup dynamic RAM compression using ZRAM if available
+init_zram
+
+# initialize blkid cache file
+init_blkid_cache
+
+# find data dir with filesystem bundles
+DATA="$(find_data 45 "$DATAMNT")"
+check_data_found "$DATA"
+debug_shell
+
+# copy to RAM if needed
+DATA="$(copy_to_ram "$DATA" "$CHANGES")"
+debug_shell
+
+# setup persistent changes, if possible
+persistent_changes "$DATA" "$CHANGES"
+debug_shell
+
+# setup running kernel files
+setup_running_kernel "$DATA"
+debug_shell
+
+# mount bundles
+mount_bundles "$DATA" "$BUNDLES"
+debug_shell
+
+# init aufs union, or setup overlayfs union
+init_union "$CHANGES" "$UNION" "$BUNDLES"
+
+# add data to aufs union
+union_append_bundles "$BUNDLES" "$UNION"
+debug_shell
+
+# rootcopy
+copy_rootcopy_content "$DATA" "$UNION"
+
+# MiniOS setup
+minios_boot "$DATA" "$UNION"
+debug_shell
+
+# create fstab
+fstab_create "$UNION" "$DATAMNT"
+debug_shell
+
+# run user custom preinit
+user_preinit "$DATA" "$UNION"
+
+header -t "Initramfs done, starting MiniOS"
+
+# show final timing before starting MiniOS
+if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
+    FINAL_TIME=$(awk '{print $1}' /proc/uptime)
+    if [ -n "$TIMING_LAST_TIME" ]; then
+        TOTAL_TIME=$(awk "BEGIN {printf \"%.2f\", $FINAL_TIME}")
+        echo "  initramfs complete: ${TOTAL_TIME}s total" >&2
+    fi
+fi
+
+# prepare directories for dracut's switch_root
+mkdir -p "$UNION/proc" "$UNION/sys" "$UNION/dev" "$UNION$MEMORY"
+mount --move "$MEMORY" "$UNION$MEMORY" || mount --bind "$MEMORY" "$UNION$MEMORY"
