@@ -78,10 +78,7 @@ install() {
     fi
 
     # Install minios-boot if available
-    if [ -f "$LIVEKIT_BIN/minios-boot.sh" ]; then
-        inst_simple "$LIVEKIT_BIN/minios-boot.sh" "/bin/minios-boot"
-        chmod +x "$initdir/bin/minios-boot"
-    elif [ -x "$LIVEKIT_BIN/minios-boot" ]; then
+    if [ -x "$LIVEKIT_BIN/minios-boot" ]; then
         inst_simple "$LIVEKIT_BIN/minios-boot" "/bin/minios-boot"
     fi
 
