@@ -43,7 +43,7 @@ case "$INITRAMFS_BUILDER" in
         if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
             run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL"
         else
-            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -c
+            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -n -c
         fi
 
         # Check if initramfs was created successfully
