@@ -24,9 +24,11 @@ case "$INITRAMFS_BUILDER" in
         # Install MiniOS dracut module to system dracut modules directory
         DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
         if [ -d "$DRACUT_MODULES_DIR" ]; then
-            rm -rf "$DRACUT_MODULES_DIR/90minios"
+            rm -rf "$DRACUT_MODULES_DIR/90minios" "$DRACUT_MODULES_DIR/99minios-cleanup"
             cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/90minios" "$DRACUT_MODULES_DIR/"
+            cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/99minios-cleanup" "$DRACUT_MODULES_DIR/"
             chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
+            chmod 755 "$DRACUT_MODULES_DIR/99minios-cleanup"/*.sh
         fi
 
         # Copy livekitlib to /lib so dracut module can find it
@@ -41,7 +43,7 @@ case "$INITRAMFS_BUILDER" in
         if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
             run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL"
         else
-            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -n -c
+            run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -c
         fi
 
         # Check if initramfs was created successfully
