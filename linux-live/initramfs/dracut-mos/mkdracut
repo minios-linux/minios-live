@@ -47,17 +47,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     -n | --network)
         NETWORK="true"
-        # Network is needed for HTTP boot (mount.httpfs2)
-        # Requires dracut-network package
-        DRACUT_ADD_MODULES="$DRACUT_ADD_MODULES network"
         shift
         ;;
     -c | --cloud)
         CLOUD="true"
-        # Only add cloud-init if the module exists
-        if dracut --list-modules 2>/dev/null | grep -q '^cloud-init$'; then
-            DRACUT_ADD_MODULES="$DRACUT_ADD_MODULES cloud-init"
-        fi
         shift
         ;;
     -d | --debug)
@@ -109,9 +102,9 @@ for driver in $REQUIRED_DRIVERS $OPTIONAL_DRIVERS; do
     fi
 done
 
-# Add VM drivers
-AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS virtio virtio_pci virtio_mmio virtio_ring"
-AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS virtio_blk virtio_scsi vmw_pvscsi hv_storvsc"
+# Export flags for use in installkernel()
+export MINIOS_CLOUD="$CLOUD"
+export MINIOS_NETWORK="$NETWORK"
 
 # Find dracut.conf
 DRACUT_CONF="$(dirname "$0")/dracut.conf"
