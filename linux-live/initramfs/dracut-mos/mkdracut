@@ -106,8 +106,8 @@ export MINIOS_NETWORK="$NETWORK"
 DRACUT_CMD=(
     dracut
     --force
+    --conf "$(dirname "$0")/90-minios.conf"
     --kver "$KERNEL"
-    --add "minios minios-cleanup"
     --add-drivers "$AVAILABLE_DRIVERS"
     --strip
     --hardlink
