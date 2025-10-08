@@ -89,3 +89,45 @@ fi
 # prepare directories for dracut's switch_root
 mkdir -p "$UNION/proc" "$UNION/sys" "$UNION/dev" "$UNION$MEMORY"
 mount --move "$MEMORY" "$UNION$MEMORY" || mount --bind "$MEMORY" "$UNION$MEMORY"
+
+# Prepare shutdown initramfs (based on uird's move_run function)
+# This must be done BEFORE switch_root to preserve initramfs state
+if ! mountpoint -q "$UNION/run"; then
+    # Preserve any existing /run in the new root
+    if [ -d "$UNION/run" ] && [ "$(ls -A $UNION/run 2>/dev/null)" ]; then
+        mv "$UNION/run" "$UNION/run_" 2>/dev/null || true
+    fi
+    
+    # Create /run in new root
+    mkdir -p "$UNION/run"
+    
+    # Move initramfs /run to new root /run (preserving all runtime state)
+    mount -o move /run "$UNION/run" 2>/dev/null || mount --bind /run "$UNION/run"
+    mount -o remount,exec "$UNION/run" 2>/dev/null || true
+    
+    # Restore any files from original /run
+    if [ -d "$UNION/run_" ]; then
+        cp -a "$UNION/run_"/* "$UNION/run/" 2>/dev/null || true
+        rmdir "$UNION/run_" 2>/dev/null || true
+    fi
+fi
+
+# Create /run/initramfs structure for dracut shutdown
+mkdir -p "$UNION/run/initramfs"
+
+# Copy entire initramfs to /run/initramfs for shutdown
+for dir in bin sbin lib lib64 etc usr; do
+    if [ -d "/$dir" ] && [ "$(ls -A /$dir 2>/dev/null)" ]; then
+        cp -a "/$dir" "$UNION/run/initramfs/" 2>/dev/null || true
+    fi
+done
+
+# Copy shutdown script if present
+if [ -f "/shutdown" ]; then
+    cp -a /shutdown "$UNION/run/initramfs/" 2>/dev/null || true
+    chmod +x "$UNION/run/initramfs/shutdown" 2>/dev/null || true
+fi
+
+# Mark that we need shutdown processing
+touch "$UNION/run/initramfs/.need_shutdown"
+
