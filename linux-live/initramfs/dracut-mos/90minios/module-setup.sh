@@ -14,7 +14,7 @@ depends() {
 install() {
     inst_hook cmdline 30 "$moddir/parse-minios.sh"
     inst_hook mount 30 "$moddir/minios-mount-root.sh"
-    inst_hook shutdown 30 "$moddir/minios-shutdown.sh"
+    inst_hook shutdown 20 "$moddir/minios-shutdown.sh"
     inst_script "$moddir/minios-init" "/minios-init"
 
     # Find static binaries directory - check multiple locations
