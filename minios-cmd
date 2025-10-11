@@ -58,6 +58,9 @@ help() {
     echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}              $(gettext "Keep all available locales.")"
     echo -e "  ${LIGHTGREEN}-tz, --timezone${ENDCOLOR} NAME              $(gettext "Specify the timezone (e.g., 'Etc/UTC').")"
     echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Boot Loader Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-ib, --initramfs-builder${ENDCOLOR} NAME    $(gettext "Specify the initramfs builder ('livekit' or 'dracut').")"
+    echo ""
     echo -e "${LIGHTBLUE}$(gettext "Boot Menu Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-mln, --menu-language${ENDCOLOR} NAME      $(gettext "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').")"
     echo ""
@@ -69,6 +72,9 @@ help() {
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}LOCALE=${ENDCOLOR} \"en_US\""
     echo -e "  ${LIGHTGREEN}LIVE_TIMEZONE=${ENDCOLOR} \"Etc/UTC\""
+    echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Boot Loader Settings:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}INITRAMFS_BUILDER=${ENDCOLOR} \"dracut\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Boot Menu Settings:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}MENU_LANG=${ENDCOLOR} \"multilang\""
@@ -98,6 +104,9 @@ help() {
     echo ""
     echo -e "  $(gettext "8. Create a system image with Russian boot menu language:")"
     echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU"
+    echo ""
+    echo -e "  $(gettext "9. Create a system image with livekit initramfs builder:")"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de flux -pv standard -ib livekit"
     echo ""
     echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
     exit 0
@@ -176,6 +185,10 @@ while (("$#")); do
         LIVE_TIMEZONE="$2"
         shift 2
         ;;
+    -ib | --initramfs-builder)
+        INITRAMFS_BUILDER="$2"
+        shift 2
+        ;;
     -mln | --menu-language)
         MENU_LANG="$2"
         shift 2
@@ -219,6 +232,7 @@ done
 : "${MULTILINGUAL:=false}"
 : "${KEEP_LOCALES:=false}"
 : "${LIVE_TIMEZONE:="Etc/UTC"}"
+: "${INITRAMFS_BUILDER:="dracut"}"
 : "${MENU_LANG:="multilang"}"
 
 # Check if mandatory parameters are set ONLY if config file is NOT provided
