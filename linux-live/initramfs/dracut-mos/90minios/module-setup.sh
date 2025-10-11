@@ -99,7 +99,7 @@ install() {
         fi
     done
 
-    inst_dir /lib/live/mount/{changes,medium,bundles,overlay}
+    inst_dir /memory/{changes,data,bundles,overlay}
 
     # Create busybox symlinks
     "${initdir}/bin/busybox" | grep , | grep -v Copyright | tr "," " " | while read LINE; do
@@ -112,6 +112,15 @@ install() {
     # Use busybox ash as /bin/sh
     ln -sf busybox "${initdir}/bin/sh"
     ln -sf busybox "${initdir}/bin/ash"
+
+    # Wrap systemd-udevd to suppress version message
+    if [ -f /usr/lib/systemd/systemd-udevd ]; then
+        # Install real udevd binary with .real suffix
+        inst_simple /usr/lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd.real
+        # Install wrapper script that suppresses stderr
+        inst_simple "$moddir/systemd-udevd-wrapper" /usr/lib/systemd/systemd-udevd
+        chmod 755 "${initdir}/usr/lib/systemd/systemd-udevd"
+    fi
 
     return 0
 }
