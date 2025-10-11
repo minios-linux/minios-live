@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper for systemd-udevd to suppress version message
+# The version message goes to stderr, so we redirect it to /dev/null
+/usr/lib/systemd/systemd-udevd.real "$@" 2>/dev/null
