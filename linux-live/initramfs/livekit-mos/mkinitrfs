@@ -122,6 +122,55 @@ if [[ "$EUID" -ne 0 ]]; then
     exit 1
 fi
 
+# Cleanup function for trap - handles both error and normal exit
+cleanup_on_error() {
+    local exit_code=$?
+
+    if [ $exit_code -ne 0 ]; then
+        # Error exit - move files to permanent location for debugging
+        echo "" >&2
+        echo "E: Build failed with exit code $exit_code" >&2
+        if [ -n "${INITRAMFS:-}" ] && [ -d "$INITRAMFS" ]; then
+            local INITRAMFS_BASE="$(basename "$INITRAMFS")"
+            local LOG_BASE="$(basename "$LOG_FILE")"
+
+            # Move to root for persistence
+            cd "$INITRAMFS/.."
+            mv "$INITRAMFS" / 2>/dev/null || true
+            mv "$LOG_FILE" / 2>/dev/null || true
+
+            echo "E: Preserved temporary files for debugging:" >&2
+            echo "   Initramfs tree: /$INITRAMFS_BASE" >&2
+            echo "   Build log: /$LOG_BASE" >&2
+            [ -f "/$LOG_BASE" ] && echo "" >&2 && echo "Last 20 lines of build log:" >&2 && tail -20 "/$LOG_BASE" >&2
+            echo "" >&2
+            echo "   To clean up manually: rm -rf /$INITRAMFS_BASE /$LOG_BASE" >&2
+        fi
+    else
+        # Normal exit - clean up or preserve based on DEBUG flag
+        if [ -n "${INITRAMFS:-}" ] && [ -d "$INITRAMFS" ]; then
+            if [ "${DEBUG:-false}" = "true" ]; then
+                # DEBUG mode - move files to root for inspection
+                local INITRAMFS_BASE="$(basename "$INITRAMFS")"
+                local LOG_BASE="$(basename "$LOG_FILE")"
+
+                cd "$INITRAMFS/.."
+                mv "$INITRAMFS" /
+                mv "$LOG_FILE" /
+                echo "Debug files preserved: /$INITRAMFS_BASE and /$LOG_BASE" >&2
+            else
+                # Normal mode - clean up temporary files
+                cd "$INITRAMFS/.."
+                rm -rf "$INITRAMFS"
+                rm -f "$LOG_FILE"
+            fi
+        fi
+    fi
+}
+
+# Set trap to preserve debug files on error
+trap cleanup_on_error EXIT
+
 # copy file to initramfs tree, including
 # all library dependencies (as shown by ldd)
 # $1 = file to copy (full path)
@@ -442,15 +491,3 @@ ln -s ../init "$INITRAMFS/bin/init"
 cd "$INITRAMFS"
 find . -print | cpio -o -H newc | $INITRD_COMPRESS $INITRD_COMPRESS_PARAMS >"$INITRAMFS.img"
 echo "$INITRAMFS.img"
-
-# Clean up temporary files unless debug mode is enabled
-if [ "$DEBUG" = "true" ]; then
-    cd "$INITRAMFS/.."
-    mv "$INITRAMFS" /
-    mv "$LOG_FILE" /
-    echo "Debug files preserved: /$INITRAMFS and /$LOG_FILE" >&2
-else
-    cd "$INITRAMFS/.."
-    rm -rf "$INITRAMFS"
-    rm -f "$LOG_FILE"
-fi
