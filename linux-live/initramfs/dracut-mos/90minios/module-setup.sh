@@ -17,7 +17,7 @@ install() {
     inst_hook shutdown 20 "$moddir/minios-shutdown.sh"
     inst_script "$moddir/minios-init" "/minios-init"
 
-    # Find static binaries directory - check multiple locations
+    # Set static binaries directory
     local STATIC_BIN=""
 
     if [ -d "${moddir}/../../../../../linux-live/initramfs/livekit-mos/bin" ]; then
@@ -26,7 +26,7 @@ install() {
 
     if [ -z "$STATIC_BIN" ] || [ ! -x "$STATIC_BIN/busybox" ]; then
         derror "CRITICAL: Static binaries directory not found!"
-        derror "Expected locations:"
+        derror "Expected location:"
         derror "  - livekit-mos/bin (standalone mode)"
         return 1
     fi
@@ -61,8 +61,8 @@ install() {
     if [ -z "$LIVEKITLIB_SRC" ] || [ ! -f "$LIVEKITLIB_SRC" ]; then
         derror "CRITICAL: livekitlib not found!"
         derror "Expected locations:"
-        derror "  - livekit-mos/lib/livekitlib (standalone mode)"
-        derror "  - /lib/livekitlib (system)"
+        derror "  - livekit-mos/lib/livekitlib"
+        derror "  - /lib/livekitlib"
         return 1
     fi
 
