@@ -60,13 +60,11 @@ dracut)
             chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
             chmod 755 "$DRACUT_MODULES_DIR/99minios-cleanup"/*.sh
         fi
-        set -x
         # Copy livekitlib to /lib so dracut module can find it
         if [ -f "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" ]; then
             cp "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" /lib/livekitlib
             chmod 644 /lib/livekitlib
         fi
-        set +x
 
         cd /$BUILD_SCRIPTS/initramfs/dracut-mos
         chmod 755 ./mkdracut
