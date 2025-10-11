@@ -1,5 +1,5 @@
 #!/bin/sh
-# Initial script for Linux Live Kit
+# MiniOS initialization script
 # Author: Tomas M <http://www.linux-live.org/>
 # Author: crims0n <crims0n@minios.dev>
 
@@ -81,7 +81,7 @@ debug_shell
 # run user custom preinit
 user_preinit "$DATA" "$UNION"
 
-header -t "Live Kit done, starting MiniOS"
+header -t "Initramfs done, starting MiniOS"
 
 # show final timing before starting MiniOS
 if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
