@@ -1,5 +1,7 @@
 #!/bin/sh
 # MiniOS initialization script for dracut
+# Author: Tomas M <http://www.linux-live.org/>
+# Author: crims0n <crims0n@minios.dev>
 
 export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -8,10 +10,10 @@ BEXT="sb"
 
 . /lib/livekitlib
 
-MEMORY=/lib/live/mount
+MEMORY=/memory
 CHANGES=$MEMORY/changes
 UNION=/sysroot
-DATAMNT=$MEMORY/medium
+DATAMNT=$MEMORY/data
 BUNDLES=$MEMORY/bundles
 
 header -t "MiniOS" -s "Fast. Simple. Reliable."
@@ -27,8 +29,15 @@ mount -t tmpfs tmpfs $MEMORY
 debug_start
 debug_shell
 
+# load some modules manually first
+init_devs
+init_union_modules
+
 # setup dynamic RAM compression using ZRAM if available
 init_zram
+
+# modprobe all devices excluding network drivers
+#modprobe_everything -v /drivers/net/
 
 # initialize blkid cache file
 init_blkid_cache
@@ -86,48 +95,6 @@ if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
     fi
 fi
 
-# prepare directories for dracut's switch_root
-mkdir -p "$UNION/proc" "$UNION/sys" "$UNION/dev" "$UNION$MEMORY"
-mount --move "$MEMORY" "$UNION$MEMORY" || mount --bind "$MEMORY" "$UNION$MEMORY"
+prepare_shutdown_dracut "$UNION"
 
-# Prepare shutdown initramfs (based on uird's move_run function)
-# This must be done BEFORE switch_root to preserve initramfs state
-if ! mountpoint -q "$UNION/run"; then
-    # Preserve any existing /run in the new root
-    if [ -d "$UNION/run" ] && [ "$(ls -A $UNION/run 2>/dev/null)" ]; then
-        mv "$UNION/run" "$UNION/run_" 2>/dev/null || true
-    fi
-    
-    # Create /run in new root
-    mkdir -p "$UNION/run"
-    
-    # Move initramfs /run to new root /run (preserving all runtime state)
-    mount -o move /run "$UNION/run" 2>/dev/null || mount --bind /run "$UNION/run"
-    mount -o remount,exec "$UNION/run" 2>/dev/null || true
-    
-    # Restore any files from original /run
-    if [ -d "$UNION/run_" ]; then
-        cp -a "$UNION/run_"/* "$UNION/run/" 2>/dev/null || true
-        rmdir "$UNION/run_" 2>/dev/null || true
-    fi
-fi
-
-# Create /run/initramfs structure for dracut shutdown
-mkdir -p "$UNION/run/initramfs"
-
-# Copy entire initramfs to /run/initramfs for shutdown
-for dir in bin sbin lib lib64 etc usr; do
-    if [ -d "/$dir" ] && [ "$(ls -A /$dir 2>/dev/null)" ]; then
-        cp -a "/$dir" "$UNION/run/initramfs/" 2>/dev/null || true
-    fi
-done
-
-# Copy shutdown script if present
-if [ -f "/shutdown" ]; then
-    cp -a /shutdown "$UNION/run/initramfs/" 2>/dev/null || true
-    chmod +x "$UNION/run/initramfs/shutdown" 2>/dev/null || true
-fi
-
-# Mark that we need shutdown processing
-touch "$UNION/run/initramfs/.need_shutdown"
-
+# The union is ready - dracut will handle the final switch_root
