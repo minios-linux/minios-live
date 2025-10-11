@@ -10,10 +10,10 @@ With `minios-cmd`, you can customize various aspects of your MiniOS image, inclu
 
 - **Distribution:** Choose from Debian releases (`buster`, `bullseye`, `bookworm`, `trixie`) and Ubuntu releases (`jammy`, `noble`)
 - **Architecture:** Specify the target architecture (`amd64`, `i386` for older distributions)
-- **Desktop Environment:** 
+- **Desktop Environment:**
   - **Debian:** `xfce` (standard), `flux` (minimum), `lxqt` (bookworm/trixie only)
   - **Ubuntu:** `xfce` only
-- **Package Variant:** 
+- **Package Variant:**
   - **All Debian:** `standard` (xfce), `minimum` (flux)
   - **Bookworm/Trixie only:** `toolbox`, `ultra`
   - **Ubuntu:** `standard` only
@@ -46,7 +46,7 @@ minios-cmd [OPTIONS]
 These options **must be provided** unless a configuration file is used:
 
 - `-d, --distribution NAME`: Specify the distribution name (e.g., 'bookworm'). **REQUIRED**
-- `-a, --architecture NAME`: Specify the architecture (e.g., 'amd64'). **REQUIRED** 
+- `-a, --architecture NAME`: Specify the architecture (e.g., 'amd64'). **REQUIRED**
 - `-de, --desktop-environment NAME`: Specify the desktop environment (e.g., 'xfce'). **REQUIRED**
 - `-pv, --package-variant NAME`: Specify the package variant (e.g., 'standard'). **REQUIRED**
 - `-c, --compression-type NAME`: Specify the compression type (e.g., 'zstd').
