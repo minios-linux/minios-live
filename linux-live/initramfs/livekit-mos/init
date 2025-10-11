@@ -1,6 +1,7 @@
 #!/bin/sh
 # Initial script for Linux Live Kit
 # Author: Tomas M <http://www.linux-live.org/>
+# Author: crims0n <crims0n@minios.dev>
 
 export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -89,6 +90,17 @@ if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
         TOTAL_TIME=$(awk "BEGIN {printf \"%.2f\", $FINAL_TIME}")
         echo "  initramfs complete: ${TOTAL_TIME}s total" >&2
     fi
+fi
+
+if grep -q rd.break /proc/cmdline; then
+    echo
+    echo "#################################################################"
+    echo "# rd.break detected. Dropping to a shell.                       #"
+    echo "# MiniOS initramfs setup is complete.                           #"
+    echo "# Type 'exit' or press Ctrl+D to continue booting the system.   #"
+    echo "#################################################################"
+    echo
+    setsid sh -c 'exec sh < /dev/tty1 > /dev/tty1 2>&1'
 fi
 
 change_root "$UNION"
