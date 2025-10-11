@@ -90,6 +90,11 @@ These options **must be provided** unless a configuration file is used:
 **-tz**, **\-\-timezone** *NAME*
 :   Specify the timezone (e.g., 'Etc/UTC').
 
+## Boot Loader Options
+
+**-ib**, **\-\-initramfs-builder** *NAME*
+:   Specify the initramfs builder ('livekit' or 'dracut').
+
 ## Boot Menu Options
 
 **-mln**, **\-\-menu-language** *NAME*
@@ -105,6 +110,10 @@ These options **must be provided** unless a configuration file is used:
 
 **LOCALE**: "en_US"
 **LIVE_TIMEZONE**: "Etc/UTC"
+
+## Boot Loader Settings
+
+**INITRAMFS_BUILDER**: "dracut"
 
 ## Boot Menu Settings
 
@@ -147,6 +156,10 @@ Enable multilingual support (generates locales for English, Spanish, German, Fre
 Create a system image with Russian boot menu language:
 
     minios-cmd -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU
+
+Create a system image with livekit initramfs builder (smaller size):
+
+    minios-cmd -d bookworm -a amd64 -de flux -pv standard -ib livekit
 
 # GENERATING AND USING CONFIGURATION FILES
 

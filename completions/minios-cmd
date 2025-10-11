@@ -3,7 +3,7 @@ _minios_cmd() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD - 1]}"
-    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-flavour --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone -b -d -a -de -pv -c -kf -bpo -aufs -dkms -l -ml -kl -tz"
+    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-flavour --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone --initramfs-builder --menu-language -b -d -a -de -pv -c -kf -bpo -aufs -dkms -l -ml -kl -tz -ib -mln"
 
     if [[ ${cur} == -* ]]; then
         COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
@@ -49,6 +49,14 @@ _minios_cmd() {
     --timezone | -tz)
         local timezones="Etc/UTC Europe/Moscow Europe/London Europe/Berlin Europe/Paris Europe/Rome Europe/Madrid America/New_York America/Los_Angeles America/Sao_Paulo Asia/Tokyo"
         COMPREPLY=($(compgen -W "${timezones}" -- ${cur}))
+        ;;
+    --initramfs-builder | -ib)
+        local initramfs_builders="livekit dracut"
+        COMPREPLY=($(compgen -W "${initramfs_builders}" -- ${cur}))
+        ;;
+    --menu-language | -mln)
+        local menu_languages="multilang en_US ru_RU de_DE es_ES it_IT id_ID pt_BR pt_PT fr_FR"
+        COMPREPLY=($(compgen -W "${menu_languages}" -- ${cur}))
         ;;
     esac
 
