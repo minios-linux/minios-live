@@ -95,6 +95,6 @@ if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
     fi
 fi
 
-prepare_shutdown_dracut "$UNION"
+prepare_initramfs_dracut "$UNION"
 
 # The union is ready - dracut will handle the final switch_root
