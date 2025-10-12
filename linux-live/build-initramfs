@@ -21,54 +21,31 @@ dracut)
         echo -e "   ${YELLOW}INITRAMFS_BUILDER=dracut${ENDCOLOR}"
     fi
 
-    if [ "$MKDRACUT_SOURCE" = "system" ]; then
-        # Use system mkdracut from minios-dracut package
-        if ! command -v mkdracut >/dev/null 2>&1; then
-            echo "E: mkdracut not found. Please install minios-dracut package or set MKDRACUT_SOURCE=false." >&2
-            exit 1
-        fi
-        MKDRACUT_CMD="mkdracut"
-        if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-            echo -e "   ${YELLOW}Using system mkdracut${ENDCOLOR}"
-        fi
-    else
-        # Use built-in mkdracut from linux-live/initramfs/dracut-mos
-        # Remove minios-dracut package if installed to avoid conflicts
-        if dpkg -l minios-dracut 2>/dev/null | grep -q '^ii'; then
-            if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-                echo -e "   ${YELLOW}Removing minios-dracut package to use local version${ENDCOLOR}"
-            fi
-            apt-get remove -y minios-dracut
-        fi
+    # Install MiniOS dracut modules to temporary build environment
+    DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
+    if [ -d "$DRACUT_MODULES_DIR" ]; then
+        rm -rf "$DRACUT_MODULES_DIR/90minios" "$DRACUT_MODULES_DIR/99minios-cleanup"
+        cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/90minios" "$DRACUT_MODULES_DIR/"
+        cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/99minios-cleanup" "$DRACUT_MODULES_DIR/"
+        chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
+        chmod 755 "$DRACUT_MODULES_DIR/99minios-cleanup"/*.sh
+    fi
 
+    # Determine mkdracut location - prefer /run/initramfs if available
+    if [ -x "/run/initramfs/mkdracut" ]; then
+        MKDRACUT_CMD="/run/initramfs/mkdracut"
+        if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+            echo -e "   ${YELLOW}Using mkdracut from /run/initramfs${ENDCOLOR}"
+        fi
+    elif [ -f "/$BUILD_SCRIPTS/initramfs/dracut-mos/mkdracut" ]; then
+        MKDRACUT_CMD="/$BUILD_SCRIPTS/initramfs/dracut-mos/mkdracut"
+        chmod 755 "$MKDRACUT_CMD"
         if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
             echo -e "   ${YELLOW}Using built-in mkdracut from /$BUILD_SCRIPTS/initramfs/dracut-mos${ENDCOLOR}"
         fi
-
-        # Build initramfs using dracut
-        if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
-            echo -e "   ${YELLOW}KERNEL=${KERNEL}${ENDCOLOR}"
-            echo -e "   ${YELLOW}INITRAMFS_BUILDER=dracut${ENDCOLOR}"
-        fi
-
-        # Install MiniOS dracut module to system dracut modules directory
-        DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
-        if [ -d "$DRACUT_MODULES_DIR" ]; then
-            rm -rf "$DRACUT_MODULES_DIR/90minios" "$DRACUT_MODULES_DIR/99minios-cleanup"
-            cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/90minios" "$DRACUT_MODULES_DIR/"
-            cp -r "/$BUILD_SCRIPTS/initramfs/dracut-mos/99minios-cleanup" "$DRACUT_MODULES_DIR/"
-            chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
-            chmod 755 "$DRACUT_MODULES_DIR/99minios-cleanup"/*.sh
-        fi
-        # Copy livekitlib to /lib so dracut module can find it
-        if [ -f "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" ]; then
-            cp "/$BUILD_SCRIPTS/initramfs/livekit-mos/lib/livekitlib" /lib/livekitlib
-            chmod 644 /lib/livekitlib
-        fi
-
-        cd /$BUILD_SCRIPTS/initramfs/dracut-mos
-        chmod 755 ./mkdracut
-        MKDRACUT_CMD="./mkdracut"
+    else
+        echo "E: mkdracut not found" >&2
+        exit 1
     fi
 
     # Build initramfs with mkdracut

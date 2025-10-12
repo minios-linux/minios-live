@@ -15,9 +15,17 @@ install() {
     inst_hook cmdline 30 "$moddir/parse-minios.sh"
     inst_hook mount 30 "$moddir/minios-mount-root.sh"
     inst_hook shutdown 20 "$moddir/minios-shutdown.sh"
-    inst_script "$moddir/minios-init" "/minios-init"
 
-    # Set static binaries directory
+    # Install minios-init from local (standalone mode)
+    if [ -f "$moddir/minios-init" ]; then
+        inst_script "$moddir/minios-init" "/minios-init"
+        dinfo "*** Installed minios-init from local"
+    else
+        derror "CRITICAL: minios-init not found at $moddir/minios-init"
+        return 1
+    fi
+
+    # Set static binaries directory from local sources
     local STATIC_BIN=""
 
     if [ -d "${moddir}/../../../../../linux-live/initramfs/livekit-mos/bin" ]; then
@@ -26,12 +34,10 @@ install() {
 
     if [ -z "$STATIC_BIN" ] || [ ! -x "$STATIC_BIN/busybox" ]; then
         derror "CRITICAL: Static binaries directory not found!"
-        derror "Expected location:"
-        derror "  - livekit-mos/bin (standalone mode)"
         return 1
     fi
 
-    dinfo "*** Found static binaries at: $STATIC_BIN"
+    dinfo "*** Using static binaries from: $STATIC_BIN"
 
     # Install essential static binaries for initramfs
     inst_simple "$STATIC_BIN/busybox" "/bin/busybox"
@@ -49,20 +55,20 @@ install() {
     inst_simple "$STATIC_BIN/@mount.ntfs-3g" "/bin/@mount.ntfs-3g"
     inst_simple "$STATIC_BIN/@mount.dynfilefs" "/bin/@mount.dynfilefs"
 
-    # Find and install livekitlib
+    # Install minios-boot if available
+    if [ -x "$STATIC_BIN/minios-boot" ]; then
+        inst_simple "$STATIC_BIN/minios-boot" "/bin/minios-boot"
+    fi
+
+    # Find and install livekitlib from local sources
     local LIVEKITLIB_SRC=""
 
     if [ -f "${moddir}/../../../../../linux-live/initramfs/livekit-mos/lib/livekitlib" ]; then
         LIVEKITLIB_SRC="${moddir}/../../../../../linux-live/initramfs/livekit-mos/lib/livekitlib"
-    elif [ -f "/lib/livekitlib" ]; then
-        LIVEKITLIB_SRC="/lib/livekitlib"
     fi
 
     if [ -z "$LIVEKITLIB_SRC" ] || [ ! -f "$LIVEKITLIB_SRC" ]; then
         derror "CRITICAL: livekitlib not found!"
-        derror "Expected locations:"
-        derror "  - livekit-mos/lib/livekitlib"
-        derror "  - /lib/livekitlib"
         return 1
     fi
 
@@ -73,10 +79,7 @@ install() {
         return 1
     fi
 
-    # Install minios-boot if available
-    if [ -x "$STATIC_BIN/minios-boot" ]; then
-        inst_simple "$STATIC_BIN/minios-boot" "/bin/minios-boot"
-    fi
+    dinfo "*** Installed livekitlib from: $LIVEKITLIB_SRC"
 
     [ -f /etc/minios-release ] && inst_simple /etc/minios-release /etc/minios-release
 
@@ -86,7 +89,7 @@ install() {
         echo "PRETTY_NAME=\"MiniOS Linux\""
     } >"${initdir}/etc/initrd-release"
 
-    # Install terminfo
+    # Install terminfo from local sources
     local TERMINFO_PATHS=(
         "${moddir}/../usr/share/terminfo/l/linux"
         "/usr/share/terminfo/l/linux"
@@ -95,9 +98,17 @@ install() {
     for TERMPATH in "${TERMINFO_PATHS[@]}"; do
         if [ -f "$TERMPATH" ]; then
             inst_simple "$TERMPATH" "/usr/share/terminfo/l/linux"
+            dinfo "*** Installed terminfo from: $TERMPATH"
             break
         fi
     done
+
+    # Install mkdracut from local sources (standalone mode)
+    if [ -f "${moddir}/../../mkdracut" ]; then
+        inst_simple "${moddir}/../../mkdracut" "/mkdracut"
+        chmod 755 "${initdir}/mkdracut"
+        dinfo "*** Installed mkdracut from dracut-mos"
+    fi
 
     inst_dir /memory/{changes,data,bundles,overlay}
 
