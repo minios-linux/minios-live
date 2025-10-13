@@ -2405,55 +2405,19 @@ prepare_initramfs_dracut() {
    mount -t tmpfs tmpfs run 2>/dev/null || true
    mount -t tmpfs tmpfs tmp 2>/dev/null || true
 
-   # Preserve initramfs for shutdown (dracut requirement)
-   mkdir -p run/initramfs/usr run/initramfs/lib
+   # Preserve initramfs for shutdown
 
-   # Copy livekitlib from running system (system version, not initramfs)
-   if [ -f "$UNION/usr/lib/livekitlib" ]; then
-      mkdir -p run/initramfs/usr/lib
-      cp -a "$UNION/usr/lib/livekitlib" run/initramfs/usr/lib/ 2>/dev/null || true
-   elif [ -f "$UNION/lib/livekitlib" ]; then
-      mkdir -p run/initramfs/lib
-      cp -a "$UNION/lib/livekitlib" run/initramfs/lib/ 2>/dev/null || true
-   fi
+   mkdir -p run/initramfs/usr
 
-   # Copy terminfo from running system
-   if [ -f "$UNION/usr/share/terminfo/l/linux" ]; then
-      mkdir -p run/initramfs/usr/share/terminfo/l
-      cp -a "$UNION/usr/share/terminfo/l/linux" run/initramfs/usr/share/terminfo/l/ 2>/dev/null || true
-   fi
+   # Copy /dracut-mos if exists
+   [ -d /dracut-mos ] && cp -a /dracut-mos run/initramfs/ 2>/dev/null || true
 
-   # Copy /etc (may contain necessary config for eject and other tools)
+   # Copy /etc
    [ -d /etc ] && cp -a /etc run/initramfs/ 2>/dev/null || true
 
-   # Copy ALL binaries from running system
-   # System binaries are preferred over static ones from initramfs
-   # This allows us to have no binaries in minios-dracut package
-   if [ -d "$UNION/bin" ]; then
-      mkdir -p run/initramfs/bin
-      cp -a "$UNION/bin"/* run/initramfs/bin/ 2>/dev/null || true
-   fi
-
-   if [ -d "$UNION/sbin" ]; then
-      mkdir -p run/initramfs/sbin
-      cp -a "$UNION/sbin"/* run/initramfs/sbin/ 2>/dev/null || true
-   fi
-
-   if [ -d "$UNION/usr/bin" ]; then
-      mkdir -p run/initramfs/usr/bin
-      cp -a "$UNION/usr/bin"/* run/initramfs/usr/bin/ 2>/dev/null || true
-   fi
-
-   if [ -d "$UNION/usr/sbin" ]; then
-      mkdir -p run/initramfs/usr/sbin
-      cp -a "$UNION/usr/sbin"/* run/initramfs/usr/sbin/ 2>/dev/null || true
-   fi
-
-   # Fallback: if system binaries not available, copy from initramfs
-   [ -d /bin ] && cp -a /bin/* run/initramfs/bin/ 2>/dev/null || true
-   [ -d /sbin ] && cp -a /sbin/* run/initramfs/sbin/ 2>/dev/null || true
-   [ -d /usr/bin ] && cp -a /usr/bin/* run/initramfs/usr/bin/ 2>/dev/null || true
-   [ -d /usr/sbin ] && cp -a /usr/sbin/* run/initramfs/usr/sbin/ 2>/dev/null || true
+   # Copy usr/bin and usr/sbin
+   [ -d /usr/bin ] && cp -a /usr/bin run/initramfs/usr/ 2>/dev/null || true
+   [ -d /usr/sbin ] && cp -a /usr/sbin run/initramfs/usr/ 2>/dev/null || true
 
    # Copy usr/lib excluding modules directory
    if [ -d /usr/lib ]; then
@@ -2464,16 +2428,13 @@ prepare_initramfs_dracut() {
       done
    fi
 
-   # Copy usr/lib64 if exists (excluding modules)
+   # Copy usr/lib64
    if [ -d /usr/lib64 ]; then
       mkdir -p run/initramfs/usr/lib64
-      for item in /usr/lib64/*; do
-         [ "$(basename "$item")" = "modules" ] && continue
-         cp -a "$item" run/initramfs/usr/lib64/ 2>/dev/null || true
-      done
+      cp -a /usr/lib64 run/initramfs/usr/ 2>/dev/null || true
    fi
 
-   # Recreate merged /usr symlinks (bin, sbin, lib, lib64)
+   # Recreate merged /usr symlinks
    cd "$UNION/run/initramfs"
    ln -sf usr/bin bin 2>/dev/null || true
    ln -sf usr/sbin sbin 2>/dev/null || true
@@ -2482,18 +2443,13 @@ prepare_initramfs_dracut() {
    cd "$UNION"
 
    # Copy shutdown script
-   if [ -f /shutdown ]; then
-      cp -a /shutdown run/initramfs/ 2>/dev/null || true
-      chmod +x run/initramfs/shutdown 2>/dev/null || true
-   fi
+   cp -a /shutdown run/initramfs/ 2>/dev/null || true
+   chmod +x run/initramfs/shutdown 2>/dev/null || true
+   # Copy mkdracut script
+   cp -a /mkdracut run/initramfs/ 2>/dev/null || true
+   chmod +x run/initramfs/mkdracut 2>/dev/null || true
 
-   # Copy minios-init script (needed for initramfs recreation)
-   if [ -f /minios-init ]; then
-      cp -a /minios-init run/initramfs/ 2>/dev/null || true
-      chmod +x run/initramfs/minios-init 2>/dev/null || true
-   fi
-
-   # Copy dracut libraries and hooks (needed for shutdown)
+   # Copy dracut libraries and hooks
    mkdir -p run/initramfs/var/lib run/initramfs/var/log
    [ -f /usr/lib/dracut-lib.sh ] && cp -a /usr/lib/dracut-lib.sh run/initramfs/usr/lib/ 2>/dev/null || true
    [ -f /usr/lib/dracut-dev-lib.sh ] && cp -a /usr/lib/dracut-dev-lib.sh run/initramfs/usr/lib/ 2>/dev/null || true
