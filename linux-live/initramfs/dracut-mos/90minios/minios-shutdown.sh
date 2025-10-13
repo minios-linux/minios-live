@@ -18,21 +18,21 @@ RESET='\033[0m'
 # Detect shutdown type from kernel command line or environment
 SHUTDOWN_TYPE="shutdown"
 if grep -q "reboot" /proc/cmdline 2>/dev/null || [ "$1" = "reboot" ]; then
-   SHUTDOWN_TYPE="reboot"
+    SHUTDOWN_TYPE="reboot"
 elif cat /proc/1/cmdline 2>/dev/null | grep -q "reboot"; then
-   SHUTDOWN_TYPE="reboot"
+    SHUTDOWN_TYPE="reboot"
 fi
 
 detach_free_loops() {
-   losetup -a | cut -d : -f 1 | xargs -r -n 1 losetup -d
+    losetup -a | cut -d : -f 1 | xargs -r -n 1 losetup -d
 }
 
 # $1=dir
 umount_all() {
-   tac /proc/mounts | cut -d " " -f 2 | grep "^$1" | while read LINE; do
-      umount "$LINE" 2>/dev/null
-      detach_free_loops
-   done
+    tac /proc/mounts | cut -d " " -f 2 | grep "^$1" | while read LINE; do
+        umount "$LINE" 2>/dev/null
+        detach_free_loops
+    done
 }
 
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Detaching loop devices..."
@@ -50,17 +50,17 @@ DEVICE="$(cat /proc/mounts | grep -E '/(memory|initramfs/memory)/data' | grep /d
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Relocating blocking mounts..."
 NR=100
 tac /proc/mounts | cut -d " " -f 2 | grep "^/oldroot/" | while read LINE; do
-   NR=$((NR + 1))
-   mkdir -p /move/$NR
-   mount --move "$LINE" /move/$NR 2>/dev/null
-   umount /oldroot 2>/dev/null
+    NR=$((NR + 1))
+    mkdir -p /move/$NR
+    mount --move "$LINE" /move/$NR 2>/dev/null
+    umount /oldroot 2>/dev/null
 done
 
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Clearing remaining mounts..."
 for i in 1 2 3 4; do
-   for d in $(ls -1 /move 2>/dev/null | sort); do
-      umount_all /move/$d
-   done
+    for d in $(ls -1 /move 2>/dev/null | sort); do
+        umount_all /move/$d
+    done
 done
 
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Unmounting memory filesystem..."
@@ -71,17 +71,17 @@ umount_all /memory
 
 # Eject CD/DVD if booted from optical media
 for i in $(cat /proc/sys/dev/cdrom/info 2>/dev/null | grep "^drive name:" | awk '{print $3}'); do
-   if [ "$DEVICE" = "/dev/$i" ]; then
-      echo -e "${WHITE}[${YELLOW}!${WHITE}]${RESET} Ejecting optical drive ${CYAN}/dev/$i${RESET}..."
-      eject -r /dev/$i 2>/dev/null || eject /dev/$i 2>/dev/null || true
-      echo -e "${WHITE}[${YELLOW}!${WHITE}]${RESET} CD/DVD tray will close in 6 seconds..."
-      sleep 6
-      eject -t /dev/$i 2>/dev/null || true
-   fi
+    if [ "$DEVICE" = "/dev/$i" ]; then
+        echo -e "${WHITE}[${YELLOW}!${WHITE}]${RESET} Ejecting optical drive ${CYAN}/dev/$i${RESET}..."
+        eject -r /dev/$i 2>/dev/null || eject /dev/$i 2>/dev/null || true
+        echo -e "${WHITE}[${YELLOW}!${WHITE}]${RESET} CD/DVD tray will close in 6 seconds..."
+        sleep 6
+        eject -t /dev/$i 2>/dev/null || true
+    fi
 done
 
 if [ "$SHUTDOWN_TYPE" = "reboot" ]; then
-   echo -e "${WHITE}[${GREEN}OK${WHITE}]${RESET} System prepared for reboot"
+    echo -e "${WHITE}[${GREEN}OK${WHITE}]${RESET} System prepared for reboot"
 else
-   echo -e "${WHITE}[${GREEN}OK${WHITE}]${RESET} System prepared for shutdown"
+    echo -e "${WHITE}[${GREEN}OK${WHITE}]${RESET} System prepared for shutdown"
 fi
