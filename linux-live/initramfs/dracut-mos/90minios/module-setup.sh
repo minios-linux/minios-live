@@ -12,32 +12,25 @@ depends() {
 }
 
 install() {
+    # Install dracut hooks
     inst_hook cmdline 30 "$moddir/parse-minios.sh"
     inst_hook mount 30 "$moddir/minios-mount-root.sh"
     inst_hook shutdown 20 "$moddir/minios-shutdown.sh"
 
-    # Install minios-init from local (standalone mode)
-    if [ -f "$moddir/minios-init" ]; then
-        inst_script "$moddir/minios-init" "/minios-init"
-        dinfo "*** Installed minios-init from local"
-    else
-        derror "CRITICAL: minios-init not found at $moddir/minios-init"
-        return 1
+    if [ -d "/run/initramfs/dracut-mos" ]; then
+        STATIC_BIN="/run/initramfs/bin"
+        LIVEKITLIB="/run/initramfs/usr/lib/livekitlib"
+        TERMINFO="/run/initramfs/usr/share/terminfo/l/linux"
+        DRACUT_MOS="/run/initramfs/dracut-mos"
+    elif [ -d "/linux-live/initramfs/dracut-mos" ]; then
+        STATIC_BIN="/linux-live/initramfs/livekit-mos/bin"
+        LIVEKITLIB="/linux-live/initramfs/livekit-mos/lib/livekitlib"
+        TERMINFO="/linux-live/initramfs/livekit-mos/usr/share/terminfo/l/linux"
+        DRACUT_MOS="/linux-live/initramfs/dracut-mos"
     fi
 
-    # Set static binaries directory from local sources
-    local STATIC_BIN=""
-
-    if [ -d "${moddir}/../../../../../linux-live/initramfs/livekit-mos/bin" ]; then
-        STATIC_BIN="${moddir}/../../../../../linux-live/initramfs/livekit-mos/bin"
-    fi
-
-    if [ -z "$STATIC_BIN" ] || [ ! -x "$STATIC_BIN/busybox" ]; then
-        derror "CRITICAL: Static binaries directory not found!"
-        return 1
-    fi
-
-    dinfo "*** Using static binaries from: $STATIC_BIN"
+    # Install minios-init
+    inst_script "$moddir/minios-init" "/minios-init"
 
     # Install essential static binaries for initramfs
     inst_simple "$STATIC_BIN/busybox" "/bin/busybox"
@@ -54,62 +47,29 @@ install() {
     inst_simple "$STATIC_BIN/@mount.httpfs2" "/bin/@mount.httpfs2"
     inst_simple "$STATIC_BIN/@mount.ntfs-3g" "/bin/@mount.ntfs-3g"
     inst_simple "$STATIC_BIN/@mount.dynfilefs" "/bin/@mount.dynfilefs"
+    inst_simple "$STATIC_BIN/minios-boot" "/bin/minios-boot"
 
-    # Install minios-boot if available
-    if [ -x "$STATIC_BIN/minios-boot" ]; then
-        inst_simple "$STATIC_BIN/minios-boot" "/bin/minios-boot"
-    fi
+    # Install livekitlib
+    inst_simple "$LIVEKITLIB" "/lib/livekitlib"
 
-    # Find and install livekitlib from local sources
-    local LIVEKITLIB_SRC=""
+    # Install minios-release
+    inst_simple /etc/minios-release /etc/minios-release
 
-    if [ -f "${moddir}/../../../../../linux-live/initramfs/livekit-mos/lib/livekitlib" ]; then
-        LIVEKITLIB_SRC="${moddir}/../../../../../linux-live/initramfs/livekit-mos/lib/livekitlib"
-    fi
-
-    if [ -z "$LIVEKITLIB_SRC" ] || [ ! -f "$LIVEKITLIB_SRC" ]; then
-        derror "CRITICAL: livekitlib not found!"
-        return 1
-    fi
-
-    inst_simple "$LIVEKITLIB_SRC" "/lib/livekitlib"
-
-    if [ ! -f "${initdir}/lib/livekitlib" ]; then
-        derror "CRITICAL: Failed to install livekitlib!"
-        return 1
-    fi
-
-    dinfo "*** Installed livekitlib from: $LIVEKITLIB_SRC"
-
-    [ -f /etc/minios-release ] && inst_simple /etc/minios-release /etc/minios-release
-
+    # Create initrd-release
     {
         echo "NAME=MiniOS"
         echo "ID=minios"
         echo "PRETTY_NAME=\"MiniOS Linux\""
     } >"${initdir}/etc/initrd-release"
 
-    # Install terminfo from local sources
-    local TERMINFO_PATHS=(
-        "${moddir}/../usr/share/terminfo/l/linux"
-        "/usr/share/terminfo/l/linux"
-    )
+    # Install terminfo
+    inst_simple "$TERMINFO" "/usr/share/terminfo/l/linux"
 
-    for TERMPATH in "${TERMINFO_PATHS[@]}"; do
-        if [ -f "$TERMPATH" ]; then
-            inst_simple "$TERMPATH" "/usr/share/terminfo/l/linux"
-            dinfo "*** Installed terminfo from: $TERMPATH"
-            break
-        fi
-    done
+    # Install whole dracut-mos tree into the initramfs
+    cp -r "$DRACUT_MOS" "${initdir}/dracut-mos"
+    chmod 755 "${initdir}/dracut-mos/mkdracut"
 
-    # Install mkdracut from local sources (standalone mode)
-    if [ -f "${moddir}/../../mkdracut" ]; then
-        inst_simple "${moddir}/../../mkdracut" "/mkdracut"
-        chmod 755 "${initdir}/mkdracut"
-        dinfo "*** Installed mkdracut from dracut-mos"
-    fi
-
+    # Create memory directories
     inst_dir /memory/{changes,data,bundles,overlay}
 
     # Create busybox symlinks
@@ -125,10 +85,8 @@ install() {
     ln -sf busybox "${initdir}/bin/ash"
 
     # Wrap systemd-udevd to suppress version message
-    if [ -f /usr/lib/systemd/systemd-udevd ]; then
-        # Install real udevd binary with .real suffix
+    if [ -f /usr/lib/systemd/systemd-udevd ] && [ ! -f /usr/lib/systemd/systemd-udevd.real ]; then
         inst_simple /usr/lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd.real
-        # Install wrapper script that suppresses stderr
         inst_simple "$moddir/systemd-udevd-wrapper" /usr/lib/systemd/systemd-udevd
         chmod 755 "${initdir}/usr/lib/systemd/systemd-udevd"
     fi
