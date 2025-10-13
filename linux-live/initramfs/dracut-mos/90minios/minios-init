@@ -22,6 +22,7 @@ header -t "MiniOS" -s "Fast. Simple. Reliable."
 header -u "https://minios.dev"
 
 mkdir -p $MEMORY
+mkdir -p /var/log
 echo "0" >/proc/sys/kernel/printk 2>/dev/null || true
 mount -n -o remount,rw rootfs / 2>/dev/null || true
 ln -sf /proc/mounts /etc/mtab 2>/dev/null || true
