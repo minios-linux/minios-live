@@ -65,8 +65,9 @@ done
 
 # Validate required parameters
 if [ -z "$KERNEL" ]; then
-    echo "E: Kernel version is required" >&2
-    usage
+    KERNEL="$(uname -r)"
+    #echo "E: Kernel version is required" >&2
+    #usage
 fi
 
 # Set default output (using non-versioned name for compatibility)
@@ -85,6 +86,25 @@ fi
 if [ ! -d "/lib/modules/$KERNEL" ]; then
     echo "E: Kernel modules not found for version $KERNEL" >&2
     exit 1
+fi
+
+# Install MiniOS dracut modules to build environment
+if [ -d "/run/initramfs/dracut-mos" ]; then
+    DRACUT_MOS="/run/initramfs/dracut-mos"
+elif [ -d /linux-live/initramfs/dracut-mos ]; then
+    DRACUT_MOS="/linux-live/initramfs/dracut-mos"
+else
+    echo "E: Build scripts directory not found" >&2
+    exit 1
+fi
+
+DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
+if [ -d "$DRACUT_MODULES_DIR" ]; then
+    rm -rf "$DRACUT_MODULES_DIR/90minios" "$DRACUT_MODULES_DIR/99minios-cleanup"
+    cp -r "$DRACUT_MOS/90minios" "$DRACUT_MODULES_DIR/"
+    cp -r "$DRACUT_MOS/99minios-cleanup" "$DRACUT_MODULES_DIR/"
+    #chmod 755 "$DRACUT_MODULES_DIR/90minios"/*.sh
+    #chmod 755 "$DRACUT_MODULES_DIR/99minios-cleanup"/*.sh
 fi
 
 # Build filesystem driver list for --add-drivers
