@@ -6,9 +6,11 @@
 export PATH=.:/:/usr/sbin:/usr/bin:/sbin:/bin
 
 LIVEKITNAME="minios"
-BEXT="sb"
 
 . /lib/livekitlib
+
+BEXT=$(cmdline_value bext)
+[ -z "$BEXT" ] && BEXT="sb"
 
 MEMORY=/memory
 CHANGES=$MEMORY/changes
