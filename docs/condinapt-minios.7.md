@@ -57,6 +57,7 @@ Contents of **condinapt.map** in MiniOS:
     kf=KERNEL_FLAVOUR
     ka=KERNEL_AUFS
     kbd=KERNEL_BUILD_DKMS
+    ib=INITRAMFS_BUILDER
     lo=LOCALE
     ml=MULTILINGUAL
     kl=KEEP_LOCALES
@@ -88,6 +89,9 @@ Main variables from **build.conf**:
 
 **KERNEL_BUILD_DKMS**
 :   Build DKMS modules (true/false)
+
+**INITRAMFS_BUILDER**
+:   Initramfs builder (livekit, dracut)
 
 **LOCALE**
 :   System locale (C, en_US, ru_RU, es_ES, pt_BR)

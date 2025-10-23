@@ -13,8 +13,9 @@
 #     -c, --config PATH             Path to the main configuration file
 #     -C, --check-only              Only check if packages exist (no actual installation).
 #     -m, --filter-mapping PATH     Path to the filter mapping file (Optional).
-#     -P, --priority-list PATH      (Optional) Path to a priority package list file.
-#                                   Packages here are installed in a dedicated queue.
+#     -P, --priority-list PATH      (Optional) Path to a priority filter file.
+#                                   File contains regex patterns to match packages.
+#                                   Matched packages are moved to priority queue (preserving filters).
 #     -s, --simulation              Enable simulation mode (no actual installation).
 #     -v, --verbose                 Enable verbose mode.
 #     -vv, --very-verbose           Enable very verbose mode.
@@ -35,7 +36,10 @@ console_colors() {
     GREEN=$'\e[32m'
     YELLOW=$'\e[33m'
     CYAN=$'\e[36m'
+    LIGHTGREEN=$'\e[92m'
+    LIGHTYELLOW=$'\e[93m'
     BOLD=$'\e[1m'
+    DIM=$'\e[2m'
     ENDCOLOR=$'\e[0m'
 }
 
@@ -54,30 +58,168 @@ warning() {
     echo -e "${BOLD}${YELLOW}W:${ENDCOLOR} ${MESSAGE}"
 }
 
-spinner() {
-    local PID="${1}"
-    local MSG="${2}"
-    local XTRACE_WAS_SET=false
-    case "$-" in
-    *x*)
-        XTRACE_WAS_SET=true
-        set +x
-        ;;
-    esac
+run_with_spinner() {
+    local MSG="$1"
+    shift
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        "$@"
+    else
+        # Create temporary log file for interactive output
+        local COMBINED_LOG="/tmp/condinapt_build_log_$$"
 
-    local DELAY=0.1
-    local SPINSTR='|/-\\'
-    while [ -d "/proc/${PID}" ]; do
-        for ((i = 0; i < ${#SPINSTR}; i++)); do
-            printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:$i:1}${ENDCOLOR}]"
-            sleep "${DELAY}"
+        # Run command with stdout and stderr redirected to log file
+        "$@" >"${COMBINED_LOG}" 2>&1 &
+        local CMD_PID="$!"
+
+        local DELAY=0.1
+        local SPINSTR='|/-\\'
+        : ${SHOW_SPINNER_OUTPUT:="false"}
+        local TAIL_PID=""
+        local LAST_LINE_COUNT=0
+        local OUTPUT_LINES=0
+        local OUTPUT_ANIM_COUNTER=0
+        local LAST_REFRESH_TIME=$(date +%s)
+        console_colors
+
+        while kill -0 "${CMD_PID}" 2>/dev/null; do
+            if [ "$SHOW_SPINNER_OUTPUT" = "false" ]; then
+                for ((i = 0; i < ${#SPINSTR}; i++)); do
+                    # Check if process is still running before showing spinner
+                    if ! kill -0 "${CMD_PID}" 2>/dev/null; then
+                        break 2
+                    fi
+
+                    printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:$i:1}${ENDCOLOR}] ${DIM}(press ${ENDCOLOR}${BOLD}R${ENDCOLOR}${DIM} to toggle output)${ENDCOLOR}" >&2
+
+                    # Check for 'r' key with multiple attempts for better responsiveness
+                    local KEY_PRESSED=false
+                    for attempt in {1..3}; do
+                        if read -t 0.05 -n 1 -s KEY 2>/dev/null && [[ "$KEY" == "r" || "$KEY" == "R" || "$KEY" == "к" || "$KEY" == "К" ]]; then
+                            KEY_PRESSED=true
+                            break
+                        fi
+                    done
+                    if [ "$KEY_PRESSED" = "true" ]; then
+                        SHOW_SPINNER_OUTPUT="true"
+                        # Clear input buffer to prevent multiple rapid keypresses
+                        while read -t 0.01 -n 1 -s 2>/dev/null; do :; done
+                        printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} ${DIM}(press ${ENDCOLOR}${BOLD}R${ENDCOLOR}${DIM} to toggle output)${ENDCOLOR}$(tput el)\n"
+                        # Show separator line
+                        printf "${DIM}────────────────────────────────────────────────────────────────────────────────${ENDCOLOR}\n"
+                        # Always show exactly 10 lines, padding with empty lines if needed
+                        local AVAILABLE_LINES=$(wc -l <"${COMBINED_LOG}" 2>/dev/null || echo 0)
+                        local LINES_TO_SHOW=10
+                        if [ "$AVAILABLE_LINES" -gt 0 ]; then
+                            tail -n ${LINES_TO_SHOW} "${COMBINED_LOG}" 2>/dev/null
+                            local ACTUAL_LINES=$(tail -n ${LINES_TO_SHOW} "${COMBINED_LOG}" 2>/dev/null | wc -l)
+                            # Pad with empty lines if we have fewer than 10 lines
+                            for ((i = ACTUAL_LINES; i < LINES_TO_SHOW; i++)); do
+                                echo ""
+                            done
+                        else
+                            # No content yet, show 10 empty lines
+                            for ((i = 0; i < LINES_TO_SHOW; i++)); do
+                                echo ""
+                            done
+                        fi
+                        # Show bottom separator line
+                        printf "${DIM}────────────────────────────────────────────────────────────────────────────────${ENDCOLOR}\n"
+                        # Set current line count so we only show new lines from this point
+                        LAST_LINE_COUNT=$(wc -l <"${COMBINED_LOG}" 2>/dev/null || echo 0)
+                        OUTPUT_LINES=$((1 + 1 + 10 + 1)) # Count header + top separator + exactly 10 lines + bottom separator
+                        break
+                    fi
+                done
+            else
+                # In output mode - maintain sliding window of exactly 10 lines
+                local CURRENT_LINE_COUNT=$(wc -l <"${COMBINED_LOG}" 2>/dev/null || echo 0)
+                local CURRENT_TIME=$(date +%s)
+                local TIME_SINCE_REFRESH=$((CURRENT_TIME - LAST_REFRESH_TIME))
+
+                # Update if new lines appeared OR if 10 seconds passed (for progress updates like mksquashfs)
+                if [ "$CURRENT_LINE_COUNT" -gt "$LAST_LINE_COUNT" ] || [ "$TIME_SINCE_REFRESH" -ge 10 ]; then
+                    # Always show exactly 10 lines, replacing the entire output area
+                    local MAX_LINES=10
+
+                    # Move to start of output area (after header)
+                    if [ "$OUTPUT_LINES" -gt 1 ]; then
+                        printf "\033[$((OUTPUT_LINES - 1))A"
+                    fi
+
+                    # Clear the output area and show latest 10 lines with separators
+                    printf "$(tput ed)"
+                    printf "${DIM}────────────────────────────────────────────────────────────────────────────────${ENDCOLOR}\n"
+                    # Always show exactly 10 lines, padding with empty lines if needed
+                    local AVAILABLE_LINES=$(wc -l <"${COMBINED_LOG}" 2>/dev/null || echo 0)
+                    if [ "$AVAILABLE_LINES" -gt 0 ]; then
+                        tail -n ${MAX_LINES} "${COMBINED_LOG}" 2>/dev/null
+                        local ACTUAL_LINES=$(tail -n ${MAX_LINES} "${COMBINED_LOG}" 2>/dev/null | wc -l)
+                        # Pad with empty lines if we have fewer than 10 lines
+                        for ((i = ACTUAL_LINES; i < MAX_LINES; i++)); do
+                            echo ""
+                        done
+                    else
+                        # No content yet, show 10 empty lines
+                        for ((i = 0; i < MAX_LINES; i++)); do
+                            echo ""
+                        done
+                    fi
+                    printf "${DIM}────────────────────────────────────────────────────────────────────────────────${ENDCOLOR}\n"
+
+                    LAST_LINE_COUNT="$CURRENT_LINE_COUNT"
+                    LAST_REFRESH_TIME="$CURRENT_TIME"
+                    OUTPUT_LINES=$((1 + 1 + 10 + 1)) # Header + top separator + exactly 10 lines + bottom separator
+                fi
+
+                # Animate the header line with spinner (same as normal mode but different color)
+                OUTPUT_ANIM_COUNTER=$((OUTPUT_ANIM_COUNTER + 1))
+                local SPINNER_CHAR=${SPINSTR:$((OUTPUT_ANIM_COUNTER % ${#SPINSTR})):1}
+
+                # Update the first line with spinner animation
+                if [ "$OUTPUT_LINES" -gt 0 ]; then
+                    printf "\033[${OUTPUT_LINES}A\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${LIGHTGREEN}${SPINNER_CHAR}${ENDCOLOR}] ${DIM}(press ${ENDCOLOR}${BOLD}R${ENDCOLOR}${DIM} to toggle output)${ENDCOLOR}$(tput el)\033[${OUTPUT_LINES}B\r"
+                fi
+
+                # Check for 'r' to return to spinner with multiple attempts
+                local KEY_PRESSED=false
+                for attempt in {1..3}; do
+                    if read -t 0.05 -n 1 -s KEY 2>/dev/null && [[ "$KEY" == "r" || "$KEY" == "R" || "$KEY" == "к" || "$KEY" == "К" ]]; then
+                        KEY_PRESSED=true
+                        break
+                    fi
+                done
+                if [ "$KEY_PRESSED" = "true" ]; then
+                    SHOW_SPINNER_OUTPUT="false"
+                    # Clear input buffer to prevent multiple rapid keypresses
+                    while read -t 0.01 -n 1 -s 2>/dev/null; do :; done
+                    # Move cursor up to the first "Output mode" line and replace it
+                    printf "\033[${OUTPUT_LINES}A\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${CYAN}${SPINSTR:0:1}${ENDCOLOR}] ${DIM}(press ${ENDCOLOR}${BOLD}R${ENDCOLOR}${DIM} to toggle output)${ENDCOLOR}$(tput el)$(tput ed)"
+                    OUTPUT_LINES=0
+                else
+                    # Short sleep to prevent high CPU usage in output mode
+                    sleep 0.1
+                fi
+            fi
         done
-    done
-    printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n"
 
-    if ${XTRACE_WAS_SET}; then
-        export PS4='+ ${BASH_SOURCE}:${LINENO}: '
-        set -x
+        # Clean up
+        if [ -n "$TAIL_PID" ]; then
+            kill "$TAIL_PID" 2>/dev/null
+        fi
+
+        wait "${CMD_PID}"
+        local EXIT_CODE=$?
+
+        rm -f "${COMBINED_LOG}"
+
+        # Move to the header line and show [done], clearing everything below
+        if [ "$SHOW_SPINNER_OUTPUT" = "true" ] && [ "$OUTPUT_LINES" -gt 0 ]; then
+            printf "\033[${OUTPUT_LINES}A\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)$(tput ed)\n" >&2
+        else
+            printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n" >&2
+        fi
+
+        return $EXIT_CODE
     fi
 }
 
@@ -105,8 +247,9 @@ help() {
     echo "  -c, --config PATH             Path to the main configuration file."
     echo "  -C, --check-only              Only check if packages exist (no actual installation)."
     echo "  -m, --filter-mapping PATH     Path to the filter mapping file (Optional)."
-    echo "  -P, --priority-list PATH      Path to a priority package list file (Optional)."
-    echo "                                Packages here are installed in a dedicated queue."
+    echo "  -P, --priority-list PATH      Path to a priority filter file (Optional)."
+    echo "                                File contains regex patterns to match packages."
+    echo "                                Matched packages are moved to priority queue (preserving filters)."
     echo "  -s, --simulation              Enable simulation mode (no actual installation)."
     echo "  -v, --verbose                 Enable verbose mode."
     echo "  -vv, --very-verbose           Enable very verbose mode."
@@ -426,13 +569,11 @@ process_queue() {
     [ "${CHECK_ONLY}" = "true" ] && return
 
     if [ "${PREINSTALL_APT_CACHE}" = "true" ] && [ "${SIMULATION_MODE}" = false ]; then
-        DEBIAN_FRONTEND=noninteractive apt-get --download-only -y \
+        run_with_spinner "Refreshing package archive" \
+            env DEBIAN_FRONTEND=noninteractive apt-get --download-only -y \
             -o Dpkg::Options::="--force-confdef" \
             -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" \
-            -qq >/dev/null 2>&1 &
-        local APT_CACHE_PID="$!"
-        spinner "${APT_CACHE_PID}" "Refreshing package archive"
-        wait "${APT_CACHE_PID}"
+            -qq
     fi
 
     if [ "${SIMULATION_MODE}" = true ]; then
@@ -460,22 +601,21 @@ process_queue() {
             fi
         else
             if [[ -n "${TARGET_RELEASE}" ]]; then
-                DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
+                run_with_spinner "Installing packages" \
+                    env DEBIAN_FRONTEND=noninteractive apt-get -y -t "${TARGET_RELEASE}" install \
                     -o Dpkg::Options::="--force-confdef" \
                     -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" \
-                    -qq >/dev/null 2>&1 &
+                    -qq
             else
-                DEBIAN_FRONTEND=noninteractive apt-get -y install \
+                run_with_spinner "Installing packages" \
+                    env DEBIAN_FRONTEND=noninteractive apt-get -y install \
                     -o Dpkg::Options::="--force-confdef" \
                     -o Dpkg::Options::="--force-confold" --allow-downgrades --no-install-suggests "${PACKAGES_TO_INSTALL[@]}" \
-                    -qq >/dev/null 2>&1 &
+                    -qq
             fi
             if [ $? -ne 0 ]; then
                 FATAL_FAILURE=true
             fi
-            local INSTALL_PID="$!"
-            spinner "${INSTALL_PID}" "Installing packages"
-            wait "${INSTALL_PID}"
         fi
 
         if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
@@ -653,50 +793,76 @@ check_filter() {
 #------------------------------------------------------------------------------
 # Priority Queue Support
 #
-# If a priority package list file is provided via -P/--priority-list, the script
-# reads it as a plain list (one package per line). Then, it removes any occurrence
-# of these packages from the main queues and creates a dedicated priority queue.
+# If a priority filter file is provided via -P/--priority-list, the script
+# reads it as a list of regex patterns (one pattern per line). Then, it extracts
+# all packages matching these patterns from the main queues (preserving their
+# conditions and filters) and creates a dedicated priority queue.
 # The priority queue is inserted as the first queue.
 #------------------------------------------------------------------------------
 
-load_priority_list() {
+# Load priority filters (regex patterns) from file
+load_priority_filters() {
     local PRIORITY_FILE="$1"
     if [ ! -f "$PRIORITY_FILE" ]; then
-        error "Priority package list file '$PRIORITY_FILE' not found."
+        error "Priority filter file '$PRIORITY_FILE' not found."
         exit 1
     fi
-    local PRIORITY_PACKAGES=()
+    local PRIORITY_FILTERS=()
     while IFS= read -r LINE; do
         LINE=$(echo "$LINE" | xargs)
         # Skip empty lines and comments.
         if [[ -z "$LINE" ]] || [[ "$LINE" =~ ^# ]]; then
             continue
         fi
-        PRIORITY_PACKAGES+=("$LINE")
+        PRIORITY_FILTERS+=("$LINE")
     done <"$PRIORITY_FILE"
-    echo "${PRIORITY_PACKAGES[@]}"
+    echo "${PRIORITY_FILTERS[@]}"
 }
 
-remove_priority_from_queue() {
+# Check if a package name matches any priority filter (regex pattern)
+matches_priority_filter() {
+    local PACKAGE_NAME="$1"
+    shift
+    local FILTERS=("$@")
+
+    for FILTER in "${FILTERS[@]}"; do
+        # Use regex matching with =~ operator
+        if [[ "$PACKAGE_NAME" =~ $FILTER ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Extract packages matching priority filters from queue
+# Returns two outputs separated by a delimiter:
+# 1. Lines that match priority filters (for priority queue)
+# 2. Lines that don't match (remain in normal queue)
+extract_priority_from_queue() {
     local QUEUE_CONTENT="$1"
     shift
-    local PRIORITY_LIST=("$@")
-    local NEW_QUEUE=""
+    local PRIORITY_FILTERS=("$@")
+    local PRIORITY_LINES=""
+    local REMAINING_LINES=""
+
     while IFS= read -r LINE; do
         local PKG
         PKG=$(extract_package_name "$LINE")
-        local SKIP=false
-        for PRIORITY in "${PRIORITY_LIST[@]}"; do
-            if [[ "$PKG" == "$PRIORITY" ]]; then
-                SKIP=true
-                break
-            fi
-        done
-        if ! $SKIP; then
-            NEW_QUEUE+="$LINE"$'\n'
+
+        if matches_priority_filter "$PKG" "${PRIORITY_FILTERS[@]}"; then
+            # Package matches priority filter - add FULL LINE with all conditions
+            PRIORITY_LINES+="$LINE"$'\n'
+        else
+            # Package doesn't match - keep in normal queue
+            REMAINING_LINES+="$LINE"$'\n'
         fi
     done <<<"$QUEUE_CONTENT"
-    echo "$NEW_QUEUE" | sed '/^$/d'
+
+    # Output priority lines first, then delimiter, then remaining lines
+    echo "<<<PRIORITY_SEPARATOR>>>"
+    echo "$PRIORITY_LINES" | sed '/^$/d'
+    echo "<<<REMAINING_SEPARATOR>>>"
+    echo "$REMAINING_LINES" | sed '/^$/d'
 }
 
 #------------------------------------------------------------------------------
@@ -819,10 +985,8 @@ install_packages() {
     fi
 
     if [ "${CHECK_ONLY}" = "false" ] && (${FORCE_UPDATE} || [ ! -e "/var/cache/apt/pkgcache.bin" ]); then
-        DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change >/dev/null 2>&1 &
-        local APT_PID="$!"
-        spinner "${APT_PID}" "Updating package lists"
-        wait "${APT_PID}"
+        run_with_spinner "Updating package lists" \
+            env DEBIAN_FRONTEND=noninteractive apt-get update -qq --allow-releaseinfo-change
     else
         [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Package cache exists; update not required."
     fi
@@ -872,25 +1036,145 @@ install_packages() {
     fi
 
     # --- Priority Queue Processing ---
-    PRIORITY_ARRAY=()
+    PRIORITY_FILTERS=()
+    PRIORITY_QUEUE_CONTENT=""
+    declare -A PRIORITY_TARGET_QUEUES=()
+    PRIORITY_TARGET_ORDER=()
     if [[ -n "${PRIORITY_LIST_FILE}" ]]; then
-        IFS=' ' read -r -a PRIORITY_ARRAY <<<"$(load_priority_list "${PRIORITY_LIST_FILE}")"
-        # Remove priority packages from normal queues.
+        # Load regex filters from priority file
+        IFS=' ' read -r -a PRIORITY_FILTERS <<<"$(load_priority_filters "${PRIORITY_LIST_FILE}")"
+
+        # Extract matching packages from normal queues (preserving all conditions)
         for IDX in "${!NORMAL_QUEUES[@]}"; do
-            local NEW_QUEUE
-            NEW_QUEUE=$(remove_priority_from_queue "${NORMAL_QUEUES[$IDX]}" "${PRIORITY_ARRAY[@]}")
-            NORMAL_QUEUES[$IDX]="$NEW_QUEUE"
+            if [[ -z "${NORMAL_QUEUES[$IDX]}" ]]; then
+                continue
+            fi
+
+            local EXTRACT_RESULT
+            EXTRACT_RESULT=$(extract_priority_from_queue "${NORMAL_QUEUES[$IDX]}" "${PRIORITY_FILTERS[@]}")
+
+            # Parse the result: extract priority and remaining sections
+            local IN_PRIORITY=false
+            local IN_REMAINING=false
+            local PRIORITY_PART=""
+            local REMAINING_PART=""
+
+            while IFS= read -r LINE; do
+                if [[ "$LINE" == "<<<PRIORITY_SEPARATOR>>>" ]]; then
+                    IN_PRIORITY=true
+                    IN_REMAINING=false
+                    continue
+                elif [[ "$LINE" == "<<<REMAINING_SEPARATOR>>>" ]]; then
+                    IN_PRIORITY=false
+                    IN_REMAINING=true
+                    continue
+                fi
+
+                if [[ "$IN_PRIORITY" == true ]]; then
+                    PRIORITY_PART+="$LINE"$'\n'
+                elif [[ "$IN_REMAINING" == true ]]; then
+                    REMAINING_PART+="$LINE"$'\n'
+                fi
+            done <<<"$EXTRACT_RESULT"
+
+            # Add priority packages to global priority queue (for normal repos)
+            if [[ -n "$PRIORITY_PART" ]]; then
+                PRIORITY_QUEUE_CONTENT+="$PRIORITY_PART"
+            fi
+
+            # Update normal queue with remaining packages
+            NORMAL_QUEUES[$IDX]="$REMAINING_PART"
         done
+
+        # Extract matching packages from target queues (preserving release info)
         for KEY in "${!TARGET_QUEUES[@]}"; do
-            local NEW_QUEUE
-            NEW_QUEUE=$(remove_priority_from_queue "${TARGET_QUEUES[$KEY]}" "${PRIORITY_ARRAY[@]}")
-            TARGET_QUEUES[$KEY]="$NEW_QUEUE"
+            if [[ -z "${TARGET_QUEUES[$KEY]}" ]]; then
+                continue
+            fi
+
+            local EXTRACT_RESULT
+            EXTRACT_RESULT=$(extract_priority_from_queue "${TARGET_QUEUES[$KEY]}" "${PRIORITY_FILTERS[@]}")
+
+            # Parse the result
+            local IN_PRIORITY=false
+            local IN_REMAINING=false
+            local PRIORITY_PART=""
+            local REMAINING_PART=""
+
+            while IFS= read -r LINE; do
+                if [[ "$LINE" == "<<<PRIORITY_SEPARATOR>>>" ]]; then
+                    IN_PRIORITY=true
+                    IN_REMAINING=false
+                    continue
+                elif [[ "$LINE" == "<<<REMAINING_SEPARATOR>>>" ]]; then
+                    IN_PRIORITY=false
+                    IN_REMAINING=true
+                    continue
+                fi
+
+                if [[ "$IN_PRIORITY" == true ]]; then
+                    PRIORITY_PART+="$LINE"$'\n'
+                elif [[ "$IN_REMAINING" == true ]]; then
+                    REMAINING_PART+="$LINE"$'\n'
+                fi
+            done <<<"$EXTRACT_RESULT"
+
+            # Add priority packages to SEPARATE priority target queue (preserves release)
+            if [[ -n "$PRIORITY_PART" ]]; then
+                if [[ -z "${PRIORITY_TARGET_QUEUES[$KEY]+_}" ]]; then
+                    PRIORITY_TARGET_QUEUES[$KEY]="$PRIORITY_PART"
+                    PRIORITY_TARGET_ORDER+=("$KEY")
+                else
+                    PRIORITY_TARGET_QUEUES[$KEY]+="$PRIORITY_PART"
+                fi
+            fi
+
+            # Update target queue with remaining packages
+            TARGET_QUEUES[$KEY]="$REMAINING_PART"
         done
-        # Build the priority queue from the priority list file.
+
+        # Build the priority queue array from collected content
         PRIORITY_QUEUE=()
-        for PKG in "${PRIORITY_ARRAY[@]}"; do
-            PRIORITY_QUEUE+=("$PKG")
+        if [[ -n "$PRIORITY_QUEUE_CONTENT" ]]; then
+            while IFS= read -r LINE; do
+                [[ -n "$LINE" ]] && PRIORITY_QUEUE+=("$LINE")
+            done <<<"$PRIORITY_QUEUE_CONTENT"
+        fi
+
+        # Count total prioritized packages
+        local TOTAL_PRIORITY_COUNT=${#PRIORITY_QUEUE[@]}
+        for KEY in "${!PRIORITY_TARGET_QUEUES[@]}"; do
+            local TARGET_COUNT=$(echo "${PRIORITY_TARGET_QUEUES[$KEY]}" | grep -c '^' || echo 0)
+            TOTAL_PRIORITY_COUNT=$((TOTAL_PRIORITY_COUNT + TARGET_COUNT))
         done
+
+        # Show information about prioritized packages
+        if [ "$TOTAL_PRIORITY_COUNT" -gt 0 ]; then
+            [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Priority filters matched ${TOTAL_PRIORITY_COUNT} package(s) for priority installation"
+
+            # Show detailed list in very-verbose mode
+            if [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+                if [ "${#PRIORITY_QUEUE[@]}" -gt 0 ]; then
+                    information "Prioritized packages (from main repos):"
+                    for PKG_LINE in "${PRIORITY_QUEUE[@]}"; do
+                        local PKG_NAME
+                        PKG_NAME=$(extract_package_name "$PKG_LINE")
+                        echo "  - ${PKG_NAME} (${PKG_LINE})"
+                    done
+                fi
+                for KEY in "${PRIORITY_TARGET_ORDER[@]}"; do
+                    information "Prioritized packages (from release: ${KEY}):"
+                    while IFS= read -r PKG_LINE; do
+                        [[ -z "$PKG_LINE" ]] && continue
+                        local PKG_NAME
+                        PKG_NAME=$(extract_package_name "$PKG_LINE")
+                        echo "  - ${PKG_NAME} @${KEY} (${PKG_LINE})"
+                    done <<<"${PRIORITY_TARGET_QUEUES[$KEY]}"
+                done
+            fi
+        else
+            [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "Priority filters did not match any packages"
+        fi
     fi
     # --- End Priority Queue Processing ---
 
@@ -901,8 +1185,9 @@ install_packages() {
     fi
     ALL_QUEUES+=("${NORMAL_QUEUES[@]}")
 
-    # Process normal/prioritized queues.
     QUEUE_NUMBER=1
+
+    # Process priority queue from main repos (without -t)
     for QUEUE in "${ALL_QUEUES[@]}"; do
         if [[ -z "$(echo "${QUEUE}" | xargs)" ]]; then
             continue
@@ -915,9 +1200,26 @@ install_packages() {
         QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
     done
 
-    # Process target queues.
+    # Process priority target queues (with -t release) - AFTER priority queue, BEFORE normal target queues
+    for TR in "${PRIORITY_TARGET_ORDER[@]}"; do
+        local QUEUE_CONTENT="${PRIORITY_TARGET_QUEUES[${TR}]}"
+        if [[ -z "$(echo "${QUEUE_CONTENT}" | xargs)" ]]; then
+            continue
+        fi
+        IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE_CONTENT}")
+        process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+        QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
+    done
+
+    # Process remaining target queues (with -t release)
     for TR in "${TARGET_ORDER[@]}"; do
         local QUEUE_CONTENT="${TARGET_QUEUES[${TR}]}"
+        if [[ -z "$(echo "${QUEUE_CONTENT}" | xargs)" ]]; then
+            continue
+        fi
         IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE_CONTENT}")
         process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
         if [ $? -ne 0 ]; then

@@ -45,13 +45,13 @@ condinapt - conditional package installation tool for Debian-like systems
 :   (Optional) Path to the filter mapping file
 
 **-P**, **\-\-priority-list** *PATH*
-:   (Optional) Path to the priority package list file
+:   (Optional) Path to a priority filter file. File contains regex patterns to match packages. Matched packages are moved to priority queue (preserving filters)
 
 **-s**, **\-\-simulation**
 :   Simulation mode. Packages will not be installed
 
 **-C**, **\-\-check-only**
-:   Only check if packages are already installed
+:   Only check if packages are already installed. Returns exit code 1 if there are uninstalled packages. At the end, outputs a command to install missing packages
 
 **-v**, **\-\-verbose**
 :   Verbose output
@@ -63,7 +63,7 @@ condinapt - conditional package installation tool for Debian-like systems
 :   Enable **set -x** command tracing
 
 **-f**, **\-\-force**
-:   Force apt cache update (apt update)
+:   Force package lists update before installation. By default, update is skipped if **/var/cache/apt/pkgcache.bin** exists
 
 **-h**, **\-\-help**
 :   Show help
@@ -208,9 +208,19 @@ Example:
 
 ## Priority Queue
 
-Packages listed in the file specified by the **-P** flag (one package per line, no filters) form a special "Queue #1", which is executed first.
+The file specified by the **-P** flag contains regex patterns (one pattern per line, no filters). CondinAPT scans all queues, finds packages matching these patterns, and moves them (with all their filters and conditions) to a special "Priority Queue", which is executed first.
 
-Any package from the priority list is automatically removed from all regular queues. This ensures it will be installed unconditionally.
+**Pattern Matching:** Uses bash regex matching (=~ operator). Patterns can be simple package names or complex regex expressions.
+
+**Preserving Context:** This mechanism preserves all package conditions, filters, and release specifications from the original package list.
+
+**Override:** Matched packages are automatically removed from their original queues (both regular and target queues with **@release**) and moved to priority queues. Target releases are preserved in separate priority target queues.
+
+Example **priority.list**:
+
+    ^linux-.*
+    ^firmware-.*
+    ^dkms$
 
 # EXAMPLES
 
