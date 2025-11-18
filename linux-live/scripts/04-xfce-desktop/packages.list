@@ -51,8 +51,14 @@ minios-session-manager -pv=minimum -d=bionic
 minios-kernel-manager -pv=minimum -d=bionic
 driveutility -pv=minimum -d=bionic && python3-zstandard -pv=minimum -d=bionic
 pavucontrol -pv=minimum
-pulseaudio -pv=minimum
-pulseaudio-module-bluetooth -pv=minimum
+pulseaudio -pv=minimum -d=trixie
+pulseaudio-module-bluetooth -pv=minimum -d=trixie
+pipewire -pv=minimum +d=trixie
+pipewire-pulse -pv=minimum +d=trixie
+wireplumber -pv=minimum +d=trixie
+pipewire-audio-client-libraries -pv=minimum +d=trixie
+libspa-0.2-bluetooth -pv=minimum +d=trixie
+
 samba-common -pv=minimum
 thunar-archive-plugin -pv=minimum
 tumbler -pv=minimum
@@ -76,6 +82,8 @@ virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=sid
 qt5-gtk2-platformtheme +pv=toolbox +pv=ultra
 qt6-gtk-platformtheme +pv=toolbox +pv=ultra && qt5-gtk-platformtheme +pv=toolbox +pv=ultra
 xfce4-notifyd +pv=toolbox +pv=ultra
+pulseaudio-module-xrdp -d=trixie +pv=toolbox +pv=ultra
+pipewire-module-xrdp +d=trixie +pv=toolbox +pv=ultra
 
 # ========================================
 # == Localization Packages (Ubuntu only)==
