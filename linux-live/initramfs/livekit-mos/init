@@ -9,9 +9,6 @@ LIVEKITNAME="minios"
 
 . /lib/livekitlib
 
-BEXT=$(cmdline_value bext)
-[ -z "$BEXT" ] && BEXT="sb"
-
 transfer_initramfs
 
 MEMORY=/memory
@@ -24,6 +21,9 @@ header -t "MiniOS" -s "Fast. Simple. Reliable."
 header -u "https://minios.dev"
 
 init_proc_sysfs
+
+BEXT=$(cmdline_value bext)
+[ -z "$BEXT" ] && BEXT="sb"
 
 debug_start
 debug_shell
