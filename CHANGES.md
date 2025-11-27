@@ -480,7 +480,8 @@ This release includes bug fixes for all issues discovered since v5.0.0, along wi
 ### 2. User Experience (UX) and Interface Improvements
 - **Boot Menu:** Multilingual support has been added for the SYSLINUX and GRUB boot menus.
 - **Boot Parameters:** Added automatic timezone and keyboard layout configuration based on selected language in boot menu
-- **Desktop Keyboard Setup:** Added automatic keyboard layout configuration in GUI from boot parameters (one-time setup)
+- **Desktop Keyboard Setup:** Added automatic keyboard layout configuration in desktop environment from system settings. Now supports keyboard model, layout, variant, and options (including layout switching combinations like `grp:ctrl_shift_toggle`, `grp:caps_toggle`). Configuration is processed by live-config component `0150-keyboard-configuration` and applied to XFCE/Fluxbox desktop environments. Desktop keyboard setup utility moved to minios-tools package.
+- **Virtual Machine Display:** Added `minios-virtual-resolution` utility for automatic screen resolution adjustment in virtual machines without guest utilities. Supports `virtres=WIDTHxHEIGHT` kernel parameter and `novirtres` to disable. Moved to minios-tools package.
 - **Ventoy Compatibility:** Compatibility symlinks for Ventoy have been added to improve the boot experience.
 
 ### 3. System and Package Management
@@ -549,6 +550,14 @@ This release includes bug fixes for all issues discovered since v5.0.0, along wi
 **Rescuezilla:**
 - Replaced `nbd-server` and `nbd-client` dependencies with `nbdkit`
 - Updated SVG button files for improved interface
+
+**DriveUtility:**
+- Enhanced disk filtering logic to hide mounted disks by default for improved safety
+- Renamed "Show all disks (DANGEROUS)" checkbox to "Show mounted disks"
+- Added confirmation dialog for operations on mounted devices with color-coded buttons and detailed risk warnings
+- Fixed mountutils to allow operations on mounted devices when explicitly confirmed by advanced users
+- Added support for optical drives (CD/DVD) in Create Image mode for ISO creation
+- Updated translations for new UI strings across all supported languages
 
 **Flux Tools:**
 - Added Session Manager and Kernel Manager integration to fbliveapp
