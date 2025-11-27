@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Marker file to ensure script runs only once
-MARKER_FILE="$HOME/.minios-virtreschange.done"
+MARKER_FILE="$HOME/.config/minios/virtreschange-configured"
 
 # Exit if already executed
 if [[ -f "$MARKER_FILE" ]]; then
@@ -71,4 +71,5 @@ if ! grep -q 'novirtres' /proc/cmdline; then
 fi
 
 # Create marker file to prevent future executions
+mkdir -p "$HOME/.config/minios"
 touch "$MARKER_FILE"
