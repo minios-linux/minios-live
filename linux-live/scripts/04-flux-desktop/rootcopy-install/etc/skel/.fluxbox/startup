@@ -24,6 +24,9 @@ fbdesktop
 # merge xresource settings
 xrdb -merge ~/.Xresources
 
+# Setup keyboard layout from cmdline (one-time)
+minios-setup-keyboard
+
 # set keyboard layout
 echo "$(setxkbmap -query | grep "layout" | awk '{print $2}')" >~/.fluxbox/kblayout
 if [ -n $(cat ~/.fluxbox/kblayout) ]; then
