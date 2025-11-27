@@ -1563,6 +1563,38 @@ create_config_files() {
         esac
     }
 
+    get_language_timezone() {
+        local LANG="$1"
+        case "$LANG" in
+        en_US) echo "Etc/UTC" ;;
+        ru_RU) echo "Europe/Moscow" ;;
+        de_DE) echo "Europe/Berlin" ;;
+        es_ES) echo "Europe/Madrid" ;;
+        fr_FR) echo "Europe/Paris" ;;
+        id_ID) echo "Asia/Jakarta" ;;
+        it_IT) echo "Europe/Rome" ;;
+        pt_BR) echo "America/Sao_Paulo" ;;
+        pt_PT) echo "Europe/Lisbon" ;;
+        *) echo "Etc/UTC" ;;
+        esac
+    }
+
+    get_language_keyboard() {
+        local LANG="$1"
+        case "$LANG" in
+        en_US) echo "us" ;;
+        ru_RU) echo "us,ru" ;;
+        de_DE) echo "us,de" ;;
+        es_ES) echo "us,es" ;;
+        fr_FR) echo "us,fr" ;;
+        id_ID) echo "id" ;;
+        it_IT) echo "us,it" ;;
+        pt_BR) echo "us,br" ;;
+        pt_PT) echo "us,pt" ;;
+        *) echo "us" ;;
+        esac
+    }
+
     # Create SYSLINUX configuration based on bootloader choice
     if [ "${BOOTLOADER}" = "syslinux-grub" ] || [ "${BOOTLOADER}" = "syslinux-native" ]; then
         mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
@@ -1657,6 +1689,15 @@ EOF
             local MO_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${CURRENT_LANG}.mo"
             local FONT_FILE=$(get_language_font "$CURRENT_LANG")
             local LOCALE_UTF="${CURRENT_LANG}.UTF-8"
+
+            # For English, don't set timezone and keyboard (use config.conf defaults)
+            if [ "$CURRENT_LANG" = "en_US" ]; then
+                local TIMEZONE=""
+                local KEYBOARD=""
+            else
+                local TIMEZONE=$(get_language_timezone "$CURRENT_LANG")
+                local KEYBOARD=$(get_language_keyboard "$CURRENT_LANG")
+            fi
 
             # Extract translations from mo file if it exists
             local RESUME="Resume previous session"
@@ -1754,27 +1795,27 @@ MENU TABMSG ${F1_HELP}                                                        ${
 LABEL default
 MENU LABEL ${RESUME}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=${LOCALE_UTF}
+APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=${LOCALE_UTF}$([ -n "${TIMEZONE}" ] && echo " timezone=${TIMEZONE}")$([ -n "${KEYBOARD}" ] && echo " keyboard-layouts=${KEYBOARD}")
 
 LABEL perch
 MENU LABEL ${START_NEW}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new locales=${LOCALE_UTF}
+APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new locales=${LOCALE_UTF}$([ -n "${TIMEZONE}" ] && echo " timezone=${TIMEZONE}")$([ -n "${KEYBOARD}" ] && echo " keyboard-layouts=${KEYBOARD}")
 
 LABEL asksession
 MENU LABEL ${CHOOSE_SESSION}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=${LOCALE_UTF}
+APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=${LOCALE_UTF}$([ -n "${TIMEZONE}" ] && echo " timezone=${TIMEZONE}")$([ -n "${KEYBOARD}" ] && echo " keyboard-layouts=${KEYBOARD}")
 
 LABEL live
 MENU LABEL ${FRESH_START}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=${LOCALE_UTF}
+APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=${LOCALE_UTF}$([ -n "${TIMEZONE}" ] && echo " timezone=${TIMEZONE}")$([ -n "${KEYBOARD}" ] && echo " keyboard-layouts=${KEYBOARD}")
 
 LABEL toram
 MENU LABEL ${COPY_RAM}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
-APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=${LOCALE_UTF}
+APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=${LOCALE_UTF}$([ -n "${TIMEZONE}" ] && echo " timezone=${TIMEZONE}")$([ -n "${KEYBOARD}" ] && echo " keyboard-layouts=${KEYBOARD}")
 
 EOF
             ) | if [ -n "$ENCODING" ] && command -v iconv >/dev/null 2>&1; then
@@ -1818,16 +1859,105 @@ set localedir=\$prefix/locale
 # Language selection (title in theme)
 
 # Language selection
-for langstr in en_US=English ru_RU=Русский de_DE=Deutsch es_ES=Español fr_FR=Français id_ID="Bahasa Indonesia" it_IT=Italiano pt_BR="Português (Brasil)" pt_PT="Português (Portugal)" ; do
-    regexp -s 2:langname -s 1:langcode '(.*)=(.*)' "\$langstr"
-    menuentry "\${langname}" "\$langcode" {
-        lang=\$2
-        lang_utf="\${2}.UTF-8"
-        export lang
-        export lang_utf
-        configfile /${LIVEKITNAME}/boot/grub/main.cfg
-    }
-done
+menuentry "English" {
+    lang="en_US"
+    lang_utf="en_US.UTF-8"
+    lang_timezone=""
+    lang_keyboard=""
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Русский" {
+    lang="ru_RU"
+    lang_utf="ru_RU.UTF-8"
+    lang_timezone="Europe/Moscow"
+    lang_keyboard="us,ru"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Deutsch" {
+    lang="de_DE"
+    lang_utf="de_DE.UTF-8"
+    lang_timezone="Europe/Berlin"
+    lang_keyboard="us,de"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Español" {
+    lang="es_ES"
+    lang_utf="es_ES.UTF-8"
+    lang_timezone="Europe/Madrid"
+    lang_keyboard="us,es"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Français" {
+    lang="fr_FR"
+    lang_utf="fr_FR.UTF-8"
+    lang_timezone="Europe/Paris"
+    lang_keyboard="us,fr"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Bahasa Indonesia" {
+    lang="id_ID"
+    lang_utf="id_ID.UTF-8"
+    lang_timezone="Asia/Jakarta"
+    lang_keyboard="id"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Italiano" {
+    lang="it_IT"
+    lang_utf="it_IT.UTF-8"
+    lang_timezone="Europe/Rome"
+    lang_keyboard="us,it"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Português (Brasil)" {
+    lang="pt_BR"
+    lang_utf="pt_BR.UTF-8"
+    lang_timezone="America/Sao_Paulo"
+    lang_keyboard="us,br"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
+menuentry "Português (Portugal)" {
+    lang="pt_PT"
+    lang_utf="pt_PT.UTF-8"
+    lang_timezone="Europe/Lisbon"
+    lang_keyboard="us,pt"
+    export lang
+    export lang_utf
+    export lang_timezone
+    export lang_keyboard
+    configfile /${LIVEKITNAME}/boot/grub/main.cfg
+}
 
 # Help text handled by theme
 
@@ -1873,9 +2003,17 @@ insmod regexp
 insmod gettext
 set localedir=\$prefix/locale
 
-# Use exported language variables or default to English
-if [ -z "\$lang_utf" ]; then
-    set lang_utf="en_US.UTF-8"
+# Build extra boot parameters (timezone and keyboard) only if set
+set extra_params=""
+if [ -n "\$lang_timezone" ]; then
+    set extra_params="timezone=\$lang_timezone"
+fi
+if [ -n "\$lang_keyboard" ]; then
+    if [ -n "\$extra_params" ]; then
+        set extra_params="\$extra_params keyboard-layouts=\$lang_keyboard"
+    else
+        set extra_params="keyboard-layouts=\$lang_keyboard"
+    fi
 fi
 
 # Set GRUB language for gettext
@@ -1953,35 +2091,35 @@ menuentry "\$resume" --class resume {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=\$lang_utf
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=\$lang_utf \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$newsession" --class new {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new locales=\$lang_utf
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new locales=\$lang_utf \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$choosesession" --class switch {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=\$lang_utf
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=\$lang_utf \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$freshstart" --class live {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=\$lang_utf
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=\$lang_utf \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$copyram" --class ram {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=\$lang_utf
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=\$lang_utf \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 
