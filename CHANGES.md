@@ -520,6 +520,12 @@ This release includes bug fixes for all issues discovered since v5.0.0, along wi
 - Updated zero_fill_disk function to 2MB overwrite size
 - Added gir1.2-udisks-2.0 dependency
 
+**MiniOS Configurator:**
+- Added `-i/--inherit-cmdline` option to automatically inherit configuration settings from kernel command line
+- Configurator detects and uses settings from the running live system when launched from installer
+- Configuration is pre-filled with current boot parameters for improved installation workflow
+- Added support for parsing 21 unique config parameters from kernel command line (42 cmdline parameter variants)
+
 **Kernel Manager:**
 - Added automatic detection and support for both dracut and livekit initramfs builders
 - Implemented JSON output support
@@ -584,12 +590,6 @@ This release includes bug fixes for all issues discovered since v5.0.0, along wi
 - Added new boot parameters (including `automount`)
 - Comprehensive Rebuilding ISO documentation
 - Added curl to required packages list
-
-**MiniOS Configurator:**
-- Added `-i/--inherit-cmdline` option to automatically inherit configuration settings from kernel command line
-- Configurator detects and uses settings from the running live system when launched from installer
-- Configuration is pre-filled with current boot parameters for improved installation workflow
-- Added support for parsing 21 unique config parameters from kernel command line (42 cmdline parameter variants)
 
 ### 6. Dracut Integration (Experimental)
 - **Dracut as Build-Time Alternative:** Experimental integration of `dracut` as an alternative `initramfs` builder option. **By default, MiniOS uses `livekit`** as the stable and production-ready initramfs builder. The `INITRAMFS_BUILDER` variable in `build.conf` allows optionally selecting `dracut` for testing purposes during system builds. Dracut support is currently **experimental and available only as a build-time option**, not in the final system.
