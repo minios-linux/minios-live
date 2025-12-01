@@ -43,6 +43,25 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Clean up excessive locales for Ubuntu
+if [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
+    if [ -d /var/lib/locales/supported.d ]; then
+        if [ "$MULTILINGUAL" = "false" ]; then
+            # Keep only the locale specified in LOCALE variable
+            for LOCALE_FILE in /var/lib/locales/supported.d/*; do
+                if [ -f "$LOCALE_FILE" ] && [ "$(basename "$LOCALE_FILE")" != "en" ]; then
+                    # Extract language code from LOCALE (e.g., ru_RU from ru_RU or ru_RU.UTF-8)
+                    LOCALE_CODE="${LOCALE%%.*}"
+                    # Keep only the main locale and en_US
+                    sed -i -E "/^(${LOCALE_CODE}|en_US)\.UTF-8/!d" "$LOCALE_FILE"
+                fi
+            done
+            # Regenerate locales
+            locale-gen
+        fi
+    fi
+fi
+
 echo "export QT_QPA_PLATFORMTHEME=gtk2" >>/etc/environment
 
 case "$LOCALE" in
@@ -71,7 +90,7 @@ if [ "$DISTRIBUTION" = "bionic" ]; then
     rm /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml
 fi
 
-if { [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "bionic" ] || [ "$DISTRIBUTION" = "focal" ]; } && pkg_is_installed "pulseaudio"; then
+if { [ "$DISTRIBUTION" = "buster" ] || [ "$DISTRIBUTION" = "bionic" ] || [ "$DISTRIBUTION" = "focal" ] || [ "$DISTRIBUTION" = "jammy" ]; } && pkg_is_installed "pulseaudio"; then
     sed -i 's|^onclick=.*|onclick=pavucontrol|' /etc/skel/.config/volumeicon/volumeicon
 fi
 
