@@ -591,6 +591,6 @@ This release includes bug fixes for all issues discovered since v5.0.0, along wi
 - Comprehensive Rebuilding ISO documentation
 - Added curl to required packages list
 
-### 6. Dracut Integration (Experimental)
-- **Dracut as Build-Time Alternative:** Experimental integration of `dracut` as an alternative `initramfs` builder option. **By default, MiniOS uses `livekit`** as the stable and production-ready initramfs builder. The `INITRAMFS_BUILDER` variable in `build.conf` allows optionally selecting `dracut` for testing purposes during system builds. Dracut support is currently **experimental and available only as a build-time option**, not in the final system.
+### 6. Dracut Integration
+- **Dracut as a Primary Initramfs Builder:** This release integrates `dracut` as a fully supported alternative `initramfs` builder. While MiniOS continues to use `livekit` by default as the stable and production-ready option, `dracut` can now be selected during system builds by setting the `INITRAMFS_BUILDER` variable in `build.conf`. This provides users with more flexibility and choice in their system configurations.
 - **Script and Configuration Updates:** Numerous scripts have been updated to support both `livekit` and `dracut`, including `minios-init`, `minios-shutdown`, and various build scripts. The system automatically detects which initramfs builder was used and adapts accordingly.
