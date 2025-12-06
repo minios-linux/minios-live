@@ -776,6 +776,9 @@ unmount_dirs() {
     local MOUNTS
     local FAILED=0
 
+    # Change to a safe directory to avoid CWD blocking unmount
+    cd / 2>/dev/null || true
+
     # 1) Collect all mount points strictly inside DIR_PATH (deepest first)
     mapfile -t MOUNTS < <(
         findmnt -rn -o TARGET |
@@ -840,14 +843,38 @@ unmount_dirs() {
         done
         TO_UNMOUNT=("${NEXT[@]}")
         ((PASS++))
+
+        # Add a delay between passes to allow processes to release resources
+        if [ "$PASS" -le "$MAX_PASSES" ] && [ "${#TO_UNMOUNT[@]}" -gt 0 ]; then
+            sleep 1
+        fi
     done
 
+    # If still unable to unmount after MAX_PASSES, try lazy unmount as a last resort
     if [ "${#TO_UNMOUNT[@]}" -gt 0 ]; then
-        error "Failed to unmount ${#TO_UNMOUNT[@]} point(s) after $MAX_PASSES passes. Remaining:"
-        for M in "${TO_UNMOUNT[@]}"; do
-            warning "  * ${M}"
+        if [ ${VERBOSITY_LEVEL:-1} -ge 2 ]; then
+            warning "Attempting lazy unmount for remaining ${#TO_UNMOUNT[@]} point(s)..."
+        fi
+        local LAZY_FAILED=()
+        for MOUNT in "${TO_UNMOUNT[@]}"; do
+            if findmnt "${MOUNT}" >/dev/null 2>&1; then
+                if umount -l "${MOUNT}" 2>/dev/null; then
+                    if [ ${VERBOSITY_LEVEL:-1} -ge 2 ]; then
+                        information "Successfully lazy-unmounted ${MOUNT}."
+                    fi
+                else
+                    LAZY_FAILED+=("${MOUNT}")
+                fi
+            fi
         done
-        return 1
+
+        if [ "${#LAZY_FAILED[@]}" -gt 0 ]; then
+            error "Failed to unmount ${#LAZY_FAILED[@]} point(s) even with lazy unmount. Remaining:"
+            for M in "${LAZY_FAILED[@]}"; do
+                warning "  * ${M}"
+            done
+            return 1
+        fi
     fi
 
     if [ ${VERBOSITY_LEVEL:-1} -ge 2 ]; then
@@ -1457,6 +1484,7 @@ EOF
 
 mkmod_corefs() {
     local FOLDER
+    local ORIGINAL_DIR="$PWD"
     cd "${1}"
     COREFS=""
     # List of directories for root filesystem
@@ -1469,6 +1497,8 @@ mkmod_corefs() {
             COREFS="${COREFS} ${FOLDER}"
         fi
     done
+    # Return to original directory to avoid blocking unmount operations
+    cd "$ORIGINAL_DIR"
 }
 
 build_live() {
