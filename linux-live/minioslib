@@ -1884,7 +1884,6 @@ insmod gettext
 set localedir=\$prefix/locale
 
 # Detect lockdown mode (Secure Boot)
-# Try to load a font from disk - if it fails, we're in lockdown mode
 set lockdown=n
 insmod font
 if ! loadfont \$prefix/unicode.pf2 ; then
@@ -2080,7 +2079,7 @@ export copyram
 export backtolang
 export loading
 
-# Detect lockdown mode if not already set (for direct boot to main.cfg)
+# Detect lockdown mode (Secure Boot) if not already set
 if [ -z "\$lockdown" ]; then
     set lockdown=n
     insmod font
