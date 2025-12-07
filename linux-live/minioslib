@@ -1883,6 +1883,14 @@ insmod regexp
 insmod gettext
 set localedir=\$prefix/locale
 
+# Detect lockdown mode (Secure Boot)
+# Try to load a font from disk - if it fails, we're in lockdown mode
+set lockdown=n
+insmod font
+if ! loadfont \$prefix/unicode.pf2 ; then
+    set lockdown=y
+fi
+
 # Language selection (title in theme)
 
 # Language selection
@@ -2072,6 +2080,15 @@ export copyram
 export backtolang
 export loading
 
+# Detect lockdown mode if not already set (for direct boot to main.cfg)
+if [ -z "\$lockdown" ]; then
+    set lockdown=n
+    insmod font
+    if ! loadfont \$prefix/unicode.pf2 ; then
+        set lockdown=y
+    fi
+fi
+
 # Load fonts
 if [ "\$lockdown" = "y" ]; then
     loadfont (memdisk)/fonts/unicode.pf2
@@ -2162,6 +2179,13 @@ EOF
 set default=0
 set timeout=10
 set message="Loading kernel and ramdisk..."
+
+# Detect lockdown mode (Secure Boot)
+set lockdown=n
+insmod font
+if ! loadfont \$prefix/unicode.pf2 ; then
+    set lockdown=y
+fi
 
 # Load fonts
 if [ "\$lockdown" = "y" ]; then
