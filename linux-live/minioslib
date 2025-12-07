@@ -1991,11 +1991,16 @@ menuentry "Português (Portugal)" {
 
 # Help text handled by theme
 
-loadfont \$prefix/dejavu-bold-16.pf2
-loadfont \$prefix/dejavu-bold-14.pf2
-loadfont \$prefix/roboto-bold-20.pf2
-loadfont \$prefix/roboto-regular-20.pf2
-loadfont \$prefix/unicode.pf2
+# Load fonts
+if [ "\$lockdown" = "y" ]; then
+    loadfont (memdisk)/fonts/unicode.pf2
+else
+    loadfont \$prefix/dejavu-bold-16.pf2
+    loadfont \$prefix/dejavu-bold-14.pf2
+    loadfont \$prefix/roboto-bold-20.pf2
+    loadfont \$prefix/roboto-regular-20.pf2
+    loadfont \$prefix/unicode.pf2
+fi
 
 if [ "\$grub_platform" = "pc" ]; then
     set gfxmode=1024x768x32
