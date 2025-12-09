@@ -1,0 +1,53 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+          severity: warning
+          format: gcc
+          ignore_paths: build submodules
+
+  test-condinapt:
+    name: Test CondinAPT
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make condinapt executable
+        run: chmod +x linux-live/condinapt
+
+      - name: Run CondinAPT tests
+        run: |
+          cd linux-live
+          ./test_condinapt.sh ./condinapt
+
+  syntax-check:
+    name: Bash Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check bash syntax
+        run: |
+          find . -name "*.sh" -type f ! -path "./build/*" ! -path "./submodules/*" | while read -r script; do
+            bash -n "$script" || exit 1
+          done
+          bash -n minios-live || exit 1
+          bash -n minios-cmd || exit 1

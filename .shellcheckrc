@@ -1,0 +1,18 @@
+# ShellCheck configuration for minios-live project
+# Disable specific checks that are intentional or acceptable in this codebase
+
+# SC1090: Can't follow non-constant source
+# We source files from variables, which is intentional
+disable=SC1090
+
+# SC1091: Not following: file was not specified as input
+# We don't need shellcheck to follow all sourced files
+disable=SC1091
+
+# SC2034: Variable appears unused
+# Some variables are used externally or in sourced scripts
+# Disabled globally but we should still minimize truly unused variables
+
+# SC2317: Command appears to be unreachable
+# Some functions are called indirectly (e.g., via function name variables)
+disable=SC2317

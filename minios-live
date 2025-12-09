@@ -7,8 +7,9 @@ set -e          # exit on error
 set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
-SET_E=""
-SET_U=""
+# These variables are used by toggle_shell_options function in minioslib
+export SET_E=""
+export SET_U=""
 
 # ---[ CONSTANTS & VARIABLES ]---
 SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
@@ -33,6 +34,7 @@ export LIBMOUNT_FORCE_MOUNT2=always
 MINIOSLIB="${BUILD_SCRIPTS_DIR}/minioslib"
 
 # ---[ SOURCE FILES ]---
+# shellcheck source=/dev/null
 . "$MINIOSLIB" || exit 1
 
 console_colors
@@ -46,6 +48,7 @@ if [[ "$MAIN_EXECUTABLE" = "minios-cmd" && ! -f "$BUILD_CONF" ]]; then
     fi
 fi
 
+# shellcheck source=/dev/null
 . "$BUILD_CONF" || exit 1
 export VERBOSITY_LEVEL
 
@@ -82,12 +85,13 @@ help() {
 }
 
 # ---[ BUILD PATHS AND DIRECTORIES ]---
-APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
-ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
-ISO_DIR="$BUILD_DIR/iso"
-WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
-INSTALL_DIR="$WORK_DIR/core"
-EXCLUDE_CORE_FILE="$WORK_DIR/squashfs-core-exclude"
+# These variables are exported for use in minioslib functions
+export APTCACHE_DIR="$BUILD_DIR/aptcache/$DISTRIBUTION"
+export ROOTFS_TARBALL="$BUILD_DIR/rootfs/$DISTRIBUTION-$DISTRIBUTION_ARCH-rootfs.tar.gz"
+export ISO_DIR="$BUILD_DIR/iso"
+export WORK_DIR="$BUILD_DIR/$DISTRIBUTION-$PACKAGE_VARIANT-$DISTRIBUTION_ARCH"
+export INSTALL_DIR="$WORK_DIR/core"
+export EXCLUDE_CORE_FILE="$WORK_DIR/squashfs-core-exclude"
 
 # ---[ COMMANDS ]---
 CMD=(build_bootstrap build_chroot build_live build_modules build_boot build_config build_iso remove_sources)
@@ -99,8 +103,8 @@ create_log_file "$@"
 # but leave lone "-" untouched
 ARGS=("$@")
 for idx in "${!ARGS[@]}"; do
-    [[ "${ARGS[$idx]}" == "-" ]] && continue
-    ARGS[$idx]="${ARGS[$idx]//-/_}"
+    [[ "${ARGS[idx]}" == "-" ]] && continue
+    ARGS[idx]="${ARGS[idx]//-/_}"
 done
 set -- "${ARGS[@]}"
 
@@ -111,7 +115,7 @@ common_variables
 
 allow_root_only
 
-if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
+if [[ " ${CMD[*]:-} " =~ ${1:-} ]] || [[ "${1:-}" == "-" ]]; then
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
         toggle_shell_options e
         check_internet_connection

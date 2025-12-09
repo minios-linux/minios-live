@@ -8,8 +8,8 @@ set -u          # treat unset variable as error
 MAIN_EXECUTABLE="minios-cmd"
 
 # The purpose of these variables is described in the help for the toggle_shell_options function in minioslib.
-SET_E=""
-SET_U=""
+export SET_E=""
+export SET_U=""
 
 export TEXTDOMAIN="minios-live"
 
@@ -23,13 +23,14 @@ fi
 
 # ----[ LIBRARY SOURCING ]----
 MINIOSLIB="$BUILD_SCRIPTS_DIR/minioslib"
+# shellcheck source=/dev/null
 . "$MINIOSLIB" || exit 1
 
 # ----[ INTERNAL FUNCTIONS ]----
 help() {
     console_colors
-    echo -e "${BOLD}$(gettext "Usage:") $(basename $0) [OPTIONS]${ENDCOLOR}"
-    echo "$(gettext "Creates a system image with the specified parameters.")"
+    echo -e "${BOLD}$(gettext "Usage:") $(basename "$0") [OPTIONS]${ENDCOLOR}"
+    gettext "Creates a system image with the specified parameters."
     echo ""
     echo -e "${BOLD}$(gettext "Options:")${ENDCOLOR}"
     echo ""
@@ -82,39 +83,39 @@ help() {
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
     echo ""
     echo -e "  $(gettext "1. Create a MiniOS Standard system image (default settings):")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -c zstd -aufs -dkms -kl"
+    echo -e "     $(basename "$0") -d bookworm -a amd64 -de xfce -pv standard -c zstd -aufs -dkms -kl"
     echo ""
     echo -e "  $(gettext "2. Create a MiniOS Toolbox system image (default settings):")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -aufs -dkms -kl"
+    echo -e "     $(basename "$0") -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -aufs -dkms -kl"
     echo ""
     echo -e "  $(gettext "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'toolbox' package variant, and Russian locale:")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU"
+    echo -e "     $(basename "$0") -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU"
     echo ""
     echo -e "  $(gettext "4. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'standard' package variant and 'lxqt' desktop environment:")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de lxqt -pv standard"
+    echo -e "     $(basename "$0") -d bookworm -a amd64 -de lxqt -pv standard"
     echo ""
     echo -e "  $(gettext "5. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:")"
-    echo -e "     $(basename $0) -d buster -a i386 -de xfce -pv standard"
+    echo -e "     $(basename "$0") -d buster -a i386 -de xfce -pv standard"
     echo ""
     echo -e "  $(gettext "6. Create a system image with the 'jammy' distribution and 'standard' package variant:")"
-    echo -e "     $(basename $0) -d jammy -pv standard -a amd64 -de xfce"
+    echo -e "     $(basename "$0") -d jammy -pv standard -a amd64 -de xfce"
     echo ""
     echo -e "  $(gettext "7. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:")"
-    echo -e "     $(basename $0) -d trixie -a amd64 -de xfce -pv standard -ml"
+    echo -e "     $(basename "$0") -d trixie -a amd64 -de xfce -pv standard -ml"
     echo ""
     echo -e "  $(gettext "8. Create a system image with Russian boot menu language:")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU"
+    echo -e "     $(basename "$0") -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU"
     echo ""
     echo -e "  $(gettext "9. Create a system image with livekit initramfs builder:")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de flux -pv standard -ib livekit"
+    echo -e "     $(basename "$0") -d bookworm -a amd64 -de flux -pv standard -ib livekit"
     echo ""
-    echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
+    echo -e "  $(basename "$0") $(gettext "has many more options available. Please refer to the above options list for more details.")"
     exit 0
 }
 
 brief_help() {
-    echo "Usage: $(basename $0) [OPTIONS]"
-    echo "Try '$(basename $0) --help' for more information."
+    echo "Usage: $(basename "$0") [OPTIONS]"
+    echo "Try '$(basename "$0") --help' for more information."
     exit 1
 }
 
