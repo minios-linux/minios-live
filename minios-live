@@ -99,12 +99,13 @@ CMD=(build_bootstrap build_chroot build_live build_modules build_boot build_conf
 # ----[ MAIN ]----
 create_log_file "$@"
 
-# normalize both hyphens and underscores into underscore form,
+# Normalize both hyphens and underscores into underscore form,
 # but leave lone "-" untouched
 ARGS=("$@")
 for idx in "${!ARGS[@]}"; do
-    [[ "${ARGS[idx]}" == "-" ]] && continue
-    ARGS[idx]="${ARGS[idx]//-/_}"
+    [[ "${ARGS[$idx]}" == "-" ]] && continue
+    # SC2004: Using $idx for clarity even though idx alone would work
+    ARGS[$idx]="${ARGS[$idx]//-/_}"
 done
 set -- "${ARGS[@]}"
 
