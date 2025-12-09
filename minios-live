@@ -115,7 +115,16 @@ common_variables
 
 allow_root_only
 
-if [[ " ${CMD[*]:-} " =~ ${1:-} ]] || [[ "${1:-}" == "-" ]]; then
+# Check if first argument is a valid command or "-"
+cmd_found=false
+for cmd in "${CMD[@]}"; do
+    if [[ "${1:-}" == "$cmd" ]] || [[ "${1:-}" == "-" ]]; then
+        cmd_found=true
+        break
+    fi
+done
+
+if [[ "$cmd_found" == "true" ]]; then
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
         toggle_shell_options e
         check_internet_connection
