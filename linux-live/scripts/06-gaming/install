@@ -24,30 +24,247 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# ========================================
+# Install Steam
+# ========================================
+information "Installing Steam..."
+
+# Add contrib and non-free repos for Steam
+if [ -f /etc/apt/sources.list ]; then
+    sed -i 's/main$/main contrib non-free non-free-firmware/g' /etc/apt/sources.list
+fi
+
+apt-get update
+
+# Accept Steam license automatically
+echo "steam steam/question select I AGREE" | debconf-set-selections
+echo "steam steam/license note" | debconf-set-selections
+
+# Install Steam dependencies and Steam itself
+apt-get install -y steam-installer || {
+    warning "Steam installer not available, downloading manually..."
+    cd /tmp
+    wget -q https://cdn.cloudflare.steamstatic.com/client/installer/steam.deb || true
+    if [ -f steam.deb ]; then
+        dpkg -i steam.deb || apt-get install -f -y
+        rm -f steam.deb
+    fi
+}
+
+# ========================================
 # Configure PulseAudio for gaming (low latency)
+# ========================================
+information "Configuring low-latency audio..."
 if [ -f /etc/pulse/daemon.conf ]; then
     sed -i 's/; default-sample-rate = 44100/default-sample-rate = 48000/' /etc/pulse/daemon.conf
     sed -i 's/; default-fragments = 4/default-fragments = 2/' /etc/pulse/daemon.conf
     sed -i 's/; default-fragment-size-msec = 25/default-fragment-size-msec = 5/' /etc/pulse/daemon.conf
 fi
 
-# Create gaming-friendly .bashrc additions
+# ========================================
+# Configure GameMode
+# ========================================
+information "Configuring GameMode..."
+if [ -d /etc/gamemode.ini ] || command -v gamemoded &> /dev/null; then
+    mkdir -p /etc
+    cat > /etc/gamemode.ini << 'EOF'
+[general]
+; GameMode config for SuperMiniOS Gaming Edition
+renice = 10
+ioprio = 0
+
+[gpu]
+; GPU optimizations
+apply_gpu_optimisations = accept-responsibility
+gpu_device = 0
+nv_powermizer_mode = 1
+
+[cpu]
+; CPU governor for gaming
+desiredgov = performance
+
+[custom]
+; Custom scripts can be added here
+start=
+end=
+EOF
+fi
+
+# ========================================
+# Create SuperMiniOS branding and aliases
+# ========================================
 cat >> /etc/skel/.bashrc << 'EOF'
 
-# SuperMiniOS Gaming Aliases
+# ========================================
+# SuperMiniOS Gaming Edition
+# ========================================
+
+# System aliases
 alias update='sudo apt update && sudo apt upgrade -y'
 alias install='sudo apt install'
 alias search='apt search'
+alias clean='sudo apt autoremove -y && sudo apt autoclean'
 
 # Git shortcuts
 alias gs='git status'
 alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
-alias gl='git log --oneline'
+alias gpl='git pull'
+alias gl='git log --oneline -10'
+alias gd='git diff'
+
+# Gaming shortcuts
+alias steam='gamemoderun steam &>/dev/null &'
+alias lutris='gamemoderun lutris &>/dev/null &'
 
 # System info
 alias sysinfo='neofetch'
+alias gpuinfo='glxinfo | grep "OpenGL renderer"'
+alias temps='sensors 2>/dev/null || echo "Install lm-sensors for temperature monitoring"'
+
+# Performance monitoring
+alias top='htop'
+alias ports='netstat -tulanp'
+
+# Quick navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ll='ls -lah'
+alias la='ls -A'
+
+# Safety nets
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# Colorize
+alias grep='grep --color=auto'
+alias diff='diff --color=auto'
+
+# Show PATH in readable format
+alias path='echo $PATH | tr ":" "\n"'
 EOF
 
+# ========================================
+# Create desktop entries for gaming
+# ========================================
+mkdir -p /usr/share/applications
+
+# Steam desktop entry with GameMode
+cat > /usr/share/applications/steam-gamemode.desktop << 'EOF'
+[Desktop Entry]
+Name=Steam (GameMode)
+Comment=Play games with GameMode optimization
+Exec=gamemoderun steam %U
+Icon=steam
+Terminal=false
+Type=Application
+Categories=Game;
+MimeType=x-scheme-handler/steam;
+EOF
+
+# Lutris desktop entry with GameMode
+cat > /usr/share/applications/lutris-gamemode.desktop << 'EOF'
+[Desktop Entry]
+Name=Lutris (GameMode)
+Comment=Play games with GameMode optimization
+Exec=gamemoderun lutris %U
+Icon=lutris
+Terminal=false
+Type=Application
+Categories=Game;
+EOF
+
+# ========================================
+# Create gaming performance script
+# ========================================
+cat > /usr/local/bin/gaming-mode << 'EOF'
+#!/bin/bash
+# SuperMiniOS Gaming Mode Toggle
+
+case "$1" in
+    on)
+        echo "Enabling Gaming Mode..."
+        # Set CPU governor to performance
+        for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+            echo "performance" | sudo tee "$cpu" > /dev/null 2>&1
+        done
+        # Disable compositor if running
+        pkill compton 2>/dev/null || true
+        pkill picom 2>/dev/null || true
+        echo "Gaming Mode: ON"
+        echo "  - CPU: Performance mode"
+        echo "  - Compositor: Disabled"
+        ;;
+    off)
+        echo "Disabling Gaming Mode..."
+        # Set CPU governor back to ondemand/powersave
+        for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+            echo "ondemand" | sudo tee "$cpu" > /dev/null 2>&1
+        done
+        # Restart compositor
+        compton -b 2>/dev/null || picom -b 2>/dev/null || true
+        echo "Gaming Mode: OFF"
+        echo "  - CPU: Power saving mode"
+        echo "  - Compositor: Enabled"
+        ;;
+    status)
+        echo "Gaming Mode Status:"
+        echo "  CPU Governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo 'unknown')"
+        echo "  Compositor: $(pgrep -x compton > /dev/null && echo 'running' || echo 'not running')"
+        echo "  GameMode: $(pgrep -x gamemoded > /dev/null && echo 'active' || echo 'inactive')"
+        ;;
+    *)
+        echo "Usage: gaming-mode {on|off|status}"
+        echo ""
+        echo "Commands:"
+        echo "  on     - Enable gaming optimizations"
+        echo "  off    - Disable gaming optimizations"
+        echo "  status - Show current status"
+        exit 1
+        ;;
+esac
+EOF
+chmod +x /usr/local/bin/gaming-mode
+
+# ========================================
+# Create system info script
+# ========================================
+cat > /usr/local/bin/superminios-info << 'EOF'
+#!/bin/bash
+# SuperMiniOS System Information
+
+echo ""
+echo "  ╔═══════════════════════════════════════════════════════════╗"
+echo "  ║           SuperMiniOS Gaming Edition v1.0                 ║"
+echo "  ╚═══════════════════════════════════════════════════════════╝"
+echo ""
+echo "  System Information:"
+echo "  ─────────────────────────────────────────────────────────────"
+printf "  %-20s %s\n" "Kernel:" "$(uname -r)"
+printf "  %-20s %s\n" "Architecture:" "$(uname -m)"
+printf "  %-20s %s\n" "CPU:" "$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+printf "  %-20s %s\n" "Memory:" "$(free -h | awk '/^Mem:/ {print $2}')"
+printf "  %-20s %s\n" "GPU:" "$(lspci | grep -i vga | cut -d: -f3 | xargs)"
+echo ""
+echo "  Gaming Tools:"
+echo "  ─────────────────────────────────────────────────────────────"
+printf "  %-20s %s\n" "Steam:" "$(command -v steam > /dev/null && echo 'Installed' || echo 'Not installed')"
+printf "  %-20s %s\n" "Lutris:" "$(command -v lutris > /dev/null && echo 'Installed' || echo 'Not installed')"
+printf "  %-20s %s\n" "Wine:" "$(wine --version 2>/dev/null || echo 'Not installed')"
+printf "  %-20s %s\n" "GameMode:" "$(command -v gamemoded > /dev/null && echo 'Installed' || echo 'Not installed')"
+printf "  %-20s %s\n" "Vulkan:" "$(vulkaninfo --summary 2>/dev/null | grep -m1 'deviceName' | cut -d= -f2 | xargs || echo 'Not available')"
+echo ""
+echo "  Quick Commands:"
+echo "  ─────────────────────────────────────────────────────────────"
+echo "  gaming-mode on/off  - Toggle gaming optimizations"
+echo "  steam               - Launch Steam with GameMode"
+echo "  lutris              - Launch Lutris with GameMode"
+echo "  sysinfo             - Show system info (neofetch)"
+echo ""
+EOF
+chmod +x /usr/local/bin/superminios-info
+
 information "Gaming+Coding module installed successfully!"
+information "Installed: Steam, Lutris, Wine, GameMode, Mesa drivers, dev tools"

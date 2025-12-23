@@ -1,0 +1,92 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+set -u
+
+. /minioslib || exit 1
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+console_colors
+
+information "Running SuperMiniOS Gaming postinstall..."
+
+# Copy rootcopy-postinstall files
+if [ -d "${SCRIPT_DIR}/rootcopy-postinstall" ]; then
+    cp -af "${SCRIPT_DIR}/rootcopy-postinstall/"* / 2>/dev/null || true
+    information "Copied postinstall files"
+fi
+
+# Set correct permissions for neofetch config
+if [ -d /etc/skel/.config/neofetch ]; then
+    chmod 644 /etc/skel/.config/neofetch/*
+fi
+
+# Set correct permissions for sysctl config
+if [ -f /etc/sysctl.d/99-superminios-gaming.conf ]; then
+    chmod 644 /etc/sysctl.d/99-superminios-gaming.conf
+    information "Gaming kernel parameters configured"
+fi
+
+# Create SuperMiniOS release file
+cat > /etc/superminios-release << 'EOF'
+DISTRIB_ID=SuperMiniOS
+DISTRIB_RELEASE=1.0
+DISTRIB_CODENAME=gaming
+DISTRIB_DESCRIPTION="SuperMiniOS Gaming Edition"
+DISTRIB_FEATURES="Steam, Lutris, Wine, GameMode, Vulkan"
+EOF
+
+# Update /etc/issue for login screen
+cat > /etc/issue << 'EOF'
+
+  ███████╗██╗   ██╗██████╗ ███████╗██████╗ ███╗   ███╗██╗███╗   ██╗██╗ ██████╗ ███████╗
+  ██╔════╝██║   ██║██╔══██╗██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██║██╔═══██╗██╔════╝
+  ███████╗██║   ██║██████╔╝█████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║██║██║   ██║███████╗
+  ╚════██║██║   ██║██╔═══╝ ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██║██║   ██║╚════██║
+  ███████║╚██████╔╝██║     ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║╚██████╔╝███████║
+  ╚══════╝ ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚══════╝
+                         🎮 Gaming Edition v1.0 🎮
+
+  Type 'superminios-info' for system information
+  Type 'gaming-mode on' to enable gaming optimizations
+
+EOF
+
+# Update /etc/os-release for proper branding
+if [ -f /etc/os-release ]; then
+    # Backup original
+    cp /etc/os-release /etc/os-release.debian
+    
+    # Create SuperMiniOS branded version
+    cat > /etc/os-release << 'EOF'
+PRETTY_NAME="SuperMiniOS Gaming Edition 1.0"
+NAME="SuperMiniOS"
+VERSION_ID="1.0"
+VERSION="1.0 (Gaming)"
+VERSION_CODENAME=gaming
+ID=superminios
+ID_LIKE=debian
+HOME_URL="https://github.com/user/superminios"
+SUPPORT_URL="https://github.com/user/superminios/issues"
+BUG_REPORT_URL="https://github.com/user/superminios/issues"
+EOF
+fi
+
+# Create MOTD (Message of the Day)
+cat > /etc/motd << 'EOF'
+
+  Welcome to SuperMiniOS Gaming Edition!
+  
+  Quick Start:
+    superminios-info  - System information
+    gaming-mode on    - Enable gaming optimizations
+    steam             - Launch Steam (with GameMode)
+    lutris            - Launch Lutris (with GameMode)
+  
+  Happy Gaming! 🎮
+
+EOF
+
+information "SuperMiniOS Gaming postinstall complete!"
