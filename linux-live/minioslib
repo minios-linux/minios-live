@@ -560,6 +560,7 @@ declare_locales() {
         ["en_US"]="us,English (US),,en,,"
         ["es_ES"]="es,Spanish,es-es,es,es,es"
         ["fr_FR"]="fr,French,fr,fr,fr,fr"
+        ["id_ID"]="id,Indonesian,id,id,id,id"
         ["it_IT"]="it,Italian,it,it,it,it"
         ["pt_BR"]="br,Portuguese (Brazil),pt-br,pt,pt-br,br"
         ["ru_RU"]="ru,Russian,ru,ru,ru,ru"
@@ -3216,10 +3217,10 @@ ensure_host_prerequisites() {
 
     current_function
 
-    # Check distribution
-    read_config /etc/os-release ID
-    if [[ "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
-        error "This minios-live supports only Debian and Ubuntu."
+    # Check distribution (allow Debian, Ubuntu, and derivatives like Linux Mint)
+    read_config /etc/os-release ID ID_LIKE
+    if [[ "$ID" != "debian" && "$ID" != "ubuntu" && "$ID" != "linuxmint" && ! "$ID_LIKE" =~ "ubuntu" && ! "$ID_LIKE" =~ "debian" ]]; then
+        error "This minios-live supports only Debian, Ubuntu, and their derivatives (like Linux Mint)."
         exit 1
     fi
     chmod +x "${BUILD_SCRIPTS_DIR}/condinapt"
