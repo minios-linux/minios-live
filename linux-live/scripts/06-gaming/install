@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+set -u
+
+. /minioslib || exit 1
+. /minios_build.conf || exit 1
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+console_colors
+
+information "Installing SuperMiniOS Gaming+Coding packages..."
+
+# Enable 32-bit architecture for Steam/Wine
+dpkg --add-architecture i386
+apt-get update
+
+# Install gaming packages
+/condinapt -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
+if [ $? -ne 0 ]; then
+    error "Failed to install gaming packages."
+    exit 1
+fi
+
+# Configure PulseAudio for gaming (low latency)
+if [ -f /etc/pulse/daemon.conf ]; then
+    sed -i 's/; default-sample-rate = 44100/default-sample-rate = 48000/' /etc/pulse/daemon.conf
+    sed -i 's/; default-fragments = 4/default-fragments = 2/' /etc/pulse/daemon.conf
+    sed -i 's/; default-fragment-size-msec = 25/default-fragment-size-msec = 5/' /etc/pulse/daemon.conf
+fi
+
+# Create gaming-friendly .bashrc additions
+cat >> /etc/skel/.bashrc << 'EOF'
+
+# SuperMiniOS Gaming Aliases
+alias update='sudo apt update && sudo apt upgrade -y'
+alias install='sudo apt install'
+alias search='apt search'
+
+# Git shortcuts
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+alias gl='git log --oneline'
+
+# System info
+alias sysinfo='neofetch'
+EOF
+
+information "Gaming+Coding module installed successfully!"
