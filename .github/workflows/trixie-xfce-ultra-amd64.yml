@@ -33,7 +33,7 @@ jobs:
         RELEASE_VERSION="${RELEASE_VERSION#v}"
         export RELEASE_VERSION
         echo "Building with RELEASE_VERSION: $RELEASE_VERSION"
-        sudo -E ./minios-cmd -d trixie -a amd64 -de xfce -pv ultra -dkms -kl
+        sudo -E ./minios-cmd -d trixie -a amd64 -de xfce -pv ultra -dkms -kl -ib dracut
         sudo mkdir -p build/output/trixie-xfce-ultra-amd64
         sudo mv build/iso/*.iso build/output/trixie-xfce-ultra-amd64/
         sudo mv build/iso/*.sha256 build/output/trixie-xfce-ultra-amd64/ || true
