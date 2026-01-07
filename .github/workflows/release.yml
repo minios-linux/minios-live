@@ -1,12 +1,9 @@
-name: Trigger Workflows (Manual)
+name: Create Release and Trigger Workflows
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Release tag (e.g., v5.0.0)'
-        required: true
-        default: 'latest'
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   release:
@@ -14,9 +11,26 @@ jobs:
     outputs:
       tag_name: ${{ steps.set_tag.outputs.tag_name }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set Release Tag Name
         id: set_tag
-        run: echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+        run: echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Read Release Notes
+        id: release_notes
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          NOTES_FILE="release-notes/RELEASE_NOTES_${TAG_NAME}.md"
+
+          if [ -f "$NOTES_FILE" ]; then
+            echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "Release notes file not found: $NOTES_FILE"
+          fi
 
       - name: Create Release
         env:
@@ -24,21 +38,29 @@ jobs:
         run: |
           repo=${{ github.repository }}
           tag_name=${{ steps.set_tag.outputs.tag_name }}
-          gh release create "$tag_name" \
-            --title "Release $tag_name" \
-            --notes "Release notes for $tag_name" \
-            --repo "$repo" || true
+
+          if [ "${{ steps.release_notes.outputs.found }}" = "true" ]; then
+            gh release create "$tag_name" \
+              --title "Release $tag_name" \
+              --notes-file "${{ steps.release_notes.outputs.notes_file }}" \
+              --repo "$repo"
+          else
+            gh release create "$tag_name" \
+              --title "Release $tag_name" \
+              --notes "Release notes for $tag_name" \
+              --repo "$repo"
+          fi
 
   trigger_workflows:
     needs: release
     runs-on: ubuntu-latest
     steps:
       - name: Trigger trixie-xfce-standard-amd64
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            github.rest.actions.createWorkflowDispatch({
+            await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'trixie-xfce-standard-amd64.yml',
@@ -49,11 +71,11 @@ jobs:
             })
 
       - name: Trigger trixie-xfce-toolbox-amd64
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            github.rest.actions.createWorkflowDispatch({
+            await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'trixie-xfce-toolbox-amd64.yml',
@@ -64,11 +86,11 @@ jobs:
             })
 
       - name: Trigger trixie-xfce-ultra-amd64
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            github.rest.actions.createWorkflowDispatch({
+            await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'trixie-xfce-ultra-amd64.yml',

@@ -13,7 +13,7 @@ jobs:
     steps:
     - name: Clone minios-live Repository
       run: |
-        git clone --depth 1 https://github.com/minios-linux/minios-live.git
+        git clone --depth 1 --branch ${{ github.event.inputs.tag }} https://github.com/minios-linux/minios-live.git
         cd minios-live
 
     - name: Install dependencies
@@ -55,14 +55,14 @@ jobs:
 
       - name: Set Release Tag Name
         id: set_tag
-        run: echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+        run: echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
 
       - name: Upload Release Assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           repo=${{ github.repository }}
-          tag_name=${{ env.tag_name }}
+          tag_name=${{ steps.set_tag.outputs.tag_name }}
           for artifact_dir in ./artifacts/*; do
             for artifact in "$artifact_dir"/*; do
               gh release upload "$tag_name" "$artifact" --repo "$repo" --clobber
