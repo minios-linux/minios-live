@@ -1,0 +1,31 @@
+# Release Notes v3.0
+
+- Fixed font display in xfce4-terminal.
+- Added drivers for external network adapters to initrd.
+- The kernel modules is now outside the base system, making it easier to replace kernel.
+- Support for rebuilding the dpkg database on boot or when hot-installing/removing modules.
+- New Puzzle version.
+- Standard LiveKit initrd can now be used to start MiniOS.
+- UIRD initrd (https://github.com/neobht/uird) can now be used to start MiniOS.
+- Added MiniOS package repository: https://minios-linux.github.io/debian
+- Xorg module has been renamed to gui-base in Puzzle and contains the basic GTK3 and QT5 libraries, as well as utilities for building the interface (gtkdialog, yad).
+- Fixed error parsing minios.conf configuration file.
+- Restored support for Ubuntu 20.04, added support for Ubuntu 22.04.
+- Fixed error loading from slow disks.
+- Replaced adwaita-icon-theme and elementary-xfce-icon-theme with elementary-xfce-minios-icon-theme to reduce size and better adapt to MiniOS.
+- By default, kernels with AUFS support are now used. For MiniOS, 5.10 and 6.0 kernels are built using Debian configs (https://github.com/minios-linux/aufs-kernel/releases). They can also be used in any other distribution.
+- Added support for building from snapshot (https://snapshot.debian.org).
+- In stretch, buster, bullseye from thunar, pcmanfm, mousepad, warning flags were removed when logging in as root.
+- For the Rescuezilla module, the partclone-utils and partclone-nbd packages were compiled and added to the repository.
+- Now you can disable autologin. To do this, add autologin=false in the kernel parameters or AUTOLOGIN=false in minios.conf.
+- Renamed metapackages for MiniOS kernels. Now, for kernels with AUFS support, the metapackage name will be, for example: linux-image-5.10-mos-amd64.
+- Remmina 1.4.27 packages built for buster.
+- Inkscape 1.2.1 packages built for bullseye.
+- Double Commander 1.0.8 packages built for bullseye.
+- In our Slax clone (Flux) has partially translated the Russian version. If there are requests, we will translate the clone into other languages.
+- fbxkb package built for bullseye and buster.
+- 4 kernels (each in 3 variants) for amd64 and i386 architectures, packaged kernel modules for use in MiniOS and initrd have been added to the kernelfiles repository.
+- Lightdm replaced with slim where it was used.
+- At the end of the session in xfce, the hibernation and hybrid sleep buttons are no longer available (a system launched from a flash drive or from RAM cannot hibernate).
+- The slax utility used to enable/disable modules has been renamed to minios-bundle to standardize MiniOS-specific console utilities.
+- !!! Very big changes (2k+) in the minios-live build system. Unfortunately, it is impossible to describe them here.

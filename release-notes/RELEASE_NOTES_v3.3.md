@@ -1,0 +1,41 @@
+# Release Notes v3.3
+
+- MiniOS boot scripts are now developed separately from Linux Live Kit (https://github.com/Tomas-M/linux-live), so they contain significantly more features.
+- Most of the new features from Linux Live Kit are added.
+- Fixed boot from parameter that made it impossible to change the name of the folder where the system is located.
+- Added new parameters to the boot parameters, you can learn more here: https://github.com/minios-linux/minios-live/wiki/Command-line-parameters.
+- Changed DPKG base building method for system type (SYSTEM_TYPE) puzzle, which speeds up operations ten times and increases reliability of base building script from modules.
+- Added warning in MiniOS Installer, improved appearance.
+- Battery plugin in Standard, Maximum, Ultra, Puzzle was replaced by Xfce4 Power Manager to be able to adjust backlighting.
+- Added support for Portuguese (Brazil) to the build scripts.
+- Updated build scripts for apt2sb, scr2sb, upg2sb modules.
+- Updated utility for connecting minios-bundle modules.
+- Added jq utility to core module to work with json files (they are used by some MiniOS utilities).
+- In Flux:
+  - removed the second Xarchiver shortcut,
+  - fixed translation of some programs,
+  - almost complete translation of all menus,
+  - network manager icon moved from general menu to tray,
+  - added Firefox browser directly to the iso.
+- Added packages to the repository to simplify building Flux.
+- Added fuse libraries to all editions to support AppImage.
+- It should now be safe to use the puzzle system type (SYSTEM_TYPE=puzzle) in all editions (additional testing needed).
+- Fixed a bug in the minios-geniso utility that made it impossible to build an iso from a system installed on a flash drive.
+- Added a license file to the repository.
+- Fixed README to match current version.
+- Removed exfat fuse support where it is not needed.
+- Added xdrp server to Maximum, Ultra, it is disabled by default, must be activated with ENABLE_SERVICES="xrdp"
+- By default, ssh, docker services are disabled where they are present. If necessary, they can be activated with ENABLE_SERVICES="ssh" or ENABLE_SERVICES="docker".
+- Neofetch has been added to all editions.
+- In Ultra added and disabled selinux (needed for docker to work).
+- Updated syslinux help.
+- Icon theme updated.
+- Script autorun is disabled by default.
+- Updated support for the LXQT build, it is now less ugly, but still not enough.
+- Optimized the build scripts to improve their performance.
+- Added site translation in Chinese (Taiwan), Portuguese (Brazil).
+- Added Hyper-V storage drivers for installation in a virtual machine.
+- Added Galculator to Standard.
+- Cleaned up minios-live code.
+- Support for multi-language by installing modules.
+- Kernel updated to version 6.1.52, ntfs3 support added.

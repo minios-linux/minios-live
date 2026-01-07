@@ -1,0 +1,26 @@
+# Release Notes v2.3
+
+- Different versions now use different wallpapers.
+- Added the ability to build a system with a kernel that supports aufs.
+- Removed dvd+rw-tools from the Minimum version.
+- Added Ultra version.
+- Added aufs kernel to bullseye amd64.
+- Optional multilanguage support when building with minios-live scripts.
+- Separate wallpapers for Fluxbox version. They are closer in color to Slax.
+- Decreasing the compression ratio of zstd. Compression level 19 for Standard takes only 1 MB more than compression level 22.
+- The Maximum and Ultra versions have added additional supported file systems to enable these file systems to be mounted and used by Gparted.
+- Clonezilla <https://clonezilla.org> and the graphical interface for it - Rescuezilla have been added to the Maximum and Ultra versions.
+- Added the ability to build a separate module for Clonezilla.
+- Added the ability to build a separate module for Rescuezilla.
+- Added internal site.
+- Added xfce4-clipman, grsync in Maximum and Ultra versions.
+- Replaced pdfmod with pdfarranger in Ultra and Maximum versions.
+- Added gnumeric, abiword to Maximum version.
+- Support for running scripts on system boot.
+- Minimum now uses Network Manager by default.
+- Automatic setting of the time zone when connecting to the network.
+- Added ZFS support to Maximum and Ultra.
+- New internal website.
+- Fixed a bug due to which non-Latin characters could not be entered in the terminal.
+- Optional support for cloud, rt kernels and kernels from backports for Debian.
+- Separator "|" conflicts with grub2. We can use the "," delimiter in grub2 instead.
