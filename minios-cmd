@@ -64,6 +64,9 @@ help() {
     echo -e "${LIGHTBLUE}$(gettext "Boot Menu Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-mln, --menu-language${ENDCOLOR} NAME      $(gettext "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').")"
     echo ""
+    echo -e "${LIGHTBLUE}$(gettext "Ubuntu Pro Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}--ubuntu-pro-token${ENDCOLOR} TOKEN        $(gettext "Specify Ubuntu Pro subscription token for fresh packages during build (removed from final image).")"
+    echo ""
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
@@ -107,6 +110,9 @@ help() {
     echo ""
     echo -e "  $(gettext "9. Create a system image with livekit initramfs builder:")"
     echo -e "     $(basename $0) -d bookworm -a amd64 -de flux -pv standard -ib livekit"
+    echo ""
+    echo -e "  $(gettext "10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh packages:")"
+    echo -e "     $(basename $0) -d jammy -a amd64 -de xfce -pv standard --ubuntu-pro-token YOUR_TOKEN_HERE"
     echo ""
     echo -e "  $(basename $0) $(gettext "has many more options available. Please refer to the above options list for more details.")"
     exit 0
@@ -193,6 +199,11 @@ while (("$#")); do
         MENU_LANG="$2"
         shift 2
         ;;
+    --ubuntu-pro-token)
+        UBUNTU_PRO_TOKEN="$2"
+        USE_UBUNTU_PRO="true"
+        shift 2
+        ;;
     -h | --help)
         help
         shift
@@ -234,6 +245,8 @@ done
 : "${LIVE_TIMEZONE:="Etc/UTC"}"
 : "${INITRAMFS_BUILDER:="livekit"}"
 : "${MENU_LANG:="multilang"}"
+: "${UBUNTU_PRO_TOKEN:=""}"
+: "${USE_UBUNTU_PRO:="false"}"
 
 # Check if mandatory parameters are set ONLY if config file is NOT provided
 if [[ -z "$BUILD_CONF" && ! -f "$BUILD_CONF" && (-z "$DISTRIBUTION" || -z "$DISTRIBUTION_ARCH" || -z "$DESKTOP_ENVIRONMENT" || -z "$PACKAGE_VARIANT") ]]; then

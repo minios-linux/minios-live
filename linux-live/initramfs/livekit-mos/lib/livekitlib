@@ -1048,6 +1048,8 @@ mount_perch_drive() {
       echo -n "." >&2
       refresh_devs
       if $MOUNT "$DRIVE" "$CHANDIR" $OPTIONS 2>/dev/null; then
+         # Save the writable partition root path for later use (e.g., loading modules)
+         echo "$CHANDIR" >/run/perch_root
          if [ -n "$PERCHDIR" ] && [ "$PERCHDIR" != "/" ]; then
             mkdir -p "$CHANDIR/$PERCHDIR"
             if $MOUNT --bind "$CHANDIR/$PERCHDIR" "$CHANDIR"; then
@@ -1334,12 +1336,12 @@ restore_perch_session() {
 #
 manage_perch_partition() {
    debug_log "manage_perch_partition" "$*"
-   local PERCHPART RESIZEMEPART PERCHDEVICE DEVICE DRIVE PERCHDIR LABELS PART ALTPART FREE_SPACE_MB
+   local PERCHPART RESIZEMEPART PERCHDEVICE DEVICE DRIVE PERCHDIR LABELS PART ALTPART FREE_SPACE_MB VTOY_PERST_DEV VTOY_PARENT
 
    DRIVE="$1"
    PERCHDIR="$2"
 
-   # Determine the primary device
+   # Determine the primary device and check for Ventoy environment
    VENTOYDRIVE=$(awk '/linear/ {print $4}' /ventoy/ventoy_dm_table 2>/dev/null)
    if [ ! "$VENTOYDRIVE" ]; then
       DEVICE="/dev/$(lsblk -no pkname "$DRIVE" 2>/dev/null | head -n 1)"
@@ -1373,12 +1375,25 @@ manage_perch_partition() {
    done
 
    if [ ! "$PERCHPART" ]; then
-      # Check for Ventoy-specific partition
+      # Check for Ventoy-specific persistence
       if [ "$VENTOYDRIVE" ]; then
-         PART=$(blkid -t LABEL="persistence" -o device -c /dev/null 2>/dev/null | grep "$VENTOYDRIVE")
-         if [ ! "$PART" ]; then
-            # If no persistence partition, use Ventoy's default
-            # In Ventoy version 1.1.01 and higher, a device link to /dev/mapper is used instead of the VENTOY_LINUX_REMOUNT variable in the configuration file.
+         # Ventoy persistence plugin: Ventoy mounts the backend .dat file
+         # (configured in /ventoy/ventoy.json) as a loop device with label "persistence".
+         # This device has no parent disk (pkname is empty).
+         for VTOY_PERST_DEV in $(blkid -t LABEL="persistence" -o device -c /dev/null 2>/dev/null); do
+            if [ -b "$VTOY_PERST_DEV" ]; then
+               VTOY_PARENT=$(lsblk -no pkname "$VTOY_PERST_DEV" 2>/dev/null | head -n 1)
+               if [ -z "$VTOY_PARENT" ]; then
+                  debug_log "manage_perch_partition" "Found Ventoy persistence plugin device: $VTOY_PERST_DEV"
+                  PERCHPART="$VTOY_PERST_DEV"
+                  break
+               fi
+            fi
+         done
+         # Fallback: directory-based persistence on Ventoy partition
+         if [ ! "$PERCHPART" ]; then
+            # In Ventoy version 1.1.01 and higher, a device link to /dev/mapper is used
+            # instead of the VENTOY_LINUX_REMOUNT variable in the configuration file.
             MAPPER_DEVICE="/dev/mapper/$(lsblk -no name "$VENTOYDRIVE" 2>/dev/null | head -n 1)"
             if [ -e "$MAPPER_DEVICE" ]; then
                PERCHPART="$MAPPER_DEVICE/minios/changes"
@@ -1386,8 +1401,6 @@ manage_perch_partition() {
             else
                PERCHPART="$VENTOYDRIVE/minios/changes"
             fi
-         else
-            PERCHPART="$PART"
          fi
       fi
    fi
@@ -1946,6 +1959,7 @@ setup_running_kernel() {
 #
 mount_bundles() {
    debug_log "mount_bundles"
+   local PERCH_ROOT
    echo_white_star
    echo "Mounting bundles"
    (
@@ -1958,6 +1972,22 @@ mount_bundles() {
       mkdir -p "$2/$BUN"
       mount -o loop,ro -t squashfs "$1/$BUNDLE" "$2/$BUN"
    done
+
+   # Also mount modules from writable partition (/minios/modules)
+   # This allows users to add modules even when booting from read-only media (ISO)
+   if [ -f /run/perch_root ]; then
+      PERCH_ROOT=$(cat /run/perch_root)
+      if [ -d "$PERCH_ROOT/$LIVEKITNAME/modules" ]; then
+         echo_white_star
+         echo "Mounting bundles from writable partition"
+         find "$PERCH_ROOT/$LIVEKITNAME/modules" 2>/dev/null | sortmod | grep '[.]'$BEXT'$' | filter | while read BUNDLE; do
+            echo "* $BUNDLE"
+            BUN="$(basename "$BUNDLE")"
+            mkdir -p "$2/$BUN"
+            mount -o loop,ro -t squashfs "$BUNDLE" "$2/$BUN"
+         done
+      fi
+   fi
 }
 
 # Add mounted bundles to aufs union

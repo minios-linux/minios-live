@@ -40,7 +40,6 @@ xfce4-battery-plugin +pv=minimum
 # ========================================
 avahi-daemon -pv=minimum
 blueman -pv=minimum
-eject -pv=minimum
 engrampa -pv=minimum
 lightdm -pv=minimum
 lightdm-gtk-greeter -pv=minimum
@@ -50,14 +49,14 @@ minios-session-manager -pv=minimum -d=bionic
 minios-kernel-manager -pv=minimum -d=bionic
 driveutility -pv=minimum -d=bionic && python3-zstandard -pv=minimum -d=bionic
 pavucontrol -pv=minimum
-pulseaudio -pv=minimum -d=trixie -d=noble
-pulseaudio-module-bluetooth -pv=minimum -d=trixie -d=noble
-pipewire -pv=minimum +d=trixie +d=noble
-pipewire-pulse -pv=minimum +d=trixie +d=noble
-wireplumber -pv=minimum +d=trixie +d=noble
-pipewire-audio-client-libraries -pv=minimum +d=trixie +d=noble
-libspa-0.2-bluetooth -pv=minimum +d=trixie +d=noble
-dbus-user-session -pv=minimum +d=trixie +d=noble
+pulseaudio -pv=minimum -d=trixie -d=noble -d=resolute
+pulseaudio-module-bluetooth -pv=minimum -d=trixie -d=noble -d=resolute
+pipewire -pv=minimum +d=trixie +d=noble +d=resolute
+pipewire-pulse -pv=minimum +d=trixie +d=noble +d=resolute
+wireplumber -pv=minimum +d=trixie +d=noble +d=resolute
+pipewire-audio-client-libraries -pv=minimum +d=trixie +d=noble +d=resolute
+libspa-0.2-bluetooth -pv=minimum +d=trixie +d=noble +d=resolute
+dbus-user-session -pv=minimum +d=trixie +d=noble +d=resolute
 
 samba-common -pv=minimum
 thunar-archive-plugin -pv=minimum

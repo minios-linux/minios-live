@@ -104,7 +104,7 @@ if [ "$PACKAGE_VARIANT" = "ultra" ]; then
     install -m 0755 -d /etc/apt/keyrings
     if run_with_spinner "Downloading Docker GPG key" curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc; then
         chmod a+r /etc/apt/keyrings/docker.asc
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list >/dev/null
         if ! run_with_spinner "Updating package lists with Docker repository" apt-get update; then
             rm -f /etc/apt/sources.list.d/docker.list /etc/apt/keyrings/docker.asc
         fi
@@ -123,7 +123,7 @@ if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
 fi
 
 if pkg_is_installed "dnsmasq"; then
-    if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ]; then
+    if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "resolute" ]; then
         systemctl disable dnsmasq
     fi
 fi
@@ -160,11 +160,12 @@ fi
 #(cd /$BUILD_SCRIPTS/scripts/00-core/rootcopy-install && cp --parents -afr * /)
 
 # minios-install setup
-if [ -d /etc/NetworkManager ] && [[ "${DISTRIBUTION}" = "jammy" || "${DISTRIBUTION}" = "noble" || "${DISTRIBUTION_TYPE}" = "ubuntu" ]]; then
-    if [ ! -d /etc/netplan/ ]; then
-        mkdir -p /etc/netplan/
-    fi
-    cat <<EOF >/etc/netplan/01-netcfg.yaml
+if [ -d /etc/NetworkManager ] && [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+    if pkg_is_installed "netplan"; then
+        if [ ! -d /etc/netplan/ ]; then
+            mkdir -p /etc/netplan/
+        fi
+        cat <<EOF >/etc/netplan/01-netcfg.yaml
 # This file describes the network interfaces available on your system
 # For more information, see netplan(5).
 # Set and change netplan renderer to NetworkManager GUI tool
@@ -173,7 +174,10 @@ network:
   renderer: NetworkManager
 
 EOF
-    cat <<EOF >/etc/NetworkManager/NetworkManager.conf
+    fi
+    # Check if dnsmasq-base is installed before configuring it
+    if pkg_is_installed "dnsmasq-base"; then
+        cat <<EOF >/etc/NetworkManager/NetworkManager.conf
 [main]
 rc-manager=resolvconf
 plugins=ifupdown,keyfile
@@ -182,6 +186,16 @@ dns=dnsmasq
 managed=false
 
 EOF
+    else
+        cat <<EOF >/etc/NetworkManager/NetworkManager.conf
+[main]
+rc-manager=resolvconf
+plugins=ifupdown,keyfile
+[ifupdown]
+managed=false
+
+EOF
+    fi
 fi
 
 if [ ! -f /usr/share/sudo ]; then

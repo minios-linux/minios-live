@@ -20,7 +20,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
 
     : "${container:=}"
     : "${MODULE:=}"
@@ -65,7 +65,7 @@ common_variables() {
     stretch | buster | bullseye | bookworm | trixie | kali-rolling | sid | orel)
         DISTRIBUTION_TYPE="debian"
         ;;
-    bionic | focal | jammy | noble)
+    bionic | focal | jammy | noble | resolute)
         DISTRIBUTION_TYPE="ubuntu"
         ;;
     *)
@@ -90,7 +90,7 @@ common_variables() {
             DISTRIBUTION_URL="http://deb.debian.org/debian"
         fi
         ;;
-    bionic | focal | jammy | noble)
+    bionic | focal | jammy | noble | resolute)
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
         ;;
     kali-rolling)
@@ -1221,6 +1221,179 @@ is_in_chroot() {
     fi
 }
 
+# ==================== UBUNTU PRO FUNCTIONS =======================
+
+# Check if Ubuntu Pro is available for the current distribution
+# Returns: 0 if available, 1 if not
+ubuntu_pro_is_available() {
+    if [ "${DISTRIBUTION_TYPE}" != "ubuntu" ]; then
+        return 1
+    fi
+    
+    # Pro is available for all Ubuntu LTS versions
+    case "${DISTRIBUTION}" in
+        bionic|focal|jammy|noble)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Activate Ubuntu Pro subscription in chroot environment
+# Arguments:
+#   $1 - Path to chroot directory
+# Returns: 0 on success, 1 on failure
+ubuntu_pro_attach() {
+    current_function
+    
+    local CHROOT_DIR="${1}"
+    local TOKEN="${UBUNTU_PRO_TOKEN:-}"
+    
+    # Skip if no token provided
+    if [ -z "${TOKEN}" ]; then
+        if [ "${VERBOSITY_LEVEL}" -ge 2 ]; then
+            information "Ubuntu Pro token not provided, skipping activation"
+        fi
+        return 0
+    fi
+    
+    # Skip if Ubuntu Pro is not available for this distribution
+    if ! ubuntu_pro_is_available; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            warning "Ubuntu Pro is not available for ${DISTRIBUTION}, skipping"
+        fi
+        return 0
+    fi
+    
+    information "Activating Ubuntu Pro subscription..."
+    
+    # Update package lists first
+    run_with_spinner "Updating package lists" chroot "${CHROOT_DIR}" apt-get update -qq
+    
+    # Install or upgrade ubuntu-advantage-tools to ensure we have the latest version
+    if ! chroot "${CHROOT_DIR}" dpkg -l ubuntu-advantage-tools >/dev/null 2>&1; then
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "Installing ubuntu-advantage-tools package..."
+        fi
+        run_with_spinner "Installing ubuntu-advantage-tools" chroot "${CHROOT_DIR}" apt-get install -y ubuntu-advantage-tools
+    else
+        # Upgrade to the latest version (important for Bionic which ships with old version 17)
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "Upgrading ubuntu-advantage-tools to latest version..."
+        fi
+        run_with_spinner "Upgrading ubuntu-advantage-tools" chroot "${CHROOT_DIR}" apt-get install --only-upgrade -y ubuntu-advantage-tools
+    fi
+    
+    # Attach the token using 'pro' command (available after upgrade)
+    if chroot "${CHROOT_DIR}" pro attach "${TOKEN}" --no-auto-enable 2>&1 | tee /tmp/pro-attach.log; then
+        information "Ubuntu Pro successfully activated"
+        
+        # Enable ESM repositories for fresh packages
+        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+            information "Enabling ESM repositories for security updates..."
+        fi
+        
+        # Enable ESM Infra (infrastructure packages)
+        chroot "${CHROOT_DIR}" pro enable esm-infra --assume-yes 2>&1 | grep -v "^$" || true
+        
+        # Enable ESM Apps (application packages) if available
+        chroot "${CHROOT_DIR}" pro enable esm-apps --assume-yes 2>&1 | grep -v "^$" || true
+        
+        # Update package lists with Pro repositories
+        run_with_spinner "Updating package lists with Pro repositories" chroot "${CHROOT_DIR}" apt-get update -qq
+        
+        information "Ubuntu Pro repositories are now active"
+        rm -f /tmp/pro-attach.log
+        return 0
+    else
+        error "Failed to activate Ubuntu Pro subscription"
+        cat /tmp/pro-attach.log
+        rm -f /tmp/pro-attach.log
+        return 1
+    fi
+}
+
+# Deactivate Ubuntu Pro subscription in chroot environment
+# Arguments:
+#   $1 - Path to chroot directory
+# Returns: 0 on success
+ubuntu_pro_detach() {
+    current_function
+    
+    local CHROOT_DIR="${1}"
+    
+    # Skip if Ubuntu Pro is not available
+    if ! ubuntu_pro_is_available; then
+        return 0
+    fi
+    
+    # Skip if no token was provided
+    if [ -z "${UBUNTU_PRO_TOKEN:-}" ]; then
+        return 0
+    fi
+    
+    information "Deactivating Ubuntu Pro subscription..."
+    
+    # Detach the subscription using 'pro' command
+    chroot "${CHROOT_DIR}" pro detach --assume-yes 2>/dev/null || true
+    
+    # Clean up all traces
+    ubuntu_pro_cleanup_traces "${CHROOT_DIR}"
+}
+
+# Remove all traces of Ubuntu Pro from the system
+# Arguments:
+#   $1 - Path to chroot directory
+# Returns: 0 on success
+ubuntu_pro_cleanup_traces() {
+    current_function
+    
+    local CHROOT_DIR="${1}"
+    
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        information "Removing Ubuntu Pro traces from the system..."
+    fi
+    
+    # Remove Pro configuration and state directories
+    rm -rf "${CHROOT_DIR}/var/lib/ubuntu-advantage" 2>/dev/null || true
+    rm -rf "${CHROOT_DIR}/etc/ubuntu-advantage" 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/var/log/ubuntu-advantage"* 2>/dev/null || true
+    
+    # Remove ESM and Pro source lists
+    rm -f "${CHROOT_DIR}/etc/apt/sources.list.d/ubuntu-"*".list" 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/apt/sources.list.d/ubuntu-esm-"*.list 2>/dev/null || true
+    
+    # Remove authentication files for ESM repositories
+    rm -f "${CHROOT_DIR}/etc/apt/auth.conf.d/"*"ubuntu-advantage"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/apt/auth.conf.d/"*"ubuntu-pro"* 2>/dev/null || true
+    
+    # Remove apt preferences for Pro
+    rm -f "${CHROOT_DIR}/etc/apt/preferences.d/ubuntu-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/apt/preferences.d/ubuntu-pro-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/apt/preferences.d/ubuntu-esm-"* 2>/dev/null || true
+    
+    # Remove keyrings
+    rm -f "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-advantage-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-pro-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-esm-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/usr/share/keyrings/ubuntu-advantage-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/usr/share/keyrings/ubuntu-pro-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/usr/share/keyrings/ubuntu-esm-"* 2>/dev/null || true
+    
+    # Remove Pro systemd services and timers
+    rm -f "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants/ua-"* 2>/dev/null || true
+    rm -f "${CHROOT_DIR}/etc/systemd/system/timers.target.wants/ua-"* 2>/dev/null || true
+    
+    # Update apt cache after removing repositories
+    chroot "${CHROOT_DIR}" apt-get update -qq 2>/dev/null || true
+    
+    if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
+        information "Ubuntu Pro traces successfully removed"
+    fi
+}
+
 # ====================== HOST FUNCTIONS ===========================
 
 # Creating a $PACKAGE_VARIANT list from a template
@@ -1458,10 +1631,20 @@ EOF
         rm "${INSTALL_DIR}/etc/apt/sources.list"
     fi
 
+    # Activate Ubuntu Pro if token is provided (before package installation)
+    if [ "${USE_UBUNTU_PRO:-false}" = "true" ] && [ -n "${UBUNTU_PRO_TOKEN:-}" ]; then
+        ubuntu_pro_attach "${INSTALL_DIR}"
+    fi
+
     if [ -f /.minios-live-container ]; then
         chroot_run "${INSTALL_DIR}" /${BUILD_SCRIPTS}/install-chroot
     else
         chroot "${INSTALL_DIR}" bash -c "BUILD_SCRIPTS=${BUILD_SCRIPTS} /${BUILD_SCRIPTS}/install-chroot"
+    fi
+
+    # Deactivate Ubuntu Pro and clean up traces (after package installation)
+    if [ "${USE_UBUNTU_PRO:-false}" = "true" ] && [ -n "${UBUNTU_PRO_TOKEN:-}" ]; then
+        ubuntu_pro_detach "${INSTALL_DIR}"
     fi
 
     if [ "${RELEASE}" = "true" ]; then
@@ -3509,6 +3692,11 @@ build_modules() {
 
             information "Start building ${YELLOW}${MODULE}${ENDCOLOR} module ..."
 
+            # Activate Ubuntu Pro if token is provided (before module package installation)
+            if [ "${USE_UBUNTU_PRO:-false}" = "true" ] && [ -n "${UBUNTU_PRO_TOKEN:-}" ]; then
+                ubuntu_pro_attach "${OVERLAY[merged]}"
+            fi
+
             ###############################################################################
             # Stage 1: install
             ###############################################################################
@@ -3781,6 +3969,13 @@ build_modules() {
                     cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" \
                         "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"
                 fi
+            fi
+
+            # Deactivate Ubuntu Pro and clean up traces before compression
+            if [ "${USE_UBUNTU_PRO:-false}" = "true" ] && [ -n "${UBUNTU_PRO_TOKEN:-}" ]; then
+                ubuntu_pro_detach "${OVERLAY[merged]}"
+                # Also clean traces from upper layer
+                ubuntu_pro_cleanup_traces "${OVERLAY[upper]}"
             fi
 
             overlay_chroot_finish_up

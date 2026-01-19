@@ -17,7 +17,7 @@ if [ "${KERNEL_AUFS}" = "true" ]; then
     elif [ "${DISTRIBUTION}" = "buster" ] || [ "${DISTRIBUTION}" = "bullseye" ] || [ "${DISTRIBUTION}" = "bookworm" ] || [ "${DISTRIBUTION}" = "jammy" ]; then
         # Older distributions use 6.1
         KERNEL_VERSION="6.1"
-    elif [ "${DISTRIBUTION}" = "trixie" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "sid" ]; then
+    elif [ "${DISTRIBUTION}" = "trixie" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "resolute" ] || [ "${DISTRIBUTION}" = "sid" ]; then
         # Newer distributions use 6.12
         KERNEL_VERSION="6.12"
     else
