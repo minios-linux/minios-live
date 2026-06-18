@@ -92,6 +92,10 @@ EXCLUDE_CORE_FILE="$WORK_DIR/squashfs-core-exclude"
 # ---[ COMMANDS ]---
 CMD=(build_bootstrap build_chroot build_live build_modules build_boot build_config build_iso remove_sources)
 
+if [[ "$#" -eq 0 ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
+    help
+fi
+
 # ----[ MAIN ]----
 create_log_file "$@"
 

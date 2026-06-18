@@ -126,6 +126,13 @@ brief_help() {
 
 # ----[ COMMON SETUP ]----
 console_colors  # Set console colors
+
+case "${1:-}" in
+    -h|--help)
+        help
+        ;;
+esac
+
 allow_root_only # Allow only root user to run the script
 
 CONFIG_ONLY="false"
@@ -206,10 +213,6 @@ while (("$#")); do
         ;;
     -h | --help)
         help
-        shift
-        ;;
-    -v | --version)
-        version
         shift
         ;;
     --)
