@@ -724,10 +724,22 @@ determine_command_range() {
 
 # Check internet connectivity
 check_internet_connection() {
+    if [ "${CHECK_INTERNET_CONNECTION:-true}" != "true" ]; then
+        if [ "${VERBOSITY_LEVEL:-0}" -ge 1 ]; then
+            information "Skipping internet connection check as CHECK_INTERNET_CONNECTION is set to false."
+        fi
+        return
+    fi
+
+    if [ "${VERBOSITY_LEVEL:-0}" -ge 1 ]; then
+        information "Checking internet connection..."
+        information "Connecting to ${CHECK_INTERNET_ADDRESS:-http://deb.debian.org} to verify connectivity."
+    fi
+
     if command -v wget >/dev/null; then
-        wget -q --spider http://deb.debian.org
+        wget -q --spider --timeout=5 "${CHECK_INTERNET_ADDRESS:-http://deb.debian.org}"
     elif command -v curl >/dev/null; then
-        curl --silent --head http://deb.debian.org
+        curl --silent --head --max-time 5 "${CHECK_INTERNET_ADDRESS:-http://deb.debian.org}"
     else
         error "Neither wget nor curl is available on this system."
         exit 1
@@ -1444,7 +1456,13 @@ extract_tarball() {
         exit 1
     fi
     mkdir -p "${DESTINATION}"
-    tar -xzf "${TARBALL}" -C "${DESTINATION}"
+    if [ "$(id -u)" -eq 0 ]; then
+        tar --same-owner -xzf "${TARBALL}" -C "${DESTINATION}"
+        chown root:root "${DESTINATION}"
+    else
+        sudo tar --same-owner -xzf "${TARBALL}" -C "${DESTINATION}"
+        sudo chown root:root "${DESTINATION}"
+    fi
     if [ $? -ne 0 ]; then
         error "Error extracting tarball ${TARBALL}!"
         exit 1
