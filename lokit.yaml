@@ -1,0 +1,132 @@
+# lokit configuration for minios-live
+#
+# yaml-language-server: $schema=https://raw.githubusercontent.com/minios-linux/lokit/master/lokit.schema.json
+
+languages: [de, es, fr, id, it, pt, pt-BR, ru]
+source_lang: en
+
+targets:
+  # --- minios-live own translations ---
+
+  - name: minios-live
+    format: gettext
+    dir: po
+    pot: messages.pot
+
+  - name: minios-live-manpages
+    format: po4a
+    root: manpages
+    config: po4a.cfg
+
+  - name: grub-theme
+    format: gettext
+    root: linux-live/bootfiles/boot/grub
+    dir: po
+    pot: messages.pot
+    sources: [po/en_US.po]
+    languages: [de_DE, es_ES, fr_FR, id_ID, it_IT, pt_PT, pt_BR, ru_RU]
+
+  # --- submodule: minios-tools ---
+
+  - name: minios-tools
+    format: gettext
+    root: submodules/minios-tools
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: flux-tools ---
+
+  - name: flux-tools
+    format: gettext
+    root: submodules/flux-tools
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: driveutility ---
+
+  - name: driveutility
+    format: gettext
+    root: submodules/driveutility
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: minios-installer ---
+
+  - name: minios-installer
+    format: gettext
+    root: submodules/minios-installer
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: minios-configurator ---
+
+  - name: minios-configurator
+    format: gettext
+    root: submodules/minios-configurator
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: minios-kernel-manager ---
+
+  - name: minios-kernel-manager
+    format: gettext
+    root: submodules/minios-kernel-manager
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: minios-session-manager ---
+
+  - name: minios-session-manager
+    format: gettext
+    root: submodules/minios-session-manager
+    dir: po
+    pot: messages.pot
+
+  # --- submodule: minios-live-config manpages ---
+
+  - name: minios-live-config
+    format: po4a
+    root: submodules/minios-live-config/manpages
+    config: po4a.cfg
+    languages: [de, es, fr, id, it, ja, pt, pt_BR, ru]
+
+  # --- submodule: website (i18next) ---
+
+  - name: minios-linux.github.io
+    format: i18next
+    root: submodules/minios-linux.github.io
+    dir: public/translations
+    pattern: "{lang}.json"
+    languages: [de, es, fr, id, it, pt-BR, ru]
+
+  # --- submodule: website blog posts (markdown) ---
+
+  - name: minios-linux.github.io-blog-posts
+    format: markdown
+    root: submodules/minios-linux.github.io
+    source: data/blog/posts/{id}.md
+    pattern: data/blog/posts/translations/{id}.{lang}.md
+    languages: [de, es, fr, id, it, pt-BR, ru]
+
+  # --- submodule: flux website (json) ---
+
+  - name: flux-website
+    format: i18next
+    root: submodules/flux.minios.dev
+    dir: translations
+    pattern: "{lang}.json"
+    languages: [de, es, fr, id, it, pt-BR, pt-PT, ru]
+
+  # --- submodule: minios-store recipes (json) ---
+
+  - name: minios-store-recipes
+    format: vue-i18n
+    root: submodules/minios-store/web/public/data
+    dir: recipe-translations
+    pattern: "{lang}/{id}.json"
+    languages: [de, es, fr, id, it, pt-BR, ru]
+    source:
+      index: recipes.json
+      records_path: "$"
+      key_field: id
+      fields: [name, description, longDescription]

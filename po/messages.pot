@@ -1,14 +1,15 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR MiniOS Linux
-# This file is distributed under the same license as the minios-live package.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/volumeicon.desktop:6
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: minios-live 5.1.0-1\n"
-"Report-Msgid-Bugs-To: support@minios.dev\n"
-"POT-Creation-Date: 2025-10-02 17:12+0300\n"
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-20 15:07+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,64 +18,16 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: minios-live:52 minios-live:56
-msgid "This script builds bootable MiniOS ISO image."
+#: linux-live/minioslib:693
+msgid "Command not found:"
 msgstr ""
 
-#: minios-live:56 minios-live:61
-msgid "Run the build from start to finish."
+#: linux-live/minioslib:2759
+msgid "grub.template.cfg template not found"
 msgstr ""
 
-#: minios-live:57 minios-live:62
-msgid ""
-"Start the build by building the base environment and finish by installing "
-"the entire system in chroot."
-msgstr ""
-
-#: minios-live:58 minios-live:63
-msgid ""
-"Start the build from the beginning and finish by installing the entire "
-"system in chroot."
-msgstr ""
-
-#: minios-live:59 minios-live:64
-msgid "Start the build by building the base environment and run to completion."
-msgstr ""
-
-#: minios-live:60 minios-live:65
-msgid "Build only ISO image from previously prepared data."
-msgstr ""
-
-#: minios-live:64 minios-live:69
-msgid "Supported commands:"
-msgstr ""
-
-#: minios-live:65 minios-cmd:31 minios-live:70
+#: minios-cmd:31 minios-live:70
 msgid "Usage:"
-msgstr ""
-
-#: minios-live:66 minios-live:71
-msgid "  Run from start_cmd to end_cmd"
-msgstr ""
-
-#: minios-live:67 minios-live:72
-msgid "  If start_cmd is omitted, start from the first command"
-msgstr ""
-
-#: minios-live:68 minios-live:73
-msgid "  If end_cmd is omitted, end with the last command"
-msgstr ""
-
-#: minios-live:69 minios-live:74
-msgid "  Enter a single cmd to run the specific command"
-msgstr ""
-
-#: minios-live:70 minios-live:75
-msgid "  Enter '-' as the only argument to run all commands\\n"
-msgstr ""
-
-#: minios-live:71 minios-cmd:71 minios-live:76 minios-cmd:76
-msgid "Examples:"
 msgstr ""
 
 #: minios-cmd:32
@@ -135,151 +88,249 @@ msgid "Kernel Options:"
 msgstr ""
 
 #: minios-cmd:51
-msgid "Specify the kernel type (e.g., 'default')."
-msgstr ""
-
-#: minios-cmd:52
-msgid "Enable the use of the Linux kernel from backports."
-msgstr ""
-
-#: minios-cmd:53 minios-cmd:52
-msgid "Enable AUFS support in the kernel."
-msgstr ""
-
-#: minios-cmd:54 minios-cmd:53
-msgid "Enable compilation of additional drivers during kernel installation."
-msgstr ""
-
-#: minios-cmd:56 minios-cmd:55
-msgid "Locale and Timezone Options:"
-msgstr ""
-
-#: minios-cmd:57 minios-cmd:56
-msgid "Specify the system locale (e.g., 'en_US')."
-msgstr ""
-
-#: minios-cmd:58 minios-cmd:57
-msgid "Enable multilingual support."
-msgstr ""
-
-#: minios-cmd:59 minios-cmd:58
-msgid "Keep all available locales."
-msgstr ""
-
-#: minios-cmd:60 minios-cmd:59
-msgid "Specify the timezone (e.g., 'Etc/UTC')."
-msgstr ""
-
-#: minios-cmd:62 minios-cmd:64
-msgid "Default Settings:"
-msgstr ""
-
-#: minios-cmd:64 minios-cmd:66
-msgid "Kernel Settings:"
-msgstr ""
-
-#: minios-cmd:67 minios-cmd:69
-msgid "Locale & Timezone Settings:"
-msgstr ""
-
-#: minios-cmd:73 minios-cmd:78
-msgid "1. Create a MiniOS Standard system image (default settings):"
-msgstr ""
-
-#: minios-cmd:76 minios-cmd:81
-msgid "2. Create a MiniOS Toolbox system image (default settings):"
-msgstr ""
-
-#: minios-cmd:79 minios-cmd:84
-msgid ""
-"3. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'toolbox' package variant, and Russian locale:"
-msgstr ""
-
-#: minios-cmd:82
-msgid ""
-"3. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'standard' package variant and 'lxqt' desktop environment:"
-msgstr ""
-
-#: minios-cmd:85
-msgid ""
-"4. Create a system image with 'buster' distribution, 'i386' architecture, "
-"and 'xfce' desktop environment:"
-msgstr ""
-
-#: minios-cmd:88
-msgid ""
-"5. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, and 'xfce' desktop environment and with kernel from backports:"
-msgstr ""
-
-#: minios-cmd:91 minios-cmd:93
-msgid ""
-"6. Create a system image with the 'jammy' distribution and 'standard' "
-"package variant:"
-msgstr ""
-
-#: minios-cmd:94 minios-cmd:96
-msgid ""
-"7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
-"and 'xfce' desktop environment with multilingual support enabled:"
-msgstr ""
-
-#: minios-cmd:97 minios-cmd:102
-msgid ""
-"has many more options available. Please refer to the above options list for "
-"more details."
-msgstr ""
-
-#: minios-cmd:82 minios-cmd:87
-msgid ""
-"4. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'standard' package variant and 'lxqt' desktop environment:"
-msgstr ""
-
-#: minios-cmd:85 minios-cmd:90
-msgid ""
-"5. Create a system image with 'buster' distribution, 'i386' architecture, "
-"and 'xfce' desktop environment:"
-msgstr ""
-
-#: minios-cmd:88
-msgid ""
-"6. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, and 'xfce' desktop environment and with kernel from backports:"
-msgstr ""
-
-#: minios-cmd:91
-msgid ""
-"7. Create a system image with the 'jammy' distribution and 'standard' "
-"package variant:"
-msgstr ""
-
-#: minios-cmd:94
-msgid ""
-"8. Create a system image with 'trixie' distribution, 'amd64' architecture, "
-"and 'xfce' desktop environment with multilingual support enabled:"
-msgstr ""
-
-#: minios-cmd:51
 msgid "Specify the kernel flavour (e.g., 'none')."
 msgstr ""
 
+#: minios-cmd:52
+msgid "Enable AUFS support in the kernel."
+msgstr ""
+
+#: minios-cmd:53
+msgid "Enable compilation of additional drivers during kernel installation."
+msgstr ""
+
+#: minios-cmd:55
+msgid "Locale and Timezone Options:"
+msgstr ""
+
+#: minios-cmd:56
+msgid "Specify the system locale (e.g., 'en_US')."
+msgstr ""
+
+#: minios-cmd:57
+msgid "Enable multilingual support."
+msgstr ""
+
+#: minios-cmd:58
+msgid "Keep all available locales."
+msgstr ""
+
+#: minios-cmd:59
+msgid "Specify the timezone (e.g., 'Etc/UTC')."
+msgstr ""
+
 #: minios-cmd:61
-msgid "Boot Menu Options:"
+msgid "Boot Loader Options:"
 msgstr ""
 
 #: minios-cmd:62
+msgid "Specify the initramfs builder ('livekit' or 'dracut')."
+msgstr ""
+
+#: minios-cmd:64
+msgid "Boot Menu Options:"
+msgstr ""
+
+#: minios-cmd:65
 msgid ""
 "Specify the boot menu language ('multilang' for language selection or "
 "specific language code like 'ru_RU')."
 msgstr ""
 
-#: minios-cmd:73
+#: minios-cmd:67
+msgid "Ubuntu Pro Options:"
+msgstr ""
+
+#: minios-cmd:68
+msgid ""
+"Specify Ubuntu Pro subscription token for fresh packages during build "
+"(removed from final image)."
+msgstr ""
+
+#: minios-cmd:70
+msgid "Default Settings:"
+msgstr ""
+
+#: minios-cmd:72
+msgid "Kernel Settings:"
+msgstr ""
+
+#: minios-cmd:75
+msgid "Locale & Timezone Settings:"
+msgstr ""
+
+#: minios-cmd:79
+msgid "Boot Loader Settings:"
+msgstr ""
+
+#: minios-cmd:82
 msgid "Boot Menu Settings:"
 msgstr ""
 
+#: minios-cmd:85 minios-live:76
+msgid "Examples:"
+msgstr ""
+
+#: minios-cmd:87
+msgid "1. Create a MiniOS Standard system image (default settings):"
+msgstr ""
+
+#: minios-cmd:90
+msgid "2. Create a MiniOS Toolbox system image (default settings):"
+msgstr ""
+
+#: minios-cmd:93
+msgid ""
+"3. Create a system image with the 'bookworm' distribution, 'amd64' "
+"architecture, 'toolbox' package variant, and Russian locale:"
+msgstr ""
+
+#: minios-cmd:96
+msgid ""
+"4. Create a system image with the 'bookworm' distribution, 'amd64' "
+"architecture, 'standard' package variant and 'lxqt' desktop environment:"
+msgstr ""
+
 #: minios-cmd:99
+msgid ""
+"5. Create a system image with 'buster' distribution, 'i386' architecture, "
+"and 'xfce' desktop environment:"
+msgstr ""
+
+#: minios-cmd:102
+msgid ""
+"6. Create a system image with the 'jammy' distribution and 'standard' "
+"package variant:"
+msgstr ""
+
+#: minios-cmd:105
+msgid ""
+"7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
+"and 'xfce' desktop environment with multilingual support enabled:"
+msgstr ""
+
+#: minios-cmd:108
 msgid "8. Create a system image with Russian boot menu language:"
+msgstr ""
+
+#: minios-cmd:111
+msgid "9. Create a system image with livekit initramfs builder:"
+msgstr ""
+
+#: minios-cmd:114
+msgid ""
+"10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh "
+"packages:"
+msgstr ""
+
+#: minios-cmd:117
+msgid ""
+"has many more options available. Please refer to the above options list for "
+"more details."
+msgstr ""
+
+#: minios-live:56
+msgid "This script builds bootable MiniOS ISO image."
+msgstr ""
+
+#: minios-live:61
+msgid "Run the build from start to finish."
+msgstr ""
+
+#: minios-live:62
+msgid ""
+"Start the build by building the base environment and finish by installing "
+"the entire system in chroot."
+msgstr ""
+
+#: minios-live:63
+msgid ""
+"Start the build from the beginning and finish by installing the entire "
+"system in chroot."
+msgstr ""
+
+#: minios-live:64
+msgid "Start the build by building the base environment and run to completion."
+msgstr ""
+
+#: minios-live:65
+msgid "Build only ISO image from previously prepared data."
+msgstr ""
+
+#: minios-live:69
+msgid "Supported commands:"
+msgstr ""
+
+#: minios-live:71
+msgid "  Run from start_cmd to end_cmd"
+msgstr ""
+
+#: minios-live:72
+msgid "  If start_cmd is omitted, start from the first command"
+msgstr ""
+
+#: minios-live:73
+msgid "  If end_cmd is omitted, end with the last command"
+msgstr ""
+
+#: minios-live:74
+msgid "  Enter a single cmd to run the specific command"
+msgstr ""
+
+#: minios-live:75
+msgid "  Enter '-' as the only argument to run all commands\\n"
+msgstr ""
+
+#: linux-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-1/launcher.desktop:4
+msgid "Launcher"
+msgstr ""
+
+#: linux-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-1/launcher.desktop:5
+msgid "Application launcher screen"
+msgstr ""
+
+#: linux-live/scripts/04-lxqt-desktop/rootcopy-install/usr/share/applications/xterm.desktop:8
+#: linux-live/scripts/04-lxqt-desktop/rootcopy-install/usr/share/applications/xterm.desktop:9
+msgid "Terminal emulator"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-3/TerminalEmulator.desktop:11
+msgid "Terminal Emulator"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-3/TerminalEmulator.desktop:12
+msgid "Use the command line"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-4/FileManager.desktop:12
+msgid "File Manager"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-4/FileManager.desktop:13
+msgid "Browse the file system"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop:12
+msgid "Web Browser"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop:13
+msgid "Browse the web"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/volumeicon.desktop:5
+msgid "volumeicon"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/usr/share/applications/taskmanager.desktop:2
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/usr/share/applications/taskmanager.desktop:100
+msgid "Task Manager"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/usr/share/applications/taskmanager.desktop:51
+msgid "Easy to use task manager"
+msgstr ""
+
+#: linux-live/scripts/05-apps/rootcopy-install/usr/share/applications/clonezilla.desktop:2
+msgid "Clonezilla"
 msgstr ""
