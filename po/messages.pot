@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-20 15:07+0300\n"
+"POT-Creation-Date: 2026-06-21 03:09+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: linux-live/minioslib:693
+#: linux-live/minioslib:693 minios-live:149
 msgid "Command not found:"
 msgstr ""
 
@@ -26,259 +26,307 @@ msgstr ""
 msgid "grub.template.cfg template not found"
 msgstr ""
 
-#: minios-cmd:31 minios-live:70
+#: minios-cmd:48 minios-cmd:140 minios-live:86
 msgid "Usage:"
 msgstr ""
 
-#: minios-cmd:32
+#: minios-cmd:49
 msgid "Creates a system image with the specified parameters."
 msgstr ""
 
-#: minios-cmd:34
+#: minios-cmd:51
 msgid "Options:"
 msgstr ""
 
-#: minios-cmd:36
+#: minios-cmd:53
 msgid "Config Options:"
 msgstr ""
 
-#: minios-cmd:37
+#: minios-cmd:54
 msgid "Specify the configuration file path. All other options are ignored."
 msgstr ""
 
-#: minios-cmd:38
+#: minios-cmd:55
 msgid ""
 "Generate the configuration file only and do not start the build process."
 msgstr ""
 
-#: minios-cmd:40
+#: minios-cmd:57
 msgid "Build Options:"
 msgstr ""
 
-#: minios-cmd:41
+#: minios-cmd:58
 msgid "Specify the build directory."
 msgstr ""
 
-#: minios-cmd:43
+#: minios-cmd:60
 msgid "System Options:"
 msgstr ""
 
-#: minios-cmd:44
+#: minios-cmd:61
 msgid "Specify the distribution name (e.g., 'bookworm'). REQUIRED"
 msgstr ""
 
-#: minios-cmd:45
+#: minios-cmd:62
 msgid "Specify the architecture (e.g., 'amd64'). REQUIRED"
 msgstr ""
 
-#: minios-cmd:46
+#: minios-cmd:63
 msgid "Specify the desktop environment (e.g., 'xfce'). REQUIRED"
 msgstr ""
 
-#: minios-cmd:47
+#: minios-cmd:64
 msgid "Specify the package variant (e.g., 'standard'). REQUIRED"
 msgstr ""
 
-#: minios-cmd:48
+#: minios-cmd:65
 msgid "Specify the compression type (e.g., 'zstd')."
 msgstr ""
 
-#: minios-cmd:50
+#: minios-cmd:67
 msgid "Kernel Options:"
 msgstr ""
 
-#: minios-cmd:51
+#: minios-cmd:68
 msgid "Specify the kernel flavour (e.g., 'none')."
 msgstr ""
 
-#: minios-cmd:52
+#: minios-cmd:69
 msgid "Enable AUFS support in the kernel."
 msgstr ""
 
-#: minios-cmd:53
+#: minios-cmd:70
 msgid "Enable compilation of additional drivers during kernel installation."
 msgstr ""
 
-#: minios-cmd:55
+#: minios-cmd:72
 msgid "Locale and Timezone Options:"
 msgstr ""
 
-#: minios-cmd:56
+#: minios-cmd:73
 msgid "Specify the system locale (e.g., 'en_US')."
 msgstr ""
 
-#: minios-cmd:57
+#: minios-cmd:74
 msgid "Enable multilingual support."
 msgstr ""
 
-#: minios-cmd:58
+#: minios-cmd:75
 msgid "Keep all available locales."
 msgstr ""
 
-#: minios-cmd:59
+#: minios-cmd:76
 msgid "Specify the timezone (e.g., 'Etc/UTC')."
 msgstr ""
 
-#: minios-cmd:61
+#: minios-cmd:78
 msgid "Boot Loader Options:"
 msgstr ""
 
-#: minios-cmd:62
+#: minios-cmd:79
 msgid "Specify the initramfs builder ('livekit' or 'dracut')."
 msgstr ""
 
-#: minios-cmd:64
+#: minios-cmd:81
 msgid "Boot Menu Options:"
 msgstr ""
 
-#: minios-cmd:65
+#: minios-cmd:82
 msgid ""
 "Specify the boot menu language ('multilang' for language selection or "
 "specific language code like 'ru_RU')."
 msgstr ""
 
-#: minios-cmd:67
+#: minios-cmd:84
 msgid "Ubuntu Pro Options:"
 msgstr ""
 
-#: minios-cmd:68
+#: minios-cmd:85
 msgid ""
 "Specify Ubuntu Pro subscription token for fresh packages during build "
 "(removed from final image)."
 msgstr ""
 
-#: minios-cmd:70
+#: minios-cmd:87
 msgid "Default Settings:"
 msgstr ""
 
-#: minios-cmd:72
+#: minios-cmd:89
 msgid "Kernel Settings:"
 msgstr ""
 
-#: minios-cmd:75
+#: minios-cmd:92
 msgid "Locale & Timezone Settings:"
 msgstr ""
 
-#: minios-cmd:79
+#: minios-cmd:96
 msgid "Boot Loader Settings:"
 msgstr ""
 
-#: minios-cmd:82
+#: minios-cmd:99
 msgid "Boot Menu Settings:"
 msgstr ""
 
-#: minios-cmd:85 minios-live:76
+#: minios-cmd:102 minios-live:109
 msgid "Examples:"
 msgstr ""
 
-#: minios-cmd:87
+#: minios-cmd:104
 msgid "1. Create a MiniOS Standard system image (default settings):"
 msgstr ""
 
-#: minios-cmd:90
+#: minios-cmd:107
 msgid "2. Create a MiniOS Toolbox system image (default settings):"
 msgstr ""
 
-#: minios-cmd:93
+#: minios-cmd:110
 msgid ""
 "3. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'toolbox' package variant, and Russian locale:"
 msgstr ""
 
-#: minios-cmd:96
+#: minios-cmd:113
 msgid ""
 "4. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'standard' package variant and 'lxqt' desktop environment:"
 msgstr ""
 
-#: minios-cmd:99
+#: minios-cmd:116
 msgid ""
 "5. Create a system image with 'buster' distribution, 'i386' architecture, "
 "and 'xfce' desktop environment:"
 msgstr ""
 
-#: minios-cmd:102
+#: minios-cmd:119
 msgid ""
 "6. Create a system image with the 'jammy' distribution and 'standard' "
 "package variant:"
 msgstr ""
 
-#: minios-cmd:105
+#: minios-cmd:122
 msgid ""
 "7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
 "and 'xfce' desktop environment with multilingual support enabled:"
 msgstr ""
 
-#: minios-cmd:108
+#: minios-cmd:125
 msgid "8. Create a system image with Russian boot menu language:"
 msgstr ""
 
-#: minios-cmd:111
+#: minios-cmd:128
 msgid "9. Create a system image with livekit initramfs builder:"
 msgstr ""
 
-#: minios-cmd:114
+#: minios-cmd:131
 msgid ""
 "10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh "
 "packages:"
 msgstr ""
 
-#: minios-cmd:117
+#: minios-cmd:134
 msgid ""
 "has many more options available. Please refer to the above options list for "
 "more details."
 msgstr ""
 
-#: minios-live:56
+#: minios-cmd:141
+msgid "Try '%s --help' for more information."
+msgstr ""
+
+#: minios-live:87
 msgid "This script builds bootable MiniOS ISO image."
 msgstr ""
 
-#: minios-live:61
-msgid "Run the build from start to finish."
+#: minios-live:89
+msgid "Commands:"
 msgstr ""
 
-#: minios-live:62
+#: minios-live:91
+msgid "Install a minimal base system using debootstrap"
+msgstr ""
+
+#: minios-live:92
+msgid "Install core components and desktop environment in chroot"
+msgstr ""
+
+#: minios-live:93
+msgid "Create the main SquashFS image of the core system"
+msgstr ""
+
+#: minios-live:94
+msgid "Build additional SquashFS modules with extra packages"
+msgstr ""
+
+#: minios-live:95
+msgid "Generate boot files, initrd, and boot configuration"
+msgstr ""
+
+#: minios-live:96
+msgid "Generate configuration files for the build"
+msgstr ""
+
+#: minios-live:97
+msgid "Create the final bootable ISO image"
+msgstr ""
+
+#: minios-live:98
+msgid "Remove source files after the build"
+msgstr ""
+
+#: minios-live:100
+msgid "How it works:"
+msgstr ""
+
+#: minios-live:102
+msgid "No arguments or -h/--help: display this help (no root required)"
+msgstr ""
+
+#: minios-live:103
+msgid "Single command: run only that build stage (requires root)"
+msgstr ""
+
+#: minios-live:104
+msgid "start_cmd - end_cmd: run all commands in the range"
+msgstr ""
+
+#: minios-live:105
+msgid "Use '- end_cmd' to run from the first command to end_cmd"
+msgstr ""
+
+#: minios-live:106
+msgid "Use 'start_cmd -' to run from start_cmd to the last command"
+msgstr ""
+
+#: minios-live:107
+msgid "Use '-' alone to run the entire build from start to finish"
+msgstr ""
+
+#: minios-live:111
+msgid "Display this help and exit:"
+msgstr ""
+
+#: minios-live:114
+msgid "Run the build from start to finish:"
+msgstr ""
+
+#: minios-live:117
 msgid ""
 "Start the build by building the base environment and finish by installing "
-"the entire system in chroot."
+"the entire system in chroot:"
 msgstr ""
 
-#: minios-live:63
+#: minios-live:120
 msgid ""
 "Start the build from the beginning and finish by installing the entire "
-"system in chroot."
+"system in chroot:"
 msgstr ""
 
-#: minios-live:64
-msgid "Start the build by building the base environment and run to completion."
+#: minios-live:123
+msgid "Start the build by building the base environment and run to completion:"
 msgstr ""
 
-#: minios-live:65
-msgid "Build only ISO image from previously prepared data."
-msgstr ""
-
-#: minios-live:69
-msgid "Supported commands:"
-msgstr ""
-
-#: minios-live:71
-msgid "  Run from start_cmd to end_cmd"
-msgstr ""
-
-#: minios-live:72
-msgid "  If start_cmd is omitted, start from the first command"
-msgstr ""
-
-#: minios-live:73
-msgid "  If end_cmd is omitted, end with the last command"
-msgstr ""
-
-#: minios-live:74
-msgid "  Enter a single cmd to run the specific command"
-msgstr ""
-
-#: minios-live:75
-msgid "  Enter '-' as the only argument to run all commands\\n"
+#: minios-live:126
+msgid "Build only ISO image from previously prepared data:"
 msgstr ""
 
 #: linux-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-1/launcher.desktop:4

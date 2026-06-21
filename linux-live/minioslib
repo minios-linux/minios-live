@@ -952,7 +952,7 @@ setup_apt_cache() {
             mkdir -p "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
             mount --bind "${APTCACHE_DIR}" "${DIR_PATH}/var/cache/apt/archives"
             if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-                information "The apt cache is set up in  ${CYAN}${APTCACHE_DIR}${ENDCOLOR}"
+                information "The apt cache is set up in ${CYAN}${APTCACHE_DIR}${ENDCOLOR}"
             fi
         fi
 
@@ -1122,7 +1122,7 @@ new_run() {
     echo "================================================================="
     echo "================================================================="
     echo "================================================================="
-    echo "========== Distributution: ${DISTRIBUTION}"
+    echo "========== Distribution: ${DISTRIBUTION}"
     echo "========== Desktop environment: ${DESKTOP_ENVIRONMENT}"
     echo "========== Package variant: ${PACKAGE_VARIANT}"
     echo "========== Arch: ${DISTRIBUTION_ARCH}"

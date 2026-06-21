@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 4.0.0\n"
 "Report-Msgid-Bugs-To: support@minios.dev\n"
-"POT-Creation-Date: 2026-06-20 15:07+0300\n"
-"PO-Revision-Date: 2026-06-20 12:08+0000\n"
+"POT-Creation-Date: 2026-06-21 03:09+0300\n"
+"PO-Revision-Date: 2026-06-21 00:09+0000\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
 "Language-Team: none\n"
 "Language: pt\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: linux-live/minioslib:693
+#: linux-live/minioslib:693 minios-live:149
 msgid "Command not found:"
 msgstr "Comando não encontrado:"
 
@@ -25,117 +25,117 @@ msgstr "Comando não encontrado:"
 msgid "grub.template.cfg template not found"
 msgstr "Modelo grub.template.cfg não encontrado"
 
-#: minios-cmd:31 minios-live:70
+#: minios-cmd:48 minios-cmd:140 minios-live:86
 msgid "Usage:"
 msgstr "Utilização:"
 
-#: minios-cmd:32
+#: minios-cmd:49
 msgid "Creates a system image with the specified parameters."
 msgstr "Cria uma imagem de sistema com os parâmetros especificados."
 
-#: minios-cmd:34
+#: minios-cmd:51
 msgid "Options:"
 msgstr "Opções:"
 
-#: minios-cmd:36
+#: minios-cmd:53
 msgid "Config Options:"
 msgstr "Opções de Configuração:"
 
-#: minios-cmd:37
+#: minios-cmd:54
 msgid "Specify the configuration file path. All other options are ignored."
 msgstr ""
 "Especifique o caminho do ficheiro de configuração. Todas as outras opções "
 "serão ignoradas."
 
-#: minios-cmd:38
+#: minios-cmd:55
 msgid ""
 "Generate the configuration file only and do not start the build process."
 msgstr ""
 "Gerar apenas o ficheiro de configuração e não iniciar o processo de "
 "construção."
 
-#: minios-cmd:40
+#: minios-cmd:57
 msgid "Build Options:"
 msgstr "Opções de Compilação:"
 
-#: minios-cmd:41
+#: minios-cmd:58
 msgid "Specify the build directory."
 msgstr "Especifique o diretório de compilação."
 
-#: minios-cmd:43
+#: minios-cmd:60
 msgid "System Options:"
 msgstr "Opções do Sistema:"
 
-#: minios-cmd:44
+#: minios-cmd:61
 msgid "Specify the distribution name (e.g., 'bookworm'). REQUIRED"
 msgstr "Especifique o nome da distribuição (ex: 'bookworm'). OBRIGATÓRIO"
 
-#: minios-cmd:45
+#: minios-cmd:62
 msgid "Specify the architecture (e.g., 'amd64'). REQUIRED"
 msgstr "Especifique a arquitetura (ex: 'amd64'). OBRIGATÓRIO"
 
-#: minios-cmd:46
+#: minios-cmd:63
 msgid "Specify the desktop environment (e.g., 'xfce'). REQUIRED"
 msgstr "Especifique o ambiente de desktop (ex: 'xfce'). OBRIGATÓRIO"
 
-#: minios-cmd:47
+#: minios-cmd:64
 msgid "Specify the package variant (e.g., 'standard'). REQUIRED"
 msgstr "Especifique a variante do pacote (ex: 'standard'). OBRIGATÓRIO"
 
-#: minios-cmd:48
+#: minios-cmd:65
 msgid "Specify the compression type (e.g., 'zstd')."
 msgstr "Especifique o tipo de compressão (ex: 'zstd')."
 
-#: minios-cmd:50
+#: minios-cmd:67
 msgid "Kernel Options:"
 msgstr "Opções do Kernel:"
 
-#: minios-cmd:51
+#: minios-cmd:68
 msgid "Specify the kernel flavour (e.g., 'none')."
 msgstr "Especifique o sabor do kernel (ex: 'none')."
 
-#: minios-cmd:52
+#: minios-cmd:69
 msgid "Enable AUFS support in the kernel."
 msgstr "Ativar o suporte AUFS no kernel."
 
-#: minios-cmd:53
+#: minios-cmd:70
 msgid "Enable compilation of additional drivers during kernel installation."
 msgstr ""
 "Ativar a compilação de drivers adicionais durante a instalação do kernel."
 
-#: minios-cmd:55
+#: minios-cmd:72
 msgid "Locale and Timezone Options:"
 msgstr "Opções de Localização e Fuso Horário:"
 
-#: minios-cmd:56
+#: minios-cmd:73
 msgid "Specify the system locale (e.g., 'en_US')."
 msgstr "Especifique a localização do sistema (ex: 'en_US')."
 
-#: minios-cmd:57
+#: minios-cmd:74
 msgid "Enable multilingual support."
 msgstr "Ativar o suporte multilíngue."
 
-#: minios-cmd:58
+#: minios-cmd:75
 msgid "Keep all available locales."
 msgstr "Manter todas as localizações disponíveis."
 
-#: minios-cmd:59
+#: minios-cmd:76
 msgid "Specify the timezone (e.g., 'Etc/UTC')."
 msgstr "Especifique o fuso horário (ex: 'Etc/UTC')."
 
-#: minios-cmd:61
+#: minios-cmd:78
 msgid "Boot Loader Options:"
 msgstr "Opções do Boot Loader:"
 
-#: minios-cmd:62
+#: minios-cmd:79
 msgid "Specify the initramfs builder ('livekit' or 'dracut')."
 msgstr "Especifique o construtor do initramfs ('livekit' ou 'dracut')."
 
-#: minios-cmd:64
+#: minios-cmd:81
 msgid "Boot Menu Options:"
 msgstr "Opções do Menu de Inicialização:"
 
-#: minios-cmd:65
+#: minios-cmd:82
 msgid ""
 "Specify the boot menu language ('multilang' for language selection or "
 "specific language code like 'ru_RU')."
@@ -143,11 +143,11 @@ msgstr ""
 "Especifique o idioma do menu de inicialização ('multilang' para seleção de "
 "idioma ou um código de idioma específico como 'ru_RU')."
 
-#: minios-cmd:67
+#: minios-cmd:84
 msgid "Ubuntu Pro Options:"
 msgstr "Opções do Ubuntu Pro:"
 
-#: minios-cmd:68
+#: minios-cmd:85
 msgid ""
 "Specify Ubuntu Pro subscription token for fresh packages during build "
 "(removed from final image)."
@@ -155,39 +155,39 @@ msgstr ""
 "Informe o token de assinatura do Ubuntu Pro para obter pacotes atualizados "
 "durante a construção (removido da imagem final)."
 
-#: minios-cmd:70
+#: minios-cmd:87
 msgid "Default Settings:"
 msgstr "Configurações Padrão:"
 
-#: minios-cmd:72
+#: minios-cmd:89
 msgid "Kernel Settings:"
 msgstr "Configurações do Kernel:"
 
-#: minios-cmd:75
+#: minios-cmd:92
 msgid "Locale & Timezone Settings:"
 msgstr "Configurações de Localização e Fuso Horário:"
 
-#: minios-cmd:79
+#: minios-cmd:96
 msgid "Boot Loader Settings:"
 msgstr "Configurações do Boot Loader:"
 
-#: minios-cmd:82
+#: minios-cmd:99
 msgid "Boot Menu Settings:"
 msgstr "Configurações do Menu de Inicialização:"
 
-#: minios-cmd:85 minios-live:76
+#: minios-cmd:102 minios-live:109
 msgid "Examples:"
 msgstr "Exemplos:"
 
-#: minios-cmd:87
+#: minios-cmd:104
 msgid "1. Create a MiniOS Standard system image (default settings):"
 msgstr "1. Criar uma imagem de sistema MiniOS Standard (configurações padrão):"
 
-#: minios-cmd:90
+#: minios-cmd:107
 msgid "2. Create a MiniOS Toolbox system image (default settings):"
 msgstr "2. Criar uma imagem de sistema MiniOS Toolbox (configurações padrão):"
 
-#: minios-cmd:93
+#: minios-cmd:110
 msgid ""
 "3. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'toolbox' package variant, and Russian locale:"
@@ -195,7 +195,7 @@ msgstr ""
 "3. Criar uma imagem de sistema com a distribuição 'bookworm', arquitetura "
 "'amd64', variante de pacote 'toolbox' e localização russa:"
 
-#: minios-cmd:96
+#: minios-cmd:113
 msgid ""
 "4. Create a system image with the 'bookworm' distribution, 'amd64' "
 "architecture, 'standard' package variant and 'lxqt' desktop environment:"
@@ -203,7 +203,7 @@ msgstr ""
 "4. Criar uma imagem de sistema com a distribuição 'bookworm', arquitetura "
 "'amd64', variante de pacote 'standard' e ambiente de desktop 'lxqt':"
 
-#: minios-cmd:99
+#: minios-cmd:116
 msgid ""
 "5. Create a system image with 'buster' distribution, 'i386' architecture, "
 "and 'xfce' desktop environment:"
@@ -211,7 +211,7 @@ msgstr ""
 "5. Criar uma imagem de sistema com a distribuição 'buster', arquitetura "
 "'i386' e ambiente de desktop 'xfce':"
 
-#: minios-cmd:102
+#: minios-cmd:119
 msgid ""
 "6. Create a system image with the 'jammy' distribution and 'standard' "
 "package variant:"
@@ -219,7 +219,7 @@ msgstr ""
 "6. Criar uma imagem de sistema com a distribuição 'jammy' e variante de "
 "pacote 'standard':"
 
-#: minios-cmd:105
+#: minios-cmd:122
 msgid ""
 "7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
 "and 'xfce' desktop environment with multilingual support enabled:"
@@ -227,15 +227,15 @@ msgstr ""
 "7. Criar uma imagem de sistema com a distribuição 'trixie', arquitetura "
 "'amd64', ambiente de desktop 'xfce' e suporte multilíngue ativado:"
 
-#: minios-cmd:108
+#: minios-cmd:125
 msgid "8. Create a system image with Russian boot menu language:"
 msgstr "8. Criar uma imagem de sistema com o menu de inicialização em russo:"
 
-#: minios-cmd:111
+#: minios-cmd:128
 msgid "9. Create a system image with livekit initramfs builder:"
 msgstr "9. Crie uma imagem do sistema com o construtor initramfs livekit:"
 
-#: minios-cmd:114
+#: minios-cmd:131
 msgid ""
 "10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh "
 "packages:"
@@ -243,7 +243,7 @@ msgstr ""
 "10. Crie uma imagem do sistema Ubuntu com assinatura Ubuntu Pro para pacotes "
 "atualizados:"
 
-#: minios-cmd:117
+#: minios-cmd:134
 msgid ""
 "has many more options available. Please refer to the above options list for "
 "more details."
@@ -251,64 +251,108 @@ msgstr ""
 "Existem muitas outras opções disponíveis. Consulte a lista de opções acima "
 "para mais detalhes."
 
-#: minios-live:56
+#: minios-cmd:141
+msgid "Try '%s --help' for more information."
+msgstr "Tente '%s --help' para mais informações."
+
+#: minios-live:87
 msgid "This script builds bootable MiniOS ISO image."
 msgstr "Este script constrói uma imagem ISO MiniOS inicializável."
 
-#: minios-live:61
-msgid "Run the build from start to finish."
-msgstr "Executar a construção do início ao fim."
+#: minios-live:89
+msgid "Commands:"
+msgstr "Comandos:"
 
-#: minios-live:62
+#: minios-live:91
+msgid "Install a minimal base system using debootstrap"
+msgstr "Instala um sistema base mínimo usando debootstrap"
+
+#: minios-live:92
+msgid "Install core components and desktop environment in chroot"
+msgstr "Instala os componentes principais e o ambiente gráfico no chroot"
+
+#: minios-live:93
+msgid "Create the main SquashFS image of the core system"
+msgstr "Cria a imagem SquashFS principal do sistema base"
+
+#: minios-live:94
+msgid "Build additional SquashFS modules with extra packages"
+msgstr "Gera módulos SquashFS adicionais com pacotes extras"
+
+#: minios-live:95
+msgid "Generate boot files, initrd, and boot configuration"
+msgstr "Gera arquivos de boot, initrd e configuração de inicialização"
+
+#: minios-live:96
+msgid "Generate configuration files for the build"
+msgstr "Gera arquivos de configuração para a build"
+
+#: minios-live:97
+msgid "Create the final bootable ISO image"
+msgstr "Cria a imagem ISO final inicializável"
+
+#: minios-live:98
+msgid "Remove source files after the build"
+msgstr "Remove os arquivos de origem após a build"
+
+#: minios-live:100
+msgid "How it works:"
+msgstr "Como funciona:"
+
+#: minios-live:102
+msgid "No arguments or -h/--help: display this help (no root required)"
+msgstr "Sem argumentos ou -h/--help: exibe esta ajuda (não requer root)"
+
+#: minios-live:103
+msgid "Single command: run only that build stage (requires root)"
+msgstr "Comando único: executa apenas essa etapa da build (requer root)"
+
+#: minios-live:104
+msgid "start_cmd - end_cmd: run all commands in the range"
+msgstr "start_cmd - end_cmd: executa todos os comandos no intervalo"
+
+#: minios-live:105
+msgid "Use '- end_cmd' to run from the first command to end_cmd"
+msgstr "Use '- end_cmd' para executar do primeiro comando até end_cmd"
+
+#: minios-live:106
+msgid "Use 'start_cmd -' to run from start_cmd to the last command"
+msgstr "Use 'start_cmd -' para executar de start_cmd até o último comando"
+
+#: minios-live:107
+msgid "Use '-' alone to run the entire build from start to finish"
+msgstr "Use '-' sozinho para executar toda a build do início ao fim"
+
+#: minios-live:111
+msgid "Display this help and exit:"
+msgstr "Exibe esta ajuda e sai:"
+
+#: minios-live:114
+msgid "Run the build from start to finish:"
+msgstr "Executa a build do início ao fim:"
+
+#: minios-live:117
 msgid ""
 "Start the build by building the base environment and finish by installing "
-"the entire system in chroot."
+"the entire system in chroot:"
 msgstr ""
-"Iniciar a construção construindo o ambiente base e finalizar instalando o "
-"sistema inteiro em chroot."
+"Inicia a build criando o ambiente base e finaliza instalando todo o sistema "
+"no chroot:"
 
-#: minios-live:63
+#: minios-live:120
 msgid ""
 "Start the build from the beginning and finish by installing the entire "
-"system in chroot."
+"system in chroot:"
 msgstr ""
-"Iniciar a construção desde o início e finalizar instalando o sistema inteiro "
-"em chroot."
+"Inicia a build do começo e finaliza instalando todo o sistema no chroot:"
 
-#: minios-live:64
-msgid "Start the build by building the base environment and run to completion."
-msgstr ""
-"Iniciar a construção construindo o ambiente base e executar até à conclusão."
+#: minios-live:123
+msgid "Start the build by building the base environment and run to completion:"
+msgstr "Inicia a build criando o ambiente base e executa até a conclusão:"
 
-#: minios-live:65
-msgid "Build only ISO image from previously prepared data."
-msgstr ""
-"Construir apenas a imagem ISO a partir de dados preparados previamente."
-
-#: minios-live:69
-msgid "Supported commands:"
-msgstr "Comandos suportados:"
-
-#: minios-live:71
-msgid "  Run from start_cmd to end_cmd"
-msgstr "  Executar de start_cmd até end_cmd"
-
-#: minios-live:72
-msgid "  If start_cmd is omitted, start from the first command"
-msgstr "  Se start_cmd for omitido, iniciar com o primeiro comando"
-
-#: minios-live:73
-msgid "  If end_cmd is omitted, end with the last command"
-msgstr "  Se end_cmd for omitido, terminar com o último comando"
-
-#: minios-live:74
-msgid "  Enter a single cmd to run the specific command"
-msgstr "  Introduzir um único cmd para executar o comando específico"
-
-#: minios-live:75
-msgid "  Enter '-' as the only argument to run all commands\\n"
-msgstr ""
-"  Introduzir '-' como único argumento para executar todos os comandos\\n"
+#: minios-live:126
+msgid "Build only ISO image from previously prepared data:"
+msgstr "Gera apenas a imagem ISO a partir dos dados já preparados:"
 
 #: linux-live/scripts/04-flux-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-1/launcher.desktop:4
 msgid "Launcher"

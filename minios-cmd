@@ -11,9 +11,26 @@ MAIN_EXECUTABLE="minios-cmd"
 SET_E=""
 SET_U=""
 
-export TEXTDOMAIN="minios-live"
-
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+export TEXTDOMAIN="minios-live"
+if [[ "$SCRIPT_DIR" == "/usr/bin" ]]; then
+    export TEXTDOMAINDIR="/usr/share/locale"
+else
+    export TEXTDOMAINDIR="$SCRIPT_DIR/locale"
+    if [[ -d "$SCRIPT_DIR/po" ]]; then
+        if command -v msgfmt >/dev/null 2>&1; then
+            for po_file in "$SCRIPT_DIR"/po/*.po; do
+                [[ -f "$po_file" ]] || continue
+                lang=$(basename "$po_file" .po)
+                mo_file="$TEXTDOMAINDIR/$lang/LC_MESSAGES/minios-live.mo"
+                if [[ ! -f "$mo_file" || "$po_file" -nt "$mo_file" ]]; then
+                    mkdir -p "$(dirname "$mo_file")"
+                    msgfmt -o "$mo_file" "$po_file" 2>/dev/null || true
+                fi
+            done
+        fi
+    fi
+fi
 : "${BUILD_SCRIPTS:="linux-live"}"
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
     BUILD_SCRIPTS_DIR="/usr/share/minios-live"
@@ -34,53 +51,53 @@ help() {
     echo -e "${BOLD}$(gettext "Options:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Config Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}--config-file${ENDCOLOR} FILE                 $(gettext "Specify the configuration file path. All other options are ignored.")"
-    echo -e "  ${LIGHTGREEN}--config-only${ENDCOLOR}                      $(gettext "Generate the configuration file only and do not start the build process.")"
+    echo -e "  ${LIGHTGREEN}--config-file${ENDCOLOR} FILE                $(gettext "Specify the configuration file path. All other options are ignored.")"
+    echo -e "  ${LIGHTGREEN}--config-only${ENDCOLOR}                     $(gettext "Generate the configuration file only and do not start the build process.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Build Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-b, --build-dir${ENDCOLOR} DIR               $(gettext "Specify the build directory.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "System Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}-d, --distribution${ENDCOLOR} NAME           $(gettext "Specify the distribution name (e.g., 'bookworm'). REQUIRED") "
-    echo -e "  ${LIGHTGREEN}-a, --architecture${ENDCOLOR} NAME           $(gettext "Specify the architecture (e.g., 'amd64'). REQUIRED") "
-    echo -e "  ${LIGHTGREEN}-de, --desktop-environment${ENDCOLOR} NAME   $(gettext "Specify the desktop environment (e.g., 'xfce'). REQUIRED") "
-    echo -e "  ${LIGHTGREEN}-pv, --package-variant${ENDCOLOR} NAME       $(gettext "Specify the package variant (e.g., 'standard'). REQUIRED") "
+    echo -e "  ${LIGHTGREEN}-d, --distribution${ENDCOLOR} NAME           $(gettext "Specify the distribution name (e.g., 'bookworm'). REQUIRED")"
+    echo -e "  ${LIGHTGREEN}-a, --architecture${ENDCOLOR} NAME           $(gettext "Specify the architecture (e.g., 'amd64'). REQUIRED")"
+    echo -e "  ${LIGHTGREEN}-de, --desktop-environment${ENDCOLOR} NAME   $(gettext "Specify the desktop environment (e.g., 'xfce'). REQUIRED")"
+    echo -e "  ${LIGHTGREEN}-pv, --package-variant${ENDCOLOR} NAME       $(gettext "Specify the package variant (e.g., 'standard'). REQUIRED")"
     echo -e "  ${LIGHTGREEN}-c, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}-kf, --kernel-flavour${ENDCOLOR} NAME           $(gettext "Specify the kernel flavour (e.g., 'none').")"
+    echo -e "  ${LIGHTGREEN}-kf, --kernel-flavour${ENDCOLOR} NAME        $(gettext "Specify the kernel flavour (e.g., 'none').")"
     echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}              $(gettext "Enable AUFS support in the kernel.")"
-    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}       $(gettext "Enable compilation of additional drivers during kernel installation.")"
+    echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}        $(gettext "Enable compilation of additional drivers during kernel installation.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale and Timezone Options:")${ENDCOLOR}"
     echo -e "  ${LIGHTGREEN}-l, --locale${ENDCOLOR} NAME                 $(gettext "Specify the system locale (e.g., 'en_US').")"
-    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR}              $(gettext "Enable multilingual support.")"
-    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}              $(gettext "Keep all available locales.")"
+    echo -e "  ${LIGHTGREEN}-ml, --multilingual${ENDCOLOR}               $(gettext "Enable multilingual support.")"
+    echo -e "  ${LIGHTGREEN}-kl, --keep-locales${ENDCOLOR}               $(gettext "Keep all available locales.")"
     echo -e "  ${LIGHTGREEN}-tz, --timezone${ENDCOLOR} NAME              $(gettext "Specify the timezone (e.g., 'Etc/UTC').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Boot Loader Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}-ib, --initramfs-builder${ENDCOLOR} NAME    $(gettext "Specify the initramfs builder ('livekit' or 'dracut').")"
+    echo -e "  ${LIGHTGREEN}-ib, --initramfs-builder${ENDCOLOR} NAME     $(gettext "Specify the initramfs builder ('livekit' or 'dracut').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Boot Menu Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}-mln, --menu-language${ENDCOLOR} NAME      $(gettext "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').")"
+    echo -e "  ${LIGHTGREEN}-mln, --menu-language${ENDCOLOR} NAME        $(gettext "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Ubuntu Pro Options:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}--ubuntu-pro-token${ENDCOLOR} TOKEN        $(gettext "Specify Ubuntu Pro subscription token for fresh packages during build (removed from final image).")"
+    echo -e "  ${LIGHTGREEN}--ubuntu-pro-token${ENDCOLOR} TOKEN          $(gettext "Specify Ubuntu Pro subscription token for fresh packages during build (removed from final image).")"
     echo ""
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}KERNEL_FLAVOUR=${ENDCOLOR} \"none\""
+    echo -e "  ${LIGHTGREEN}KERNEL_FLAVOUR${ENDCOLOR}=\"none\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}LOCALE=${ENDCOLOR} \"en_US\""
-    echo -e "  ${LIGHTGREEN}LIVE_TIMEZONE=${ENDCOLOR} \"Etc/UTC\""
+    echo -e "  ${LIGHTGREEN}LOCALE${ENDCOLOR}=\"en_US\""
+    echo -e "  ${LIGHTGREEN}LIVE_TIMEZONE${ENDCOLOR}=\"Etc/UTC\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Boot Loader Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}INITRAMFS_BUILDER=${ENDCOLOR} \"dracut\""
+    echo -e "  ${LIGHTGREEN}INITRAMFS_BUILDER${ENDCOLOR}=\"dracut\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Boot Menu Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}MENU_LANG=${ENDCOLOR} \"multilang\""
+    echo -e "  ${LIGHTGREEN}MENU_LANG${ENDCOLOR}=\"multilang\""
     echo ""
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
     echo ""
@@ -119,21 +136,18 @@ help() {
 }
 
 brief_help() {
-    echo "Usage: $(basename $0) [OPTIONS]"
-    echo "Try '$(basename $0) --help' for more information."
+    console_colors
+    echo "$(gettext "Usage:") $(basename $0) [-h | --help] [OPTIONS]"
+    printf "$(gettext "Try '%s --help' for more information.")\n" "$(basename $0)"
     exit 1
 }
 
 # ----[ COMMON SETUP ]----
 console_colors  # Set console colors
 
-case "${1:-}" in
-    -h|--help)
-        help
-        ;;
-esac
-
-allow_root_only # Allow only root user to run the script
+if [[ $# -eq 0 ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
+    help
+fi
 
 CONFIG_ONLY="false"
 while (("$#")); do
@@ -213,7 +227,6 @@ while (("$#")); do
         ;;
     -h | --help)
         help
-        shift
         ;;
     --)
         shift
@@ -246,7 +259,7 @@ done
 : "${MULTILINGUAL:=false}"
 : "${KEEP_LOCALES:=false}"
 : "${LIVE_TIMEZONE:="Etc/UTC"}"
-: "${INITRAMFS_BUILDER:="livekit"}"
+: "${INITRAMFS_BUILDER:="dracut"}"
 : "${MENU_LANG:="multilang"}"
 : "${UBUNTU_PRO_TOKEN:=""}"
 : "${USE_UBUNTU_PRO:="false"}"
@@ -255,8 +268,9 @@ done
 if [[ -z "$BUILD_CONF" && ! -f "$BUILD_CONF" && (-z "$DISTRIBUTION" || -z "$DISTRIBUTION_ARCH" || -z "$DESKTOP_ENVIRONMENT" || -z "$PACKAGE_VARIANT") ]]; then
     error "The following options are required: -d/--distribution, -a/--architecture, -de/--desktop-environment, -pv/--package-variant"
     brief_help
-    exit 1
 fi
+
+allow_root_only
 
 # ----[ MAIN ]----
 
