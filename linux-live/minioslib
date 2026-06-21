@@ -3227,8 +3227,8 @@ build_iso() {
 
 # If the REMOVE_SOURCES is set to "true", removes all sources
 remove_sources() {
-    current_function
     if [ "${REMOVE_SOURCES}" = "true" ]; then
+        current_function
         directory_cleanup "${WORK_DIR}"
     fi
 }
