@@ -620,44 +620,108 @@ fi
 
 find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" -delete
 
-set_wallpaper() {
+write_xfce4_desktop_xml_resolute() {
     local WALLPAPER=$1
+    local XML_FILE="/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
+    local MONITOR WORKSPACE
+    local -a MONITORS=(
+        Virtual-1 Virtual-2 Virtual1
+        eDP eDP-1
+        HDMI-A-0 HDMI-A-1 HDMI-1 HDMI-2
+        DP-1 DP-2 DP-3
+        LVDS-1 DVI-I-1 DVI-I-2
+    )
 
-    case "$DISTRIBUTION" in
-    #bookworm | trixie | sid)
-    *)
-        # Update link to reference selected wallpaper
-        rm -f /usr/share/backgrounds/minios-wallpaper.jpg
-        ln -s "/usr/share/backgrounds/MiniOS5-wallpaper-${WALLPAPER}.jpg" /usr/share/backgrounds/minios-wallpaper.jpg
-        ;;
-        #*)
-        # Update desktop XML to reference selected wallpaper directly
-        #    local XML_FILE="/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
-        #    xmlstarlet ed -L \
-        #        -u "//property[@name='image-path']/@value" \
-        #        -v "/usr/share/backgrounds/MiniOS5-wallpaper-${WALLPAPER}.jpg" \
-        #        "$XML_FILE"
-        #    ;;
-    esac
+    {
+        cat <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
 
-    # Remove other wallpaper files
-    for OTHER_WALLPAPER in Minimum Flux Standard Toolbox Ultra; do
-        if [[ "$OTHER_WALLPAPER" != "$WALLPAPER" ]]; then
-            rm -f "/usr/share/backgrounds/MiniOS5-wallpaper-$OTHER_WALLPAPER.jpg"
-        fi
-    done
+<channel name="xfce4-desktop" version="1.0">
+  <property name="desktop-icons" type="empty">
+    <property name="style" type="int" value="2"/>
+    <property name="file-icons" type="empty">
+      <property name="show-home" type="bool" value="true"/>
+      <property name="show-filesystem" type="bool" value="false"/>
+      <property name="show-removable" type="bool" value="false"/>
+      <property name="show-trash" type="bool" value="true"/>
+    </property>
+    <property name="icon-size" type="uint" value="48"/>
+    <property name="tooltip-size" type="double" value="64.000000"/>
+  </property>
+  <property name="backdrop" type="empty">
+    <property name="screen0" type="empty">
+EOF
+        for MONITOR in "${MONITORS[@]}"; do
+            printf '      <property name="monitor%s" type="empty">\n' "$MONITOR"
+            for WORKSPACE in 0 1 2 3; do
+                cat <<EOF
+        <property name="workspace${WORKSPACE}" type="empty">
+          <property name="last-image" type="string" value="${WALLPAPER}"/>
+          <property name="image-style" type="int" value="5"/>
+        </property>
+EOF
+            done
+            echo '      </property>'
+        done
+        cat <<'EOF'
+    </property>
+  </property>
+  <property name="last-settings-migration-version" type="uint" value="1"/>
+  <property name="desktop-menu" type="empty">
+    <property name="show" type="bool" value="false"/>
+  </property>
+</channel>
+EOF
+    } >"$XML_FILE"
 }
 
+write_xfce4_desktop_xml_legacy() {
+    local WALLPAPER=$1
+    local XML_FILE="/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
+
+    [ -f "$XML_FILE" ] || return 0
+
+    xmlstarlet ed -L \
+        -u "//property[@name='image-path']/@value" \
+        -v "$WALLPAPER" \
+        "$XML_FILE"
+}
+
+write_xfce4_desktop_xml() {
+    local VARIANT=$1
+    local WALLPAPER="/usr/share/backgrounds/MiniOS5-wallpaper-${VARIANT}.jpg"
+
+    if [ "$DISTRIBUTION" = "resolute" ]; then
+        write_xfce4_desktop_xml_resolute "$WALLPAPER"
+    else
+        write_xfce4_desktop_xml_legacy "$WALLPAPER"
+    fi
+}
+
+WALLPAPER_VARIANT=
 if [ "$PACKAGE_VARIANT" = "minimum" ] && [ "$DESKTOP_ENVIRONMENT" = "flux" ]; then
-    set_wallpaper "Flux"
+    WALLPAPER_VARIANT="Flux"
 elif [ "$PACKAGE_VARIANT" = "minimum" ]; then
-    set_wallpaper "Minimum"
+    WALLPAPER_VARIANT="Minimum"
 elif [ "$PACKAGE_VARIANT" = "standard" ]; then
-    set_wallpaper "Standard"
+    WALLPAPER_VARIANT="Standard"
 elif [ "$PACKAGE_VARIANT" = "toolbox" ]; then
-    set_wallpaper "Toolbox"
+    WALLPAPER_VARIANT="Toolbox"
 elif [ "$PACKAGE_VARIANT" = "ultra" ]; then
-    set_wallpaper "Ultra"
+    WALLPAPER_VARIANT="Ultra"
+else
+    WALLPAPER_VARIANT="sea"
+fi
+
+write_xfce4_desktop_xml "$WALLPAPER_VARIANT"
+
+for OTHER_WALLPAPER in Minimum Flux Standard Toolbox Ultra; do
+    if [[ "$OTHER_WALLPAPER" != "$WALLPAPER_VARIANT" ]]; then
+        rm -f "/usr/share/backgrounds/MiniOS5-wallpaper-$OTHER_WALLPAPER.jpg"
+    fi
+done
+
+if [ "$PACKAGE_VARIANT" = "ultra" ]; then
     xmlstarlet ed -L \
         -u "//property[@name='ThemeName']/@value" \
         -v "Greybird-dark" \
@@ -666,8 +730,6 @@ elif [ "$PACKAGE_VARIANT" = "ultra" ]; then
         -u "//property[@name='theme']/@value" \
         -v "Greybird-dark" \
         /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
-else
-    set_wallpaper "sea"
 fi
 
 find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" ! -delete

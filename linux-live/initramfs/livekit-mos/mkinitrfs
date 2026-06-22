@@ -368,8 +368,8 @@ copy_including_deps "/$LMK/kernel/fs/efivarfs" # for Clonezilla
 copy_including_deps "/$LMK/kernel/crypto/lz4"*.*
 copy_including_deps "/$LMK/kernel/crypto/zstd."*
 
-# crc32c is needed for ext4, but I don't know which one, add them all, they are small
-find "/$LMK/kernel/" | grep crc32c | while read LINE; do
+# crc32/crc32c modules are needed for ext4
+find "/$LMK/kernel/" -name '*crc32*' | while read -r LINE; do
     copy_including_deps "$LINE"
 done
 
