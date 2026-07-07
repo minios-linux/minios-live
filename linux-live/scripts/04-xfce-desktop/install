@@ -9,33 +9,8 @@ set -u          # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-case "$DISTRIBUTION" in
-trixie | sid)
-    rm -rf /usr/share/backgrounds
-    rm -rf /usr/share/pixmaps
-    : 'rm -f /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
-    cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
-<?xml version="1.1" encoding="UTF-8"?>
-
-<channel name="xfce4-desktop" version="1.0">
-  <property name="desktop-icons" type="empty">
-    <property name="file-icons" type="empty">
-      <property name="show-removable" type="bool" value="false"/>
-      <property name="show-home" type="bool" value="true"/>
-      <property name="show-filesystem" type="bool" value="false"/>
-      <property name="show-trash" type="bool" value="true"/>
-      <property name="show-mounts" type="bool" value="false"/>
-    </property>
-  </property>
-  <property name="last-settings-migration-version" type="uint" value="1"/>
-</channel>
-EOF'
-    ;;
-*)
-    rm -rf /usr/share/backgrounds
-    rm -rf /usr/share/pixmaps
-    ;;
-esac
+rm -rf /usr/share/backgrounds
+rm -rf /usr/share/pixmaps
 
 /condinapt -l "${SCRIPT_DIR}/packages.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
 if [ $? -ne 0 ]; then
@@ -620,7 +595,7 @@ fi
 
 find /usr/share/backgrounds/ -maxdepth 1 -type f ! -name "MiniOS5*" -delete
 
-write_xfce4_desktop_xml_resolute() {
+write_xfce4_desktop_xml_modern() {
     local WALLPAPER=$1
     local XML_FILE="/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
     local MONITOR WORKSPACE
@@ -691,11 +666,14 @@ write_xfce4_desktop_xml() {
     local VARIANT=$1
     local WALLPAPER="/usr/share/backgrounds/MiniOS5-wallpaper-${VARIANT}.jpg"
 
-    if [ "$DISTRIBUTION" = "resolute" ]; then
-        write_xfce4_desktop_xml_resolute "$WALLPAPER"
-    else
+    case "$DISTRIBUTION" in
+    resolute | trixie | forky | sid)
+        write_xfce4_desktop_xml_modern "$WALLPAPER"
+        ;;
+    *)
         write_xfce4_desktop_xml_legacy "$WALLPAPER"
-    fi
+        ;;
+    esac
 }
 
 WALLPAPER_VARIANT=
