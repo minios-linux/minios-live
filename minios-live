@@ -188,6 +188,8 @@ trap 'mountpoint -q "$WORK_DIR" && unmount_dirs "$WORK_DIR"; [ "${USE_APT_CACHE_
 
 common_variables
 
+APTCACHE_DIR="$BUILD_DIR/aptcache/$APT_CACHE_DISTRIBUTION"
+
 if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
         toggle_shell_options e

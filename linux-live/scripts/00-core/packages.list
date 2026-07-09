@@ -5,7 +5,8 @@
 libterm-readline-gnu-perl
 minios-tools
 minios-live-config
-minios-live-config-systemd
+minios-live-config-systemd +is=systemd
+minios-live-config-sysvinit +is=sysvinit
 minios-live-config-doc
 minios-welcome
 user-setup
@@ -22,6 +23,61 @@ xz-utils
 network-manager
 netplan.io +d=jammy +d=noble +d=resolute
 dracut-core +ib=dracut
+
+# Bootstrap parity packages for Devuan excalibur minbase.
+cpio +d=excalibur
+cron +d=excalibur
+cron-daemon-common +d=excalibur
+debconf-i18n +d=excalibur
+dhcpcd-base +d=excalibur
+dmidecode +d=excalibur
+e2fsprogs +d=excalibur
+eudev +d=excalibur
+fdisk +d=excalibur
+ifupdown +d=excalibur
+init +d=excalibur
+iproute2 +d=excalibur
+iputils-ping +d=excalibur
+kmod +d=excalibur
+less +d=excalibur
+libbpf1 +d=excalibur
+libcap2-bin +d=excalibur
+libedit2 +d=excalibur
+libelf1t64 +d=excalibur
+libext2fs2t64 +d=excalibur
+libfdisk1 +d=excalibur
+libjansson4 +d=excalibur
+libkmod2 +d=excalibur
+liblocale-gettext-perl +d=excalibur
+libmnl0 +d=excalibur
+libncursesw6 +d=excalibur
+libnewt0.52 +d=excalibur
+libnftables1 +d=excalibur
+libnftnl11 +d=excalibur
+libpopt0 +d=excalibur
+libproc2-0 +d=excalibur
+libreadline8t64 +d=excalibur
+libslang2 +d=excalibur
+libss2 +d=excalibur
+libtext-charwidth-perl +d=excalibur
+libtext-iconv-perl +d=excalibur
+libtext-wrapi18n-perl +d=excalibur
+libtirpc3t64 +d=excalibur
+libtirpc-common +d=excalibur
+libudev1 +d=excalibur
+libxtables12 +d=excalibur
+linux-sysctl-defaults +d=excalibur
+logrotate +d=excalibur
+logsave +d=excalibur
+nano +d=excalibur
+netbase +d=excalibur
+nftables +d=excalibur
+procps +d=excalibur
+readline-common +d=excalibur
+sensible-utils +d=excalibur
+vim-common +d=excalibur
+vim-tiny +d=excalibur
+whiptail +d=excalibur
 
 # ========================================
 # == Additional Packages (All Editions) ==
@@ -51,8 +107,9 @@ gpm -{pv=minimum&de=xfce}
 rfkill
 usb-modeswitch
 htop -{de=flux|pv=minimum&de=xfce}
-systemd-timesyncd -d=buster
-systemd-timesyncd@buster-backports +d=buster
+systemd-timesyncd +is=systemd -d=buster -d=beowulf
+systemd-timesyncd@buster-backports +is=systemd +d=buster +d=beowulf
+chrony +is=sysvinit
 polkitd || policykit-1
 pkexec || policykit-1
 tlp -{pv=minimum&de=xfce}
@@ -73,7 +130,7 @@ nfs-common -pv=minimum
 ipset -pv=minimum
 fuse3 -pv=minimum || fuse -pv=minimum
 libfuse2 -pv=minimum
-dynfilefs -pv=minimum -d=buster -d=bullseye
+dynfilefs -pv=minimum -d=buster -d=beowulf -d=bullseye -d=chimaera
 parted -pv=minimum
 7zip -pv=minimum
 whois -pv=minimum
@@ -115,7 +172,7 @@ partimage +pv=toolbox +pv=ultra
 testdisk +pv=toolbox +pv=ultra
 open-vm-tools +pv=toolbox +pv=ultra
 qemu-guest-agent +pv=toolbox +pv=ultra
-virtualbox-guest-utils +pv=toolbox +pv=ultra +d=trixie +d=sid
+virtualbox-guest-utils +pv=toolbox +pv=ultra +d=trixie +d=excalibur +d=sid
 hyperv-daemons +pv=toolbox +pv=ultra
 iw +pv=toolbox +pv=ultra
 chntpw +pv=toolbox +pv=ultra

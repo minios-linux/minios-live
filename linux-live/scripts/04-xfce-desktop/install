@@ -19,7 +19,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Clean up excessive locales for Ubuntu
-if [ "$DISTRIBUTION_TYPE" = "ubuntu" ]; then
+if [ "$DISTRIBUTION_PROFILE" = "ubuntu" ]; then
     if [ -d /var/lib/locales/supported.d ]; then
         if [ "$MULTILINGUAL" = "false" ]; then
             # Keep only the locale specified in LOCALE variable
@@ -573,7 +573,7 @@ if ! pkg_is_installed "xfce4-whiskermenu-plugin"; then
     sed -i 's/NoDisplay=true/NoDisplay=false/' /etc/skel/.local/share/desktop-directories/xfce-settings.directory
 fi
 
-if [ $DISTRIBUTION_TYPE = "debian" ] && [[ $DESKTOP_ENVIRONMENT == *"xfce"* ]]; then
+if [ "$DISTRIBUTION_PROFILE" = "debian" ] && [[ "$DESKTOP_ENVIRONMENT" == *"xfce"* ]]; then
     if [ "$DISTRIBUTION" = "buster" ]; then
         sed -i "s/exo-open/env XDG_CURRENT_DESKTOP=XFCE exo-open/g" /usr/share/applications/exo-web-browser.desktop
     else
@@ -667,7 +667,7 @@ write_xfce4_desktop_xml() {
     local WALLPAPER="/usr/share/backgrounds/MiniOS5-wallpaper-${VARIANT}.jpg"
 
     case "$DISTRIBUTION" in
-    resolute | trixie | forky | sid)
+    resolute | trixie | excalibur | forky | sid)
         write_xfce4_desktop_xml_modern "$WALLPAPER"
         ;;
     *)

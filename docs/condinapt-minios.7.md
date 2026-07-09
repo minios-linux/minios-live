@@ -50,7 +50,8 @@ Contents of **condinapt.map** in MiniOS:
 
     d=DISTRIBUTION
     da=DISTRIBUTION_ARCH
-    dt=DISTRIBUTION_TYPE
+    dp=DISTRIBUTION_PROFILE
+    is=INIT_SYSTEM
     de=DESKTOP_ENVIRONMENT
     pv=PACKAGE_VARIANT
     ik=INSTALL_KERNEL
@@ -106,12 +107,11 @@ Main variables from **build.conf**:
 
 From **minioslib**:
 
-**DISTRIBUTION_TYPE**
-:   Distribution type (debian, ubuntu) - automatically determined based on DISTRIBUTION
+**DISTRIBUTION_PROFILE**
+:   Distribution behavior profile (debian, ubuntu) - automatically determined based on DISTRIBUTION
 
-    - **legacy**: stretch, buster, orel, bionic
-    - **current**: bullseye, bookworm, focal, jammy, noble
-    - **future**: trixie, kali-rolling, sid
+**INIT_SYSTEM**
+:   Init system profile (systemd, sysvinit) - automatically determined based on DISTRIBUTION
 
 # EXAMPLES
 
@@ -187,7 +187,7 @@ From **minioslib**:
 
     # Drivers for old systems
     broadcom-sta-dkms -d=jammy -ka=true -da=i386
-    aufs-dkms +dt=debian +d=buster
+    aufs-dkms +dp=debian +d=buster
 
     # Exclusion for new distributions
     realtek-rtl8821cu-dkms -d=trixie -d=sid
@@ -198,9 +198,9 @@ From **minioslib**:
 
     # Localization with exclusions and conditions
     vlc-l10n -lo=en_US +{pv=toolbox|pv=ultra}
-    language-pack-gnome-ru-base +lo=ru_RU +dt=ubuntu
-    language-pack-gnome-ru-base +ml=true +dt=ubuntu
-    language-pack-gnome-ru-base +kl=true +dt=ubuntu
+    language-pack-gnome-ru-base +lo=ru_RU +dp=ubuntu
+    language-pack-gnome-ru-base +ml=true +dp=ubuntu
+    language-pack-gnome-ru-base +kl=true +dp=ubuntu
 
 ## Optimization for MiniOS
 

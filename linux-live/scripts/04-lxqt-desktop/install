@@ -79,7 +79,9 @@ if ! grep audio /etc/group | grep \$(id -nu 1000) >/dev/null; then
 fi
 EOF
     chmod +x /usr/bin/audio-allowuser.sh
-    cat <<EOF >/usr/lib/systemd/system/audio-allowuser.service
+    if [ "${INIT_SYSTEM}" = "systemd" ]; then
+        mkdir -p /usr/lib/systemd/system
+        cat <<EOF >/usr/lib/systemd/system/audio-allowuser.service
 [Unit]
 Description=Allow user to use ALSA
 #After=network.target
@@ -94,5 +96,34 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl enable audio-allowuser.service
+        minios-svc enable audio-allowuser.service
+    else
+        cat <<EOF >/etc/init.d/audio-allowuser
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          audio-allowuser
+# Required-Start:    \$remote_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Allow user to use ALSA
+### END INIT INFO
+
+case "\$1" in
+start)
+    /usr/bin/audio-allowuser.sh
+    ;;
+stop)
+    ;;
+*)
+    echo "Usage: \$0 {start|stop}" >&2
+    exit 2
+    ;;
+esac
+
+exit 0
+EOF
+        chmod +x /etc/init.d/audio-allowuser
+        minios-svc enable audio-allowuser
+    fi
 fi

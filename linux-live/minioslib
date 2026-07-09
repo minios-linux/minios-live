@@ -20,10 +20,11 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_TYPE PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_PROFILE INIT_SYSTEM PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE USE_SHARED_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
 
     : "${container:=}"
     : "${MODULE:=}"
+    : "${INIT_SYSTEM:=}"
     CONTAINER="false"
 
     if [[ (-f /.dockerenv || "${container}" = "podman") ]]; then
@@ -63,16 +64,52 @@ common_variables() {
 
     case "${DISTRIBUTION}" in
     stretch | buster | bullseye | bookworm | trixie | kali-rolling | sid | orel)
-        DISTRIBUTION_TYPE="debian"
+        DISTRIBUTION_PROFILE="debian"
+        : "${INIT_SYSTEM:=systemd}"
         ;;
     bionic | focal | jammy | noble | resolute)
-        DISTRIBUTION_TYPE="ubuntu"
+        DISTRIBUTION_PROFILE="ubuntu"
+        : "${INIT_SYSTEM:=systemd}"
+        ;;
+    beowulf | chimaera | daedalus | excalibur)
+        DISTRIBUTION_PROFILE="debian"
+        : "${INIT_SYSTEM:=sysvinit}"
         ;;
     *)
         error "Unknown distribution: ${DISTRIBUTION}"
         exit 1
         ;;
     esac
+
+    case "${INIT_SYSTEM}" in
+    systemd | sysvinit) ;;
+    *)
+        error "Unsupported init system: ${INIT_SYSTEM}"
+        exit 1
+        ;;
+    esac
+
+    if [ "${USE_SHARED_APT_CACHE:-false}" = "true" ]; then
+        case "${DISTRIBUTION}" in
+        beowulf)
+            APT_CACHE_DISTRIBUTION="buster"
+            ;;
+        chimaera)
+            APT_CACHE_DISTRIBUTION="bullseye"
+            ;;
+        daedalus)
+            APT_CACHE_DISTRIBUTION="bookworm"
+            ;;
+        excalibur)
+            APT_CACHE_DISTRIBUTION="trixie"
+            ;;
+        *)
+            APT_CACHE_DISTRIBUTION="${DISTRIBUTION}"
+            ;;
+        esac
+    else
+        APT_CACHE_DISTRIBUTION="${DISTRIBUTION}"
+    fi
 
     # Set distribution repository URL
     case "${DISTRIBUTION}" in
@@ -89,6 +126,10 @@ common_variables() {
         else
             DISTRIBUTION_URL="http://deb.debian.org/debian"
         fi
+        ;;
+    beowulf | chimaera | daedalus | excalibur)
+        #DISTRIBUTION_URL="http://ftp.fau.de/devuan/merged"
+        DISTRIBUTION_URL="http://deb.devuan.ru/devuan/merged"
         ;;
     bionic | focal | jammy | noble | resolute)
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
@@ -141,6 +182,24 @@ common_variables() {
             fi
         fi
     fi
+}
+
+normalize_default_target() {
+    case "${DEFAULT_TARGET}" in
+    graphical | graphical.target)
+        DEFAULT_TARGET="graphical.target"
+        ;;
+    multi-user | multi-user.target)
+        DEFAULT_TARGET="multi-user.target"
+        ;;
+    rescue | rescue.target)
+        DEFAULT_TARGET="rescue.target"
+        ;;
+    *)
+        error "Unsupported DEFAULT_TARGET: ${DEFAULT_TARGET}"
+        exit 1
+        ;;
+    esac
 }
 
 # ===================== COMMON FUNCTIONS ==========================
@@ -1087,7 +1146,7 @@ update_resolv_conf() {
     local RESOLV_PATH="${DIR_PATH}/etc/resolv.conf"
     local BACKUP_PATH="${RESOLV_PATH}.bak"
 
-    if [ -f "/.dockerenv" ] || [ "${container}" = "podman" ] || [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+    if [ -f "/.dockerenv" ] || [ "${container}" = "podman" ] || [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
         if [ -L "${RESOLV_PATH}" ]; then
             mv "${RESOLV_PATH}" "${BACKUP_PATH}"
             echo "nameserver 8.8.8.8" >"${RESOLV_PATH}"
@@ -1154,7 +1213,8 @@ DISTRIBUTION_ARCH="${DISTRIBUTION_ARCH}"
 DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}"
 PACKAGE_VARIANT="${PACKAGE_VARIANT}"
 COMP_TYPE="${COMP_TYPE}"
-DISTRIBUTION_TYPE="${DISTRIBUTION_TYPE}"
+DISTRIBUTION_PROFILE="${DISTRIBUTION_PROFILE}"
+INIT_SYSTEM="${INIT_SYSTEM}"
 
 # Kernel settings
 KERNEL_ARCH="${KERNEL_ARCH}"
@@ -1238,7 +1298,7 @@ is_in_chroot() {
 # Check if Ubuntu Pro is available for the current distribution
 # Returns: 0 if available, 1 if not
 ubuntu_pro_is_available() {
-    if [ "${DISTRIBUTION_TYPE}" != "ubuntu" ]; then
+    if [ "${DISTRIBUTION_PROFILE}" != "ubuntu" ]; then
         return 1
     fi
 
@@ -1411,19 +1471,32 @@ ubuntu_pro_cleanup_traces() {
 # Creating a $PACKAGE_VARIANT list from a template
 create_apt_list() {
     current_function
+    local APTSOURCE_TEMPLATE="${DISTRIBUTION_PROFILE}"
+
+    case "${DISTRIBUTION}" in
+    beowulf | chimaera | daedalus | excalibur)
+        APTSOURCE_TEMPLATE="devuan"
+        ;;
+    esac
+
     if [ "${BUILD_FROM_SNAPSHOT}" = "true" ]; then
         if [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "bookworm" ]; then
             echo "deb     https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >"${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}-snapshot.list"
             echo "#deb-src https://snapshot.debian.org/archive/debian/${SNAPSHOT_DATE}/ ${DISTRIBUTION} main contrib non-free" >>"${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}-snapshot.list"
         else
-            cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION_TYPE}-snapshot.list" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}-snapshot.list"
+            cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${APTSOURCE_TEMPLATE}-snapshot.list" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}-snapshot.list"
             sed -i "s,distro,${DISTRIBUTION},g;s,datetime,${SNAPSHOT_DATE},g" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}-snapshot.list"
         fi
     else
-        if [ ! -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list" ]; then
-            cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION_TYPE}.list" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list"
+        if [ "${DISTRIBUTION}" = "beowulf" ] || [ "${DISTRIBUTION}" = "chimaera" ] || [ "${DISTRIBUTION}" = "daedalus" ] || [ "${DISTRIBUTION}" = "excalibur" ] || [ ! -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list" ]; then
+            cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${APTSOURCE_TEMPLATE}.list" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list"
             sed -i "s,distro,${DISTRIBUTION},g" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list"
             sed -i "s,http://archive.ubuntu.com/ubuntu,${DISTRIBUTION_URL},g" "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list"
+            case "${DISTRIBUTION}" in
+            daedalus | excalibur)
+                sed -i 's/main contrib non-free$/main contrib non-free non-free-firmware/' "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list"
+                ;;
+            esac
         fi
     fi
 }
@@ -1473,6 +1546,28 @@ build_bootstrap() {
     current_process
 
     local DEBOOTSTRAP_INCLUDE="--include=ca-certificates,wget,dbus,sudo,curl"
+    local DEBOOTSTRAP_SCRIPT=""
+    local DEBOOTSTRAP_VARIANT=""
+
+    case "${DISTRIBUTION}" in
+    beowulf)
+        DEBOOTSTRAP_SCRIPT="/usr/share/debootstrap/scripts/buster"
+        DEBOOTSTRAP_INCLUDE="${DEBOOTSTRAP_INCLUDE},devuan-keyring"
+        ;;
+    chimaera)
+        DEBOOTSTRAP_SCRIPT="/usr/share/debootstrap/scripts/bullseye"
+        DEBOOTSTRAP_INCLUDE="${DEBOOTSTRAP_INCLUDE},devuan-keyring"
+        ;;
+    daedalus)
+        DEBOOTSTRAP_SCRIPT="/usr/share/debootstrap/scripts/bookworm"
+        DEBOOTSTRAP_INCLUDE="${DEBOOTSTRAP_INCLUDE},devuan-keyring"
+        ;;
+    excalibur)
+        DEBOOTSTRAP_SCRIPT="/usr/share/debootstrap/scripts/trixie"
+        DEBOOTSTRAP_INCLUDE="${DEBOOTSTRAP_INCLUDE},devuan-keyring,systemd-standalone-sysusers"
+        DEBOOTSTRAP_VARIANT="--variant=minbase"
+        ;;
+    esac
 
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
@@ -1491,12 +1586,12 @@ build_bootstrap() {
 
             if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
                 sudo DEBIAN_FRONTEND="noninteractive" \
-                    debootstrap --no-check-gpg --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
-                    "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+                    debootstrap --no-check-gpg ${DEBOOTSTRAP_VARIANT} --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                    "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" ${DEBOOTSTRAP_SCRIPT:+"${DEBOOTSTRAP_SCRIPT}"}
             else
                 sudo DEBIAN_FRONTEND="noninteractive" \
-                    debootstrap --no-check-gpg --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
-                    "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" >/dev/null 2>&1 &
+                    debootstrap --no-check-gpg ${DEBOOTSTRAP_VARIANT} --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                    "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" ${DEBOOTSTRAP_SCRIPT:+"${DEBOOTSTRAP_SCRIPT}"} >/dev/null 2>&1 &
                 local DB_PID=$!
                 spinner "${DB_PID}" "Bootstrapping ${DISTRIBUTION}"
                 wait "${DB_PID}"
@@ -1520,12 +1615,12 @@ build_bootstrap() {
 
         if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             sudo DEBIAN_FRONTEND="noninteractive" \
-                debootstrap --no-check-gpg --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
-                "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}"
+                debootstrap --no-check-gpg ${DEBOOTSTRAP_VARIANT} --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" ${DEBOOTSTRAP_SCRIPT:+"${DEBOOTSTRAP_SCRIPT}"}
         else
             sudo DEBIAN_FRONTEND="noninteractive" \
-                debootstrap --no-check-gpg --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
-                "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" >/dev/null 2>&1 &
+                debootstrap --no-check-gpg ${DEBOOTSTRAP_VARIANT} --arch="${DISTRIBUTION_ARCH}" ${DEBOOTSTRAP_INCLUDE} \
+                "${DISTRIBUTION}" "${INSTALL_DIR}" "${DISTRIBUTION_URL}" ${DEBOOTSTRAP_SCRIPT:+"${DEBOOTSTRAP_SCRIPT}"} >/dev/null 2>&1 &
             local DB_PID=$!
             spinner "${DB_PID}" "Bootstrapping ${DISTRIBUTION}"
             wait "${DB_PID}"
@@ -1556,6 +1651,7 @@ build_bootstrap() {
     else
         cp -f "${BUILD_SCRIPTS_DIR}/aptsources/${DISTRIBUTION}.list" "${INSTALL_DIR}/etc/apt/sources.list"
     fi
+
 }
 
 copy_build_scripts() {
@@ -1573,6 +1669,8 @@ copy_build_scripts() {
 
 build_chroot() {
     current_process
+
+    local MINIOS_REPO_DISTRIBUTION
 
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
@@ -1599,6 +1697,24 @@ build_chroot() {
     }
 
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
+        case "${DISTRIBUTION}" in
+        beowulf)
+            MINIOS_REPO_DISTRIBUTION="buster"
+            ;;
+        chimaera)
+            MINIOS_REPO_DISTRIBUTION="bullseye"
+            ;;
+        daedalus)
+            MINIOS_REPO_DISTRIBUTION="bookworm"
+            ;;
+        excalibur)
+            MINIOS_REPO_DISTRIBUTION="trixie"
+            ;;
+        *)
+            MINIOS_REPO_DISTRIBUTION="${DISTRIBUTION}"
+            ;;
+        esac
+
         cache_cp "etc/apt/sources.list"
 
         curl --silent -k http://deb.minios.dev/minios-linux.asc |
@@ -1622,14 +1738,14 @@ EOF
         mkdir -p "${INSTALL_DIR}/etc/apt/sources.list.d"
         # Add MiniOS Linux repository
         {
-            [[ "${DISTRIBUTION}" =~ ^(buster|bookworm|trixie|sid)$ ]] && cat <<EOF
-deb http://deb.minios.dev/debian/ ${DISTRIBUTION} main contrib non-free
-#deb-src http://deb.minios.dev/debian/ ${DISTRIBUTION} main contrib non-free
+            [[ "${MINIOS_REPO_DISTRIBUTION}" =~ ^(buster|bookworm|trixie|sid)$ ]] && cat <<EOF
+deb http://deb.minios.dev/debian/ ${MINIOS_REPO_DISTRIBUTION} main contrib non-free
+#deb-src http://deb.minios.dev/debian/ ${MINIOS_REPO_DISTRIBUTION} main contrib non-free
 
 EOF
-            [[ "${DISTRIBUTION}" =~ ^(bionic|focal|jammy|noble)$ ]] && cat <<EOF
-deb http://deb.minios.dev/debian/ ${DISTRIBUTION} main contrib non-free
-#deb-src http://deb.minios.dev/debian/ ${DISTRIBUTION} main contrib non-free
+            [[ "${MINIOS_REPO_DISTRIBUTION}" =~ ^(bionic|focal|jammy|noble)$ ]] && cat <<EOF
+deb http://deb.minios.dev/debian/ ${MINIOS_REPO_DISTRIBUTION} main contrib non-free
+#deb-src http://deb.minios.dev/debian/ ${MINIOS_REPO_DISTRIBUTION} main contrib non-free
 
 EOF
             cat <<EOF
@@ -1726,6 +1842,8 @@ build_live() {
 
 build_config() {
     current_process
+
+    normalize_default_target
 
     if [ "${DISTRIBUTION}" = "buster" ] || [ "${DISTRIBUTION}" = "bionic" ]; then
         LIVE_USER_PASSWORD_CRYPTED="${LIVE_USER_PASSWORD_CRYPTED_LEGACY}"
@@ -3455,6 +3573,13 @@ install_core_packages() {
     dpkg-divert --local --rename --add /sbin/initctl >/dev/null
     ln -s /bin/true /sbin/initctl
 
+    # Some packages still invoke systemctl unconditionally in maintscripts,
+    # even on sysvinit/elogind-based systems. Provide a temporary no-op shim
+    # during package installation inside the chroot.
+    if [ "${INIT_SYSTEM}" = "sysvinit" ]; then
+        ln -sf /bin/true /bin/systemctl
+    fi
+
     # Export any necessary variables for chroot operations.
     export_chroot_variables
 
@@ -3511,6 +3636,10 @@ install_core_packages() {
     # Restore initctl functionality.
     rm /sbin/initctl 2>/dev/null
     dpkg-divert --rename --remove /sbin/initctl >/dev/null
+
+    if [ "${INIT_SYSTEM}" = "sysvinit" ]; then
+        rm -f /bin/systemctl 2>/dev/null
+    fi
 }
 
 # ===================== MODULES FUNCTIONS =========================
@@ -3566,6 +3695,10 @@ overlay_chroot_mount_fs() {
 
     update_resolv_conf "${OVERLAY[merged]}"
 
+    if [ "${INIT_SYSTEM}" = "sysvinit" ]; then
+        ln -sf /bin/true "${OVERLAY[merged]}/bin/systemctl"
+    fi
+
     if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
         if [ -f "${OVERLAY[merged]}/etc/apt/sources.list" ]; then
             mv "${OVERLAY[merged]}/etc/apt/sources.list" "${OVERLAY[merged]}/etc/apt/sources.list.bak"
@@ -3584,6 +3717,9 @@ overlay_unmount_dirs() {
         rm -f "${OVERLAY[upper]}/etc/resolv.conf"
     elif [ -e "${OVERLAY[upper]}/etc/resolv.conf.bak" ]; then
         rm -f "${OVERLAY[upper]}/etc/resolv.conf.bak"
+    fi
+    if [ "${INIT_SYSTEM}" = "sysvinit" ]; then
+        rm -f "${OVERLAY[upper]}/bin/systemctl" 2>/dev/null
     fi
     if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
         if [ -f "${OVERLAY[upper]}/etc/apt/sources.list.bak" ]; then
@@ -3766,6 +3902,8 @@ build_modules() {
                 fi
             fi
 
+
+
             ###############################################################################
             # Stage 2: build
             ###############################################################################
@@ -3867,6 +4005,7 @@ build_modules() {
                     else
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
+
                 fi
 
                 information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."

@@ -10,7 +10,9 @@ libxfce4ui-utils
 libxml2-utils
 mousepad
 network-manager-gnome
-policykit-1-gnome
+policykit-1-gnome -d=trixie -d=excalibur
+#lxpolkit +d=trixie
+xfce-polkit +d=excalibur +d=trixie
 ristretto -pv=minimum
 thunar
 thunar-volman
@@ -51,14 +53,14 @@ minios-store -pv=minimum
 minios-store-gui -pv=minimum
 driveutility -pv=minimum && python3-zstandard -pv=minimum -d=bionic
 pavucontrol -pv=minimum
-pulseaudio -pv=minimum -d=trixie -d=noble -d=resolute
-pulseaudio-module-bluetooth -pv=minimum -d=trixie -d=noble -d=resolute
-pipewire -pv=minimum +d=trixie +d=noble +d=resolute
-pipewire-pulse -pv=minimum +d=trixie +d=noble +d=resolute
-wireplumber -pv=minimum +d=trixie +d=noble +d=resolute
-pipewire-audio-client-libraries -pv=minimum +d=trixie +d=noble +d=resolute
-libspa-0.2-bluetooth -pv=minimum +d=trixie +d=noble +d=resolute
-dbus-user-session -pv=minimum +d=trixie +d=noble +d=resolute
+pulseaudio -pv=minimum -d=trixie -d=excalibur -d=noble -d=resolute
+pulseaudio-module-bluetooth -pv=minimum -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+pipewire-pulse -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+wireplumber -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+pipewire-audio-client-libraries -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+libspa-0.2-bluetooth -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+dbus-user-session -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
 
 samba-common -pv=minimum
 thunar-archive-plugin -pv=minimum
@@ -66,8 +68,8 @@ tumbler -pv=minimum
 xdg-user-dirs -pv=minimum
 xdg-user-dirs-gtk -pv=minimum
 xfce4-power-manager-plugins -pv=minimum
-xfce4-pulseaudio-plugin -pv=minimum -d=buster -d=bionic -d=focal
-volumeicon-alsa -pv=minimum +d=buster +d=bionic +d=focal
+xfce4-pulseaudio-plugin -pv=minimum -d=buster -d=beowulf -d=bionic -d=focal
+volumeicon-alsa -pv=minimum +d=buster +d=beowulf +d=bionic +d=focal
 xfce4-screenshooter -pv=minimum
 xfce4-taskmanager -pv=minimum
 xfce4-terminal -pv=minimum
@@ -79,37 +81,37 @@ xfce4-whiskermenu-plugin -pv=minimum
 gtk-update-icon-cache +pv=toolbox +pv=ultra
 menulibre +pv=toolbox +pv=ultra
 open-vm-tools-desktop +pv=toolbox +pv=ultra
-virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=sid
+virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=excalibur +d=sid
 qt5-gtk2-platformtheme +pv=toolbox +pv=ultra
 qt6-gtk-platformtheme +pv=toolbox +pv=ultra && qt5-gtk-platformtheme +pv=toolbox +pv=ultra
 xfce4-notifyd +pv=toolbox +pv=ultra
-pulseaudio-module-xrdp -d=trixie +pv=toolbox +pv=ultra
-pipewire-module-xrdp +d=trixie +pv=toolbox +pv=ultra
+pulseaudio-module-xrdp -d=trixie -d=excalibur +pv=toolbox +pv=ultra
+pipewire-module-xrdp +d=trixie +d=excalibur +pv=toolbox +pv=ultra
 
 # ========================================
 # == Localization Packages (Ubuntu only)==
 # ========================================
-language-pack-gnome-br-base +lo=pt_BR +dt=ubuntu
-language-pack-gnome-br-base +ml=true +dt=ubuntu
-language-pack-gnome-br-base +kl=true +dt=ubuntu
-language-pack-gnome-pt-base +lo=pt_PT +dt=ubuntu
-language-pack-gnome-pt-base +ml=true +dt=ubuntu
-language-pack-gnome-pt-base +kl=true +dt=ubuntu
-language-pack-gnome-de-base +lo=de_DE +dt=ubuntu
-language-pack-gnome-de-base +ml=true +dt=ubuntu
-language-pack-gnome-de-base +kl=true +dt=ubuntu
-language-pack-gnome-es-base +lo=es_ES +dt=ubuntu
-language-pack-gnome-es-base +ml=true +dt=ubuntu
-language-pack-gnome-es-base +kl=true +dt=ubuntu
-language-pack-gnome-fr-base +lo=fr_FR +dt=ubuntu
-language-pack-gnome-fr-base +ml=true +dt=ubuntu
-language-pack-gnome-fr-base +kl=true +dt=ubuntu
-language-pack-gnome-id-base +lo=id_ID +dt=ubuntu
-language-pack-gnome-id-base +ml=true +dt=ubuntu
-language-pack-gnome-id-base +kl=true +dt=ubuntu
-language-pack-gnome-it-base +lo=it_IT +dt=ubuntu
-language-pack-gnome-it-base +ml=true +dt=ubuntu
-language-pack-gnome-it-base +kl=true +dt=ubuntu
-language-pack-gnome-ru-base +lo=ru_RU +dt=ubuntu
-language-pack-gnome-ru-base +ml=true +dt=ubuntu
-language-pack-gnome-ru-base +kl=true +dt=ubuntu
+language-pack-gnome-br-base +lo=pt_BR +dp=ubuntu
+language-pack-gnome-br-base +ml=true +dp=ubuntu
+language-pack-gnome-br-base +kl=true +dp=ubuntu
+language-pack-gnome-pt-base +lo=pt_PT +dp=ubuntu
+language-pack-gnome-pt-base +ml=true +dp=ubuntu
+language-pack-gnome-pt-base +kl=true +dp=ubuntu
+language-pack-gnome-de-base +lo=de_DE +dp=ubuntu
+language-pack-gnome-de-base +ml=true +dp=ubuntu
+language-pack-gnome-de-base +kl=true +dp=ubuntu
+language-pack-gnome-es-base +lo=es_ES +dp=ubuntu
+language-pack-gnome-es-base +ml=true +dp=ubuntu
+language-pack-gnome-es-base +kl=true +dp=ubuntu
+language-pack-gnome-fr-base +lo=fr_FR +dp=ubuntu
+language-pack-gnome-fr-base +ml=true +dp=ubuntu
+language-pack-gnome-fr-base +kl=true +dp=ubuntu
+language-pack-gnome-id-base +lo=id_ID +dp=ubuntu
+language-pack-gnome-id-base +ml=true +dp=ubuntu
+language-pack-gnome-id-base +kl=true +dp=ubuntu
+language-pack-gnome-it-base +lo=it_IT +dp=ubuntu
+language-pack-gnome-it-base +ml=true +dp=ubuntu
+language-pack-gnome-it-base +kl=true +dp=ubuntu
+language-pack-gnome-ru-base +lo=ru_RU +dp=ubuntu
+language-pack-gnome-ru-base +ml=true +dp=ubuntu
+language-pack-gnome-ru-base +kl=true +dp=ubuntu

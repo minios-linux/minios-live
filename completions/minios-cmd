@@ -19,7 +19,7 @@ _minios_cmd() {
         COMPREPLY=($(compgen -W "${build_dirs}" -- ${cur}))
         ;;
     --distribution | -d)
-        local distributions="buster bullseye bookworm trixie jammy noble"
+        local distributions="buster bullseye bookworm trixie jammy noble beowulf chimaera daedalus excalibur"
         COMPREPLY=($(compgen -W "${distributions}" -- ${cur}))
         ;;
     --architecture | -a)

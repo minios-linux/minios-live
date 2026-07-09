@@ -1,20 +1,20 @@
 # Debian firmware packages
-firmware-linux-free -dt=ubuntu
-firmware-linux-nonfree -dt=ubuntu
-firmware-atheros -dt=ubuntu
-firmware-iwlwifi -dt=ubuntu
-firmware-zd1211 -dt=ubuntu
-firmware-realtek -dt=ubuntu
-firmware-mediatek -dt=ubuntu +d=trixie
-firmware-bnx2 -dt=ubuntu
-firmware-brcm80211 -dt=ubuntu
-firmware-cavium -dt=ubuntu
-firmware-ipw2x00 -dt=ubuntu
-firmware-libertas -dt=ubuntu
-firmware-ti-connectivity -dt=ubuntu
-firmware-b43-installer -d=bionic -dt=ubuntu
-firmware-sof-signed -da=i386 -dt=ubuntu -{pv=minimum&de=xfce}
+firmware-linux-free -dp=ubuntu
+firmware-linux-nonfree -dp=ubuntu
+firmware-atheros -dp=ubuntu
+firmware-iwlwifi -dp=ubuntu
+firmware-zd1211 -dp=ubuntu
+firmware-realtek -dp=ubuntu
+firmware-mediatek -dp=ubuntu +d=trixie +d=excalibur
+firmware-bnx2 -dp=ubuntu
+firmware-brcm80211 -dp=ubuntu
+firmware-cavium -dp=ubuntu
+firmware-ipw2x00 -dp=ubuntu
+firmware-libertas -dp=ubuntu
+firmware-ti-connectivity -dp=ubuntu
+firmware-b43-installer -d=bionic -dp=ubuntu
+firmware-sof-signed -da=i386 -dp=ubuntu -{pv=minimum&de=xfce}
 
 # Ubuntu firmware packages
-linux-firmware +dt=ubuntu
-firmware-sof-signed +dt=ubuntu -da=i386
+linux-firmware +dp=ubuntu
+firmware-sof-signed +dp=ubuntu -da=i386

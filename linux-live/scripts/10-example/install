@@ -6,6 +6,7 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib || exit 1
+. /minios_build.conf || exit 1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 PACKAGE="virt-manager"
@@ -31,10 +32,12 @@ fi
 EOF
 chmod +x /usr/bin/$PACKAGE-allowuser.sh
 
-# Systemd service to run the script above at boot time. This allows the module
-# to be added to an already configured system, so that the user automatically
+# Init service to run the script above at boot time. This allows the module to
+# be added to an already configured system, so that the user automatically
 # receives the necessary permissions to work with the application.
-cat <<EOF >/usr/lib/systemd/system/$PACKAGE-allowuser.service
+if [ "${INIT_SYSTEM}" = "systemd" ]; then
+    mkdir -p /usr/lib/systemd/system
+    cat <<EOF >/usr/lib/systemd/system/$PACKAGE-allowuser.service
 [Unit]
 Description=Allow user to use ${PACKAGE_FULLNAME}
 #After=network.target
@@ -49,7 +52,36 @@ StandardOutput=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable $PACKAGE-allowuser.service
+    minios-svc enable $PACKAGE-allowuser.service
+else
+    cat <<EOF >/etc/init.d/$PACKAGE-allowuser
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          $PACKAGE-allowuser
+# Required-Start:    \$remote_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Allow user to use ${PACKAGE_FULLNAME}
+### END INIT INFO
+
+case "\$1" in
+start)
+    /usr/bin/$PACKAGE-allowuser.sh
+    ;;
+stop)
+    ;;
+*)
+    echo "Usage: \$0 {start|stop}" >&2
+    exit 2
+    ;;
+esac
+
+exit 0
+EOF
+    chmod +x /etc/init.d/$PACKAGE-allowuser
+    minios-svc enable $PACKAGE-allowuser
+fi
 
 # A `.package` file with PACKAGE and VERSION variables is automatically used by
 # the build system to specify the module name. If it is absent, the name of the

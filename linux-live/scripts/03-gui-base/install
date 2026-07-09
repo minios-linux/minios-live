@@ -21,18 +21,16 @@ if pkg_is_installed "xrdp" >/dev/null 2>&1; then
     adduser xrdp ssl-cert
     rm /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
 
-    systemctl disable xrdp xrdp-sesman >/dev/null 2>&1
+    minios-svc disable xrdp >/dev/null 2>&1
+    minios-svc disable xrdp-sesman >/dev/null 2>&1
 fi
 
 if pkg_is_installed "openbox"; then
     sed -i "s,blackbox,openbox-session,g" /etc/skel/.xinitrc
 fi
 
-if [ -d /etc/systemd/system ]; then
-    mkdir -p /etc/systemd/system
-fi
-if [ -f /usr/lib/systemd/system/xorg.service ]; then
-    ln -s /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
+if [ -d /etc/systemd/system ] && [ -f /usr/lib/systemd/system/xorg.service ]; then
+    ln -sf /usr/lib/systemd/system/xorg.service /etc/systemd/system/display-manager.service
 fi
 
 # Only perform operations if directories exist

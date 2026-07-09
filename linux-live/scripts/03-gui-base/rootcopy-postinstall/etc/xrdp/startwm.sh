@@ -7,10 +7,13 @@ cat <<EOF >~/.xsessionrc
 export XDG_CURRENT_DESKTOP=XFCE
 EOF
 
-#Check if user already logged in.
-if [ -n "$(loginctl session-status $(loginctl show-user $USER | sed -n -e "s/Sessions=//p") | grep Leader: | grep -E "gdm|sddm|lightdm")" ]; then
-	printf "You are locally logged on.\nTo Remote Connect, logout from local session first." | xmessage -title Warning -buttons Exit -default Exit:1 -center -fg gold -bg black -fn "-*-*-*-r-*--0-250-0-0-p-*-iso8859-1" -file -
-	exit 1
+# Check if user already logged in when logind/elogind is available.
+if command -v loginctl >/dev/null 2>&1; then
+	SESSIONS="$(loginctl show-user "$USER" 2>/dev/null | sed -n -e "s/Sessions=//p")"
+	if [ -n "${SESSIONS}" ] && loginctl session-status ${SESSIONS} 2>/dev/null | grep Leader: | grep -Eq "gdm|sddm|lightdm"; then
+		printf "You are locally logged on.\nTo Remote Connect, logout from local session first." | xmessage -title Warning -buttons Exit -default Exit:1 -center -fg gold -bg black -fn "-*-*-*-r-*--0-250-0-0-p-*-iso8859-1" -file -
+		exit 1
+	fi
 fi
 
 # Rely on /etc/pam.d/xrdp-sesman using pam_env to load both

@@ -1,0 +1,62 @@
+#!/bin/sh
+
+set -u
+
+detect_init_system() {
+    if [ -d /run/systemd/system ]; then
+        echo systemd
+    else
+        echo sysvinit
+    fi
+}
+
+usage() {
+    echo "Usage: minios-svc {enable|disable|start|stop|restart|status} SERVICE" >&2
+    exit 2
+}
+
+[ "$#" -eq 2 ] || usage
+
+ACTION="$1"
+SERVICE_NAME="$2"
+INIT_SYSTEM="$(detect_init_system)"
+
+case "$ACTION" in
+enable)
+    case "$INIT_SYSTEM" in
+    systemd)
+        exec systemctl enable "$SERVICE_NAME"
+        ;;
+    sysvinit)
+        SERVICE_NAME="${SERVICE_NAME%.service}"
+        update-rc.d "$SERVICE_NAME" enable 2>/dev/null || exec update-rc.d "$SERVICE_NAME" defaults
+        ;;
+    *)
+        echo "Unsupported init system: $INIT_SYSTEM" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+disable)
+    case "$INIT_SYSTEM" in
+    systemd)
+        exec systemctl disable "$SERVICE_NAME"
+        ;;
+    sysvinit)
+        SERVICE_NAME="${SERVICE_NAME%.service}"
+        update-rc.d "$SERVICE_NAME" disable 2>/dev/null || exec update-rc.d -f "$SERVICE_NAME" remove
+        ;;
+    *)
+        echo "Unsupported init system: $INIT_SYSTEM" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+start | stop | restart | status)
+    SERVICE_NAME="${SERVICE_NAME%.service}"
+    exec service "$SERVICE_NAME" "$ACTION"
+    ;;
+*)
+    usage
+    ;;
+esac

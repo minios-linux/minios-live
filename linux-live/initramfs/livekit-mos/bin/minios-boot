@@ -12,7 +12,11 @@ CMDLINE="$(cat /proc/cmdline)"
 set_log() {
     mkdir -p /var/log/minios
     mkfifo /tmp/minios-boot.pipe
-    tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log &
+    if [ -w /var/log/minios ] || [ ! -e /var/log/minios/minios-boot.log ]; then
+        tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log >/dev/console 2>/dev/null &
+    else
+        cat </tmp/minios-boot.pipe >/dev/console 2>/dev/null &
+    fi
     exec >/tmp/minios-boot.pipe 2>&1
 
     case "${LIVE_CONFIG_DEBUG}" in
@@ -72,13 +76,16 @@ read_config() {
 }
 
 read_cmdline() {
-    for i in "$@"; do
+    for i in $CMDLINE; do
         case $i in
         live-config.username=* | username=*)
             LIVE_USERNAME="${i#*=}"
             ;;
         live-config.debug | debug)
             LIVE_CONFIG_DEBUG="true"
+            ;;
+        text)
+            TEXT_MODE="true"
             ;;
         default_target=* | default-target=*)
             DEFAULT_TARGET="${i#*=}"
@@ -93,16 +100,72 @@ read_cmdline() {
     done
 }
 
+normalize_default_target() {
+    case "$DEFAULT_TARGET" in
+    graphical | graphical.target)
+        DEFAULT_TARGET="graphical.target"
+        ;;
+    multi-user | multi-user.target)
+        DEFAULT_TARGET="multi-user.target"
+        ;;
+    rescue | rescue.target)
+        DEFAULT_TARGET="rescue.target"
+        ;;
+    *)
+        echo_yellow_star
+        echo -e "Unsupported default target: \e[33m$DEFAULT_TARGET\e[0m, falling back to graphical.target"
+        DEFAULT_TARGET="graphical.target"
+        ;;
+    esac
+}
+
+set_sysv_default_target() {
+    local SERVICE FOUND
+
+    case "$DEFAULT_TARGET" in
+    graphical.target)
+        FOUND=""
+        for SERVICE in lightdm slim nodm sddm gdm3 lxdm xdm minios-xorg; do
+            [ -x "/etc/init.d/$SERVICE" ] || [ -e "/usr/lib/systemd/system/$SERVICE.service" ] || [ -e "/lib/systemd/system/$SERVICE.service" ] || continue
+            FOUND="true"
+            if /usr/sbin/minios-svc enable "$SERVICE" >/dev/null 2>&1; then
+                return 0
+            fi
+        done
+
+        if [ -z "$FOUND" ]; then
+            echo_yellow_star
+            echo "No display manager service found for graphical target"
+        else
+            echo_yellow_star
+            echo "Failed to enable any display manager service for graphical target"
+        fi
+        ;;
+    multi-user.target | rescue.target)
+        for SERVICE in lightdm slim nodm sddm gdm3 lxdm xdm minios-xorg; do
+            [ -x "/etc/init.d/$SERVICE" ] || [ -e "/usr/lib/systemd/system/$SERVICE.service" ] || [ -e "/lib/systemd/system/$SERVICE.service" ] || continue
+            /usr/sbin/minios-svc disable "$SERVICE" >/dev/null 2>&1 || true
+        done
+        ;;
+    esac
+}
+
 set_default_target() {
     [ ! "$DEFAULT_TARGET" ] && read_config "$CONFIG" DEFAULT_TARGET
     [ ! "$DEFAULT_TARGET" ] && DEFAULT_TARGET=graphical.target
 
-    [ "$TEXT_MODE" ] && DEFAULT_TARGET=multi-user
+    [ "$TEXT_MODE" ] && DEFAULT_TARGET=multi-user.target
+
+    normalize_default_target
+
+    if ! command -v systemctl >/dev/null 2>&1 || [ ! -d /run/systemd/system ]; then
+        set_sysv_default_target
+        return 0
+    fi
 
     if ! systemctl set-default "$DEFAULT_TARGET" >/dev/null 2>&1; then
-        echo_red_star
-        echo -e "Failed to set default target: \e[31m$DEFAULT_TARGET\e[0m"
-        return 1
+        echo_yellow_star
+        echo -e "Failed to set default target: \e[33m$DEFAULT_TARGET\e[0m, continuing boot"
     fi
 }
 
@@ -130,9 +193,9 @@ manage_services() {
     if [ -n "${!SERVICES_VAR}" ]; then
         IFS=',' read -ra SERVICES <<<"${!SERVICES_VAR}"
         for SERVICE in "${SERVICES[@]}"; do
-            if systemctl "$ACTION" "$SERVICE" >/dev/null 2>&1; then
+            if /usr/sbin/minios-svc "$ACTION" "$SERVICE" >/dev/null 2>&1; then
                 echo_green_star
-                echo -e "Successfully ${ACTION}d service: \e[32m$SERVICE\e[0m"
+                echo -e "${ACTION^}d service: \e[32m$SERVICE\e[0m"
             else
                 echo_red_star
                 echo -e "Failed to ${ACTION} service: \e[31m$SERVICE\e[0m"
@@ -150,7 +213,7 @@ set_autologin() {
 
 # Main script execution
 set_log
-read_cmdline "$CMDLINE"
+read_cmdline
 set_default_target
 manage_services enable
 manage_services disable

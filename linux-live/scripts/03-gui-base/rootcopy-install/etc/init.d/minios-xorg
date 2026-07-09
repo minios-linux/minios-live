@@ -1,0 +1,56 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          minios-xorg
+# Required-Start:    $remote_fs $syslog dbus
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: MiniOS X fallback session
+### END INIT INFO
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+PIDFILE=/run/minios-xorg.pid
+
+should_start() {
+    [ -x /usr/bin/start-xorg.sh ] || return 1
+
+    for PARAMETER in $(cat /proc/cmdline); do
+        case "$PARAMETER" in
+        text | live-config.nox11autologin | nox11autologin | live-config.noautologin | noautologin)
+            return 1
+            ;;
+        esac
+    done
+
+    return 0
+}
+
+case "$1" in
+start)
+    should_start || exit 0
+    start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$PIDFILE" --startas /usr/bin/start-xorg.sh
+    ;;
+stop)
+    [ -x /usr/bin/stop-xorg.sh ] && /usr/bin/stop-xorg.sh
+    start-stop-daemon --stop --quiet --pidfile "$PIDFILE" --retry TERM/20/KILL/5 || true
+    rm -f "$PIDFILE"
+    ;;
+restart | force-reload)
+    "$0" stop
+    "$0" start
+    ;;
+status)
+    if [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        echo "minios-xorg is running"
+        exit 0
+    fi
+    echo "minios-xorg is not running"
+    exit 3
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+    exit 2
+    ;;
+esac
+
+exit 0

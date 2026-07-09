@@ -11,7 +11,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 [ "${DISTRIBUTION}" = "bionic" ] && PACKAGE="firefox" || PACKAGE="firefox-esr"
 
 # Conditional statements for package installation
-if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+if [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
     # Check if software-properties-common is available in repositories
     apt-get update
     if apt-cache show software-properties-common >/dev/null 2>&1; then
@@ -64,7 +64,7 @@ fi
 
 echo "application/pdf=${PACKAGE}.desktop" >>/usr/share/applications/mimeapps.list
 
-if [ "${DISTRIBUTION_TYPE}" = "debian" ] && [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]]; then
+if [ "${DISTRIBUTION_PROFILE}" = "debian" ] && [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]]; then
     sed -i "s,^Exec=/usr/lib,Exec=env XDG_CURRENT_DESKTOP=XFCE /usr/lib,g" /usr/share/applications/${PACKAGE}.desktop
 elif [ "${DESKTOP_ENVIRONMENT}" == "flux" ]; then
     FILES="/usr/share/applications/firefox.desktop /usr/share/applications/firefox-esr.desktop"

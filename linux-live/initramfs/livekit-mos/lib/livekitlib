@@ -2013,13 +2013,22 @@ union_append_bundles() {
 fstab_create() {
    debug_log "fstab_create" "$*"
    local FSTAB DRIVE FS LABEL BOOTDEVICE OPTS
+   local UNION_TYPE INIT_TARGET
 
    FSTAB="$1/etc/fstab"
-   echo aufs / aufs defaults 0 0 >$FSTAB
+   UNION_TYPE=$(get_union_fs)
+   INIT_TARGET="$(readlink "$1/sbin/init" 2>/dev/null || readlink "$1/usr/sbin/init" 2>/dev/null || true)"
+   echo ${UNION_TYPE} / ${UNION_TYPE} defaults 0 0 >$FSTAB
    echo proc /proc proc defaults 0 0 >>$FSTAB
    echo sysfs /sys sysfs defaults 0 0 >>$FSTAB
    echo devpts /dev/pts devpts gid=5,mode=620 0 0 >>$FSTAB
-   echo tmpfs /dev/shm tmpfs defaults 0 0 >>$FSTAB
+   if echo "$INIT_TARGET" | grep -q systemd; then
+      echo tmpfs /dev/shm tmpfs defaults 0 0 >>$FSTAB
+   else
+      mkdir -p "$1/run/shm"
+   fi
+   mkdir -p "$1/var/log/fsck"
+   touch "$1/var/log/fsck/checkfs" "$1/var/log/fsck/checkroot"
 
    if grep -vq automount /proc/cmdline; then
       return
@@ -2273,6 +2282,9 @@ minios_boot() {
 #
 change_root() {
    debug_log "change_root" "$*"
+   local UNION_TYPE INIT_TARGET
+
+   INIT_TARGET="$(readlink "$1/sbin/init" 2>/dev/null || readlink "$1/usr/sbin/init" 2>/dev/null || true)"
 
    # if we are booting over httpfs, we need to copyup some files so they are
    # accessible on union without any further lookup down, else httpfs locks
@@ -2283,8 +2295,10 @@ change_root() {
       touch "$1/etc/gai.conf"
    fi
 
-   umount /proc
-   umount /sys
+   if echo "$INIT_TARGET" | grep -q systemd; then
+      umount /proc
+      umount /sys
+   fi
 
    cd "$1"
 
@@ -2313,8 +2327,15 @@ change_root() {
    mount -t tmpfs tmpfs run
    mkdir -p tmp
    mount -t tmpfs tmpfs tmp
+   UNION_TYPE=$(get_union_fs)
+   if ! echo "$INIT_TARGET" | grep -q systemd; then
+      mount -n -o move /proc proc 2>/dev/null || mount -t proc proc proc
+      mount -n -o move /sys sys 2>/dev/null || mount -t sysfs sysfs sys
+   fi
    mkdir -p run/initramfs
-   mount -n -o remount,ro aufs .
+   if [ "$UNION_TYPE" = "aufs" ]; then
+      mount -n -o remount,ro aufs .
+   fi
    pivot_root . run/initramfs
    exec $CHROOT . $INIT <dev/console >dev/console 2>&1
 }

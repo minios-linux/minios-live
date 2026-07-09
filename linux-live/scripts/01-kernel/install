@@ -30,13 +30,13 @@ fi
 if [ "${KERNEL_AUFS}" = "true" ]; then
     KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
 # Standard kernel selection
-elif [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
+elif [ "${DISTRIBUTION_PROFILE}" = "debian" ]; then
     if [ "${KERNEL_FLAVOUR}" = "none" ]; then
         KERNEL_IMAGE="linux-image-${KERNEL_ARCH}"
     else
         KERNEL_IMAGE="linux-image-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
     fi
-elif [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+elif [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
     if [ "${KERNEL_FLAVOUR}" = "none" ]; then
         KERNEL_IMAGE="linux-image-generic"
     else

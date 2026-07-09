@@ -3,6 +3,7 @@
 # This script is called by udev rules, see /lib/udev/rules.d/
 #
 # Author: Tomas M <http://slax.linux-live.org/>
+# Author: crims0n <https://minios.dev>
 
 # Variables available in udev environment:
 # $ACTION (eg: add, remove)
@@ -19,13 +20,33 @@ UNIT="media-$BAS.mount"
 MNT="/media/$BAS"
 TARGET="/etc/systemd/system/$UNIT"
 
+is_systemd() {
+   command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]
+}
+
+filesystem_supported() {
+   [ -n "$ID_FS_TYPE" ] && grep -qw "$ID_FS_TYPE" /proc/filesystems
+}
+
+update_bookmarks() {
+   if [ -x "$(command -v gtk-bookmarks-update)" ]; then
+      gtk-bookmarks-update
+   fi
+}
+
+open_file_manager() {
+   if [ -x "$(command -v pcmanfm)" ]; then
+      DISPLAY=:0.0 pcmanfm -n "file://$MNT" >/dev/null 2>&1
+   fi
+}
+
 # exit if noautomount boot parameter is present
-if cat /proc/cmdline | grep -q noautomount; then
+if grep -qw noautomount /proc/cmdline; then
    exit
 fi
 
 # exit if 'automount' boot parameter is missing
-if ! cat /proc/cmdline | grep -q automount; then
+if ! grep -qw automount /proc/cmdline; then
    exit
 fi
 
@@ -35,13 +56,15 @@ if pgrep -f "minios-installer" >/dev/null; then
 fi
 
 if [ "$ACTION" = "add" -o "$ACTION" = "change" ]; then
-   if [ ! -r "$TARGET" ]; then # skip if exists
+   if filesystem_supported; then
+      mkdir -p "$MNT"
 
-      if [ "$ID_FS_TYPE" != "" -a "$(cat /proc/filesystems | grep "$ID_FS_TYPE")" != "" ]; then
+      if is_systemd; then
+         if [ -r "$TARGET" ]; then # skip if exists
+            exit
+         fi
 
-         mkdir -p "$MNT"
-
-         cat <<EOF >$TARGET
+         cat <<EOF >"$TARGET"
 # Skip savechanges
 [Unit]
 Description=Disk $BAS
@@ -56,24 +79,24 @@ Options=defaults
 WantedBy=multi-user.target
 EOF
 
-         systemctl enable $UNIT
-         systemctl start $UNIT
-
-         if [ -x "$(command -v gtk-bookmarks-update)" ]; then
-            gtk-bookmarks-update
-         fi
-         if [ -x "$(command -v pcmanfm)" ]; then
-            DISPLAY=:0.0 pcmanfm -n file://$MNT >/dev/null 2>&1
-         fi
+         systemctl enable "$UNIT"
+         systemctl start "$UNIT"
+      elif ! mountpoint -q "$MNT"; then
+         mount -t "$ID_FS_TYPE" -o defaults "$DEVNAME" "$MNT"
       fi
+
+      update_bookmarks
+      open_file_manager
    fi
 fi
 
 if [ "$ACTION" = "remove" ]; then
-   systemctl disable $UNIT
-   rm "$TARGET"
-   rmdir "$MNT"
-   if [ -x "$(command -v gtk-bookmarks-update)" ]; then
-      gtk-bookmarks-update
+   if is_systemd; then
+      systemctl disable "$UNIT"
+      rm -f "$TARGET"
+   elif mountpoint -q "$MNT"; then
+      umount -l "$MNT"
    fi
+   rmdir "$MNT"
+   update_bookmarks
 fi

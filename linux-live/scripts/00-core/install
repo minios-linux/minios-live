@@ -156,13 +156,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+if [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
 fi
 
 if pkg_is_installed "dnsmasq"; then
     if [ "${DESKTOP_ENVIRONMENT}" = "flux" ] || [ "${PACKAGE_VARIANT}" = "minimum" ] || [ "${DISTRIBUTION}" = "noble" ] || [ "${DISTRIBUTION}" = "resolute" ]; then
-        systemctl disable dnsmasq
+        minios-svc disable dnsmasq
     fi
 fi
 
@@ -171,26 +171,72 @@ if [ -f /bin/ping ]; then
 fi
 
 if pkg_is_installed "docker"; then
-    systemctl disable docker.socket >/dev/null 2>&1
-    systemctl disable docker.service >/dev/null 2>&1
-    systemctl disable containerd.service >/dev/null 2>&1
+    minios-svc disable docker.socket >/dev/null 2>&1
+    minios-svc disable docker.service >/dev/null 2>&1
+    minios-svc disable containerd.service >/dev/null 2>&1
 fi
 if pkg_is_installed "libvirt"; then
-    systemctl disable libvirtd >/dev/null 2>&1
+    minios-svc disable libvirtd >/dev/null 2>&1
 fi
 if pkg_is_installed "open-iscsi"; then
-    systemctl disable iscsid >/dev/null 2>&1
+    minios-svc disable iscsid >/dev/null 2>&1
 fi
 if pkg_is_installed "nfs-common"; then
-    systemctl disable rpcbind >/dev/null 2>&1
+    minios-svc disable rpcbind >/dev/null 2>&1
 fi
 
 if [ -f /etc/systemd/system/multi-user.target.wants/grub-initrd-fallback.service ]; then
-    systemctl disable grub-initrd-fallback.service >/dev/null 2>&1
+    minios-svc disable grub-initrd-fallback.service >/dev/null 2>&1
 fi
 
 if pkg_is_installed "ssh"; then
-    systemctl disable ssh >/dev/null 2>&1
+    minios-svc disable ssh >/dev/null 2>&1
+fi
+
+if [ "${INIT_SYSTEM}" = "sysvinit" ]; then
+    mkdir -p /etc/inittab.d
+    ln -sfn /proc/mounts /etc/mtab
+
+cat >/usr/sbin/minios-sysv-rc <<'EOF'
+#!/bin/sh
+
+if grep -qw quiet /proc/cmdline 2>/dev/null && ! grep -qw debug /proc/cmdline 2>/dev/null; then
+    LOG=/var/log/sysvinit-quiet.log
+    if ! { [ -d /var/log ] && : >>"$LOG"; } 2>/dev/null; then
+        LOG=/run/sysvinit-quiet.log
+        mkdir -p /run 2>/dev/null || true
+    fi
+    exec /etc/init.d/rc "$@" >>"$LOG" 2>&1
+fi
+
+exec /etc/init.d/rc "$@"
+EOF
+    chmod 755 /usr/sbin/minios-sysv-rc
+
+    if [ -f /etc/inittab ]; then
+        sed -i \
+            -e 's|/etc/init.d/rcS$|/usr/sbin/minios-sysv-rc S|' \
+            -e 's|/etc/init.d/rc 0$|/usr/sbin/minios-sysv-rc 0|' \
+            -e 's|/etc/init.d/rc 1$|/usr/sbin/minios-sysv-rc 1|' \
+            -e 's|/etc/init.d/rc 2$|/usr/sbin/minios-sysv-rc 2|' \
+            -e 's|/etc/init.d/rc 3$|/usr/sbin/minios-sysv-rc 3|' \
+            -e 's|/etc/init.d/rc 4$|/usr/sbin/minios-sysv-rc 4|' \
+            -e 's|/etc/init.d/rc 5$|/usr/sbin/minios-sysv-rc 5|' \
+            -e 's|/etc/init.d/rc 6$|/usr/sbin/minios-sysv-rc 6|' \
+            /etc/inittab
+    fi
+
+    if pkg_is_installed "smartmontools"; then
+        cat >/etc/default/smartmontools <<'EOF'
+# Defaults for smartmontools initscript (/etc/init.d/smartmontools)
+# This is a POSIX shell fragment.
+
+# Live systems often boot without directly visible SMART-capable devices
+# (for example from ISO, USB bridges, or virtual media). Keep smartd running
+# instead of treating an empty DEVICESCAN result as a boot failure.
+smartd_opts="--quit=never"
+EOF
+    fi
 fi
 
 # configuration
@@ -198,7 +244,7 @@ fi
 #(cd /$BUILD_SCRIPTS/scripts/00-core/rootcopy-install && cp --parents -afr * /)
 
 # minios-install setup
-if [ -d /etc/NetworkManager ] && [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+if [ -d /etc/NetworkManager ] && [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
     if pkg_is_installed "netplan"; then
         if [ ! -d /etc/netplan/ ]; then
             mkdir -p /etc/netplan/
@@ -257,7 +303,7 @@ if [ -f /etc/locale.gen ] && [ "$LOCALE" != "C" ]; then
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 fi
 
-if [ "${DISTRIBUTION_TYPE}" = "ubuntu" ]; then
+if [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
     cat >/etc/default/keyboard <<'EOF'
 # KEYBOARD CONFIGURATION FILE
 
@@ -296,12 +342,12 @@ EOF
 fi
 
 if pkg_is_installed "firewalld"; then
-    systemctl disable firewalld >/dev/null 2>&1
+    minios-svc disable firewalld >/dev/null 2>&1
 else
     rm -rf /etc/firewalld
 fi
 if pkg_is_installed "cockpit"; then
-    systemctl disable cockpit.socket >/dev/null 2>&1
+    minios-svc disable cockpit.socket >/dev/null 2>&1
 fi
 
 if pkg_is_installed "laptop-mode-tools"; then
@@ -331,10 +377,10 @@ mkdir -p "/usr/share/minios" #"/etc/minios"
 #sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="adm cdrom sudo dip plugdev users lpadmin sambashare audio docker libvirt wireshark"/' /etc/adduser.conf
 #sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
 
-if [ "${DISTRIBUTION_TYPE}" = "debian" ]; then
-    run_with_spinner "Purging packages" apt-get purge -y vim* grub* debconf-i18n installation-report
+if [ "${DISTRIBUTION_PROFILE}" = "debian" ]; then
+    run_with_spinner "Purging packages" apt-get purge -y vim-common vim-tiny grub-common grub2-common debconf-i18n installation-report
 else
-    run_with_spinner "Purging packages" apt-get purge -y vim* grub* debconf-i18n
+    run_with_spinner "Purging packages" apt-get purge -y vim-common vim-tiny grub-common grub2-common debconf-i18n
 fi
 
 if [ "${LOCALE}" != "en_US" ]; then
