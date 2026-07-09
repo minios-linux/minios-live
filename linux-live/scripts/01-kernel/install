@@ -80,6 +80,61 @@ if [ "${INSTALL_KERNEL}" = "true" ]; then
     if [ ! -d "/rootcopy-install" ] || [ -z "${DEB}" ]; then
         apt-mark hold "${KERNEL_IMAGE}" >/dev/null
     fi
+
+    preserve_kernel_dpkg_metadata() {
+        local OUT="/usr/share/minios/kernel-dpkg"
+        local STATUS_FILE="/var/lib/dpkg/status"
+        local INFO_DIR="/var/lib/dpkg/info"
+        local KVER=""
+        local PKGS=""
+        local PKG=""
+        local LIST=""
+
+        KVER="$(basename "$(ls -1 /boot/vmlinuz-* 2>/dev/null | sort -V | tail -n 1)" 2>/dev/null | sed 's/^vmlinuz-//')"
+        [ -n "${KVER}" ] || return 0
+        [ -f "${STATUS_FILE}" ] || return 0
+        [ -d "${INFO_DIR}" ] || return 0
+
+        rm -rf "${OUT}"
+        mkdir -p "${OUT}/status.d" "${OUT}/info"
+
+        for LIST in "${INFO_DIR}"/linux-image-*.list "${INFO_DIR}"/linux-modules-*.list "${INFO_DIR}"/linux-modules-extra-*.list; do
+            [ -f "${LIST}" ] || continue
+            grep -q "/modules/${KVER}\|vmlinuz-${KVER}" "${LIST}" 2>/dev/null || continue
+            PKG="$(basename "${LIST}" .list)"
+            case " ${PKGS} " in *" ${PKG} "*) continue ;; esac
+            awk -v pkg="${PKG}" '
+                BEGIN { RS=""; ORS="\n\n" }
+                $0 ~ "(^|\n)Package: " pkg "(\n|$)" { print; found=1 }
+                END { exit found ? 0 : 1 }
+            ' "${STATUS_FILE}" >"${OUT}/status.d/${PKG}.status" || {
+                rm -f "${OUT}/status.d/${PKG}.status"
+                continue
+            }
+            cp -a "${INFO_DIR}/${PKG}."* "${OUT}/info/" 2>/dev/null || true
+            PKGS="${PKGS} ${PKG}"
+        done
+
+        if [ -n "${PKGS}" ]; then
+            {
+                printf '{\n  "format": 1,\n  "kernel_version": "%s",\n  "packages": [\n' "${KVER}"
+                local FIRST=true
+                for PKG in ${PKGS}; do
+                    local VERSION ARCH
+                    VERSION="$(awk -F': ' '/^Version: / { print $2; exit }' "${OUT}/status.d/${PKG}.status")"
+                    ARCH="$(awk -F': ' '/^Architecture: / { print $2; exit }' "${OUT}/status.d/${PKG}.status")"
+                    ${FIRST} || printf ',\n'
+                    FIRST=false
+                    printf '    {"name": "%s", "version": "%s", "architecture": "%s"}' "${PKG}" "${VERSION}" "${ARCH}"
+                done
+                printf '\n  ]\n}\n'
+            } >"${OUT}/manifest.json"
+        else
+            rm -rf "${OUT}"
+        fi
+    }
+
+    preserve_kernel_dpkg_metadata
 fi
 
 # Cleanup temporary package list file.
