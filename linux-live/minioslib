@@ -1696,6 +1696,13 @@ build_chroot() {
         (cd "${INSTALL_DIR}" && [ -f "${SRC}" ] && cp --parents "${SRC}" "${CACHE_DIR}")
     }
 
+    cache_restore() {
+        local SRC="$1"
+        [ -f "${CACHE_DIR}/${SRC}" ] || return 1
+        mkdir -p "${INSTALL_DIR}/$(dirname "${SRC}")"
+        cp -f "${CACHE_DIR}/${SRC}" "${INSTALL_DIR}/${SRC}"
+    }
+
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
         case "${DISTRIBUTION}" in
         beowulf)
@@ -1717,13 +1724,22 @@ build_chroot() {
 
         cache_cp "etc/apt/sources.list"
 
-        curl --silent -k http://deb.minios.dev/minios-linux.asc |
-            gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
-        cache_cp "etc/apt/trusted.gpg.d/minios-linux.gpg"
+        if ! cache_restore "etc/apt/trusted.gpg.d/minios-linux.gpg"; then
+            curl --fail --location --silent --show-error --connect-timeout 10 --max-time 60 -k http://deb.minios.dev/minios-linux.asc |
+                gpg --dearmor >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/minios-linux.gpg"
+            cache_cp "etc/apt/trusted.gpg.d/minios-linux.gpg"
+        fi
 
-        curl --silent -k http://deb.freexian.com/extended-lts/archive-key.gpg \
-            >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
-        cache_cp "etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+        if grep -q 'deb\.freexian\.com/extended-lts' "${INSTALL_DIR}/etc/apt/sources.list"; then
+            if ! cache_restore "etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"; then
+                curl --fail --location --silent --show-error --connect-timeout 10 --max-time 60 -k \
+                    http://deb.freexian.com/extended-lts/archive-key.gpg \
+                    >"${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+                cache_cp "etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+            fi
+        else
+            rm -f "${INSTALL_DIR}/etc/apt/trusted.gpg.d/freexian-archive-extended-lts.gpg"
+        fi
 
         if [ ! -f "${INSTALL_DIR}/etc/apt/apt.conf.d/000MiniOS" ]; then
             mkdir -p "${INSTALL_DIR}/etc/apt/apt.conf.d"
