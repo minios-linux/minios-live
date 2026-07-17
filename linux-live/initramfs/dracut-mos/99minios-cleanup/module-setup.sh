@@ -17,9 +17,12 @@ install() {
     rm -f "${initdir}/usr/bin/findmnt"
     rm -f "${initdir}/usr/lib/udev/hwdb.bin"
     rm -rf "${initdir}/usr/lib/firmware"
-    rm -f "${initdir}"/usr/lib/udev/*_id
     rm -f "${initdir}"/usr/lib/udev/hid2hci
     rm -f "${initdir}"/usr/lib/udev/mtd_probe
+
+    if [ ! -x "${initdir}/usr/libexec/elogind-uaccess-command" ]; then
+        rm -f "${initdir}/usr/lib/udev/rules.d/73-seat-late.rules"
+    fi
 
     # Patch the init script to suppress udevadm errors
     if [ -f "${initdir}/init" ]; then
