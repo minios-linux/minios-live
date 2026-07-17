@@ -18,8 +18,18 @@ for _PARAMETER in ${LIVE_CONFIG_CMDLINE}; do
     live-config.username=* | username=*)
         LIVE_USERNAME="${_PARAMETER#*username=}"
         ;;
+    live-config.x11-mode=* | x11-mode=*)
+        LIVE_X11_MODE="${_PARAMETER#*x11-mode=}"
+        ;;
     esac
 done
 
 # Start the X server as the user specified in the $LIVE_USERNAME variable
-exec /bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $LIVE_USERNAME
+case "${LIVE_X11_MODE}" in
+hardened)
+    exec /bin/su --login -c "/usr/bin/startx -- :0 vt7 -nolisten tcp" $LIVE_USERNAME
+    ;;
+*)
+    exec /bin/su --login -c "/usr/bin/startx -- :0 vt7 -ac -nolisten tcp" $LIVE_USERNAME
+    ;;
+esac
