@@ -1660,7 +1660,8 @@ copy_build_scripts() {
     local DESTINATION=${1:-$INSTALL_DIR}
 
     mkdir -p "${DESTINATION}/linux-live"
-    rsync -a --exclude='.git' "${BUILD_SCRIPTS_DIR}/" "${DESTINATION}/${BUILD_SCRIPTS}/"
+    # Build scripts come from the host checkout; host uid/gid must not leak into the chroot.
+    rsync -a --no-owner --no-group --exclude='.git' "${BUILD_SCRIPTS_DIR}/" "${DESTINATION}/${BUILD_SCRIPTS}/"
 
     cp $BUILD_CONF "${DESTINATION}/${BUILD_SCRIPTS}"
 
@@ -1836,6 +1837,39 @@ mkmod_corefs() {
     done
 }
 
+copy_rootcopy_tree() {
+    local SRC_DIR="${1}"
+    local DEST_DIR="${2}"
+    local MANIFEST="${SRC_DIR}/.minios-ownership"
+    local OWNER PATH_NAME TARGET
+
+    cp -a --no-preserve=ownership "${SRC_DIR}/." "${DEST_DIR}"
+
+    # Host checkout uid/gid are not meaningful. If a rootcopy file needs a
+    # non-root owner, declare it explicitly in .minios-ownership as:
+    # owner:group relative/path
+    [ -f "${MANIFEST}" ] || return 0
+    rm -f "${DEST_DIR}/.minios-ownership"
+    while read -r OWNER PATH_NAME; do
+        case "${OWNER}" in
+        '' | \#*) continue ;;
+        esac
+        [ -n "${PATH_NAME}" ] || continue
+        case "${PATH_NAME}" in
+        /* | *../*)
+            error "Invalid rootcopy ownership path: ${PATH_NAME}"
+            return 1
+            ;;
+        esac
+        TARGET="${DEST_DIR%/}/${PATH_NAME}"
+        [ -e "${TARGET}" ] || [ -L "${TARGET}" ] || {
+            error "Rootcopy ownership target does not exist: ${PATH_NAME}"
+            return 1
+        }
+        chown -h "${OWNER}" "${TARGET}"
+    done <"${MANIFEST}"
+}
+
 build_live() {
     current_process
 
@@ -1847,7 +1881,6 @@ build_live() {
 
     # create compressed 00-core.sb
     mkmod_corefs "${INSTALL_DIR}"
-
     information "Compression of ${YELLOW}core${ENDCOLOR} data is in progress ..."
     mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || {
         error "Failed to compress ${YELLOW}core${ENDCOLOR} data."
@@ -3605,7 +3638,7 @@ install_core_packages() {
     # rootcopy-install stage
     # -------------------------
     if [ -d "${CORE_SCRIPT_DIR}/rootcopy-install" ]; then
-        cp -af "${CORE_SCRIPT_DIR}/rootcopy-install/." / &
+        copy_rootcopy_tree "${CORE_SCRIPT_DIR}/rootcopy-install" / &
         COPY_PID=$!
         spinner "${COPY_PID}" "Copying rootcopy-install files into chroot"
         wait "${COPY_PID}"
@@ -3623,7 +3656,7 @@ install_core_packages() {
     # rootcopy-postinstall stage
     # --------------------------
     if [ -d "${CORE_SCRIPT_DIR}/rootcopy-postinstall" ]; then
-        cp -af "${CORE_SCRIPT_DIR}/rootcopy-postinstall/." / &
+        copy_rootcopy_tree "${CORE_SCRIPT_DIR}/rootcopy-postinstall" / &
         COPY_PID=$!
         spinner "${COPY_PID}" "Copying rootcopy-postinstall files into chroot"
         wait "${COPY_PID}"
@@ -3824,6 +3857,35 @@ should_skip_module() {
     return 1 # No skip conditions matched
 }
 
+module_artifact_is_current() {
+    local MODULE_NAME="$1"
+    local MODULE_KEY="${MODULE_NAME#*-}"
+    local ARTIFACT=""
+    local CANDIDATE=""
+
+    for CANDIDATE in "${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}"; do
+        [ -e "${CANDIDATE}" ] || continue
+        case "$(basename "${CANDIDATE}")" in
+        *"${MODULE_KEY}"*)
+            ARTIFACT="${CANDIDATE}"
+            break
+            ;;
+        esac
+    done
+
+    [ -n "${ARTIFACT}" ] || return 1
+
+    if find "${ENVIRONMENTS}/${MODULE_NAME}" "${BUILD_SCRIPTS_DIR}/scripts/${MODULE_NAME}" \
+        "${BUILD_SCRIPTS_DIR}/minioslib" "${BUILD_SCRIPTS_DIR}/condinapt.map" \
+        -newer "${ARTIFACT}" -print -quit 2>/dev/null | grep -q .; then
+        information "${YELLOW}${MODULE_NAME}${ENDCOLOR} module artifact is older than build scripts; rebuilding it."
+        rm -f "${ARTIFACT}"
+        return 1
+    fi
+
+    return 0
+}
+
 # Orchestrates module packaging and installation into overlays and images
 build_modules() {
     current_process
@@ -3833,6 +3895,9 @@ build_modules() {
 
     # If running inside a container, install host prerequisites first
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
+
+    # Keep incremental module rebuilds in sync with the current build scripts.
+    copy_build_scripts
 
     # Define environment and overlay directories
     ENVIRONMENTS="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
@@ -3847,8 +3912,7 @@ build_modules() {
     # Iterate over each module in the environments directory
     for MODULE in *; do
         # Skip module if already present in the image folder
-        if [ "${MODULE#*-}" != "debug" ] &&
-            basename -a "${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}" 2>/dev/null | grep -q "${MODULE#*-}"; then
+        if [ "${MODULE#*-}" != "debug" ] && module_artifact_is_current "${MODULE}"; then
             information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         elif should_skip_module "${ENVIRONMENTS}/${MODULE}/skip_conditions.conf"; then
             information "Skipping module ${YELLOW}${MODULE}${ENDCOLOR} due to matching skip condition."
@@ -3879,10 +3943,10 @@ build_modules() {
             if [ -d "${ENVIRONMENTS}/${MODULE}/rootcopy-install" ]; then
                 if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                     mkdir -p "${OVERLAY[merged]}/rootcopy-install"
-                    cp -af "${ENVIRONMENTS}/${MODULE}/rootcopy-install/." "${OVERLAY[merged]}/rootcopy-install/" &
+                    copy_rootcopy_tree "${ENVIRONMENTS}/${MODULE}/rootcopy-install" "${OVERLAY[merged]}/rootcopy-install" &
                     COPY_PID=$!
                 else
-                    cp -af "${ENVIRONMENTS}/${MODULE}/rootcopy-install/." "${OVERLAY[merged]}/" &
+                    copy_rootcopy_tree "${ENVIRONMENTS}/${MODULE}/rootcopy-install" "${OVERLAY[merged]}" &
                     COPY_PID=$!
                 fi
                 spinner "${COPY_PID}" "Copying rootcopy-install files into chroot"
@@ -3953,8 +4017,9 @@ build_modules() {
                     chmod +x "${OVERLAY[merged]}/build"
                     if [ "$(ls -A "${ENVIRONMENTS}/${MODULE}/patches" 2>/dev/null)" != "" ]; then
                         mkdir -p "${OVERLAY[merged]}/patches"
+                        # Patches come from the host checkout; only their content and modes are meaningful.
                         (cd "${ENVIRONMENTS}/${MODULE}/patches" &&
-                            cp --parents -afr * "${OVERLAY[merged]}/patches/")
+                            cp --parents -a --no-preserve=ownership * "${OVERLAY[merged]}/patches/")
                     fi
                     information "Executing ${GREEN}build${ENDCOLOR} script ..."
                     chroot_run "${OVERLAY[merged]}" /build
@@ -4020,6 +4085,11 @@ build_modules() {
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
 
+                    if [ -d "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg" ]; then
+                        mkdir -p "${OVERLAY[upper]}/squashfs-root/usr/share/minios"
+                        cp -a "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg" \
+                            "${OVERLAY[upper]}/squashfs-root/usr/share/minios/"
+                    fi
                 fi
 
                 information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
@@ -4041,10 +4111,10 @@ build_modules() {
             if [ -d "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" ]; then
                 if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                     mkdir -p "${OVERLAY[merged]}/rootcopy-postinstall"
-                    cp -af "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall/." "${OVERLAY[merged]}/rootcopy-postinstall/" &
+                    copy_rootcopy_tree "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" "${OVERLAY[merged]}/rootcopy-postinstall" &
                     COPY_PID=$!
                 else
-                    cp -af "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall/." "${OVERLAY[merged]}/" &
+                    copy_rootcopy_tree "${ENVIRONMENTS}/${MODULE}/rootcopy-postinstall" "${OVERLAY[merged]}" &
                     COPY_PID=$!
                 fi
                 spinner "${COPY_PID}" "Copying rootcopy-postinstall files into chroot"
