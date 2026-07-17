@@ -245,7 +245,7 @@ fi
 
 # minios-install setup
 if [ -d /etc/NetworkManager ] && [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
-    if pkg_is_installed "netplan"; then
+    if pkg_is_installed "netplan.io"; then
         if [ ! -d /etc/netplan/ ]; then
             mkdir -p /etc/netplan/
         fi
