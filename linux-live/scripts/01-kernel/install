@@ -100,12 +100,19 @@ if [ "${INSTALL_KERNEL}" = "true" ]; then
 
         for LIST in "${INFO_DIR}"/linux-image-*.list "${INFO_DIR}"/linux-modules-*.list "${INFO_DIR}"/linux-modules-extra-*.list; do
             [ -f "${LIST}" ] || continue
-            grep -q "/modules/${KVER}\|vmlinuz-${KVER}" "${LIST}" 2>/dev/null || continue
             PKG="$(basename "${LIST}" .list)"
             case " ${PKGS} " in *" ${PKG} "*) continue ;; esac
+
             awk -v pkg="${PKG}" '
-                BEGIN { RS=""; ORS="\n\n" }
-                $0 ~ "(^|\n)Package: " pkg "(\n|$)" { print; found=1 }
+                BEGIN { RS=""; FS="\n"; ORS="\n\n" }
+                {
+                    found_pkg=0; installed=0
+                    for (i = 1; i <= NF; i++) {
+                        if ($i == "Package: " pkg) found_pkg=1
+                        if ($i == "Status: install ok installed") installed=1
+                    }
+                    if (found_pkg && installed) { print; found=1 }
+                }
                 END { exit found ? 0 : 1 }
             ' "${STATUS_FILE}" >"${OUT}/status.d/${PKG}.status" || {
                 rm -f "${OUT}/status.d/${PKG}.status"
@@ -129,7 +136,9 @@ if [ "${INSTALL_KERNEL}" = "true" ]; then
                 done
                 printf '\n  ]\n}\n'
             } >"${OUT}/manifest.json"
+            echo "I: Preserved kernel dpkg metadata for:${PKGS}"
         else
+            echo "W: No kernel dpkg metadata matched kernel version ${KVER}"
             rm -rf "${OUT}"
         fi
     }
