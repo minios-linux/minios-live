@@ -476,6 +476,33 @@ test_complex_multiple_positive_filters_pass() {
     assert_installs "dkms"
 }
 
+test_wallpaper_package_selection() {
+    local variant=$1 desktop=$2 expected=$3
+    local source_dir
+    local -a wallpaper_packages=(
+        minios6-wallpapers-minimum
+        minios6-wallpapers-flux
+        minios6-wallpapers-standard
+        minios6-wallpapers-toolbox
+        minios6-wallpapers-ultra
+    )
+
+    create_common_files
+    sed -i \
+        -e "s/^DESKTOP_ENVIRONMENT=.*/DESKTOP_ENVIRONMENT=\"$desktop\"/" \
+        -e "s/^PACKAGE_VARIANT=.*/PACKAGE_VARIANT=\"$variant\"/" \
+        "${TEST_DIR}/config.sh"
+    source_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+    grep '^minios6-' "$source_dir/scripts/04-xfce-desktop/packages.list" >"${TEST_DIR}/packages.list"
+    export TEST_AVAILABLE_PACKAGES="minios6-artwork:6.0.1 minios6-wallpapers:6.0.1 minios6-wallpapers-minimum:6.0.1 minios6-wallpapers-flux:6.0.1 minios6-wallpapers-standard:6.0.1 minios6-wallpapers-toolbox:6.0.1 minios6-wallpapers-ultra:6.0.1"
+
+    "$CONDINAPT_SCRIPT_PATH" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -s
+    assert_installs minios6-artwork "$expected"
+    for package in "${wallpaper_packages[@]}"; do
+        [ "$package" = "$expected" ] || assert_not_installs "$package"
+    done
+}
+
 # --- Main Test Runner ---
 main() {
     # Prepare the single log file
@@ -523,6 +550,14 @@ main() {
     run_test "Mandatory Package Failure Reports Error" test_complex_mandatory_package_reports_error
     run_test "Priority List Overrides Main List Filters" test_complex_priority_overrides_main_list_filter
     run_test "Multiple Positive Filters of Different Types" test_complex_multiple_positive_filters_pass
+
+    echo
+    echo "${BOLD}${CYAN}--- Section: MiniOS Package Lists ---${ENDCOLOR}"
+    run_test "Minimum wallpaper package" test_wallpaper_package_selection minimum xfce minios6-wallpapers-minimum
+    run_test "Flux wallpaper package" test_wallpaper_package_selection minimum flux minios6-wallpapers-flux
+    run_test "Standard wallpaper package" test_wallpaper_package_selection standard xfce minios6-wallpapers-standard
+    run_test "Toolbox wallpaper package" test_wallpaper_package_selection toolbox xfce minios6-wallpapers-toolbox
+    run_test "Ultra wallpaper package" test_wallpaper_package_selection ultra xfce minios6-wallpapers-ultra
 
     if [ -f "${MASTER_LOG_FILE}" ]; then
         sed -i 's/\x1B\[[0-9;]*[JKmsu]//g' "${MASTER_LOG_FILE}"
