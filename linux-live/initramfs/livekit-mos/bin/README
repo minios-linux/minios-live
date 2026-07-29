@@ -14,3 +14,7 @@ How to rebuild these static binaries:
 - some manual tweaking is necessary, sorry about not commenting it here
 - make
 - find static binaries in /usr/src/buildroot-sources/output/target/bin/ etc
+
+Keep bundled executables as stripped ELF files. Do not pack them with UPX: the
+whole initrd is compressed, and UPX adds compatibility risk for negligible
+compressed-size savings.

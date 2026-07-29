@@ -1,0 +1,5 @@
+--- a/package/e2fsprogs/e2fsprogs.mk
++++ b/package/e2fsprogs/e2fsprogs.mk
+@@ -70,1 +70,2 @@
+ E2FSPROGS_CONF_ENV += ac_cv_path_LDCONFIG=true
++E2FSPROGS_CONF_ENV += CFLAGS="$(TARGET_CFLAGS) -Oz -ffunction-sections -fdata-sections"
