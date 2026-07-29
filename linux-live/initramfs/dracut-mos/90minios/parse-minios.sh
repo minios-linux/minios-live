@@ -7,7 +7,7 @@ type getarg >/dev/null 2>&1 || . /lib/dracut-lib.sh
 [ -n "$rootok" ] && return
 
 # Check if this is a MiniOS boot
-if getarg boot=live >/dev/null || getarg from= >/dev/null; then
+if getarg boot=live >/dev/null; then
     info "MiniOS boot detected"
 
     # Tell dracut we'll handle the root

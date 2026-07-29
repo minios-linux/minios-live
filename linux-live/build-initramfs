@@ -12,6 +12,9 @@ console_colors
 
 # Determine which initramfs builder to use
 INITRAMFS_BUILDER="${INITRAMFS_BUILDER:-dracut}"
+INITRAMFS_CRYPT="${INITRAMFS_CRYPT:-false}"
+CRYPT_ARGS=()
+[ "$INITRAMFS_CRYPT" = "true" ] && CRYPT_ARGS=(--crypt)
 
 case "$INITRAMFS_BUILDER" in
 dracut)
@@ -26,9 +29,9 @@ dracut)
 
     # Build initramfs with mkdracut
     if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-        run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL"
+        run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" "${CRYPT_ARGS[@]}"
     else
-        run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -n -c
+        run_with_spinner "Building dracut initramfs image" ./mkdracut -k "$KERNEL" -n -c "${CRYPT_ARGS[@]}"
     fi
 
     # Check if initramfs was created successfully
@@ -50,9 +53,9 @@ livekit | *)
 
     TMPFILE=$(mktemp)
     if [ "${PACKAGE_VARIANT}" = "minimum" ]; then
-        run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -dm >"$TMPFILE"
+        run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -dm "${CRYPT_ARGS[@]}" >"$TMPFILE"
     else
-        run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm >"$TMPFILE"
+        run_with_spinner "Building initramfs image" ./mkinitrfs -k "$KERNEL" -n -c -dm "${CRYPT_ARGS[@]}" >"$TMPFILE"
     fi
 
     INITRAMFS=$(tail -n 1 "$TMPFILE" | xargs)

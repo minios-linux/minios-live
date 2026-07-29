@@ -152,6 +152,22 @@ log() {
    echo "$@" 2>/dev/null >>/var/log/livedbg
 }
 
+# Only resources recorded here were created for the LUKS persistence container.
+close_owned_crypt() {
+   local MAPPER LOOP STATUS=0 STATE="${1:-/run/initramfs/minios-crypt}"
+   [ -d "$STATE" ] || return 0
+   [ -f "$STATE/mapper" ] && MAPPER=$(cat "$STATE/mapper")
+   if [ -n "$MAPPER" ] && [ -b "/dev/mapper/$MAPPER" ] && ! cryptsetup close "$MAPPER" 2>/dev/null; then
+      STATUS=1
+   fi
+   [ -f "$STATE/loop" ] && LOOP=$(cat "$STATE/loop")
+   if [ "$STATUS" -eq 0 ] && [ -n "$LOOP" ] && ! losetup -d "$LOOP" 2>/dev/null; then
+      STATUS=1
+   fi
+   [ "$STATUS" -ne 0 ] || rm -rf "$STATE"
+   return "$STATUS"
+}
+
 echolog() {
    echo "$@"
    log "$@"
@@ -1077,13 +1093,15 @@ mount_perch_drive() {
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION
+   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION
 
    DRIVE="$1"
    CHANDIR="$2"
    PERCHDIR="$3"
+   REQUESTED_SESSION="$3"
    ACTION="$4"
    PERCHMODE="$5"
+   NEW_SESSION="false"
 
    # Get current system's MiniOS version and edition
    if [ -f /etc/minios-release ]; then
@@ -1106,22 +1124,14 @@ restore_perch_session() {
       fi
    fi
 
-   if command -v jq >/dev/null 2>&1; then
-      SESSIONS="$CHANDIR/session.json"
-      if [ ! -f "$SESSIONS" ]; then
-         echo '{"default": null, "sessions": {}}' >"$SESSIONS"
-      fi
-
-      LASTSESSION=$(jq -r '.default // empty' "$SESSIONS")
-      LASTMODE=$(jq -r ".sessions[\"$LASTSESSION\"].mode // empty" "$SESSIONS")
-      LASTVERSION=$(jq -r ".sessions[\"$LASTSESSION\"].version // empty" "$SESSIONS")
-      LASTEDITION=$(jq -r ".sessions[\"$LASTSESSION\"].edition // empty" "$SESSIONS")
-      LASTUNION=$(jq -r ".sessions[\"$LASTSESSION\"].union // empty" "$SESSIONS")
-      LASTSIZE=$(jq -r ".sessions[\"$LASTSESSION\"].size // empty" "$SESSIONS")
-   else
-      SESSIONS="$CHANDIR/session.conf"
-      [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
-
+   SESSIONS="$CHANDIR/session.conf"
+   if [ ! -f "$SESSIONS" ] && [ -f "$CHANDIR/session.json" ]; then
+      session_json_migrate "$CHANDIR/session.json" "$SESSIONS" || {
+         echo "Cannot migrate legacy persistence session metadata" >&2
+         return 1
+      }
+   fi
+   if [ -f "$SESSIONS" ]; then
       LASTSESSION=$(sed -n 's/^default=//p' "$SESSIONS")
       LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTVERSION=$(sed -n "s/^session_version\[$LASTSESSION\]=//p" "$SESSIONS")
@@ -1130,22 +1140,33 @@ restore_perch_session() {
       LASTSIZE=$(sed -n "s/^session_size\[$LASTSESSION\]=//p" "$SESSIONS")
    fi
 
-   if [ -n "$LASTSESSION" ]; then
+   # A numeric perchdir selects that session directly instead of following default.
+   if echo "$REQUESTED_SESSION" | grep -q '^[0-9][0-9]*$' && [ -d "$CHANDIR/$REQUESTED_SESSION" ]; then
+      LASTSESSION="$REQUESTED_SESSION"
+      LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$SESSIONS" 2>/dev/null)
+      LASTVERSION=$(sed -n "s/^session_version\[$LASTSESSION\]=//p" "$SESSIONS" 2>/dev/null)
+      LASTEDITION=$(sed -n "s/^session_edition\[$LASTSESSION\]=//p" "$SESSIONS" 2>/dev/null)
+      LASTUNION=$(sed -n "s/^session_union\[$LASTSESSION\]=//p" "$SESSIONS" 2>/dev/null)
+      LASTSIZE=$(sed -n "s/^session_size\[$LASTSESSION\]=//p" "$SESSIONS" 2>/dev/null)
+   fi
+
+   if [ "$ACTION" != "new" ] && [ -z "$LASTSESSION" ]; then
+      echo "No resumable persistence session was found" >&2
+      return 1
+   fi
+
+   if [ "$ACTION" = "new" ]; then
+      :
+   elif [ -n "$LASTSESSION" ]; then
       # If action is "ask", prompt the user to select a session
       if [ "$ACTION" = "ask" ]; then
          local SESSION_CONFIRMED="false"
          while [ "$SESSION_CONFIRMED" = "false" ]; do
             ls -1 $CHANDIR | grep -E "^[0-9]+" | while read DIR; do
                local S_VERSION S_EDITION S_UNION INFO_PARTS SESSION_INFO
-               if command -v jq >/dev/null 2>&1; then
-                  S_VERSION=$(jq -r ".sessions[\"$DIR\"].version // empty" "$SESSIONS")
-                  S_EDITION=$(jq -r ".sessions[\"$DIR\"].edition // empty" "$SESSIONS")
-                  S_UNION=$(jq -r ".sessions[\"$DIR\"].union // empty" "$SESSIONS")
-               else
-                  S_VERSION=$(sed -n "s/^session_version\[$DIR\]=//p" "$SESSIONS")
-                  S_EDITION=$(sed -n "s/^session_edition\[$DIR\]=//p" "$SESSIONS")
-                  S_UNION=$(sed -n "s/^session_union\[$DIR\]=//p" "$SESSIONS")
-               fi
+                S_VERSION=$(sed -n "s/^session_version\[$DIR\]=//p" "$SESSIONS")
+                S_EDITION=$(sed -n "s/^session_edition\[$DIR\]=//p" "$SESSIONS")
+                S_UNION=$(sed -n "s/^session_union\[$DIR\]=//p" "$SESSIONS")
 
                INFO_PARTS=""
                [ -n "$S_VERSION" ] && INFO_PARTS="$S_VERSION"
@@ -1180,19 +1201,11 @@ restore_perch_session() {
             else
                PERCHDIR=$(echo "$SELECTED" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')
                local SELECTED_VERSION SELECTED_EDITION SELECTED_UNION SELECTED_SIZE
-               if command -v jq >/dev/null 2>&1; then
-                  PERCHMODE=$(jq -r ".sessions[\"$PERCHDIR\"].mode // \"unknown\"" "$SESSIONS")
-                  SELECTED_VERSION=$(jq -r ".sessions[\"$PERCHDIR\"].version // \"unknown\"" "$SESSIONS")
-                  SELECTED_EDITION=$(jq -r ".sessions[\"$PERCHDIR\"].edition // \"unknown\"" "$SESSIONS")
-                  SELECTED_UNION=$(jq -r ".sessions[\"$PERCHDIR\"].union // \"unknown\"" "$SESSIONS")
-                  SELECTED_SIZE=$(jq -r ".sessions[\"$PERCHDIR\"].size // empty" "$SESSIONS")
-               else
-                  PERCHMODE=$(sed -n "s/^session_mode\[$PERCHDIR\]=//p" "$SESSIONS")
-                  SELECTED_VERSION=$(sed -n "s/^session_version\[$PERCHDIR\]=//p" "$SESSIONS")
-                  SELECTED_EDITION=$(sed -n "s/^session_edition\[$PERCHDIR\]=//p" "$SESSIONS")
-                  SELECTED_UNION=$(sed -n "s/^session_union\[$PERCHDIR\]=//p" "$SESSIONS")
-                  SELECTED_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" "$SESSIONS")
-               fi
+                PERCHMODE=$(sed -n "s/^session_mode\[$PERCHDIR\]=//p" "$SESSIONS")
+                SELECTED_VERSION=$(sed -n "s/^session_version\[$PERCHDIR\]=//p" "$SESSIONS")
+                SELECTED_EDITION=$(sed -n "s/^session_edition\[$PERCHDIR\]=//p" "$SESSIONS")
+                SELECTED_UNION=$(sed -n "s/^session_union\[$PERCHDIR\]=//p" "$SESSIONS")
+                SELECTED_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" "$SESSIONS")
 
                local WARNING_TITLE=""
                if [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ] && [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
@@ -1248,18 +1261,18 @@ restore_perch_session() {
       elif [ -n "$PERCHMODE" ] && [ "$PERCHMODE" != "$LASTMODE" ]; then
          echo_yellow_star >&2
          echo "Session #$LASTSESSION: Persistence mode changed." >&2 >/dev/tty1
-         echo "($LASTMODE -> $PERCHMODE) Creating new session." >&2 >/dev/tty1
-         ACTION="new"
+         echo "($LASTMODE -> $PERCHMODE) Refusing automatic replacement." >&2 >/dev/tty1
+         return 1
       # Check for union filesystem mismatch first
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTUNION" ] && [ "$SYSTEM_UNION" != "$LASTUNION" ]; then
          echo_yellow_star >&2
          echo "Session #$LASTSESSION: Union FS mismatch detected." >&2 >/dev/tty1
          echo "* System: $SYSTEM_UNION, Session: $LASTUNION" >&2 >/dev/tty1
-         echo "* Creating new session." >&2 >/dev/tty1
-         ACTION="new"
+         echo "* Refusing automatic replacement." >&2 >/dev/tty1
+         return 1
       # Check for version/edition mismatch
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTVERSION" ] && { [ "$SYSTEM_VERSION" != "$LASTVERSION" ] || [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; }; then
-         if [ "$SYSTEM_VERSION" != "$SELECTED_VERSION" ] && [ "$SYSTEM_EDITION" != "$SELECTED_EDITION" ]; then
+         if [ "$SYSTEM_VERSION" != "$LASTVERSION" ] && [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; then
             echo_yellow_star >&2
             echo "Session #$LASTSESSION: OS version and edition mismatch." >&2 >/dev/tty1
             echo "* System: $SYSTEM_VERSION/$SYSTEM_EDITION" >&2 >/dev/tty1
@@ -1276,7 +1289,7 @@ restore_perch_session() {
             echo "* System: $SYSTEM_EDITION, Session: $LASTEDITION" >&2 >/dev/tty1
             echo "* Creating new session." >&2 >/dev/tty1
          fi
-         ACTION="new"
+         return 1
       elif [ "$ACTION" = "resume" ]; then
          PERCHDIR="$LASTSESSION"
          PERCHMODE="$LASTMODE"
@@ -1288,46 +1301,28 @@ restore_perch_session() {
             PERCHSIZE="$LASTSIZE"
          fi
       else
-         ACTION="new"
+         echo "Unsupported persistence action: $ACTION" >&2
+         return 1
       fi
    fi
 
-   if [ "$ACTION" = "new" ] || [ ! -d "$CHANDIR/$PERCHDIR" ]; then
+   if [ "$ACTION" = "new" ]; then
       NEW=$(ls -1 $CHANDIR | egrep '^[0-9]' | sed -r 's/[^0-9].*//' | sort | tail -n 1)
+      : "${NEW:=0}"
       NEW=$(($NEW + 1))
-      mkdir -p "$CHANDIR/$NEW"
+      mkdir -p "$CHANDIR/$NEW" || return 1
       PERCHDIR="$NEW"
       VERSION="$SYSTEM_VERSION"
       EDITION="$SYSTEM_EDITION"
       UNION="$SYSTEM_UNION"
+      NEW_SESSION="true"
+   elif [ ! -d "$CHANDIR/$PERCHDIR" ]; then
+      echo "Persistence session #$PERCHDIR is missing" >&2
+      return 1
    fi
 
    : "${PERCHMODE:=native}"
-
-   if command -v jq >/dev/null 2>&1; then
-      jq --arg session "$PERCHDIR" \
-         --arg mode "$PERCHMODE" \
-         --arg version "$VERSION" \
-         --arg edition "$EDITION" \
-         --arg union "$UNION" \
-         '.default = $session | .sessions[$session] = {"mode": $mode, "version": $version, "edition": $edition, "union": $union}' \
-         "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
-   else
-      sed -i \
-         -e "s/^default=.*/default=$PERCHDIR/" \
-         -e "/^session_mode\[$PERCHDIR\]=.*/d" \
-         -e "/^session_version\[$PERCHDIR\]=.*/d" \
-         -e "/^session_edition\[$PERCHDIR\]=.*/d" \
-         -e "/^session_union\[$PERCHDIR\]=.*/d" \
-         "$SESSIONS"
-      echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
-      echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
-      echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
-      echo "session_union[$PERCHDIR]=$UNION" >>"$SESSIONS"
-   fi
-
-   touch "$CHANDIR/$PERCHDIR"
-   echo "$PERCHDIR" "$PERCHMODE"
+   echo "$PERCHDIR" "$PERCHMODE" "$NEW_SESSION"
 }
 
 # Manage persistence partition
@@ -1413,13 +1408,183 @@ manage_perch_partition() {
    echo "$PERCHPART"
 }
 
+persistence_requested() {
+   # Return success when persistence is requested; tests override this helper.
+   grep -q perch /proc/cmdline
+}
+
+# Free space in whole MB on the filesystem that holds $1.
+perch_free_mb() {
+   local BLOCKS
+   BLOCKS=$(df "$1" 2>/dev/null | tail -n 1 | awk '{print $4}')
+   case "$BLOCKS" in
+   '' | *[!0-9]*)
+      echo 0
+      return
+      ;;
+   esac
+   echo $((BLOCKS / 1024))
+}
+
+# Free space kept in reserve (MB) so persistence never consumes the last bytes
+# of the device. A full device is what freezes writes and leaves a container
+# that cannot be unmounted cleanly. Override with the perchreserve= parameter.
+perch_reserve_mb() {
+   local RESERVE
+   RESERVE="$(cmdline_value perchreserve)"
+   case "$RESERVE" in
+   '' | *[!0-9]*) RESERVE=256 ;;
+   esac
+   [ "$RESERVE" -gt 4096 ] && RESERVE=4096
+   echo "$RESERVE"
+}
+
+# Warn early when the persistence device is already low on free space. This is
+# the preventive counterpart to a mid-session out-of-space hang: it lets the
+# user free space before writes start failing. Returns non-zero when low.
+perch_space_warn() {
+   local DIR="$1" FREE RESERVE
+   FREE=$(perch_free_mb "$DIR")
+   RESERVE=$(perch_reserve_mb)
+   if [ "$FREE" -le "$RESERVE" ]; then
+      echo_yellow_star >&2
+      echo "Warning: only ${FREE}MB free on the persistence device (reserve ${RESERVE}MB)." >&2
+      echo "Free up space, delete old sessions, or reduce session data to avoid a full-disk hang." >&2
+      return 1
+   fi
+   return 0
+}
+
+# Install a complete session.conf replacement and retain the last valid copy.
+session_conf_replace() {
+   local CONF="$1" TMP="$2" BACKUP_TMP="${1}.bak.tmp.$$"
+
+   if [ -f "$CONF" ]; then
+      cp -a "$CONF" "$BACKUP_TMP" || return 1
+      sync
+      mv -f "$BACKUP_TMP" "${CONF}.bak" || return 1
+   fi
+   sync
+   mv -f "$TMP" "$CONF" || return 1
+   sync
+}
+
+# Convert metadata written by initrds that used jq and session.json. Keep the
+# JSON file as a rollback copy; session.conf becomes authoritative afterwards.
+session_json_migrate() {
+   local JSON="$1" CONF="$2" TMP="${2}.tmp.$$"
+
+   command -v jq >/dev/null 2>&1 || return 1
+   jq -e '.sessions | type == "object"' "$JSON" >/dev/null 2>&1 || return 1
+   {
+      jq -r 'select(.default != null) | "default=\(.default)"' "$JSON"
+      jq -r 'select(.running != null) | "running=\(.running)"' "$JSON"
+      jq -r '
+         .sessions | to_entries[] |
+         .key as $id | .value |
+         [
+            ["session_mode", .mode],
+            ["session_version", .version],
+            ["session_edition", .edition],
+            ["session_union", .union],
+            ["session_size", .size]
+         ] | .[] | select(.[1] != null and .[1] != "") |
+         "\(.[0])[\($id)]=\(.[1])"
+      ' "$JSON"
+   } >"$TMP" || {
+      rm -f "$TMP"
+      return 1
+   }
+   session_conf_replace "$CONF" "$TMP" || {
+      rm -f "$TMP"
+      return 1
+   }
+}
+
+# Publish a session only after its persistence mount is active.
+session_conf_commit() {
+   local CONF="$1" SESSION="$2" MODE="$3" VERSION="$4" EDITION="$5" UNION="$6" SIZE="$7"
+   local INPUT TMP
+
+   INPUT="$CONF"
+   [ -f "$INPUT" ] || INPUT=/dev/null
+   TMP="${CONF}.tmp.$$"
+   awk -v id="$SESSION" '
+      /^default=/ || /^running=/ { next }
+      index($0, "session_mode[" id "]=") == 1 { next }
+      index($0, "session_version[" id "]=") == 1 { next }
+      index($0, "session_edition[" id "]=") == 1 { next }
+      index($0, "session_union[" id "]=") == 1 { next }
+      index($0, "session_size[" id "]=") == 1 { next }
+      index($0, "session_state[" id "]=") == 1 { next }
+      { print }
+   ' "$INPUT" >"$TMP" || return 1
+
+   {
+      echo "default=$SESSION"
+      echo "running=$SESSION"
+      echo "session_mode[$SESSION]=$MODE"
+      [ -z "$VERSION" ] || echo "session_version[$SESSION]=$VERSION"
+      [ -z "$EDITION" ] || echo "session_edition[$SESSION]=$EDITION"
+      [ -z "$UNION" ] || echo "session_union[$SESSION]=$UNION"
+      [ "$MODE" != "dynfilefs" ] || [ -z "$SIZE" ] || [ "$SIZE" = "0" ] || echo "session_size[$SESSION]=$SIZE"
+      echo "session_state[$SESSION]=dirty"
+   } >>"$TMP" || return 1
+
+   session_conf_replace "$CONF" "$TMP" || {
+      rm -f "$TMP"
+      return 1
+   }
+
+   {
+      echo "CONF=$CONF"
+      echo "SESSION=$SESSION"
+   } >/minios-session-state || return 1
+   sync
+}
+
+# Mark a session clean only after its persistence mounts have disappeared.
+session_conf_mark_clean() {
+   local STATE CONF SESSION INPUT TMP
+
+   STATE="${1:-}"
+   if [ -z "$STATE" ]; then
+      for STATE in /minios-session-state /run/initramfs/minios-session-state; do
+         [ -f "$STATE" ] && break
+      done
+   fi
+   [ -f "$STATE" ] || return 0
+    CONF=$(sed -n 's/^CONF=//p' "$STATE")
+    SESSION=$(sed -n 's/^SESSION=//p' "$STATE")
+    if [ ! -f "$CONF" ] && [ -f "/run/initramfs$CONF" ]; then
+       CONF="/run/initramfs$CONF"
+    fi
+   [ -n "$CONF" ] && [ -n "$SESSION" ] && [ -f "$CONF" ] || return 1
+   grep -q '/memory/changes ' /proc/mounts 2>/dev/null && return 1
+
+   INPUT="$CONF"
+   TMP="${CONF}.tmp.$$"
+   awk -v id="$SESSION" '
+      /^running=/ { next }
+      index($0, "session_state[" id "]=") == 1 { next }
+      { print }
+   ' "$INPUT" >"$TMP" || return 1
+   echo "session_state[$SESSION]=clean" >>"$TMP" || return 1
+   session_conf_replace "$CONF" "$TMP" || {
+      rm -f "$TMP"
+      return 1
+   }
+   rm -f "$STATE"
+   sync
+}
+
 # Activate persistent changes
 # $1 = data directory
 # $2 = target changes directory
 #
 persistent_changes() {
    debug_log "persistent_changes" "$*"
-   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE ACTION PERCHSESSION CURRENT_SIZE
+   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE LASTMODE ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE LUKS_BACKUP_REQUIRED LUKS_SESSION_BACKUP LUKS_SESSION_JSON LUKS_SESSION_CONF
 
    DATA="$1"
    CHANGES="$2"
@@ -1511,9 +1676,9 @@ persistent_changes() {
       AVAILABLE_SPACE=$(df "$CHANDIR" | tail -n 1 | awk '{print $4}')
       AVAILABLE_SPACE=$((AVAILABLE_SPACE / 1024))
 
-      if [ "$PERCHMODE" = "raw" ] && [ -e "$CHANDIR/$PERCHFILE" ]; then
-         CURRENT_SIZE=$(du -m "$CHANDIR/$PERCHFILE" | awk '{print $1}')
-         AVAILABLE_SPACE=$((AVAILABLE_SPACE + CURRENT_SIZE))
+      if { [ "$PERCHMODE" = "raw" ] || [ "$PERCHMODE" = "luks" ]; } && [ -e "$CHANDIR/$PERCHFILE" ]; then
+         CURRENT_USAGE=$(du -m "$CHANDIR/$PERCHFILE" | awk '{print $1}')
+         AVAILABLE_SPACE=$((AVAILABLE_SPACE + CURRENT_USAGE))
       fi
 
       if [ "$PERCHSIZE" = "0" ] && [ ! -e "$CHANDIR/$PERCHFILE" ]; then
@@ -1526,7 +1691,10 @@ persistent_changes() {
          fi
       fi
 
-      MAX_SIZE=$((AVAILABLE_SPACE - 100))
+      # Keep a safety reserve free so creating or growing the container does not
+      # consume the last bytes of the device (see perch_reserve_mb).
+      MAX_SIZE=$((AVAILABLE_SPACE - $(perch_reserve_mb)))
+      [ "$MAX_SIZE" -lt 0 ] && MAX_SIZE=0
 
       # Limit maximum size to 1TB (1,000,000 MB)
       [ "$MAX_SIZE" -gt 1000000 ] && MAX_SIZE=1000000
@@ -1537,6 +1705,10 @@ persistent_changes() {
          PERCHSIZE=$MAX_SIZE
       fi
 
+      # Do not derive FS_TYPE in this shared helper. Fixed single-file callers
+      # that need the FAT32 limit set it before calling calculate_perch_size.
+      # DynFileFS deliberately leaves it unset: -p 4000 splits physical storage
+      # into FAT32-safe files while -s may expose a larger logical filesystem.
       if [ "$FS_TYPE" = "vfat" ] && [ "$PERCHSIZE" -gt 4000 ]; then
          echo "- persistent changes size ${PERCHSIZE}MB exceeds FAT32 limit, using 4000MB"
          PERCHSIZE=4000
@@ -1551,71 +1723,16 @@ persistent_changes() {
          EDITION=$(config_value "/etc/minios-release" EDITION)
       fi
       UNION=$(get_union_fs)
+      SESSIONS="$CHANDIR/session.conf"
 
-      if command -v jq >/dev/null 2>&1; then
-         SESSIONS="$CHANDIR/session.json"
-         [ ! -f "$SESSIONS" ] && echo '{"default": null, "sessions": {}}' >"$SESSIONS"
-
-         # Read existing size to preserve it if PERCHSIZE is not set
-         if [ "$PERCHMODE" = "dynfilefs" ]; then
-            EXISTING_SIZE=$(jq -r ".sessions[\"$PERCHDIR\"].size // empty" "$SESSIONS" 2>/dev/null)
-            if [ -z "$PERCHSIZE" ] || [ "$PERCHSIZE" = "0" ]; then
-               if [ -n "$EXISTING_SIZE" ] && [ "$EXISTING_SIZE" != "empty" ]; then
-                  PERCHSIZE="$EXISTING_SIZE"
-               fi
-            fi
-         fi
-
-         if [ "$PERCHMODE" = "dynfilefs" ]; then
-            jq --arg session "$PERCHDIR" \
-               --arg mode "$PERCHMODE" \
-               --arg version "$VERSION" \
-               --arg edition "$EDITION" \
-               --arg union "$UNION" \
-               --arg size "$PERCHSIZE" \
-               '.default = $session | .running = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition | .sessions[$session].union = $union | .sessions[$session].size = $size' \
-               "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
-         else
-            jq --arg session "$PERCHDIR" \
-               --arg mode "$PERCHMODE" \
-               --arg version "$VERSION" \
-               --arg edition "$EDITION" \
-               --arg union "$UNION" \
-               '.default = $session | .running = $session | .sessions[$session].mode = $mode | .sessions[$session].version = $version | .sessions[$session].edition = $edition | .sessions[$session].union = $union' \
-               "$SESSIONS" >"${SESSIONS}.tmp" && mv "${SESSIONS}.tmp" "$SESSIONS"
-         fi
-      else
-         SESSIONS="$CHANDIR/session.conf"
-         [ ! -f "$SESSIONS" ] && echo "default=\nsession_mode=" >"$SESSIONS"
-
-         # Read existing size to preserve it if PERCHSIZE is not set
-         if [ "$PERCHMODE" = "dynfilefs" ]; then
-            EXISTING_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" "$SESSIONS" 2>/dev/null)
-            if [ -z "$PERCHSIZE" ] || [ "$PERCHSIZE" = "0" ]; then
-               if [ -n "$EXISTING_SIZE" ]; then
-                  PERCHSIZE="$EXISTING_SIZE"
-               fi
-            fi
-         fi
-         sed -i \
-            -e "s/^default=.*/default=$PERCHDIR/" \
-            -e "/^running=.*/d" \
-            -e "/^session_mode\[$PERCHDIR\]=.*/d" \
-            -e "/^session_version\[$PERCHDIR\]=.*/d" \
-            -e "/^session_edition\[$PERCHDIR\]=.*/d" \
-            -e "/^session_union\[$PERCHDIR\]=.*/d" \
-            -e "/^session_size\[$PERCHDIR\]=.*/d" \
-            "$SESSIONS"
-         echo "running=$PERCHDIR" >>"$SESSIONS"
-         echo "session_mode[$PERCHDIR]=$PERCHMODE" >>"$SESSIONS"
-         echo "session_version[$PERCHDIR]=$VERSION" >>"$SESSIONS"
-         echo "session_edition[$PERCHDIR]=$EDITION" >>"$SESSIONS"
-         echo "session_union[$PERCHDIR]=$UNION" >>"$SESSIONS"
-
-         if [ "$PERCHMODE" = "dynfilefs" ]; then
-            echo "session_size[$PERCHDIR]=$PERCHSIZE" >>"$SESSIONS"
+      if [ "$PERCHMODE" = "dynfilefs" ]; then
+         EXISTING_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" "$SESSIONS" 2>/dev/null)
+         if { [ -z "$PERCHSIZE" ] || [ "$PERCHSIZE" = "0" ]; } && [ -n "$EXISTING_SIZE" ]; then
+            PERCHSIZE="$EXISTING_SIZE"
          fi
       fi
+
+      session_conf_commit "$SESSIONS" "$PERCHDIR" "$PERCHMODE" "$VERSION" "$EDITION" "$UNION" "$PERCHSIZE"
    }
 
    native_mode() {
@@ -1669,12 +1786,235 @@ persistent_changes() {
       update_session
    }
 
+   activate_luks_mode() {
+      local LOOP MAPPER PASSWORD CONFIRM ATTEMPT CURRENT_BYTES TARGET_BYTES TRACE_WAS_ENABLED NEW_CONTAINER="false" MAPPER_OPENED="false" CLEANUP_OK TTY_OPEN="false" LUKS_SECRET
+
+      luks_rollback_session() {
+         [ "$LUKS_BACKUP_REQUIRED" = "true" ] || return 0
+         if [ -n "$LUKS_SESSION_JSON" ]; then
+            cp "$LUKS_SESSION_BACKUP/json" "$LUKS_SESSION_JSON" 2>/dev/null || return 1
+         else
+            rm -f "$CHANDIR/session.json"
+         fi
+         if [ -n "$LUKS_SESSION_CONF" ]; then
+            cp "$LUKS_SESSION_BACKUP/conf" "$LUKS_SESSION_CONF" 2>/dev/null || return 1
+         else
+            rm -f "$CHANDIR/session.conf"
+         fi
+         rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
+      }
+
+      luks_cleanup() {
+         if [ "$TTY_OPEN" = "true" ]; then
+            stty echo <&3 2>/dev/null || true
+            exec 3>&-
+            TTY_OPEN="false"
+         fi
+         unset PASSWORD CONFIRM
+         CLEANUP_OK="true"
+         if [ "$MAPPER_OPENED" = "true" ] && ! cryptsetup close "$MAPPER" 2>/dev/null; then
+            CLEANUP_OK="false"
+         fi
+         if [ "$CLEANUP_OK" = "true" ] && [ -n "$LOOP" ] && ! losetup -d "$LOOP" 2>/dev/null; then
+            CLEANUP_OK="false"
+         fi
+         if [ "$CLEANUP_OK" = "true" ]; then
+            rm -rf /run/initramfs/minios-crypt
+            [ "$NEW_CONTAINER" = "true" ] && rm -f "$CHANDIR/$PERCHFILE"
+         fi
+         luks_rollback_session
+         [ -n "$TRACE_WAS_ENABLED" ] && set -x
+         return 1
+      }
+
+      read_luks_secret() {
+         local READ_STATUS
+         printf '%s' "$1" >&3 || return 1
+         stty -echo <&3 || return 1
+         IFS= read -r LUKS_SECRET <&3
+         READ_STATUS=$?
+         stty echo <&3 || return 1
+         printf '\n' >&3 || return 1
+         return "$READ_STATUS"
+      }
+
+      PERCHMODE="luks"
+      PERCHFILE="$PERCHDIR/changes.luks"
+      [ -e "$CHANDIR/$PERCHFILE" ] && PERCHFILE_EXISTS="true" || NEW_CONTAINER="true"
+      if { [ ! -f /etc/minios-initramfs-crypt ] && [ ! -f /run/initramfs/etc/minios-initramfs-crypt ]; } || ! command -v cryptsetup >/dev/null 2>&1 ||
+         ! command -v losetup >/dev/null 2>&1 || ! command -v dmsetup >/dev/null 2>&1; then
+         echo_red_star
+         echo "Encrypted persistence is unavailable in this initramfs"
+         return 1
+      fi
+      modprobe dm-crypt 2>/dev/null
+      FS_TYPE="$(device_bestfs "$DRIVE")"
+      calculate_perch_size
+      mkdir -p /run/initramfs/minios-crypt || {
+         luks_rollback_session
+         return 1
+      }
+      LOOP="$(losetup --find --show "$CHANDIR/$PERCHFILE" 2>/dev/null)"
+      if [ -z "$LOOP" ]; then
+         if [ -z "$PERCHFILE_EXISTS" ]; then
+            # Match raw mode: perchsize is expressed in MiB via truncate's M suffix.
+            truncate -s "${PERCHSIZE}M" "$CHANDIR/$PERCHFILE" || {
+               luks_cleanup
+               return 1
+            }
+            LOOP="$(losetup --find --show "$CHANDIR/$PERCHFILE" 2>/dev/null)"
+         fi
+      fi
+      [ -n "$LOOP" ] || {
+         luks_cleanup
+         return 1
+      }
+      echo "$LOOP" >/run/initramfs/minios-crypt/loop || {
+         luks_cleanup
+         return 1
+      }
+      MAPPER="minios-perch-$PERCHDIR"
+
+      # debug= enables xtrace; never let it expand a password into the log.
+      case "$-" in *x*)
+         TRACE_WAS_ENABLED=1
+         set +x
+         ;;
+      esac
+      exec 3<>/dev/tty1 || {
+         luks_cleanup
+         return 1
+      }
+      TTY_OPEN="true"
+
+      if [ -z "$PERCHFILE_EXISTS" ]; then
+         read_luks_secret "Create encryption password: " || {
+            luks_cleanup
+            return 1
+         }
+         PASSWORD="$LUKS_SECRET"
+         unset LUKS_SECRET
+         read_luks_secret "Confirm encryption password: " || {
+            luks_cleanup
+            return 1
+         }
+         CONFIRM="$LUKS_SECRET"
+         unset LUKS_SECRET
+         if [ -z "$PASSWORD" ] || [ "$PASSWORD" != "$CONFIRM" ]; then
+            echo "Encryption passwords did not match"
+            luks_cleanup
+            return 1
+         fi
+         printf '%s' "$PASSWORD" | cryptsetup luksFormat --type luks2 --batch-mode --key-file - "$LOOP" || {
+            luks_cleanup
+            return 1
+         }
+         printf '%s' "$PASSWORD" | cryptsetup open --key-file - "$LOOP" "$MAPPER" || {
+            luks_cleanup
+            return 1
+         }
+         MAPPER_OPENED="true"
+         unset PASSWORD CONFIRM
+      else
+         ATTEMPT=1
+         while [ "$ATTEMPT" -le 3 ]; do
+            read_luks_secret "Unlock encrypted persistent changes (attempt $ATTEMPT/3): " || {
+               luks_cleanup
+               return 1
+            }
+            PASSWORD="$LUKS_SECRET"
+            unset LUKS_SECRET
+            if printf '%s' "$PASSWORD" | cryptsetup open --key-file - "$LOOP" "$MAPPER"; then
+               MAPPER_OPENED="true"
+               break
+            fi
+            unset PASSWORD
+            ATTEMPT=$((ATTEMPT + 1))
+         done
+      fi
+      [ -b "/dev/mapper/$MAPPER" ] || {
+         luks_cleanup
+         return 1
+      }
+      echo "$MAPPER" >/run/initramfs/minios-crypt/mapper || {
+         luks_cleanup
+         return 1
+      }
+      stty echo <&3 || {
+         luks_cleanup
+         return 1
+      }
+      exec 3>&-
+      TTY_OPEN="false"
+      if [ -z "$PERCHFILE_EXISTS" ]; then
+         [ -n "$TRACE_WAS_ENABLED" ] && set -x
+         mke2fs -t ext4 -F "/dev/mapper/$MAPPER" >/dev/null 2>&1 || {
+            luks_cleanup
+            return 1
+         }
+      else
+         # Authentication must succeed before an existing container is grown.
+         CURRENT_BYTES=$(stat -c %s "$CHANDIR/$PERCHFILE") || {
+            luks_cleanup
+            return 1
+         }
+         TARGET_BYTES=$((PERCHSIZE * 1048576))
+         if [ "$PERCHSIZE" -gt 0 ] && [ "$TARGET_BYTES" -gt "$CURRENT_BYTES" ]; then
+            truncate -s "${PERCHSIZE}M" "$CHANDIR/$PERCHFILE" || {
+               luks_cleanup
+               return 1
+            }
+            losetup -c "$LOOP" || {
+               luks_cleanup
+               return 1
+            }
+         fi
+         printf '%s' "$PASSWORD" | cryptsetup resize --key-file - "$MAPPER" >/dev/null 2>&1 || {
+            luks_cleanup
+            return 1
+         }
+         unset PASSWORD
+         [ -n "$TRACE_WAS_ENABLED" ] && set -x
+         e2fsck -f -p "/dev/mapper/$MAPPER" >/dev/null 2>&1
+         # e2fsck status 1 means it corrected errors; statuses above 1 are failures.
+         [ "$?" -le 1 ] || {
+            luks_cleanup
+            return 1
+         }
+         resize2fs -f "/dev/mapper/$MAPPER" >/dev/null 2>&1 || {
+            luks_cleanup
+            return 1
+         }
+      fi
+      mount "/dev/mapper/$MAPPER" "$CHANGES" || {
+         luks_cleanup
+         return 1
+      }
+      update_session || {
+         luks_cleanup
+         return 1
+      }
+      rm -rf "$LUKS_SESSION_BACKUP"
+   }
+
+   luks_mode() {
+      if ! activate_luks_mode; then
+         echo_yellow_star >&2
+         echo "Session #$PERCHDIR: Encrypted persistence unavailable." >&2
+         echo "Continuing in memory; no unencrypted persistence will be created." >&2
+         umount "$CHANGES" 2>/dev/null || true
+         close_owned_crypt 2>/dev/null || true
+         luks_rollback_session
+         rm -rf "$LUKS_SESSION_BACKUP"
+      fi
+   }
+
    # Setup the directory anyway, it will be used in all cases
    mkdir -p "$CHANGES"
 
    # If persistent changes are not requested, end here,
    # so memory will be used to save changes temporarily
-   if grep -vq perch /proc/cmdline; then
+   if ! persistence_requested; then
       return
    fi
 
@@ -1694,10 +2034,60 @@ persistent_changes() {
       return
    fi
 
-   PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE")
+   # Warn before problems start: a nearly full persistence device is the most
+   # common cause of a mid-session freeze and of containers that cannot be
+   # unmounted cleanly afterwards.
+   perch_space_warn "$CHANDIR" || true
+
+   # A LUKS setup failure must not publish the session selected above. Avoid
+   # backup I/O when the existing non-LUKS path cannot select a LUKS session.
+   LUKS_BACKUP_REQUIRED="false"
+   if [ "$PERCHMODE" = "luks" ] || [ "$ACTION" = "ask" ]; then
+      LUKS_BACKUP_REQUIRED="true"
+   elif [ -z "$PERCHMODE" ] && [ "$ACTION" = "resume" ]; then
+      if command -v jq >/dev/null 2>&1 && [ -f "$CHANDIR/session.json" ]; then
+         LASTSESSION=$(jq -r '.default // empty' "$CHANDIR/session.json")
+         LASTMODE=$(jq -r ".sessions[\"$LASTSESSION\"].mode // empty" "$CHANDIR/session.json")
+      elif [ -f "$CHANDIR/session.conf" ]; then
+         LASTSESSION=$(sed -n 's/^default=//p' "$CHANDIR/session.conf")
+         LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$CHANDIR/session.conf")
+      fi
+      [ "$LASTMODE" = "luks" ] && LUKS_BACKUP_REQUIRED="true"
+   fi
+
+   LUKS_SESSION_BACKUP="/tmp/minios-luks-session-$$"
+   LUKS_SESSION_JSON="$CHANDIR/session.json"
+   LUKS_SESSION_CONF="$CHANDIR/session.conf"
+   if [ "$LUKS_BACKUP_REQUIRED" = "true" ]; then
+      mkdir -p "$LUKS_SESSION_BACKUP" || return
+      if [ -f "$LUKS_SESSION_JSON" ]; then
+         cp "$LUKS_SESSION_JSON" "$LUKS_SESSION_BACKUP/json" || {
+            rm -rf "$LUKS_SESSION_BACKUP"
+            return
+         }
+      else
+         LUKS_SESSION_JSON=""
+      fi
+      if [ -f "$LUKS_SESSION_CONF" ]; then
+         cp "$LUKS_SESSION_CONF" "$LUKS_SESSION_BACKUP/conf" || {
+            rm -rf "$LUKS_SESSION_BACKUP"
+            return
+         }
+      else
+         LUKS_SESSION_CONF=""
+      fi
+   fi
+   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE"); then
+      rm -rf "$LUKS_SESSION_BACKUP"
+      echo_yellow_star
+      echo "Persistent changes could not select a usable session; continuing in memory"
+      return 0
+   fi
 
    PERCHDIR=$(echo "$PERCHSESSION" | awk '{print $1}')
    : "${PERCHMODE:=$(echo "$PERCHSESSION" | awk '{print $2}')}"
+
+   [ "$PERCHMODE" = "luks" ] || rm -rf "$LUKS_SESSION_BACKUP"
 
    if [ -z "$PERCHMODE" ]; then
       native_mode
@@ -1706,6 +2096,7 @@ persistent_changes() {
       "native") native_mode ;;
       "dynfilefs") dynfilefs_mode ;;
       "raw") raw_mode ;;
+      "luks") luks_mode ;;
       *)
          echo_yellow_star
          echo "Unknown type of persistent changes specified, falling back to native"
@@ -2016,9 +2407,13 @@ fstab_create() {
    local UNION_TYPE INIT_TARGET
 
    FSTAB="$1/etc/fstab"
-   UNION_TYPE=$(get_union_fs)
    INIT_TARGET="$(readlink "$1/sbin/init" 2>/dev/null || readlink "$1/usr/sbin/init" 2>/dev/null || true)"
-   echo ${UNION_TYPE} / ${UNION_TYPE} defaults 0 0 >$FSTAB
+   UNION_TYPE=$(get_union_fs)
+   if [ "$UNION_TYPE" = "overlayfs" ]; then
+      echo overlay / overlay defaults 0 0 >$FSTAB
+   else
+      echo ${UNION_TYPE} / ${UNION_TYPE} defaults 0 0 >$FSTAB
+   fi
    echo proc /proc proc defaults 0 0 >>$FSTAB
    echo sysfs /sys sysfs defaults 0 0 >>$FSTAB
    echo devpts /dev/pts devpts gid=5,mode=620 0 0 >>$FSTAB
@@ -2026,9 +2421,9 @@ fstab_create() {
       echo tmpfs /dev/shm tmpfs defaults 0 0 >>$FSTAB
    else
       mkdir -p "$1/run/shm"
+      mkdir -p "$1/var/log/fsck"
+      touch "$1/var/log/fsck/checkfs" "$1/var/log/fsck/checkroot"
    fi
-   mkdir -p "$1/var/log/fsck"
-   touch "$1/var/log/fsck/checkfs" "$1/var/log/fsck/checkroot"
 
    if grep -vq automount /proc/cmdline; then
       return
@@ -2285,6 +2680,7 @@ change_root() {
    local UNION_TYPE INIT_TARGET
 
    INIT_TARGET="$(readlink "$1/sbin/init" 2>/dev/null || readlink "$1/usr/sbin/init" 2>/dev/null || true)"
+   UNION_TYPE=$(get_union_fs)
 
    # if we are booting over httpfs, we need to copyup some files so they are
    # accessible on union without any further lookup down, else httpfs locks
@@ -2327,7 +2723,6 @@ change_root() {
    mount -t tmpfs tmpfs run
    mkdir -p tmp
    mount -t tmpfs tmpfs tmp
-   UNION_TYPE=$(get_union_fs)
    if ! echo "$INIT_TARGET" | grep -q systemd; then
       mount -n -o move /proc proc 2>/dev/null || mount -t proc proc proc
       mount -n -o move /sys sys 2>/dev/null || mount -t sysfs sysfs sys

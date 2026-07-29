@@ -4,7 +4,7 @@
 # Purpose of this script is to unmount everything cleanly.
 #
 # Author: Tomas M <http://www.linux-live.org/>
-#
+# Author: crims0n <crims0n@minios.dev>
 
 LIVEKITNAME="minios"
 BEXT="sb"
@@ -20,15 +20,19 @@ debug_log "Called with arguments: " "$*"
 debug_shell
 
 detach_free_loops() {
-   losetup -a | cut -d : -f 1 | xargs -r -n 1 losetup -d
+    OWNED_LOOP=""
+    [ -f /run/initramfs/minios-crypt/loop ] && OWNED_LOOP=$(cat /run/initramfs/minios-crypt/loop)
+    losetup -a | cut -d : -f 1 | while read LOOP; do
+       [ "$LOOP" = "$OWNED_LOOP" ] || losetup -d "$LOOP" 2>/dev/null
+    done
 }
 
 # $1=dir
 umount_all() {
-   tac /proc/mounts | cut -d " " -f 2 | grep ^$1 | while read LINE; do
-      umount $LINE 2>/dev/null
-      detach_free_loops
-   done
+    tac /proc/mounts | cut -d " " -f 2 | grep ^$1 | while read LINE; do
+       umount $LINE 2>/dev/null
+       detach_free_loops
+    done
 }
 
 # Update devs so we are aware of all active /dev/loop* files.
@@ -62,7 +66,10 @@ for i in 1 2 3 4; do
    done
 done
 
+umount_all /memory/changes
+session_conf_mark_clean || debug_log "Could not mark persistence session clean"
 umount_all /memory
+close_owned_crypt
 
 # eject cdrom device if we were running from it
 for i in $(cat /proc/sys/dev/cdrom/info | grep name); do

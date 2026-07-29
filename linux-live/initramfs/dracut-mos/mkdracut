@@ -12,6 +12,7 @@ Options:
   -o,  --output <OUTPUT FILE>            Output initramfs file path
   -n,  --network                         Enable network support
   -c,  --cloud                           Enable cloud support
+  --crypt                                Include encrypted persistence support
   -d,  --debug                           Enable debug mode
   -h,  --help                            Display this help message and exit
 
@@ -29,6 +30,7 @@ OUTPUT=""
 NETWORK="false"
 CLOUD="false"
 DEBUG="false"
+CRYPT="false"
 
 # Parse options
 while [[ $# -gt 0 ]]; do
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     -d | --debug)
         DEBUG="true"
+        shift
+        ;;
+    --crypt)
+        CRYPT="true"
         shift
         ;;
     -h | --help)
@@ -80,6 +86,20 @@ if ! command -v dracut >/dev/null 2>&1; then
     echo "E: dracut is not installed" >&2
     echo "   Install it with: apt-get install dracut-core" >&2
     exit 1
+fi
+
+if [ "$CRYPT" = "true" ]; then
+    for tool in cryptsetup dmsetup losetup; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "E: --crypt requires $tool on the build host" >&2
+            exit 1
+        fi
+    done
+    if ! compgen -G "/lib/modules/$KERNEL/kernel/drivers/md/dm-crypt.*" >/dev/null &&
+        ! grep -q '^CONFIG_DM_CRYPT=y$' "/boot/config-$KERNEL" 2>/dev/null; then
+        echo "E: --crypt requires dm-crypt support in kernel $KERNEL" >&2
+        exit 1
+    fi
 fi
 
 # Check if kernel modules exist
@@ -121,6 +141,7 @@ done
 # Export flags for use in installkernel()
 export MINIOS_CLOUD="$CLOUD"
 export MINIOS_NETWORK="$NETWORK"
+export MINIOS_CRYPT="$CRYPT"
 
 # Prepare dracut command
 DRACUT_CMD=(
@@ -150,6 +171,7 @@ echo "  Kernel: $KERNEL"
 echo "  Output: $OUTPUT"
 echo "  Network: $NETWORK"
 echo "  Cloud: $CLOUD"
+echo "  Crypt: $CRYPT"
 echo "  Debug: $DEBUG"
 echo
 
