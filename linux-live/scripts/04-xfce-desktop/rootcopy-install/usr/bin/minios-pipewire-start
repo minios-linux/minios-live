@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -eu
+
+for daemon in pipewire pipewire-pulse wireplumber; do
+    command -v "$daemon" >/dev/null 2>&1 || exit 0
+done
+
+uid=$(id -u)
+runtime_dir=${XDG_RUNTIME_DIR:-/run/user/$uid}
+
+[ -d "$runtime_dir" ] && [ -w "$runtime_dir" ] || exit 0
+export XDG_RUNTIME_DIR="$runtime_dir"
+
+# Debian's user socket handles this when systemd is present. Devuan needs an
+# explicit session startup, but must not launch a second PipeWire instance.
+[ ! -S "$runtime_dir/pipewire-0" ] || exit 0
+pgrep -u "$uid" -x pipewire >/dev/null 2>&1 && exit 0
+
+pipewire >"$runtime_dir/pipewire.log" 2>&1 &
+
+attempt=0
+while [ ! -S "$runtime_dir/pipewire-0" ] && [ "$attempt" -lt 20 ]; do
+    sleep 0.1
+    attempt=$((attempt + 1))
+done
+
+[ -S "$runtime_dir/pipewire-0" ] || exit 0
+
+pipewire-pulse >"$runtime_dir/pipewire-pulse.log" 2>&1 &
+wireplumber >"$runtime_dir/wireplumber.log" 2>&1 &
