@@ -85,9 +85,26 @@ exit 0
 EOF
 
     # Create empty mock commands for other tools
-    for cmd in apt-mark tput dpkg-query; do
+    for cmd in apt-mark tput; do
         echo -e '#!/bin/bash' >"${MOCK_BIN_DIR}/${cmd}"
     done
+    cat >"${MOCK_BIN_DIR}/dpkg-query" <<'EOF'
+#!/bin/bash
+package="${!#}"
+for pkg_info in ${TEST_INSTALLED_PACKAGES-}; do
+    pkg_name="${pkg_info%%:*}"
+    pkg_ver="${pkg_info#*:}"
+    if [ "$pkg_name" = "$package" ]; then
+        if [[ "$*" == *db:Status-Status* ]]; then
+            echo installed
+        else
+            echo "$pkg_ver"
+        fi
+        exit 0
+    fi
+done
+exit 1
+EOF
     chmod +x "${MOCK_BIN_DIR}"/*
 }
 
@@ -192,6 +209,7 @@ assert_not_installs() {
 
 # --- Test Case Implementations ---
 create_common_files() {
+    export TEST_INSTALLED_PACKAGES=""
     cat >"${TEST_DIR}/config.sh" <<EOF
 DISTRIBUTION="trixie"
 DESKTOP_ENVIRONMENT="xfce"
@@ -240,10 +258,40 @@ test_conjunction_and() {
     assert_installs "exfat-utils" "exfat-fuse"
 }
 
+test_check_only_alternative_fallback() {
+    create_common_files
+    export TEST_AVAILABLE_PACKAGES="missing:1.0 installed:2.0"
+    export TEST_INSTALLED_PACKAGES="installed:2.0"
+    echo "missing || installed" >"${TEST_DIR}/packages.list"
+    "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -C
+    ! grep -q 'not installed' "${TEST_DIR}/stderr.log"
+}
+
+test_check_only_mandatory_alternative_fallback() {
+    create_common_files
+    export TEST_AVAILABLE_PACKAGES="missing:1.0 installed:2.0"
+    export TEST_INSTALLED_PACKAGES="installed:2.0"
+    echo "!missing || installed" >"${TEST_DIR}/packages.list"
+    "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -C
+    ! grep -q 'Mandatory package' "${TEST_DIR}/stderr.log"
+}
+
+test_check_only_missing_alternatives() {
+    create_common_files
+    export TEST_AVAILABLE_PACKAGES="missing-one:1.0 missing-two:2.0"
+    export TEST_INSTALLED_PACKAGES=""
+    echo "missing-one || missing-two" >"${TEST_DIR}/packages.list"
+    if "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -C; then
+        echo "Check-only unexpectedly accepted missing alternatives." >&2
+        return 1
+    fi
+    grep -q 'sudo apt install missing-one missing-two' "${TEST_DIR}/stdout.log"
+}
+
 test_priority_queue() {
     create_common_files
     export TEST_AVAILABLE_PACKAGES="nano:1.0 htop:3.0"
-    echo "htop" >"${TEST_DIR}/packages.list"
+    printf '%s\n' nano htop >"${TEST_DIR}/packages.list"
     echo "nano" >"${TEST_DIR}/priority.list"
     "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -P "${TEST_DIR}/priority.list" -s -v
     local log_out="${TEST_DIR}/stdout.log"
@@ -255,6 +303,35 @@ test_priority_queue() {
         echo -e "\nAssertion failed: Priority queue order is incorrect." >&2
         return 1
     fi
+}
+
+test_priority_target_queue_order() {
+    create_common_files
+    export TEST_AVAILABLE_PACKAGES="priority-main:1 normal-main:1 priority-target:1 normal-target:1"
+    cat >"${TEST_DIR}/packages.list" <<EOF
+priority-main
+normal-main
+priority-target @bookworm
+normal-target @bookworm
+EOF
+    echo '^priority-' >"${TEST_DIR}/priority.list"
+    "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -P "${TEST_DIR}/priority.list" -s -v
+
+    local log_out="${TEST_DIR}/stdout.log"
+    local package expected actual
+    for package in priority-main priority-target normal-main normal-target; do
+        case "$package" in
+        priority-main) expected=1 ;;
+        priority-target) expected=2 ;;
+        normal-main) expected=3 ;;
+        normal-target) expected=4 ;;
+        esac
+        actual=$(grep "$package will be installed" "$log_out" -B1 | grep "Queue #" | sed 's/.*#\([0-9]*\):.*/\1/')
+        if [ "$actual" != "$expected" ]; then
+            echo "Expected $package in queue $expected, got ${actual:-none}." >&2
+            return 1
+        fi
+    done
 }
 
 test_queue_separator() {
@@ -456,7 +533,7 @@ test_complex_mandatory_package_reports_error() {
     fi
 }
 
-test_complex_priority_overrides_main_list_filter() {
+test_complex_priority_preserves_main_list_filter() {
     create_common_files
     export TEST_AVAILABLE_PACKAGES="htop:3.0 nano:1.0"
     echo "htop" >"${TEST_DIR}/priority.list"
@@ -465,7 +542,8 @@ htop -de=xfce
 nano +de=xfce
 EOF
     "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -P "${TEST_DIR}/priority.list" -s
-    assert_installs "htop" "nano"
+    assert_not_installs "htop"
+    assert_installs "nano"
 }
 
 test_complex_multiple_positive_filters_pass() {
@@ -517,7 +595,11 @@ main() {
     run_test "Simple package installation" test_simple_install
     run_test "Alternative operator (||)" test_alternative_or
     run_test "Conjunction operator (&&)" test_conjunction_and
+    run_test "Check-only accepts installed alternative" test_check_only_alternative_fallback
+    run_test "Check-only accepts installed mandatory alternative" test_check_only_mandatory_alternative_fallback
+    run_test "Check-only reports missing alternatives" test_check_only_missing_alternatives
     run_test "Priority queue (-P)" test_priority_queue
+    run_test "Priority target queue order" test_priority_target_queue_order
     run_test "Queue separator '---'" test_queue_separator
 
     echo
@@ -548,7 +630,7 @@ main() {
     run_test "Operator Precedence (&& and ||)" test_complex_and_or_precedence
     run_test "Combined Group and Simple Filters" test_complex_group_and_simple_filters
     run_test "Mandatory Package Failure Reports Error" test_complex_mandatory_package_reports_error
-    run_test "Priority List Overrides Main List Filters" test_complex_priority_overrides_main_list_filter
+    run_test "Priority List Preserves Main List Filters" test_complex_priority_preserves_main_list_filter
     run_test "Multiple Positive Filters of Different Types" test_complex_multiple_positive_filters_pass
 
     echo

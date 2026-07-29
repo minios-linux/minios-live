@@ -16,6 +16,7 @@
 #     -P, --priority-list PATH      (Optional) Path to a priority filter file.
 #                                   File contains regex patterns to match packages.
 #                                   Matched packages are moved to priority queue (preserving filters).
+#     -f, --force                   Force apt cache refresh even if pkgcache.bin exists.
 #     -s, --simulation              Enable simulation mode (no actual installation).
 #     -v, --verbose                 Enable verbose mode.
 #     -vv, --very-verbose           Enable very verbose mode.
@@ -26,6 +27,8 @@
 
 set -o pipefail
 set -u
+
+declare -gA FILTER_ENV_VARS=()
 
 #------------------------------------------------------------------------------
 # Console Colors and Message Printing Functions
@@ -65,7 +68,8 @@ run_with_spinner() {
         "$@"
     else
         # Create temporary log file for interactive output
-        local COMBINED_LOG="/tmp/condinapt_build_log_$$"
+        local COMBINED_LOG
+        COMBINED_LOG="$(mktemp /tmp/condinapt_build_log.XXXXXX)"
 
         # Run command with stdout and stderr redirected to log file
         "$@" >"${COMBINED_LOG}" 2>&1 &
@@ -210,14 +214,22 @@ run_with_spinner() {
         wait "${CMD_PID}"
         local EXIT_CODE=$?
 
-        rm -f "${COMBINED_LOG}"
-
-        # Move to the header line and show [done], clearing everything below
-        if [ "$SHOW_SPINNER_OUTPUT" = "true" ] && [ "$OUTPUT_LINES" -gt 0 ]; then
-            printf "\033[${OUTPUT_LINES}A\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)$(tput ed)\n" >&2
-        else
-            printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${GREEN}done${ENDCOLOR}]$(tput el)\n" >&2
+        # Move to the header line and show final status, clearing everything below
+        local STATUS_TEXT="${GREEN}done${ENDCOLOR}"
+        if [ "${EXIT_CODE}" -ne 0 ]; then
+            STATUS_TEXT="${RED}failed${ENDCOLOR}"
         fi
+        if [ "$SHOW_SPINNER_OUTPUT" = "true" ] && [ "$OUTPUT_LINES" -gt 0 ]; then
+            printf "\033[${OUTPUT_LINES}A\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${STATUS_TEXT}]$(tput el)$(tput ed)\n" >&2
+        else
+            printf "\r${BOLD}${CYAN}I:${ENDCOLOR} ${MSG} [${STATUS_TEXT}]$(tput el)\n" >&2
+        fi
+        if [ "${EXIT_CODE}" -ne 0 ]; then
+            error "Command failed. Last log lines from ${COMBINED_LOG}:"
+            tail -n 40 "${COMBINED_LOG}" >&2 || true
+        fi
+
+        rm -f "${COMBINED_LOG}"
 
         return $EXIT_CODE
     fi
@@ -250,6 +262,7 @@ help() {
     echo "  -P, --priority-list PATH      Path to a priority filter file (Optional)."
     echo "                                File contains regex patterns to match packages."
     echo "                                Matched packages are moved to priority queue (preserving filters)."
+    echo "  -f, --force                   Force apt cache refresh even if pkgcache.bin exists."
     echo "  -s, --simulation              Enable simulation mode (no actual installation)."
     echo "  -v, --verbose                 Enable verbose mode."
     echo "  -vv, --very-verbose           Enable very verbose mode."
@@ -461,7 +474,10 @@ process_condition() {
     check_package "${PACKAGE_NAME}" "${PACKAGE_VERSION}" "${STRICT_VERSION}"
     local CP_RC=${?}
     if [ ${CP_RC} -eq 0 ]; then
-        [ "${CHECK_ONLY}" = "true" ] && [ -z "${FILTER_MSG}" ] && error "${PACKAGE_NAME} not installed." && CHECK_FAILED=true
+        if [ "${CHECK_ONLY}" = "true" ]; then
+            MISSING_PACKAGES+=("${PACKAGE_NAME}")
+            return 4
+        fi
         [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "${PACKAGE_NAME} will be installed.${FILTER_MSG}"
         if [[ -n "${PACKAGE_VERSION}" ]]; then
             if [ "${FOUND_EXACT_VERSION}" = true ]; then
@@ -478,9 +494,7 @@ process_condition() {
         return 0
     else
         MISSING_PACKAGES+=("${PACKAGE_NAME}")
-        [ "${CHECK_ONLY}" = "true" ] && [ -z "${FILTER_MSG}" ] && error "${PACKAGE_NAME} not installed." && CHECK_FAILED=true
         [ "${CHECK_ONLY}" = "false" ] && [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "${PACKAGE_NAME} will not be installed.${FILTER_MSG}"
-        ${IS_MANDATORY} && error "Mandatory package ${PACKAGE_NAME} not found. Installation aborted."
         return 1
     fi
 }
@@ -505,8 +519,13 @@ process_package_conditions() {
 
     local ANY_ALTERNATIVE_SUCCESS=false
     local FATAL_FAILURE=false
+    local CHECK_RELEVANT_FAILURE=false
+    local -a FAILED_MISSING=()
 
     for ALTERNATIVE in "${ALTERNATIVES[@]}"; do
+        local INSTALL_SNAPSHOT=${#PACKAGES_TO_INSTALL[@]}
+        local HOLD_SNAPSHOT=${#PACKAGES_TO_HOLD[@]}
+        local MISSING_SNAPSHOT=${#MISSING_PACKAGES[@]}
         local -a CONDITIONS
         if [[ "${ALTERNATIVE}" == *"&&"* ]]; then
             IFS=$'\n' read -r -d '' -a CONDITIONS < <(echo "${ALTERNATIVE}" | awk -F '&&' '{for(i=1;i<=NF;i++) {gsub(/^[ \t]+|[ \t]+$/, "", $i); print $i}}') || true
@@ -530,14 +549,26 @@ process_package_conditions() {
             ANY_ALTERNATIVE_SUCCESS=true
             break
         else
+            local IDX
+            for ((IDX = MISSING_SNAPSHOT; IDX < ${#MISSING_PACKAGES[@]}; IDX++)); do
+                FAILED_MISSING+=("${MISSING_PACKAGES[$IDX]}")
+            done
+            PACKAGES_TO_INSTALL=("${PACKAGES_TO_INSTALL[@]:0:${INSTALL_SNAPSHOT}}")
+            PACKAGES_TO_HOLD=("${PACKAGES_TO_HOLD[@]:0:${HOLD_SNAPSHOT}}")
+            MISSING_PACKAGES=("${MISSING_PACKAGES[@]:0:${MISSING_SNAPSHOT}}")
             [ ${ALT_RC} -eq 1 ] && FATAL_FAILURE=true
+            [ ${ALT_RC} -ne 3 ] && CHECK_RELEVANT_FAILURE=true
         fi
     done
 
     if ${ANY_ALTERNATIVE_SUCCESS}; then
         return 0
+    elif [ "${CHECK_ONLY}" = "true" ] && ${CHECK_RELEVANT_FAILURE}; then
+        CHECK_FAILED=true
+        MISSING_PACKAGES+=("${FAILED_MISSING[@]}")
+        error "${PACKAGE_CONDITIONS} not installed."
     elif ${IS_MANDATORY} && ${FATAL_FAILURE}; then
-        error "Mandatory package cannot be installed. Installation aborted."
+        error "Mandatory package ${PACKAGE_CONDITIONS} not found. Installation aborted."
         [ "${SIMULATION_MODE}" = false ] && exit 1
     fi
     return 0
@@ -566,7 +597,7 @@ process_queue() {
         process_package_conditions "${PACKAGE_CONDITIONS}" "${VERBOSITY_LEVEL}"
     done
 
-    [ "${CHECK_ONLY}" = "true" ] && return
+    [ "${CHECK_ONLY}" = "true" ] && return 0
 
     if [ "${PREINSTALL_APT_CACHE}" = "true" ] && [ "${SIMULATION_MODE}" = false ]; then
         run_with_spinner "Refreshing package archive" \
@@ -582,7 +613,7 @@ process_queue() {
         else
             [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "No packages to install in Queue #${QUEUE_ID} (simulation mode)."
         fi
-        return
+        return 0
     fi
 
     if [ "${#PACKAGES_TO_INSTALL[@]}" -gt 0 ]; then
@@ -618,7 +649,7 @@ process_queue() {
             fi
         fi
 
-        if [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
+        if [ "${FATAL_FAILURE}" = false ] && [ "${#PACKAGES_TO_HOLD[@]}" -gt 0 ]; then
             for PKG in "${PACKAGES_TO_HOLD[@]}"; do
                 [ "${VERBOSITY_LEVEL}" -ge 1 ] && information "Holding package ${PKG}"
                 apt-mark hold "${PKG}"
@@ -688,7 +719,11 @@ check_package() {
     fi
 
     local INSTALLED_VERSION
-    INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}" 2>/dev/null || echo "")
+    if pkg_is_installed "${PACKAGE_NAME}"; then
+        INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "${PACKAGE_NAME}" 2>/dev/null || echo "")
+    else
+        INSTALLED_VERSION=""
+    fi
     if [ -n "${INSTALLED_VERSION}" ]; then
         if [ -z "${PACKAGE_VERSION}" ]; then
             local REPO_CANDIDATE
@@ -725,13 +760,17 @@ check_package() {
         fi
     done
     if [ -z "${PACKAGE_VERSION}" ]; then
-        if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
+        local APT_POLICY_OUTPUT
+        APT_POLICY_OUTPUT="$(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1 || true)"
+        if grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found' <<<"${APT_POLICY_OUTPUT}"; then
             return 1
         else
             return 0
         fi
     else
-        if echo $(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>&1) | grep -q "${PACKAGE_VERSION}"; then
+        local APT_MADISON_OUTPUT
+        APT_MADISON_OUTPUT="$(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>/dev/null || true)"
+        if awk -F'|' -v version="${PACKAGE_VERSION}" '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 == version) found=1 } END { exit found ? 0 : 1 }' <<<"${APT_MADISON_OUTPUT}"; then
             FOUND_EXACT_VERSION=true
             return 0
         else
@@ -740,7 +779,8 @@ check_package() {
                 return 1
             else
                 [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "Version ${PACKAGE_VERSION} of ${PACKAGE_NAME} not available. Installing available version."
-                if echo $(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1) | grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found'; then
+                APT_POLICY_OUTPUT="$(LANG=C apt-cache --quiet=0 policy "${PACKAGE_NAME}" 2>&1 || true)"
+                if grep -qE 'Candidate: \(none\)|Unable to locate package|No packages found' <<<"${APT_POLICY_OUTPUT}"; then
                     return 1
                 else
                     FOUND_EXACT_VERSION=false
@@ -768,6 +808,11 @@ check_filter() {
         VAR_NAME="${PREFIX}"
     fi
 
+    if [[ ! "${VAR_NAME}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        [ "${VERBOSITY_LEVEL}" -ge 1 ] && warning "Invalid filter variable name: ${VAR_NAME}"
+        return 1
+    fi
+
     # Check if the target variable is an array.
     local VAR_DECL
     VAR_DECL=$(declare -p "$VAR_NAME" 2>/dev/null || echo "")
@@ -782,7 +827,8 @@ check_filter() {
         done
         return 1
     else
-        if [ "${VALUE}" == "${!VAR_NAME}" ]; then
+        local ACTUAL_VALUE="${!VAR_NAME-}"
+        if [ "${VALUE}" == "${ACTUAL_VALUE}" ]; then
             return 0
         else
             return 1
@@ -888,6 +934,7 @@ install_packages() {
     PACKAGE_ARRAY=()
     PACKAGES_TO_INSTALL=()
     PACKAGES_TO_HOLD=()
+    MISSING_PACKAGES=()
 
     console_colors
 
@@ -1178,29 +1225,25 @@ install_packages() {
     fi
     # --- End Priority Queue Processing ---
 
-    # Create an array of queues; if a priority queue exists, it is inserted first.
-    ALL_QUEUES=()
-    if [ "${#PRIORITY_QUEUE[@]}" -gt 0 ]; then
-        ALL_QUEUES+=("$(printf "%s\n" "${PRIORITY_QUEUE[@]}")")
-    fi
-    ALL_QUEUES+=("${NORMAL_QUEUES[@]}")
-
     QUEUE_NUMBER=1
 
     # Process priority queue from main repos (without -t)
-    for QUEUE in "${ALL_QUEUES[@]}"; do
+    if [ "${#PRIORITY_QUEUE[@]}" -gt 0 ]; then
+        local QUEUE
+        QUEUE="$(printf "%s\n" "${PRIORITY_QUEUE[@]}")"
         if [[ -z "$(echo "${QUEUE}" | xargs)" ]]; then
-            continue
+            :
+        else
+            mapfile -t QUEUE_ARRAY < <(printf "%s\n" "${QUEUE}" | sed '/^$/d')
+            process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
+            if [ $? -ne 0 ]; then
+                return 1
+            fi
+            QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
         fi
-        mapfile -t QUEUE_ARRAY < <(printf "%s\n" "${QUEUE}" | sed '/^$/d')
-        process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
-        if [ $? -ne 0 ]; then
-            return 1
-        fi
-        QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
-    done
+    fi
 
-    # Process priority target queues (with -t release) - AFTER priority queue, BEFORE normal target queues
+    # Process priority target queues (with -t release) before normal queues.
     for TR in "${PRIORITY_TARGET_ORDER[@]}"; do
         local QUEUE_CONTENT="${PRIORITY_TARGET_QUEUES[${TR}]}"
         if [[ -z "$(echo "${QUEUE_CONTENT}" | xargs)" ]]; then
@@ -1208,6 +1251,19 @@ install_packages() {
         fi
         IFS=$'\n' read -r -d '' -a QUEUE_ARRAY < <(printf "%s\0" "${QUEUE_CONTENT}")
         process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "${TR}" "${QUEUE_ARRAY[@]}"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+        QUEUE_NUMBER=$((QUEUE_NUMBER + 1))
+    done
+
+    # Process normal queues from main repos (without -t)
+    for QUEUE in "${NORMAL_QUEUES[@]}"; do
+        if [[ -z "$(echo "${QUEUE}" | xargs)" ]]; then
+            continue
+        fi
+        mapfile -t QUEUE_ARRAY < <(printf "%s\n" "${QUEUE}" | sed '/^$/d')
+        process_queue "${QUEUE_NUMBER}" "${SIMULATION_MODE}" "" "${QUEUE_ARRAY[@]}"
         if [ $? -ne 0 ]; then
             return 1
         fi
