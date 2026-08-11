@@ -1946,6 +1946,27 @@ create_config_files() {
 
     DEFAULT_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0"
     DEBUG_SETTINGS="boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 debug net.ifnames=0 biosdevname=0"
+    SYSLINUX_SERIAL_SETTINGS=""
+    GRUB_TERMINAL_SETTINGS="terminal_output gfxterm"
+
+    if [ "${SERIAL_CONSOLE:-false}" = "true" ]; then
+        DEFAULT_SETTINGS="${DEFAULT_SETTINGS} console=tty0 console=ttyS0,115200n8"
+        DEBUG_SETTINGS="${DEBUG_SETTINGS} console=tty0 console=ttyS0,115200n8"
+        SYSLINUX_SERIAL_SETTINGS="SERIAL 0 115200 0"
+        GRUB_TERMINAL_SETTINGS="if [ \"\$grub_platform\" = \"pc\" ]; then
+    if [ \"\$lockdown\" != \"y\" ]; then
+        serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+        terminal_input console serial
+        terminal_output gfxterm serial
+    else
+        terminal_input console
+        terminal_output gfxterm
+    fi
+else
+    terminal_input console
+    terminal_output gfxterm
+fi"
+    fi
 
     BOOT_SETTINGS="quiet"
 
@@ -2003,6 +2024,7 @@ create_config_files() {
 
         # Create main language selection menu
         cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
+${SYSLINUX_SERIAL_SETTINGS}
 UI vesamenu.c32
 
 PROMPT 0
@@ -2159,6 +2181,7 @@ EOF
             # Generate configuration
             (
                 cat <<EOF
+${SYSLINUX_SERIAL_SETTINGS}
 FONT ${FONT_FILE}
 UI vesamenu.c32
 
@@ -2229,6 +2252,7 @@ EOF
         # For syslinux-grub mode, also create a minimalist config that loads GRUB as default
         if [ "${BOOTLOADER}" = "syslinux-grub" ]; then
             cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
+${SYSLINUX_SERIAL_SETTINGS}
 PROMPT 0
 TIMEOUT 1
 
@@ -2400,7 +2424,7 @@ else
     set color_highlight=black/white
 fi
 
-terminal_output gfxterm
+${GRUB_TERMINAL_SETTINGS}
 
 EOF
 
@@ -2505,7 +2529,7 @@ else
     fi
 fi
 
-terminal_output gfxterm
+${GRUB_TERMINAL_SETTINGS}
 
 menuentry "\$resume" --class resume {
     echo \$loading
@@ -2591,7 +2615,7 @@ else
     set color_highlight=black/white
 fi
 
-terminal_output gfxterm
+${GRUB_TERMINAL_SETTINGS}
 
 menuentry "Resume previous session" --class resume {
     echo \$message
@@ -2754,7 +2778,7 @@ remove_unused_grub_modules() {
         "iso9660.mod" "udf.mod" "fat.mod" "ext2.mod" "btrfs.mod" "ntfs.mod" "exfat.mod"
 
         # Partition support
-        "part_msdos.mod" "part_gpt.mod" "part_acorn.mod" "part_apple.mod" "part_bsd.mod"
+        "part_msdos.mod" "part_gpt.mod" "part_acorn.mod" "part_amiga.mod" "part_apple.mod" "part_bsd.mod" "part_dfly.mod"
         "part_dvh.mod" "part_plan.mod" "part_sun.mod" "part_sunpc.mod"
 
         # Search functionality
@@ -2771,7 +2795,7 @@ remove_unused_grub_modules() {
         "biosdisk.mod" "vbe.mod" "vga.mod"
 
         # Font and terminal
-        "font.mod" "terminal.mod" "gfxterm_background.mod" "gfxterm_menu.mod"
+        "font.mod" "terminal.mod" "serial.mod" "terminfo.mod" "acpi.mod" "gfxterm_background.mod" "gfxterm_menu.mod"
 
         # Utilities used in configs
         "loadenv.mod" "minicmd.mod" "cat.mod" "echo.mod" "ls.mod" "test.mod"
@@ -3107,7 +3131,7 @@ build_boot() {
             search search_fs_file search_fs_uuid search_label \
             normal boot linux chain configfile loopback \
             all_video gfxterm gfxmenu \
-            loadenv minicmd cat echo ls test true help probe font terminal \
+            loadenv minicmd cat echo ls test true help probe font terminal serial terminfo acpi \
             gettext regexp \
             play png
 
@@ -3123,7 +3147,7 @@ build_boot() {
             search search_fs_file search_fs_uuid search_label \
             normal boot linux chain configfile loopback \
             all_video gfxterm gfxmenu \
-            loadenv minicmd cat echo ls test true help probe font terminal \
+            loadenv minicmd cat echo ls test true help probe font terminal serial terminfo acpi \
             gettext regexp \
             play png
     fi
@@ -3152,18 +3176,6 @@ EOF
 
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/${ARCH}-efi/grub.cfg"
 # GRUB EFI bootstrap configuration
-
-insmod part_acorn
-insmod part_amiga
-insmod part_apple
-insmod part_bsd
-insmod part_dfly
-insmod part_dvh
-insmod part_gpt
-insmod part_msdos
-insmod part_plan
-insmod part_sun
-insmod part_sunpc
 
 search --file --set=root /.disk/info
 source /${LIVEKITNAME}/boot/grub/grub.cfg
