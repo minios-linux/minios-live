@@ -63,6 +63,21 @@ Below is the basic structure and purpose of each element inside the module direc
 
 * **postinstall**: Script executed after main installation and cleanup. Used for additional configurations (modifying configuration files and other actions where cleanup is not required).
 
+### Live User Groups
+
+The live user does not exist while a module is being built. If software in the
+module requires supplementary groups, do not create a boot service that guesses
+the user name or UID. Instead, install a `*.groups` declaration under:
+
+```text
+/usr/share/live/config/user-default-groups.d/
+```
+
+Group names may be separated by whitespace; blank lines and `#` comments are
+ignored. `minios-live-config` adds the live user to existing declared groups
+after user creation and reapplies declarations on later boots, so modules added
+to an existing persistent session are handled as well.
+
 ## Adding a Module to the Distribution
 
 Navigate to the folder of the required environment:
