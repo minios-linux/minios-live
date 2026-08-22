@@ -1,0 +1,245 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${SCRIPT_DIR}/efi-packages.conf"
+CACHE_DIR="${EFI_CACHE_DIR:?EFI_CACHE_DIR is required}"
+OUTPUT_DIR="${EFI_OUTPUT_DIR:?EFI_OUTPUT_DIR is required}"
+EFI_VENDOR="${EFI_VENDOR:?EFI_VENDOR is required}"
+KERNEL_SUITE="${EFI_KERNEL_SUITE:?EFI_KERNEL_SUITE is required}"
+TARGET_ROOT="${EFI_TARGET_ROOT:-/}"
+WORK="$(mktemp -d /tmp/minios-efi-acquire.XXXXXX)"
+STAGE="${WORK}/support"
+
+cleanup() {
+    rm -rf "${WORK}"
+}
+trap cleanup EXIT INT TERM HUP
+
+fail() {
+    printf 'E: %s\n' "$*" >&2
+    exit 1
+}
+
+json_escape() {
+    local VALUE="$1"
+    VALUE="${VALUE//\\/\\\\}"
+    VALUE="${VALUE//\"/\\\"}"
+    VALUE="${VALUE//$'\n'/\\n}"
+    printf '%s' "${VALUE}"
+}
+
+download_pinned() {
+    local URL="$1" EXPECTED="$2" TARGET="$3" ACTUAL
+    if [ -f "${CACHE_DIR}/${EXPECTED}.deb" ]; then
+        cp "${CACHE_DIR}/${EXPECTED}.deb" "${TARGET}"
+    else
+        curl -fsSL "${URL}" -o "${TARGET}"
+    fi
+    ACTUAL="$(sha256sum "${TARGET}" | cut -d' ' -f1)"
+    [ "${ACTUAL}" = "${EXPECTED}" ] || fail "Pinned EFI package hash mismatch: ${URL}"
+}
+
+verify_shim_vendor_ca() {
+    local SHIM="$1" CA="$2" SECTION="${WORK}/vendor-cert" CERT="${WORK}/vendor.der"
+    local COPY="${WORK}/shim-copy"
+    local CERT_SIZE EXPECTED ACTUAL
+    objcopy --dump-section .vendor_cert="${SECTION}" "${SHIM}" "${COPY}" 2>/dev/null || return 1
+    CERT_SIZE="$(od -An -tu4 -N4 "${SECTION}" | tr -d ' ')"
+    [[ "${CERT_SIZE}" =~ ^[0-9]+$ ]] && [ "${CERT_SIZE}" -gt 0 ] || return 1
+    dd if="${SECTION}" of="${CERT}" bs=1 skip=16 count="${CERT_SIZE}" status=none
+    EXPECTED="$(openssl x509 -in "${CA}" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')"
+    ACTUAL="$(openssl x509 -inform DER -in "${CERT}" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')"
+    [ "${EXPECTED}" = "${ACTUAL}" ]
+}
+
+verify_signed_pe() {
+    LC_ALL=C sbverify --list "$1" 2>&1 | grep -Eq '^signature [0-9]+$'
+}
+
+write_package_array() {
+    local DIRECTORY="$1" FIRST=true DEB
+    while IFS= read -r DEB; do
+        [ "${FIRST}" = true ] || printf ','
+        FIRST=false
+        printf '\n    {"name":"%s","version":"' "$(dpkg-deb -f "${DEB}" Package)"
+        json_escape "$(dpkg-deb -f "${DEB}" Version)"
+        printf '","architecture":"%s","source_archive_sha256":"%s"}' \
+            "$(dpkg-deb -f "${DEB}" Architecture)" "$(sha256sum "${DEB}" | cut -d' ' -f1)"
+    done < <(find "${DIRECTORY}" -maxdepth 1 -type f -name '*.deb' -print | sort)
+}
+
+cache_packages() {
+    local DIRECTORY="$1" DEB HASH
+    mkdir -p "${CACHE_DIR}"
+    while IFS= read -r DEB; do
+        HASH="$(sha256sum "${DEB}" | cut -d' ' -f1)"
+        [ -f "${CACHE_DIR}/${HASH}.deb" ] || cp "${DEB}" "${CACHE_DIR}/${HASH}.deb"
+    done < <(find "${DIRECTORY}" -maxdepth 1 -type f -name '*.deb' -print)
+}
+
+directory_tree_sha256() {
+    local DIRECTORY="$1"
+
+    (
+        LC_ALL=C
+        export LC_ALL
+        cd "${DIRECTORY}" || exit 1
+        find . -type f -print0 | sort -z | xargs -0 -r sha256sum | sha256sum | cut -d' ' -f1
+    )
+}
+
+grub_module_version() {
+    sed -n 's/^grub_package_version="\([^"]*\)"$/\1/p' "$1" | head -n 1
+}
+
+acquire_debian() {
+    local ARCHIVES="${WORK}/debian-archives" ROOT="${WORK}/debian-root"
+    local DEB SHIMX64 SHIMIA32 GRUBX64 GRUBIA32 MODULES_X64 MODULES_IA32
+    local MODULES_X64_HASH MODULES_IA32_HASH
+    local CA="${SCRIPT_DIR}/bootfiles/secure-boot/debian-secure-boot-ca.pem"
+
+    mkdir -p "${ARCHIVES}" "${ROOT}" "${STAGE}"
+    download_pinned "${DEBIAN_X64_SHIM_URL}" "${DEBIAN_X64_SHIM_SHA256}" "${ARCHIVES}/shim-amd64.deb"
+    download_pinned "${DEBIAN_IA32_SHIM_URL}" "${DEBIAN_IA32_SHIM_SHA256}" "${ARCHIVES}/shim-i386.deb"
+    download_pinned "${DEBIAN_X64_GRUB_URL}" "${DEBIAN_X64_GRUB_SHA256}" "${ARCHIVES}/grub-amd64.deb"
+    download_pinned "${DEBIAN_IA32_GRUB_URL}" "${DEBIAN_IA32_GRUB_SHA256}" "${ARCHIVES}/grub-i386.deb"
+    download_pinned "${DEBIAN_X64_GRUB_MODULES_URL}" "${DEBIAN_X64_GRUB_MODULES_SHA256}" \
+        "${ARCHIVES}/grub-amd64-bin.deb"
+    download_pinned "${DEBIAN_IA32_GRUB_MODULES_URL}" "${DEBIAN_IA32_GRUB_MODULES_SHA256}" \
+        "${ARCHIVES}/grub-i386-bin.deb"
+    while IFS= read -r DEB; do dpkg-deb -x "${DEB}" "${ROOT}"; done < <(find "${ARCHIVES}" -name '*.deb' -print)
+    SHIMX64="$(find "${ROOT}" -type f -name 'shimx64.efi.signed' -print -quit)"
+    SHIMIA32="$(find "${ROOT}" -type f -name 'shimia32.efi.signed' -print -quit)"
+    GRUBX64="$(find "${ROOT}" -type f -name 'grubx64.efi.signed' -print -quit)"
+    GRUBIA32="$(find "${ROOT}" -type f -name 'grubia32.efi.signed' -print -quit)"
+    MODULES_X64="${ROOT}/usr/lib/grub/x86_64-efi"
+    MODULES_IA32="${ROOT}/usr/lib/grub/i386-efi"
+    if [ -z "${SHIMX64}" ] || [ -z "${SHIMIA32}" ] || [ -z "${GRUBX64}" ] || \
+        [ -z "${GRUBIA32}" ] || [ ! -d "${MODULES_X64}" ] || [ ! -d "${MODULES_IA32}" ]; then
+        fail "Pinned Debian EFI package set is incomplete"
+    fi
+    [ "$(grub_module_version "${MODULES_X64}/modinfo.sh")" = "${DEBIAN_X64_GRUB_MODULES_VERSION}" ] || \
+        fail "Pinned Debian x64 GRUB modules version mismatch"
+    [ "$(grub_module_version "${MODULES_IA32}/modinfo.sh")" = "${DEBIAN_IA32_GRUB_MODULES_VERSION}" ] || \
+        fail "Pinned Debian IA32 GRUB modules version mismatch"
+    verify_shim_vendor_ca "${SHIMX64}" "${CA}" || fail "Debian x64 shim vendor CA mismatch"
+    verify_shim_vendor_ca "${SHIMIA32}" "${CA}" || fail "Debian IA32 shim vendor CA mismatch"
+    verify_signed_pe "${SHIMX64}" || fail "Debian x64 shim PE signature is missing"
+    verify_signed_pe "${SHIMIA32}" || fail "Debian IA32 shim PE signature is missing"
+    sbverify --cert "${CA}" "${GRUBX64}" >/dev/null 2>&1 || fail "Debian x64 GRUB signature is invalid"
+    sbverify --cert "${CA}" "${GRUBIA32}" >/dev/null 2>&1 || fail "Debian IA32 GRUB signature is invalid"
+    cp "${SHIMX64}" "${STAGE}/debian-bootx64.efi"
+    cp "${SHIMIA32}" "${STAGE}/debian-bootia32.efi"
+    cp "${GRUBX64}" "${STAGE}/debian-grubx64.efi"
+    cp "${GRUBIA32}" "${STAGE}/debian-grubia32.efi"
+    mkdir -p "${STAGE}/debian-grub"
+    cp -a "${MODULES_X64}" "${MODULES_IA32}" "${STAGE}/debian-grub/"
+    MODULES_X64_HASH="$(directory_tree_sha256 "${STAGE}/debian-grub/x86_64-efi")"
+    MODULES_IA32_HASH="$(directory_tree_sha256 "${STAGE}/debian-grub/i386-efi")"
+    {
+        printf '{\n  "format": 1,\n  "vendor": "debian",\n  "architectures": {'
+        printf '\n    "x64": {"suite":"%s","grub_version":"%s","modules_version":"%s","modules_sha256":"%s","compiled_prefix":"/EFI/debian"},' \
+            "${DEBIAN_X64_SUITE}" "${DEBIAN_X64_GRUB_VERSION}" \
+            "${DEBIAN_X64_GRUB_MODULES_VERSION}" "${MODULES_X64_HASH}"
+        printf '\n    "ia32": {"suite":"%s","grub_version":"%s","modules_version":"%s","modules_sha256":"%s","compiled_prefix":"/EFI/debian"}' \
+            "${DEBIAN_IA32_SUITE}" "${DEBIAN_IA32_GRUB_VERSION}" \
+            "${DEBIAN_IA32_GRUB_MODULES_VERSION}" "${MODULES_IA32_HASH}"
+        printf '\n  },\n  "packages": ['
+        write_package_array "${ARCHIVES}"
+        printf '\n  ],\n  "files": {'
+        printf '"debian-bootx64.efi":"%s",' "$(sha256sum "${STAGE}/debian-bootx64.efi" | cut -d' ' -f1)"
+        printf '"debian-grubx64.efi":"%s",' "$(sha256sum "${STAGE}/debian-grubx64.efi" | cut -d' ' -f1)"
+        printf '"debian-bootia32.efi":"%s",' "$(sha256sum "${STAGE}/debian-bootia32.efi" | cut -d' ' -f1)"
+        printf '"debian-grubia32.efi":"%s"}\n}\n' "$(sha256sum "${STAGE}/debian-grubia32.efi" | cut -d' ' -f1)"
+    } >"${STAGE}/debian-manifest.json"
+    cache_packages "${ARCHIVES}"
+}
+
+acquire_canonical() {
+    local ARCHIVES="${WORK}/canonical-archives" ROOT="${WORK}/canonical-root" APT_ROOT="${WORK}/apt"
+    local KEYRING="${TARGET_ROOT%/}/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+    local CA="${SCRIPT_DIR}/bootfiles/secure-boot/canonical-uefi-ca.pem"
+    local DEB SHIM GRUB MODULES MODULES_VERSION MODULES_HASH
+    local -a OPTIONS
+
+    [ "${EFI_VENDOR}" = ubuntu ] || return 0
+    [ -f "${KEYRING}" ] || fail "Ubuntu archive keyring is unavailable for Canonical EFI acquisition"
+    mkdir -p "${ARCHIVES}" "${ROOT}" "${APT_ROOT}/lists/partial" "${APT_ROOT}/cache/archives/partial"
+    {
+        printf 'deb [arch=amd64 signed-by=%s] https://archive.ubuntu.com/ubuntu %s main\n' "${KEYRING}" "${KERNEL_SUITE}"
+        printf 'deb [arch=amd64 signed-by=%s] https://archive.ubuntu.com/ubuntu %s-updates main\n' "${KEYRING}" "${KERNEL_SUITE}"
+        printf 'deb [arch=amd64 signed-by=%s] https://security.ubuntu.com/ubuntu %s-security main\n' "${KEYRING}" "${KERNEL_SUITE}"
+    } >"${APT_ROOT}/sources.list"
+    : >"${APT_ROOT}/status"
+    OPTIONS=(
+        -o "Dir::Etc::sourcelist=${APT_ROOT}/sources.list"
+        -o "Dir::Etc::sourceparts=-"
+        -o "Dir::State=${APT_ROOT}"
+        -o "Dir::State::status=${APT_ROOT}/status"
+        -o "Dir::Cache=${APT_ROOT}/cache"
+        -o "APT::Architecture=amd64"
+        -o "Acquire::Languages=none"
+    )
+    LC_ALL=C apt-get "${OPTIONS[@]}" update >/dev/null
+    (cd "${ARCHIVES}" && LC_ALL=C apt-get "${OPTIONS[@]}" download \
+        shim-signed:amd64 grub-efi-amd64-signed:amd64 grub-efi-amd64-bin:amd64)
+    while IFS= read -r DEB; do dpkg-deb -x "${DEB}" "${ROOT}"; done < <(find "${ARCHIVES}" -name '*.deb' -print)
+    SHIM="$(find "${ROOT}" -type f -name 'shimx64.efi.signed*' -print | sort | tail -n 1)"
+    GRUB="$(find "${ROOT}" -type f -name 'grubx64.efi.signed*' -print | sort | tail -n 1)"
+    MODULES="${ROOT}/usr/lib/grub/x86_64-efi"
+    if [ -z "${SHIM}" ] || [ -z "${GRUB}" ] || [ ! -d "${MODULES}" ]; then
+        fail "Canonical signed EFI package set is incomplete"
+    fi
+    MODULES_VERSION="$(grub_module_version "${MODULES}/modinfo.sh")"
+    strings "${GRUB}" | grep -Fq "${MODULES_VERSION}" || fail "Canonical signed GRUB and modules version mismatch"
+    verify_shim_vendor_ca "${SHIM}" "${CA}" || fail "Canonical shim vendor CA mismatch"
+    verify_signed_pe "${SHIM}" || fail "Canonical shim PE signature is missing"
+    sbverify --cert "${CA}" "${GRUB}" >/dev/null 2>&1 || fail "Canonical GRUB signature is invalid"
+    strings "${GRUB}" | grep -q '/EFI/ubuntu' || fail "Canonical GRUB compiled prefix mismatch"
+    cp "${SHIM}" "${STAGE}/canonical-bootx64.efi"
+    cp "${GRUB}" "${STAGE}/canonical-grubx64.efi"
+    mkdir -p "${STAGE}/canonical-grub"
+    cp -a "${MODULES}" "${STAGE}/canonical-grub/"
+    MODULES_HASH="$(directory_tree_sha256 "${STAGE}/canonical-grub/x86_64-efi")"
+    {
+        printf '{\n  "format": 1,\n  "vendor": "ubuntu",\n  "suite": "'
+        json_escape "${KERNEL_SUITE}"
+        printf '",\n  "compiled_prefix": "/EFI/ubuntu",'
+        printf '\n  "modules_version": "%s",\n  "modules_sha256": "%s",\n  "packages": [' \
+            "${MODULES_VERSION}" "${MODULES_HASH}"
+        write_package_array "${ARCHIVES}"
+        printf '\n  ],\n  "files": {'
+        printf '"canonical-bootx64.efi":"%s",' "$(sha256sum "${STAGE}/canonical-bootx64.efi" | cut -d' ' -f1)"
+        printf '"canonical-grubx64.efi":"%s"}\n}\n' "$(sha256sum "${STAGE}/canonical-grubx64.efi" | cut -d' ' -f1)"
+    } >"${STAGE}/canonical-manifest.json"
+    cache_packages "${ARCHIVES}"
+}
+
+main() {
+    local PUBLISH="${OUTPUT_DIR}.new.$$" OLD="${OUTPUT_DIR}.old.$$"
+
+    case "${EFI_VENDOR}" in debian | ubuntu) ;; *) fail "Unsupported EFI vendor: ${EFI_VENDOR}" ;; esac
+    for COMMAND in apt-get curl dpkg-deb find gpgv objcopy od openssl sbverify sha256sum; do
+        command -v "${COMMAND}" >/dev/null 2>&1 || fail "Required EFI acquisition command is unavailable: ${COMMAND}"
+    done
+    mkdir -p "${CACHE_DIR}" "${STAGE}"
+    acquire_debian
+    acquire_canonical
+    rm -rf -- "${PUBLISH}" "${OLD}"
+    mv "${STAGE}" "${PUBLISH}"
+    if [ -e "${OUTPUT_DIR}" ] || [ -L "${OUTPUT_DIR}" ]; then
+        mv -T "${OUTPUT_DIR}" "${OLD}"
+    fi
+    if mv -T "${PUBLISH}" "${OUTPUT_DIR}"; then
+        rm -rf -- "${OLD}"
+    else
+        [ ! -e "${OLD}" ] || mv -T "${OLD}" "${OUTPUT_DIR}"
+        fail "Failed to publish acquired EFI support"
+    fi
+}
+
+main "$@"
