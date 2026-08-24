@@ -53,6 +53,8 @@ minios-session-manager -pv=minimum
 minios-kernel-manager -pv=minimum
 minios-store -pv=minimum
 minios-store-gui -pv=minimum
+minios-image-builder -pv=minimum
+minios-module-manager -pv=minimum
 driveutility -pv=minimum && python3-zstandard -pv=minimum -d=bionic
 pavucontrol -pv=minimum
 pulseaudio -pv=minimum -d=trixie -d=excalibur -d=noble -d=resolute
@@ -76,6 +78,7 @@ xfce4-screenshooter -pv=minimum
 xfce4-taskmanager -pv=minimum
 xfce4-terminal -pv=minimum
 xfce4-whiskermenu-plugin -pv=minimum
+xfce4-notifyd -pv=minimum
 
 # ========================================
 # == Toolbox Edition (and above)        ==
@@ -86,7 +89,6 @@ open-vm-tools-desktop +pv=toolbox +pv=ultra
 virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=excalibur +d=sid
 qt5-gtk2-platformtheme +pv=toolbox +pv=ultra
 qt6-gtk-platformtheme +pv=toolbox +pv=ultra && qt5-gtk-platformtheme +pv=toolbox +pv=ultra
-xfce4-notifyd +pv=toolbox +pv=ultra
 pulseaudio-module-xrdp -d=trixie -d=excalibur +pv=toolbox +pv=ultra
 pipewire-module-xrdp +d=trixie +d=excalibur +pv=toolbox +pv=ultra
 
