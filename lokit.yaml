@@ -109,6 +109,21 @@ targets:
       - po4a.cfg
     languages: [de, es, fr, id, it, pt, pt_BR, ru]
 
+  # --- submodule: minios-help ---
+
+  - name: minios-help
+    format: gettext
+    root: submodules/minios-help
+    template: po/messages.pot
+    to: po/{lang}.po
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
+
+  - name: minios-help-desktop
+    format: desktop
+    root: submodules/minios-help
+    to: share/applications/dev.minios.Help.desktop
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
+
   # --- submodule: minios-image-builder ---
 
   - name: minios-image-builder
