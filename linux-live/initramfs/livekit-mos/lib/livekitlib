@@ -154,14 +154,10 @@ log() {
 
 # Only resources recorded here were created for the LUKS persistence container.
 close_owned_crypt() {
-   local MAPPER LOOP STATUS=0 STATE="${1:-/run/initramfs/minios-crypt}"
+   local MAPPER STATUS=0 STATE="${1:-/run/initramfs/minios-crypt}"
    [ -d "$STATE" ] || return 0
    [ -f "$STATE/mapper" ] && MAPPER=$(cat "$STATE/mapper")
    if [ -n "$MAPPER" ] && [ -b "/dev/mapper/$MAPPER" ] && ! cryptsetup close "$MAPPER" 2>/dev/null; then
-      STATUS=1
-   fi
-   [ -f "$STATE/loop" ] && LOOP=$(cat "$STATE/loop")
-   if [ "$STATUS" -eq 0 ] && [ -n "$LOOP" ] && ! losetup -d "$LOOP" 2>/dev/null; then
       STATUS=1
    fi
    [ "$STATUS" -ne 0 ] || rm -rf "$STATE"
@@ -208,6 +204,45 @@ fatal() {
 #
 cmdline_value() {
    cat /proc/cmdline | egrep -o "(^|[[:space:]])$1=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
+}
+
+boot_console_mirror_start() {
+   local CMDLINE TTY0 TTYS0
+   CMDLINE="${MINIOS_BOOT_CMDLINE:-$(cat /proc/cmdline 2>/dev/null)}"
+   TTY0="${MINIOS_CONSOLE_TTY0:-/dev/tty0}"
+   TTYS0="${MINIOS_CONSOLE_TTYS0:-/dev/ttyS0}"
+
+   case " $CMDLINE " in
+   *" console=tty0 "*) ;;
+   *) return 0 ;;
+   esac
+   case " $CMDLINE " in
+   *" console=ttyS0,"*) ;;
+   *) return 0 ;;
+   esac
+
+   command -v tee >/dev/null 2>&1 || return 0
+   [ -c "$TTY0" ] && [ -c "$TTYS0" ] || return 0
+
+   BOOT_CONSOLE_MIRROR_FIFO="${MINIOS_CONSOLE_FIFO:-/dev/.minios-console-log}"
+   rm -f "$BOOT_CONSOLE_MIRROR_FIFO"
+   mkfifo "$BOOT_CONSOLE_MIRROR_FIFO" || return 0
+
+   exec 7>&1 8>&2
+   tee "$TTY0" "$TTYS0" <"$BOOT_CONSOLE_MIRROR_FIFO" >/dev/null 7>&- 8>&- &
+   BOOT_CONSOLE_MIRROR_PID=$!
+   exec >"$BOOT_CONSOLE_MIRROR_FIFO" 2>&1
+}
+
+boot_console_mirror_stop() {
+   [ -n "$BOOT_CONSOLE_MIRROR_PID" ] || return 0
+
+   exec 1>&7 2>&8
+   exec 7>&- 8>&-
+   wait "$BOOT_CONSOLE_MIRROR_PID"
+   rm -f "$BOOT_CONSOLE_MIRROR_FIFO"
+   BOOT_CONSOLE_MIRROR_PID=
+   BOOT_CONSOLE_MIRROR_FIFO=
 }
 
 # get value of config parameter $2
@@ -540,6 +575,14 @@ device_tag() {
    blkid -s $2 "$1" | sed -r "s/^[^=]+=//" | tr -d '"'
 }
 
+ntfs3_is_supported() {
+   local FILESYSTEMS="${MINIOS_PROC_FILESYSTEMS:-/proc/filesystems}"
+
+   grep -q '^[[:space:]]*ntfs3$' "$FILESYSTEMS" 2>/dev/null && return 0
+   modprobe ntfs3 2>/dev/null || return 1
+   grep -q '^[[:space:]]*ntfs3$' "$FILESYSTEMS" 2>/dev/null
+}
+
 # Make sure to mount FAT12/16/32 using vfat
 # in order to support long filenames
 # $1 = device
@@ -553,7 +596,7 @@ device_bestfs() {
    if [ "$FS" = "msdos" -o "$FS" = "fat" -o "$FS" = "vfat" ]; then
       FS="vfat"
    elif [ "$FS" = "ntfs" ]; then
-      if lsmod | grep -q ntfs; then
+      if ntfs3_is_supported; then
          FS="ntfs3"
       else
          FS="ntfs-3g"
@@ -567,17 +610,19 @@ device_bestfs() {
    echo "$FS"
 }
 
-# Filesystem options for initial mount
-# $1.. = filesystem
+# Filesystem mount options
+# $1 = filesystem
+# $2 = access mode (rw by default)
 #
 fs_options() {
    debug_log "fs_options" "$*"
+   local ACCESS="${2:-rw}"
 
    if [ "$1" != "ntfs-3g" ]; then
       echo -n "-t $1 "
    fi
 
-   echo -n "-o rw"
+   echo -n "-o $ACCESS"
 
    if [ "$1" = "vfat" ]; then
       echo ",umask=000,check=s,shortname=mixed,iocharset=utf8"
@@ -597,6 +642,29 @@ mount_command() {
    else
       echo "mount"
    fi
+}
+
+# Switch the selected data filesystem to writable mode after read-only probing.
+# If an in-place remount is unsupported (for example by a FUSE helper), retry a
+# clean writable mount and restore the read-only mount if that fails.
+# $1 = device
+# $2 = mount point
+# $3 = filesystem
+#
+data_mount_make_writable() {
+   debug_log "data_mount_make_writable" "$*"
+   local DRIVE="$1" TARGET="$2" FS="$3" MOUNT OPTIONS
+
+   mount -o remount,rw "$TARGET" 2>/dev/null && return 0
+
+   MOUNT="$(mount_command "$FS")"
+   umount "$TARGET" 2>/dev/null || return 1
+   OPTIONS="$(fs_options "$FS" rw)"
+   $MOUNT "$DRIVE" "$TARGET" $OPTIONS 2>/dev/null && return 0
+
+   OPTIONS="$(fs_options "$FS" ro)"
+   $MOUNT "$DRIVE" "$TARGET" $OPTIONS 2>/dev/null || return 1
+   return 1
 }
 
 # echo first network device known at the moment of calling, eg. eth0
@@ -830,8 +898,8 @@ find_data_try() {
       fi
 
       FS="$(device_bestfs "$DRIVE")"
-      OPTIONS="$(fs_options $FS)"
-      MOUNT="$(mount_command $FS)"
+      OPTIONS="$(fs_options "$FS" ro)"
+      MOUNT="$(mount_command "$FS")"
 
       $MOUNT "$DRIVE" "$1" $OPTIONS 2>/dev/null
 
@@ -845,6 +913,7 @@ find_data_try() {
       # search for bundles in the mounted directory
       if [ "$(find "$1/$FROM" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
          # we found at least one bundle/module here
+         data_mount_make_writable "$DRIVE" "$1" "$FS" || true
          echo "$FROM" >/var/log/from.log
          echo "$1/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g"
          return
@@ -853,6 +922,7 @@ find_data_try() {
       # search for bundles in modules directory
       if [ "$(find "$1/$FROM/modules" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
          # we found at least one bundle/module here
+         data_mount_make_writable "$DRIVE" "$1" "$FS" || true
          echo "$1/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g"
          echo "$FROM" >/var/log/from.log
          return
@@ -1090,10 +1160,11 @@ mount_perch_drive() {
 # $3 = persistent changes directory within changes directory
 # $4 = action to perform (e.g., resume, new, ask)
 # $5 = session mode
+# $6 = automatic resume (true = create a new session when resume has nothing usable)
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION
+   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION AUTO_RESUME COMPAT_TITLE COMPAT_SYSTEM COMPAT_SESSION
 
    DRIVE="$1"
    CHANDIR="$2"
@@ -1101,6 +1172,7 @@ restore_perch_session() {
    REQUESTED_SESSION="$3"
    ACTION="$4"
    PERCHMODE="$5"
+   AUTO_RESUME="${6:-false}"
    NEW_SESSION="false"
 
    # Get current system's MiniOS version and edition
@@ -1124,15 +1196,16 @@ restore_perch_session() {
       fi
    fi
 
-   SESSIONS="$CHANDIR/session.conf"
-   if [ ! -f "$SESSIONS" ] && [ -f "$CHANDIR/session.json" ]; then
-      session_json_migrate "$CHANDIR/session.json" "$SESSIONS" || {
-         echo "Cannot migrate legacy persistence session metadata" >&2
-         return 1
-      }
-   fi
+   SESSIONS=$(session_metadata_select "$CHANDIR") || {
+      echo "Cannot read persistence session metadata" >&2
+      return 1
+   }
    if [ -f "$SESSIONS" ]; then
       LASTSESSION=$(sed -n 's/^default=//p' "$SESSIONS")
+      if [ -n "$LASTSESSION" ] && ! echo "$LASTSESSION" | grep -q '^[0-9][0-9]*$'; then
+         echo "Invalid persistence session ID: $LASTSESSION" >&2
+         return 1
+      fi
       LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTVERSION=$(sed -n "s/^session_version\[$LASTSESSION\]=//p" "$SESSIONS")
       LASTEDITION=$(sed -n "s/^session_edition\[$LASTSESSION\]=//p" "$SESSIONS")
@@ -1151,7 +1224,16 @@ restore_perch_session() {
    fi
 
    if [ "$ACTION" != "new" ] && [ -z "$LASTSESSION" ]; then
-      echo "No resumable persistence session was found" >&2
+      if [ "$ACTION" = "resume" ] && [ "$AUTO_RESUME" = "true" ]; then
+         ACTION="new"
+      else
+         echo "No resumable persistence session was found" >&2
+         return 1
+      fi
+   fi
+
+   if [ "$ACTION" = "new" ] && [ "$PERCHMODE" = "squashfs" ]; then
+      echo "SquashFS session creation is unavailable until save support is complete" >&2
       return 1
    fi
 
@@ -1259,37 +1341,59 @@ restore_perch_session() {
          done
       # Check for mode change
       elif [ -n "$PERCHMODE" ] && [ "$PERCHMODE" != "$LASTMODE" ]; then
-         echo_yellow_star >&2
-         echo "Session #$LASTSESSION: Persistence mode changed." >&2 >/dev/tty1
-         echo "($LASTMODE -> $PERCHMODE) Refusing automatic replacement." >&2 >/dev/tty1
-         return 1
+         if [ "$ACTION" = "resume" ] && [ "$AUTO_RESUME" = "true" ]; then
+            boot_warning_notify warning mode \
+               "Session #$LASTSESSION: persistence mode changed." \
+               "($LASTMODE -> $PERCHMODE) Creating a new session."
+            ACTION="new"
+         else
+            echo_yellow_star >&2
+            echo "Session #$LASTSESSION: Persistence mode changed." >&2 >/dev/tty1
+            echo "($LASTMODE -> $PERCHMODE) Refusing automatic replacement." >&2 >/dev/tty1
+            return 1
+         fi
       # Check for union filesystem mismatch first
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTUNION" ] && [ "$SYSTEM_UNION" != "$LASTUNION" ]; then
-         echo_yellow_star >&2
-         echo "Session #$LASTSESSION: Union FS mismatch detected." >&2 >/dev/tty1
-         echo "* System: $SYSTEM_UNION, Session: $LASTUNION" >&2 >/dev/tty1
-         echo "* Refusing automatic replacement." >&2 >/dev/tty1
-         return 1
+         if [ "$AUTO_RESUME" = "true" ]; then
+            boot_warning_notify warning persistence \
+               "Session #$LASTSESSION: union filesystem mismatch detected." \
+               "System: $SYSTEM_UNION, session: $LASTUNION. Creating a new session."
+            ACTION="new"
+         else
+            echo_yellow_star >&2
+            echo "Session #$LASTSESSION: Union FS mismatch detected." >&2 >/dev/tty1
+            echo "* System: $SYSTEM_UNION, Session: $LASTUNION" >&2 >/dev/tty1
+            echo "* Refusing automatic replacement." >&2 >/dev/tty1
+            return 1
+         fi
       # Check for version/edition mismatch
       elif [ "$ACTION" = "resume" ] && [ -n "$LASTVERSION" ] && { [ "$SYSTEM_VERSION" != "$LASTVERSION" ] || [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; }; then
          if [ "$SYSTEM_VERSION" != "$LASTVERSION" ] && [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; then
-            echo_yellow_star >&2
-            echo "Session #$LASTSESSION: OS version and edition mismatch." >&2 >/dev/tty1
-            echo "* System: $SYSTEM_VERSION/$SYSTEM_EDITION" >&2 >/dev/tty1
-            echo "* Session: $LASTVERSION/$LASTEDITION" >&2 >/dev/tty1
-            echo "* Creating new session." >&2 >/dev/tty1
+            COMPAT_TITLE="Session #$LASTSESSION: OS version and edition mismatch."
+            COMPAT_SYSTEM="System: $SYSTEM_VERSION/$SYSTEM_EDITION."
+            COMPAT_SESSION="Session: $LASTVERSION/$LASTEDITION."
          elif [ "$SYSTEM_VERSION" != "$LASTVERSION" ]; then
-            echo_yellow_star >&2
-            echo "Session #$LASTSESSION: OS version mismatch detected." >&2 >/dev/tty1
-            echo "* System: $SYSTEM_VERSION, Session: $LASTVERSION" >&2 >/dev/tty1
-            echo "* Creating new session." >&2 >/dev/tty1
-         elif [ "$SYSTEM_EDITION" != "$LASTEDITION" ]; then
-            echo_yellow_star >&2
-            echo "Session #$LASTSESSION: OS edition mismatch detected." >&2 >/dev/tty1
-            echo "* System: $SYSTEM_EDITION, Session: $LASTEDITION" >&2 >/dev/tty1
-            echo "* Creating new session." >&2 >/dev/tty1
+            COMPAT_TITLE="Session #$LASTSESSION: OS version mismatch detected."
+            COMPAT_SYSTEM="System: $SYSTEM_VERSION."
+            COMPAT_SESSION="Session: $LASTVERSION."
+         else
+            COMPAT_TITLE="Session #$LASTSESSION: OS edition mismatch detected."
+            COMPAT_SYSTEM="System: $SYSTEM_EDITION."
+            COMPAT_SESSION="Session: $LASTEDITION."
          fi
-         return 1
+         if [ "$AUTO_RESUME" = "true" ]; then
+            boot_warning_notify warning persistence \
+               "$COMPAT_TITLE" "$COMPAT_SYSTEM" "$COMPAT_SESSION" \
+               "Creating a new session."
+            ACTION="new"
+         else
+            echo_yellow_star >&2
+            echo "$COMPAT_TITLE" >&2 >/dev/tty1
+            echo "* $COMPAT_SYSTEM" >&2 >/dev/tty1
+            echo "* $COMPAT_SESSION" >&2 >/dev/tty1
+            echo "* Refusing automatic replacement." >&2 >/dev/tty1
+            return 1
+         fi
       elif [ "$ACTION" = "resume" ]; then
          PERCHDIR="$LASTSESSION"
          PERCHMODE="$LASTMODE"
@@ -1307,10 +1411,14 @@ restore_perch_session() {
    fi
 
    if [ "$ACTION" = "new" ]; then
-      NEW=$(ls -1 $CHANDIR | egrep '^[0-9]' | sed -r 's/[^0-9].*//' | sort | tail -n 1)
+      # Consider only strictly-numeric session directories, ordered numerically
+      # (not lexically, so 10 sorts after 9). Allocate strictly above the current
+      # maximum and create the directory exclusively so an existing session is
+      # never reused for a new candidate.
+      NEW=$(ls -1 "$CHANDIR" 2>/dev/null | grep -E '^[0-9]+$' | sort -n | tail -n 1)
       : "${NEW:=0}"
       NEW=$(($NEW + 1))
-      mkdir -p "$CHANDIR/$NEW" || return 1
+      mkdir "$CHANDIR/$NEW" || return 1
       PERCHDIR="$NEW"
       VERSION="$SYSTEM_VERSION"
       EDITION="$SYSTEM_EDITION"
@@ -1408,9 +1516,19 @@ manage_perch_partition() {
    echo "$PERCHPART"
 }
 
+cmdline_requests_persistence() {
+   local TOKEN
+   for TOKEN in $(cat "$MINIOS_CMDLINE_FILE" 2>/dev/null); do
+      case "$TOKEN" in
+      perch | perchdir=* | perchmode=* | perchsize=* | perchreserve=*) return 0 ;;
+      esac
+   done
+   return 1
+}
+
 persistence_requested() {
-   # Return success when persistence is requested; tests override this helper.
-   grep -q perch /proc/cmdline
+   # Known perch parameters enable persistence handling. resume remains best-effort.
+   cmdline_requests_persistence
 }
 
 # Free space in whole MB on the filesystem that holds $1.
@@ -1447,51 +1565,423 @@ perch_space_warn() {
    FREE=$(perch_free_mb "$DIR")
    RESERVE=$(perch_reserve_mb)
    if [ "$FREE" -le "$RESERVE" ]; then
-      echo_yellow_star >&2
-      echo "Warning: only ${FREE}MB free on the persistence device (reserve ${RESERVE}MB)." >&2
-      echo "Free up space, delete old sessions, or reduce session data to avoid a full-disk hang." >&2
+      boot_warning_notify warning space \
+         "Warning: only ${FREE}MB free on the persistence device (reserve ${RESERVE}MB)." \
+         "Free up space, delete old sessions, or reduce session data to avoid a full-disk hang."
       return 1
    fi
    return 0
 }
 
-# Install a complete session.conf replacement and retain the last valid copy.
-session_conf_replace() {
-   local CONF="$1" TMP="$2" BACKUP_TMP="${1}.bak.tmp.$$"
+# --- Boot warning capture and persistence runtime state (tmpfs only) ----------
+# These publish to a tmpfs area preserved across switch_root so the desktop
+# guard can surface any warning the user may have missed on the console (U1),
+# and record whether persistence activation succeeded. Nothing is written to the
+# persistent (monitored) filesystem.
 
-   if [ -f "$CONF" ]; then
-      cp -a "$CONF" "$BACKUP_TMP" || return 1
-      sync
-      mv -f "$BACKUP_TMP" "${CONF}.bak" || return 1
+# Locations overridable for tests.
+: "${MINIOS_PERSISTENCE_RUNDIR:=/run/initramfs/minios-persistence}"
+: "${MINIOS_SESSION_STATE_FILE:=/minios-session-state}"
+: "${MINIOS_BOOT_ID_FILE:=/proc/sys/kernel/random/boot_id}"
+: "${MINIOS_PROC_MOUNTS:=/proc/mounts}"
+: "${MINIOS_PROC_MOUNTINFO:=/proc/self/mountinfo}"
+: "${MINIOS_PROC_MEMINFO:=/proc/meminfo}"
+: "${MINIOS_UNSQUASHFS:=/bin/unsquashfs}"
+: "${MINIOS_CMDLINE_FILE:=/proc/cmdline}"
+: "${MINIOS_SYS_CLASS_BLOCK:=/sys/class/block}"
+: "${MINIOS_DEV_ROOT:=/dev}"
+: "${MINIOS_SYS_FS_AUFS:=/sys/fs/aufs}"
+: "${MINIOS_LIVEKIT_STATE_STAGE:=/minios-persistence}"
+
+# Append one structured boot-warning record. Console output is left to the
+# caller (or boot_warning_notify) so existing messages are unchanged.
+# $1 severity (warning|error)  $2 category (persistence|mode|space|fsck|other)
+# $3.. message
+boot_warning_log() {
+   local SEVERITY="$1" CATEGORY="$2" MSG BOOTID TS
+   shift 2
+   MSG="$*"
+   mkdir -p "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null || return 0
+   BOOTID=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null) || BOOTID="unknown"
+   TS=$(cut -d' ' -f1 /proc/uptime 2>/dev/null) || TS="0"
+   printf '%s\t%s\t%s\t%s\t%s\n' "$BOOTID" "$TS" "$SEVERITY" "$CATEGORY" "$MSG" \
+      >>"$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" 2>/dev/null || true
+}
+
+# Console warning (keeping the existing visual style) plus a structured record.
+# $1 severity (warning|error)  $2 category  $3.. message
+boot_warning_notify() {
+   local SEVERITY="$1" CATEGORY="$2" LINE MSG=""
+   shift 2
+   case "$SEVERITY" in
+   error) echo_red_star >&2 ;;
+   *) echo_yellow_star >&2 ;;
+   esac
+   for LINE in "$@"; do
+      echo "$LINE" >&2
+      if [ -z "$MSG" ]; then
+         MSG="$LINE"
+      else
+         MSG="$MSG $LINE"
+      fi
+   done
+   [ -z "$MSG" ] || boot_warning_log "$SEVERITY" "$CATEGORY" "$MSG"
+}
+
+# Return source, filesystem type, and mount options for the deepest mount that
+# contains a path. Fixed MiniOS paths do not contain mount-table escapes.
+perch_mount_record() {
+   awk -v path="$1" '
+      {
+         mountpoint = $2
+         if (mountpoint == "/" || path == mountpoint ||
+             index(path, mountpoint "/") == 1) {
+            if (length(mountpoint) > best) {
+               best = length(mountpoint)
+               source = $1
+               filesystem = $3
+               options = $4
+            }
+         }
+      }
+      END {
+         if (best > 0) print source "\t" filesystem "\t" options
+      }
+   ' "$MINIOS_PROC_MOUNTS" 2>/dev/null
+}
+
+# A persistence store must resolve to a supported disk filesystem. Follow loop
+# backing files so toram and another volatile loop-backed store cannot be
+# reported as durable merely because the inner filesystem is ext4.
+perch_block_is_durable() {
+   local DEVICE="$1" DEPTH="${2:-0}" RESOLVED NAME RO BACKING SLAVE SLAVE_PATH FOUND=0
+   [ "$DEPTH" -lt 8 ] || return 1
+   RESOLVED=$(readlink -f "$DEVICE" 2>/dev/null) || RESOLVED="$DEVICE"
+   NAME=$(basename "$RESOLVED")
+   case "$NAME" in
+   zram* | ram* | nbd*) return 1 ;;
+   loop*)
+      BACKING=$(losetup "$RESOLVED" 2>/dev/null | sed -n 's/.*(\(.*\)).*/\1/p')
+      [ -n "$BACKING" ] || return 1
+      perch_store_is_durable "$BACKING" $((DEPTH + 1))
+      return
+      ;;
+   esac
+   [ -d "$MINIOS_SYS_CLASS_BLOCK/$NAME" ] || return 1
+   RO=$(cat "$MINIOS_SYS_CLASS_BLOCK/$NAME/ro" 2>/dev/null) || return 1
+   [ "$RO" = "0" ] || return 1
+   if [ -d "$MINIOS_SYS_CLASS_BLOCK/$NAME/slaves" ]; then
+      for SLAVE_PATH in "$MINIOS_SYS_CLASS_BLOCK/$NAME/slaves"/*; do
+         [ -e "$SLAVE_PATH" ] || continue
+         FOUND=1
+         SLAVE=$(basename "$SLAVE_PATH")
+         perch_block_is_durable "$MINIOS_DEV_ROOT/$SLAVE" $((DEPTH + 1)) || return 1
+      done
    fi
+   [ "$FOUND" = "1" ] && return 0
+   case "$NAME" in
+   sd[a-z]* | vd[a-z]* | xvd[a-z]* | nvme[0-9]*n[0-9]* | mmcblk[0-9]*) return 0 ;;
+   *) return 1 ;;
+   esac
+}
+
+perch_store_is_durable() {
+   local PATH_TO_CHECK="$1" DEPTH="${2:-0}" RECORD SOURCE FILESYSTEM
+   [ "$DEPTH" -lt 8 ] || return 1
+   RECORD=$(perch_mount_record "$PATH_TO_CHECK")
+   [ -n "$RECORD" ] || return 1
+   SOURCE=$(printf '%s\n' "$RECORD" | cut -f1)
+   FILESYSTEM=$(printf '%s\n' "$RECORD" | cut -f2)
+   case "$FILESYSTEM" in
+   ext2 | ext3 | ext4 | btrfs | xfs | f2fs | reiserfs | vfat | fat | msdos | exfat | ntfs | ntfs3 | ntfs-3g | fuseblk) ;;
+   *) return 1 ;;
+   esac
+   case "$SOURCE" in
+   "$MINIOS_DEV_ROOT"/*) perch_block_is_durable "$SOURCE" "$DEPTH" ;;
+   *) return 1 ;;
+   esac
+}
+
+perch_store_is_writable() {
+   local RECORD OPTIONS
+   RECORD=$(perch_mount_record "$1")
+   [ -n "$RECORD" ] || return 1
+   OPTIONS=$(printf '%s\n' "$RECORD" | cut -f3)
+   case ",$OPTIONS," in
+   *,rw,*) return 0 ;;
+   *) return 1 ;;
+   esac
+}
+
+# Return the st_dev-compatible device number and inode for a fixed MiniOS path
+# without depending on a stat applet in the small LiveKit BusyBox payload.
+perch_store_identity() {
+   local STORE="$1" DEVICE INODE
+   DEVICE=$(awk -v path="$STORE" '
+      {
+         mountpoint = $5
+         if (mountpoint == "/" || path == mountpoint ||
+             index(path, mountpoint "/") == 1) {
+            if (length(mountpoint) > best) {
+               split($3, parts, ":")
+               major = parts[1] + 0
+               minor = parts[2] + 0
+               best = length(mountpoint)
+            }
+         }
+      }
+      END {
+         if (best > 0)
+            printf "%.0f\n", major * 256 + (minor % 256) + int(minor / 256) * 1048576
+      }
+   ' "$MINIOS_PROC_MOUNTINFO" 2>/dev/null) || return 1
+   INODE=$(LC_ALL=C ls -di "$STORE" 2>/dev/null | awk 'NR == 1 { print $1 }') || return 1
+   case "$DEVICE" in '' | *[!0-9]*) return 1 ;; esac
+   case "$INODE" in '' | *[!0-9]*) return 1 ;; esac
+   printf '%s %s\n' "$DEVICE" "$INODE"
+}
+
+# Publish the boot-time persistence result for runtime consumers. A successful
+# record is bound to this boot and to the actual durable numbered-session store.
+# $1 level  $2 mode  $3 session  $4 session store  $5 active generation
+perch_state_publish() {
+   local LEVEL="$1" MODE="$2" SESSION="$3" STORE="$4" GENERATION="$5"
+   local TMP BOOTID DURABLE=0 WRITABLE=0 DEVICE=0 INODE=0 IDENTITY
+   BOOTID=$(cat "$MINIOS_BOOT_ID_FILE" 2>/dev/null) || BOOTID="unknown"
+   case "$BOOTID" in
+   '' | *[!0-9A-Fa-f-]*) BOOTID="unknown" ;;
+   esac
+   case "$SESSION" in
+   '' | *[!0-9]*) SESSION="unknown" ;;
+   esac
+   case "$MODE" in
+   native | dynfilefs | raw | luks | squashfs) ;;
+   *) MODE="unknown" ;;
+   esac
+   case "$LEVEL" in
+   ok)
+      if ! echo "$SESSION" | grep -q '^[0-9][0-9]*$' ||
+         { [ "$GENERATION" != "current" ] &&
+           { [ "$GENERATION" != "old" ] || [ "$MODE" != "squashfs" ]; }; } ||
+         [ "$BOOTID" = "unknown" ] || [ -z "$BOOTID" ]; then
+         LEVEL="failed"
+         GENERATION="none"
+      else
+          IDENTITY=$(perch_store_identity "$STORE") || LEVEL="failed"
+          DEVICE=${IDENTITY%% *}
+          INODE=${IDENTITY#* }
+         perch_store_is_writable "$STORE" && WRITABLE=1
+         perch_store_is_durable "$STORE" && DURABLE=1
+         if [ "$LEVEL" != "ok" ] || [ "$WRITABLE" != "1" ]; then
+            LEVEL="failed"
+            DEVICE=0
+            INODE=0
+            GENERATION="none"
+         fi
+      fi
+      ;;
+   *)
+      LEVEL="failed"
+      GENERATION="none"
+      ;;
+   esac
+   mkdir -p "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null || return 1
+   TMP="$MINIOS_PERSISTENCE_RUNDIR/boot-state.tmp.$$"
+   if (
+      umask 077
+      {
+         echo "boot_id=$BOOTID"
+         echo "boot_level=$LEVEL"
+         echo "mode=$MODE"
+         echo "session=$SESSION"
+         echo "durable=$DURABLE"
+         echo "writable=$WRITABLE"
+         echo "sessions_device=$DEVICE"
+         echo "sessions_inode=$INODE"
+         echo "active_generation=${GENERATION:-none}"
+      } >"$TMP" 2>/dev/null && chmod 600 "$TMP" 2>/dev/null &&
+         mv -f "$TMP" "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
+   ); then
+      [ "$LEVEL" = "ok" ]
+      return
+   fi
+   rm -f "$TMP" "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
+   return 1
+}
+
+# Defer a successful marker until the union mount has actually consumed the
+# activated changes root. Failure markers remain immediate.
+perch_state_prepare() {
+   MINIOS_PENDING_PERSISTENCE_MODE="$1"
+   MINIOS_PENDING_PERSISTENCE_SESSION="$2"
+   MINIOS_PENDING_PERSISTENCE_STORE="$3"
+   MINIOS_PENDING_PERSISTENCE_GENERATION="$4"
+   MINIOS_PENDING_PERSISTENCE_CHANGES="$5"
+   MINIOS_PENDING_PERSISTENCE_CONF="${6:-}"
+}
+
+perch_state_clear_pending() {
+   MINIOS_PENDING_PERSISTENCE_MODE=""
+   MINIOS_PENDING_PERSISTENCE_SESSION=""
+   MINIOS_PENDING_PERSISTENCE_STORE=""
+   MINIOS_PENDING_PERSISTENCE_GENERATION=""
+   MINIOS_PENDING_PERSISTENCE_CHANGES=""
+   MINIOS_PENDING_PERSISTENCE_CONF=""
+}
+
+perch_union_is_active() {
+   local RECORD FILESYSTEM OPTIONS EXPECTED SI BRANCH
+   RECORD=$(perch_mount_record "$1")
+   [ -n "$RECORD" ] || return 1
+   FILESYSTEM=$(printf '%s\n' "$RECORD" | cut -f2)
+   OPTIONS=$(printf '%s\n' "$RECORD" | cut -f3)
+   case "$FILESYSTEM" in
+   overlay | overlayfs)
+      EXPECTED="upperdir=$2/changes"
+      case ",$OPTIONS," in
+      *,"$EXPECTED",*) return 0 ;;
+      *) return 1 ;;
+      esac
+      ;;
+   aufs)
+      SI=$(printf '%s\n' "$OPTIONS" | tr ',' '\n' | sed -n 's/^si=//p')
+      [ -n "$SI" ] || return 1
+      BRANCH="$MINIOS_SYS_FS_AUFS/si_$SI/br0"
+      [ -r "$BRANCH" ] || return 1
+      [ "$(sed 's/=rw.*$//' "$BRANCH")" = "$2" ]
+      ;;
+   *) return 1 ;;
+   esac
+}
+
+perch_state_commit() {
+   local UNION_ROOT="$1"
+   [ -n "$MINIOS_PENDING_PERSISTENCE_SESSION" ] || return 0
+   if ! perch_union_is_active "$UNION_ROOT" "$MINIOS_PENDING_PERSISTENCE_CHANGES"; then
+      boot_warning_notify error persistence "Persistence changes were not committed into the root union."
+      perch_state_publish failed "$MINIOS_PENDING_PERSISTENCE_MODE" \
+         "$MINIOS_PENDING_PERSISTENCE_SESSION"
+      perch_state_clear_pending
+      return 1
+   fi
+   if ! perch_state_publish ok "$MINIOS_PENDING_PERSISTENCE_MODE" \
+      "$MINIOS_PENDING_PERSISTENCE_SESSION" \
+      "$MINIOS_PENDING_PERSISTENCE_STORE" \
+      "$MINIOS_PENDING_PERSISTENCE_GENERATION"; then
+      boot_warning_notify error persistence "Persistence was active but its runtime authority could not be published."
+      perch_state_publish failed "$MINIOS_PENDING_PERSISTENCE_MODE" \
+         "$MINIOS_PENDING_PERSISTENCE_SESSION"
+      perch_state_clear_pending
+      return 1
+   fi
+   if [ "$MINIOS_PENDING_PERSISTENCE_MODE" = "squashfs" ] &&
+      ! session_conf_commit "$MINIOS_PENDING_PERSISTENCE_CONF" \
+         "$MINIOS_PENDING_PERSISTENCE_SESSION" squashfs \
+         "$MINIOS_SQUASHFS_VERSION" "$MINIOS_SQUASHFS_EDITION" \
+         "$MINIOS_SQUASHFS_SYSTEM_UNION" "$MINIOS_SQUASHFS_SIZE"; then
+      boot_warning_notify error persistence "SquashFS session metadata could not be committed after union activation."
+      perch_state_publish failed "$MINIOS_PENDING_PERSISTENCE_MODE" \
+         "$MINIOS_PENDING_PERSISTENCE_SESSION"
+      perch_state_clear_pending
+      return 1
+   fi
+   perch_state_clear_pending
+   return 0
+}
+
+perch_state_abort() {
+   local MESSAGE="$1"
+   boot_warning_notify error persistence "$MESSAGE"
+   [ -n "$MINIOS_PENDING_PERSISTENCE_SESSION" ] || return 0
+   perch_state_publish failed "$MINIOS_PENDING_PERSISTENCE_MODE" \
+      "$MINIOS_PENDING_PERSISTENCE_SESSION" || true
+   perch_state_clear_pending
+}
+
+# Carry the current-boot record into the final root. The old initramfs itself
+# later lives at /run/initramfs, so leaving the record under its original /run
+# would place it one level too deep for runtime consumers.
+perch_state_preserve() {
+   local NEW_ROOT="$1" DESTINATION="$1/run/initramfs/minios-persistence"
+   [ -d "$MINIOS_PERSISTENCE_RUNDIR" ] || return 0
+   mkdir -p "$DESTINATION" || return 1
+   chmod 700 "$DESTINATION" || return 1
+   cp -a "$MINIOS_PERSISTENCE_RUNDIR"/. "$DESTINATION"/ || return 1
+   if [ -f "$DESTINATION/boot-state" ]; then
+      chmod 600 "$DESTINATION/boot-state" || return 1
+   fi
+}
+
+perch_state_stage_livekit() {
+   local DESTINATION="$MINIOS_LIVEKIT_STATE_STAGE"
+   [ -d "$MINIOS_PERSISTENCE_RUNDIR" ] || return 0
+   rm -rf "$DESTINATION" || return 1
+   mkdir -p "$DESTINATION" || return 1
+   chmod 700 "$DESTINATION" || return 1
+   cp -a "$MINIOS_PERSISTENCE_RUNDIR"/. "$DESTINATION"/ || return 1
+   [ ! -f "$DESTINATION/boot-state" ] || chmod 600 "$DESTINATION/boot-state"
+}
+
+# Pop any stacked mounts left on the persistence target by a failed attempt so a
+# failed activation cannot masquerade as a writable RAM directory. Loop devices
+# set up with "mount -o loop" auto-detach on umount.
+perch_activation_unwind() {
+   local TARGET="$1" I
+   for I in 1 2 3 4; do
+      grep -qF " $TARGET " /proc/mounts 2>/dev/null || break
+      umount "$TARGET" 2>/dev/null || break
+   done
+   ! grep -qF " $TARGET " "$MINIOS_PROC_MOUNTS" 2>/dev/null
+}
+
+perch_state_fail_now() {
+   local MODE="$1" SESSION="$2"
+   shift 2
+   perch_state_clear_pending
+   boot_warning_notify error persistence "$*"
+   perch_state_publish failed "$MODE" "$SESSION" || true
+}
+
+# Install a complete metadata replacement atomically in the same directory.
+session_conf_replace() {
+   local CONF="$1" TMP="$2"
+
    sync
    mv -f "$TMP" "$CONF" || return 1
    sync
 }
 
-# Convert metadata written by initrds that used jq and session.json. Keep the
-# JSON file as a rollback copy; session.conf becomes authoritative afterwards.
+# Convert JSON metadata to the conf representation used by the shell reader.
 session_json_migrate() {
    local JSON="$1" CONF="$2" TMP="${2}.tmp.$$"
 
    command -v jq >/dev/null 2>&1 || return 1
-   jq -e '.sessions | type == "object"' "$JSON" >/dev/null 2>&1 || return 1
-   {
-      jq -r 'select(.default != null) | "default=\(.default)"' "$JSON"
-      jq -r 'select(.running != null) | "running=\(.running)"' "$JSON"
-      jq -r '
-         .sessions | to_entries[] |
-         .key as $id | .value |
-         [
-            ["session_mode", .mode],
-            ["session_version", .version],
-            ["session_edition", .edition],
-            ["session_union", .union],
-            ["session_size", .size]
-         ] | .[] | select(.[1] != null and .[1] != "") |
-         "\(.[0])[\($id)]=\(.[1])"
-      ' "$JSON"
-   } >"$TMP" || {
+   jq -e '
+      (.sessions | type == "object") and
+      ([.sessions | to_entries[] |
+         (.key | test("^[0-9]+$")) and
+         (.value | type == "object") and
+         ([.value | to_entries[] |
+            (.key | test("^[a-z][a-z0-9_]*$")) and
+            ((.value | type) == "string" or
+             (.value | type) == "number" or
+             (.value | type) == "boolean" or
+             (.value | type) == "null") and
+            ((.value | tostring | test("[\u0000\r\n]")) | not)
+         ] | all)
+      ] | all) and
+      (.default == null or (.default | type == "string" and test("^[0-9]+$"))) and
+      (.running == null or (.running | type == "string" and test("^[0-9]+$")))
+   ' "$JSON" >/dev/null 2>&1 || return 1
+   jq -r '
+      (select(.default != null) | "default=\(.default)"),
+      (select(.running != null) | "running=\(.running)"),
+      (.sessions | to_entries[] |
+       .key as $id | .value | to_entries[] |
+       select(.key | test("^[a-z][a-z0-9_]*$")) |
+       select(.value != null and .value != "") |
+       "session_\(.key)[\($id)]=\(.value)")
+   ' "$JSON" >"$TMP" || {
       rm -f "$TMP"
       return 1
    }
@@ -1501,21 +1991,69 @@ session_json_migrate() {
    }
 }
 
+# Regenerate session.json from the current session.conf when jq is available.
+# session.json is the expected format when tooling has jq; this keeps it current
+# after every boot-time conf commit. Failure is best-effort: conf is always
+# written first and is already consistent.
+session_conf_to_json() {
+   local CONF="$1" JSON="$2" TMP
+   command -v jq >/dev/null 2>&1 || return 0
+   [ -f "$CONF" ] || return 1
+   TMP="${JSON}.tmp.$$"
+   # Parse the conf key=value stream with a jq Rn filter. jq handles all string
+   # escaping, so special characters in field values are safe.
+   jq -Rn '
+      [inputs | select(length > 0)] |
+      reduce .[] as $line (
+         {"default": null, "sessions": {}};
+         if ($line | test("^default=")) then
+            .default = ($line | ltrimstr("default="))
+         elif ($line | test("^running=")) then
+            .running = ($line | ltrimstr("running="))
+         elif ($line | test("^session_[a-z][a-z0-9_]*\\[[0-9]+\\]=")) then
+            ($line | capture("^session_(?<field>[a-z][a-z0-9_]*)\\[(?<id>[0-9]+)\\]=(?<val>.*)")) as $m |
+            .sessions[$m.id][$m.field] = $m.val
+         else . end
+      )
+   ' "$CONF" >"$TMP" 2>/dev/null || { rm -f "$TMP"; return 1; }
+   session_conf_replace "$JSON" "$TMP" || { rm -f "$TMP"; return 1; }
+}
+
+# Select the source solely from initrd capability and synchronize the conf copy
+# used by the existing shell commit path.
+session_metadata_select() {
+   local DIR="$1" CONF="$1/session.conf" JSON="$1/session.json"
+
+   if command -v jq >/dev/null 2>&1; then
+      if [ ! -f "$JSON" ] && [ -f "$CONF" ]; then
+         session_conf_to_json "$CONF" "$JSON" || return 1
+      fi
+      if [ -f "$JSON" ]; then
+         session_json_migrate "$JSON" "$CONF" || return 1
+         echo "$CONF"
+         return 0
+      fi
+   fi
+
+   [ ! -f "$JSON" ] || [ -f "$CONF" ] || return 1
+   echo "$CONF"
+}
+
 # Publish a session only after its persistence mount is active.
 session_conf_commit() {
    local CONF="$1" SESSION="$2" MODE="$3" VERSION="$4" EDITION="$5" UNION="$6" SIZE="$7"
-   local INPUT TMP
+   local INPUT TMP JSON
 
    INPUT="$CONF"
    [ -f "$INPUT" ] || INPUT=/dev/null
    TMP="${CONF}.tmp.$$"
-   awk -v id="$SESSION" '
+   awk -v id="$SESSION" -v size="$SIZE" '
       /^default=/ || /^running=/ { next }
       index($0, "session_mode[" id "]=") == 1 { next }
       index($0, "session_version[" id "]=") == 1 { next }
       index($0, "session_edition[" id "]=") == 1 { next }
       index($0, "session_union[" id "]=") == 1 { next }
-      index($0, "session_size[" id "]=") == 1 { next }
+      index($0, "session_size[" id "]=") == 1 && size != "" && size != "0" { next }
       index($0, "session_state[" id "]=") == 1 { next }
       { print }
    ' "$INPUT" >"$TMP" || return 1
@@ -1527,29 +2065,44 @@ session_conf_commit() {
       [ -z "$VERSION" ] || echo "session_version[$SESSION]=$VERSION"
       [ -z "$EDITION" ] || echo "session_edition[$SESSION]=$EDITION"
       [ -z "$UNION" ] || echo "session_union[$SESSION]=$UNION"
-      [ "$MODE" != "dynfilefs" ] || [ -z "$SIZE" ] || [ "$SIZE" = "0" ] || echo "session_size[$SESSION]=$SIZE"
+      [ -z "$SIZE" ] || [ "$SIZE" = "0" ] || echo "session_size[$SESSION]=$SIZE"
       echo "session_state[$SESSION]=dirty"
    } >>"$TMP" || return 1
 
+   JSON="$(dirname "$CONF")/session.json"
+   rm -f "$JSON" || { rm -f "$TMP"; return 1; }
+   sync
    session_conf_replace "$CONF" "$TMP" || {
       rm -f "$TMP"
       return 1
    }
 
-   {
-      echo "CONF=$CONF"
+   # Keep JSON current when jq is available. Without jq, remove a stale JSON
+   # copy; a later jq-capable initrd will regenerate it from current conf.
+   if command -v jq >/dev/null 2>&1; then
+      session_conf_to_json "$CONF" "$JSON" || rm -f "$JSON"
+   fi
+
+   # The shutdown-state marker only lets a clean shutdown mark the session clean.
+   # session.conf is already committed above, so a failure here must not fail
+   # activation; record it and continue.
+   if ! {
+       echo "CONF=$CONF"
       echo "SESSION=$SESSION"
-   } >/minios-session-state || return 1
+   } >"$MINIOS_SESSION_STATE_FILE" 2>/dev/null; then
+      boot_warning_notify warning other "Could not record session shutdown-state marker; session may stay marked dirty."
+   fi
    sync
+   return 0
 }
 
 # Mark a session clean only after its persistence mounts have disappeared.
 session_conf_mark_clean() {
-   local STATE CONF SESSION INPUT TMP
+   local STATE CONF SESSION INPUT TMP JSON
 
    STATE="${1:-}"
    if [ -z "$STATE" ]; then
-      for STATE in /minios-session-state /run/initramfs/minios-session-state; do
+      for STATE in "$MINIOS_SESSION_STATE_FILE" /run/initramfs/minios-session-state; do
          [ -f "$STATE" ] && break
       done
    fi
@@ -1570,12 +2123,103 @@ session_conf_mark_clean() {
       { print }
    ' "$INPUT" >"$TMP" || return 1
    echo "session_state[$SESSION]=clean" >>"$TMP" || return 1
+   JSON="$(dirname "$CONF")/session.json"
+   rm -f "$JSON" || { rm -f "$TMP"; return 1; }
+   sync
    session_conf_replace "$CONF" "$TMP" || {
       rm -f "$TMP"
       return 1
    }
+   if command -v jq >/dev/null 2>&1; then
+      session_conf_to_json "$CONF" "$JSON" || rm -f "$JSON"
+   fi
    rm -f "$STATE"
    sync
+}
+
+squashfs_metadata_value() {
+   local CONF="$1" SESSION="$2" FIELD="$3"
+   awk -v prefix="session_${FIELD}[${SESSION}]=" '
+      index($0, prefix) == 1 {
+         count++
+         value = substr($0, length(prefix) + 1)
+      }
+      END {
+         if (count != 1) exit 1
+         print value
+      }
+   ' "$CONF"
+}
+
+squashfs_decimal() {
+   case "$1" in
+   0 | [1-9] | [1-9][0-9]*) return 0 ;;
+   *) return 1 ;;
+   esac
+}
+
+squashfs_upper_unwind() {
+   local CHANGES="$1" STATUS=0 IMAGE
+   IMAGE="$(dirname "$CHANGES")/.minios-upper-$MINIOS_SQUASHFS_SESSION.ext4"
+   perch_activation_unwind "$CHANGES" || STATUS=1
+   [ "$STATUS" != "0" ] || rm -f "$IMAGE" || STATUS=1
+   return "$STATUS"
+}
+
+squashfs_generation_restore() {
+   local CHANGES="$1" ARTIFACT DIGEST COMPRESSED UNCOMPRESSED ENTRIES UNION
+   local IMAGE IMAGE_BYTES INODES REQUIRED AVAILABLE ROOT SIZE ACTUAL PLAN
+   ARTIFACT="$MINIOS_SQUASHFS_SESSION_DIR/changes.sb"
+   [ -f "$ARTIFACT" ] && [ ! -L "$ARTIFACT" ] || return 1
+   DIGEST=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" digest) || return 1
+   COMPRESSED=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" compressed) || return 1
+   UNCOMPRESSED=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" uncompressed) || return 1
+   ENTRIES=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" entries) || return 1
+   UNION=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" union) || return 1
+   squashfs_decimal "$COMPRESSED" && squashfs_decimal "$UNCOMPRESSED" &&
+      squashfs_decimal "$ENTRIES" && [ "$COMPRESSED" != "0" ] || return 1
+   echo "$DIGEST" | grep -q '^[0-9a-f][0-9a-f]*$' && [ "${#DIGEST}" -eq 64 ] || return 1
+   [ "$UNION" = "$(get_union_fs)" ] || return 1
+   PLAN=$(awk -v bytes="$UNCOMPRESSED" -v entries="$ENTRIES" '
+      BEGIN {
+         image = bytes * 2 + entries * 8192 + 67108864
+         if (image < 67108864 || image > 9007199254740991) exit 1
+         printf "%.0f %.0f %.0f\n", image, entries * 2 + 8192,
+            bytes + entries * 8192 + 134217728
+      }
+   ') || return 1
+   set -- $PLAN
+   IMAGE_BYTES=$1
+   INODES=$2
+   REQUIRED=$3
+   AVAILABLE=$(awk '$1 == "MemAvailable:" || $1 == "SwapFree:" { total += $2 }
+                    END { printf "%.0f\n", total * 1024 }' "$MINIOS_PROC_MEMINFO") || return 1
+   [ "$AVAILABLE" -ge "$REQUIRED" ] 2>/dev/null || return 1
+   SIZE=$(wc -c <"$ARTIFACT" 2>/dev/null | tr -d ' ') || return 1
+   [ "$SIZE" = "$COMPRESSED" ] || return 1
+   [ "$(LC_ALL=C sha256sum "$ARTIFACT" 2>/dev/null | awk 'NR == 1 { print $1 }')" = "$DIGEST" ] || return 1
+   IMAGE="$(dirname "$CHANGES")/.minios-upper-$MINIOS_SQUASHFS_SESSION.ext4"
+   truncate -s "$IMAGE_BYTES" "$IMAGE" || return 1
+   mke2fs -q -t ext4 -F -m 0 -N "$INODES" -O '^has_journal' \
+      "$IMAGE" || return 1
+   mount -o loop,rw,noatime,nodiratime,errors=remount-ro \
+      "$IMAGE" "$CHANGES" || return 1
+   rmdir "$CHANGES/lost+found" 2>/dev/null || return 1
+   ROOT="$CHANGES"
+   if [ "$UNION" = "overlayfs" ]; then
+      mkdir "$CHANGES/changes" "$CHANGES/workdir" || return 1
+      ROOT="$CHANGES/changes"
+   fi
+   exec 9<"$ARTIFACT" || return 1
+   if ! LC_ALL=C "$MINIOS_UNSQUASHFS" -quiet -no-progress -strict-errors -xattrs \
+         -processors 1 -data-queue 1 -frag-queue 1 -dest "$ROOT" /proc/self/fd/9; then
+      exec 9<&-
+      return 1
+   fi
+   ACTUAL=$(LC_ALL=C sha256sum /proc/self/fd/9 2>/dev/null | awk 'NR == 1 { print $1 }')
+   exec 9<&-
+   [ "$ACTUAL" = "$DIGEST" ] || return 1
+   SQUASHFS_ACTIVE_GENERATION="current"
 }
 
 # Activate persistent changes
@@ -1584,11 +2228,16 @@ session_conf_mark_clean() {
 #
 persistent_changes() {
    debug_log "persistent_changes" "$*"
-   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE LASTMODE ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE LUKS_BACKUP_REQUIRED LUKS_SESSION_BACKUP LUKS_SESSION_JSON LUKS_SESSION_CONF
+   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE NEW_SESSION AUTO_RESUME
 
    DATA="$1"
    CHANGES="$2"
+   perch_state_clear_pending
+   MINIOS_SQUASHFS_SESSION=""
+   rm -f "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
    PERCHDIR="$(cmdline_value perchdir)"
+   AUTO_RESUME="false"
+   [ "$PERCHDIR" = "resume" ] && AUTO_RESUME="true"
    PERCHMODE="$(cmdline_value perchmode)"
    PERCHSIZE="$(cmdline_value perchsize)"
    : "${PERCHSIZE:=0}"
@@ -1639,16 +2288,28 @@ persistent_changes() {
       if [ -z "$PERCHFILE_EXISTS" ]; then
          echo "* Creating new persistent changes for session #$PERCHDIR"
          debug_log "truncate -s ${PERCHSIZE}M $1"
-         truncate -s "${PERCHSIZE}M" "$1"
+         truncate -s "${PERCHSIZE}M" "$1" || {
+            boot_warning_notify error persistence "Session #$PERCHDIR: cannot allocate container ($PERCHMODE)."
+            return 1
+         }
          echo "- creating filesystem"
-         mke2fs -t ext4 -F "$1" >/dev/null 2>&1
+         mke2fs -t ext4 -F "$1" >/dev/null 2>&1 || {
+            boot_warning_notify error persistence "Session #$PERCHDIR: cannot create filesystem ($PERCHMODE)."
+            return 1
+         }
       else
          echo "* Resuming persistent changes for session #$PERCHDIR"
 
-         # Check filesystem before any resize operations
+         # Check filesystem before any resize operations. Statuses 0 and 1 may
+         # continue; 2 and above reject writable activation and preserve the
+         # container for recovery.
          if command -v e2fsck >/dev/null; then
             echo "- checking filesystem for errors"
             e2fsck -p "$1" >/dev/null 2>&1
+            [ "$?" -le 1 ] || {
+               boot_warning_notify error fsck "Session #$PERCHDIR: filesystem check failed; keeping it read-only for recovery."
+               return 1
+            }
          fi
 
          echo "- grow if needed"
@@ -1657,19 +2318,33 @@ persistent_changes() {
             CURRENT_SIZE=$(du -m "$1" | awk '{print $1}')
             if [ "$PERCHSIZE" -gt "$CURRENT_SIZE" ]; then
                echo "- expanding raw image from ${CURRENT_SIZE}MB to ${PERCHSIZE}MB"
-               truncate -s "${PERCHSIZE}M" "$1"
+               truncate -s "${PERCHSIZE}M" "$1" || {
+                  boot_warning_notify error persistence "Session #$PERCHDIR: cannot expand raw image."
+                  return 1
+               }
             fi
             echo "- resizing filesystem to match image"
-            resize2fs -f "$1" >/dev/null 2>&1
+            # A failed resize means the filesystem stays at its previous size;
+            # the container is still valid and we continue to mount it.
+            if ! resize2fs -f "$1" >/dev/null 2>&1; then
+               boot_warning_notify warning persistence "Session #$PERCHDIR: could not resize filesystem to full container size; mounting at previous size."
+            fi
             ;;
          "dynfilefs")
             echo "- resizing filesystem to match container"
-            resize2fs -f "$1" >/dev/null 2>&1
+            if ! resize2fs -f "$1" >/dev/null 2>&1; then
+               boot_warning_notify warning persistence "Session #$PERCHDIR: could not resize filesystem to full container size; mounting at previous size."
+            fi
             ;;
          esac
       fi
       echo "- mounting persistent changes"
-      mount -o loop "$1" "$CHANGES"
+      # errors=remount-ro turns a full backing device into a read-only inner
+      # filesystem instead of corruption when writes start failing.
+      mount -o loop,errors=remount-ro "$1" "$CHANGES" || {
+         boot_warning_notify error persistence "Session #$PERCHDIR: cannot mount persistent changes."
+         return 1
+      }
    }
 
    calculate_perch_size() {
@@ -1683,9 +2358,7 @@ persistent_changes() {
 
       if [ "$PERCHSIZE" = "0" ] && [ ! -e "$CHANDIR/$PERCHFILE" ]; then
          if [ "$PERCHMODE" = "dynfilefs" ]; then
-            PERCHSIZE=$((AVAILABLE_SPACE / 1000 * 1000))
-            [ "$PERCHSIZE" -lt 4000 ] && PERCHSIZE=4000
-            return
+            PERCHSIZE="auto"
          else
             PERCHSIZE=4000
          fi
@@ -1699,7 +2372,10 @@ persistent_changes() {
       # Limit maximum size to 1TB (1,000,000 MB)
       [ "$MAX_SIZE" -gt 1000000 ] && MAX_SIZE=1000000
 
-      if [ "$PERCHSIZE" -gt "$MAX_SIZE" ]; then
+      if [ "$PERCHSIZE" = "auto" ]; then
+         PERCHSIZE=$((MAX_SIZE / 1000 * 1000))
+         [ "$PERCHSIZE" -gt 0 ] || PERCHSIZE=$MAX_SIZE
+      elif [ "$PERCHSIZE" -gt "$MAX_SIZE" ]; then
          echo "- persistent changes size ${PERCHSIZE}MB exceeds available space"
          echo "- using maximum available size ${MAX_SIZE}MB"
          PERCHSIZE=$MAX_SIZE
@@ -1732,7 +2408,9 @@ persistent_changes() {
          fi
       fi
 
-      session_conf_commit "$SESSIONS" "$PERCHDIR" "$PERCHMODE" "$VERSION" "$EDITION" "$UNION" "$PERCHSIZE"
+      session_conf_commit "$SESSIONS" "$PERCHDIR" "$PERCHMODE" "$VERSION" "$EDITION" "$UNION" "$PERCHSIZE" || return 1
+      perch_state_prepare "$PERCHMODE" "$PERCHDIR" "$CHANDIR" current "$CHANGES"
+      touch "$CHANDIR/$PERCHDIR" 2>/dev/null || true
    }
 
    native_mode() {
@@ -1746,6 +2424,8 @@ persistent_changes() {
       if [ "$FS" = "ntfs3" ] || [ "$FS" = "ntfs-3g" ] || [ "$FS" = "vfat" ] || [ "$FS" = "exfat" ]; then
          echo_yellow_star
          echo "Native mode not supported on $FS filesystem, using DynFileFS"
+         # This is expected documented behaviour on non-POSIX media; no warning
+         # record is written since it is not an unplanned event.
          dynfilefs_mode
          return
       fi
@@ -1756,11 +2436,21 @@ persistent_changes() {
          chmod -x "$T1" 2>/dev/null && test ! -x "$T1" &&
          rm "$T1" "$T2" 2>/dev/null; then
          echo "* Activating native persistent changes for session #$PERCHDIR"
-         mount --bind "$CHANDIR/$PERCHDIR" "$CHANGES"
-         update_session
+         if mount --bind "$CHANDIR/$PERCHDIR" "$CHANGES"; then
+            if ! update_session; then
+               if perch_activation_unwind "$CHANGES" && [ "$NEW_SESSION" = "true" ]; then
+                  rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
+               fi
+               perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+                  "Session #$PERCHDIR: metadata could not be updated; persistence was disabled for this boot."
+               return
+            fi
+         else
+            boot_warning_notify error persistence "Session #$PERCHDIR: cannot bind native persistent changes."
+         fi
       else
-         echo_yellow_star
-         echo "Native mode failed, falling back to DynFileFS"
+         boot_warning_notify warning mode \
+            "Native mode failed, falling back to DynFileFS."
          dynfilefs_mode
       fi
    }
@@ -1772,9 +2462,35 @@ persistent_changes() {
       calculate_perch_size
       MOUNT_OPTS="-f $CHANDIR/$PERCHFILE -m $CHANGES -p 4000"
       [ -z "$PERCHFILE_EXISTS" ] || [ -n "$PERCHSIZE" ] && MOUNT_OPTS="$MOUNT_OPTS -s $PERCHSIZE"
-      @mount.dynfilefs $MOUNT_OPTS
-      handle_perch_file "$CHANGES/virtual.dat"
-      update_session
+      @mount.dynfilefs $MOUNT_OPTS || {
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: DynFileFS backend did not start."
+         return
+      }
+      # Confirm the FUSE mount actually exposed virtual.dat before touching it;
+      # otherwise handle_perch_file would create a container in RAM and appear
+      # persistent while silently discarding data.
+      [ -e "$CHANGES/virtual.dat" ] || {
+         umount "$CHANGES" 2>/dev/null || true
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: DynFileFS container did not appear."
+         return
+      }
+      if ! handle_perch_file "$CHANGES/virtual.dat"; then
+         perch_activation_unwind "$CHANGES" || true
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: DynFileFS persistence could not be activated."
+         return
+      fi
+      if ! update_session; then
+         if perch_activation_unwind "$CHANGES" && [ "$NEW_SESSION" = "true" ]; then
+            rm -f -- "$CHANDIR/$PERCHFILE" "$CHANDIR/$PERCHFILE".*
+            rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
+         fi
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: metadata could not be updated; persistence was disabled for this boot."
+         return
+      fi
    }
 
    raw_mode() {
@@ -1782,27 +2498,25 @@ persistent_changes() {
       PERCHFILE="$PERCHDIR/changes.img"
       [ -e "$CHANDIR/$PERCHFILE" ] && PERCHFILE_EXISTS="true"
       calculate_perch_size
-      handle_perch_file "$CHANDIR/$PERCHFILE"
-      update_session
+      if ! handle_perch_file "$CHANDIR/$PERCHFILE"; then
+         perch_activation_unwind "$CHANGES" || true
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: raw persistence could not be activated."
+         return
+      fi
+      if ! update_session; then
+         if perch_activation_unwind "$CHANGES" && [ "$NEW_SESSION" = "true" ]; then
+            rm -f -- "$CHANDIR/$PERCHFILE"
+            rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
+         fi
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: metadata could not be updated; persistence was disabled for this boot."
+         return
+      fi
    }
 
    activate_luks_mode() {
-      local LOOP MAPPER PASSWORD CONFIRM ATTEMPT CURRENT_BYTES TARGET_BYTES TRACE_WAS_ENABLED NEW_CONTAINER="false" MAPPER_OPENED="false" CLEANUP_OK TTY_OPEN="false" LUKS_SECRET
-
-      luks_rollback_session() {
-         [ "$LUKS_BACKUP_REQUIRED" = "true" ] || return 0
-         if [ -n "$LUKS_SESSION_JSON" ]; then
-            cp "$LUKS_SESSION_BACKUP/json" "$LUKS_SESSION_JSON" 2>/dev/null || return 1
-         else
-            rm -f "$CHANDIR/session.json"
-         fi
-         if [ -n "$LUKS_SESSION_CONF" ]; then
-            cp "$LUKS_SESSION_BACKUP/conf" "$LUKS_SESSION_CONF" 2>/dev/null || return 1
-         else
-            rm -f "$CHANDIR/session.conf"
-         fi
-         rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
-      }
+      local MAPPER PASSWORD CONFIRM ATTEMPT CURRENT_BYTES TARGET_BYTES TRACE_WAS_ENABLED NEW_CONTAINER="false" MAPPER_OPENED="false" CLEANUP_OK TTY_OPEN="false" LUKS_SECRET
 
       luks_cleanup() {
          if [ "$TTY_OPEN" = "true" ]; then
@@ -1812,17 +2526,15 @@ persistent_changes() {
          fi
          unset PASSWORD CONFIRM
          CLEANUP_OK="true"
+         umount "$CHANGES" 2>/dev/null || true
          if [ "$MAPPER_OPENED" = "true" ] && ! cryptsetup close "$MAPPER" 2>/dev/null; then
-            CLEANUP_OK="false"
-         fi
-         if [ "$CLEANUP_OK" = "true" ] && [ -n "$LOOP" ] && ! losetup -d "$LOOP" 2>/dev/null; then
             CLEANUP_OK="false"
          fi
          if [ "$CLEANUP_OK" = "true" ]; then
             rm -rf /run/initramfs/minios-crypt
             [ "$NEW_CONTAINER" = "true" ] && rm -f "$CHANDIR/$PERCHFILE"
+            [ "$NEW_SESSION" = "true" ] && rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
          fi
-         luks_rollback_session
          [ -n "$TRACE_WAS_ENABLED" ] && set -x
          return 1
       }
@@ -1841,35 +2553,27 @@ persistent_changes() {
       PERCHMODE="luks"
       PERCHFILE="$PERCHDIR/changes.luks"
       [ -e "$CHANDIR/$PERCHFILE" ] && PERCHFILE_EXISTS="true" || NEW_CONTAINER="true"
-      if { [ ! -f /etc/minios-initramfs-crypt ] && [ ! -f /run/initramfs/etc/minios-initramfs-crypt ]; } || ! command -v cryptsetup >/dev/null 2>&1 ||
-         ! command -v losetup >/dev/null 2>&1 || ! command -v dmsetup >/dev/null 2>&1; then
+       if { [ ! -f /etc/minios-initramfs-crypt ] && [ ! -f /run/initramfs/etc/minios-initramfs-crypt ]; } ||
+          ! command -v cryptsetup >/dev/null 2>&1; then
          echo_red_star
          echo "Encrypted persistence is unavailable in this initramfs"
+         [ "$NEW_SESSION" = "true" ] && rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
          return 1
       fi
       modprobe dm-crypt 2>/dev/null
       FS_TYPE="$(device_bestfs "$DRIVE")"
       calculate_perch_size
       mkdir -p /run/initramfs/minios-crypt || {
-         luks_rollback_session
+         [ "$NEW_SESSION" = "true" ] && rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
          return 1
       }
-      LOOP="$(losetup --find --show "$CHANDIR/$PERCHFILE" 2>/dev/null)"
-      if [ -z "$LOOP" ]; then
-         if [ -z "$PERCHFILE_EXISTS" ]; then
-            # Match raw mode: perchsize is expressed in MiB via truncate's M suffix.
-            truncate -s "${PERCHSIZE}M" "$CHANDIR/$PERCHFILE" || {
-               luks_cleanup
-               return 1
-            }
-            LOOP="$(losetup --find --show "$CHANDIR/$PERCHFILE" 2>/dev/null)"
-         fi
+      if [ -z "$PERCHFILE_EXISTS" ]; then
+         truncate -s "${PERCHSIZE}M" "$CHANDIR/$PERCHFILE" || {
+            luks_cleanup
+            return 1
+         }
       fi
-      [ -n "$LOOP" ] || {
-         luks_cleanup
-         return 1
-      }
-      echo "$LOOP" >/run/initramfs/minios-crypt/loop || {
+      [ -f "$CHANDIR/$PERCHFILE" ] || {
          luks_cleanup
          return 1
       }
@@ -1905,11 +2609,11 @@ persistent_changes() {
             luks_cleanup
             return 1
          fi
-         printf '%s' "$PASSWORD" | cryptsetup luksFormat --type luks2 --batch-mode --key-file - "$LOOP" || {
+         printf '%s' "$PASSWORD" | cryptsetup luksFormat --type luks2 --batch-mode --key-file - "$CHANDIR/$PERCHFILE" || {
             luks_cleanup
             return 1
          }
-         printf '%s' "$PASSWORD" | cryptsetup open --key-file - "$LOOP" "$MAPPER" || {
+         printf '%s' "$PASSWORD" | cryptsetup open --key-file - "$CHANDIR/$PERCHFILE" "$MAPPER" || {
             luks_cleanup
             return 1
          }
@@ -1924,7 +2628,7 @@ persistent_changes() {
             }
             PASSWORD="$LUKS_SECRET"
             unset LUKS_SECRET
-            if printf '%s' "$PASSWORD" | cryptsetup open --key-file - "$LOOP" "$MAPPER"; then
+            if printf '%s' "$PASSWORD" | cryptsetup open --key-file - "$CHANDIR/$PERCHFILE" "$MAPPER"; then
                MAPPER_OPENED="true"
                break
             fi
@@ -1954,25 +2658,30 @@ persistent_changes() {
          }
       else
          # Authentication must succeed before an existing container is grown.
-         CURRENT_BYTES=$(stat -c %s "$CHANDIR/$PERCHFILE") || {
+           CURRENT_BYTES=$(LC_ALL=C ls -ln "$CHANDIR/$PERCHFILE" 2>/dev/null |
+              awk 'NR == 1 && $5 ~ /^[0-9]+$/ { print $5; found=1 }
+                   END { if (!found) exit 1 }') || {
             luks_cleanup
             return 1
          }
          TARGET_BYTES=$((PERCHSIZE * 1048576))
          if [ "$PERCHSIZE" -gt 0 ] && [ "$TARGET_BYTES" -gt "$CURRENT_BYTES" ]; then
+            cryptsetup close "$MAPPER" || {
+               luks_cleanup
+               return 1
+            }
+            MAPPER_OPENED="false"
             truncate -s "${PERCHSIZE}M" "$CHANDIR/$PERCHFILE" || {
                luks_cleanup
                return 1
             }
-            losetup -c "$LOOP" || {
+            printf '%s' "$PASSWORD" | cryptsetup open --key-file - \
+               "$CHANDIR/$PERCHFILE" "$MAPPER" || {
                luks_cleanup
                return 1
             }
+            MAPPER_OPENED="true"
          fi
-         printf '%s' "$PASSWORD" | cryptsetup resize --key-file - "$MAPPER" >/dev/null 2>&1 || {
-            luks_cleanup
-            return 1
-         }
          unset PASSWORD
          [ -n "$TRACE_WAS_ENABLED" ] && set -x
          e2fsck -f -p "/dev/mapper/$MAPPER" >/dev/null 2>&1
@@ -1994,19 +2703,54 @@ persistent_changes() {
          luks_cleanup
          return 1
       }
-      rm -rf "$LUKS_SESSION_BACKUP"
    }
 
    luks_mode() {
-      if ! activate_luks_mode; then
-         echo_yellow_star >&2
-         echo "Session #$PERCHDIR: Encrypted persistence unavailable." >&2
-         echo "Continuing in memory; no unencrypted persistence will be created." >&2
-         umount "$CHANGES" 2>/dev/null || true
-         close_owned_crypt 2>/dev/null || true
-         luks_rollback_session
-         rm -rf "$LUKS_SESSION_BACKUP"
+      activate_luks_mode && return 0
+
+      perch_state_fail_now luks "$PERCHDIR" \
+         "Session #$PERCHDIR: encrypted persistence could not be activated; continuing in memory." \
+         "No unencrypted persistence will be created."
+   }
+
+   squashfs_mode() {
+      local PREVIOUS_STATE
+      MINIOS_SQUASHFS_CONF=$(session_metadata_select "$CHANDIR") || return 1
+      MINIOS_SQUASHFS_POLICY=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" \
+         "$PERCHDIR" policy) || MINIOS_SQUASHFS_POLICY=manual
+      MINIOS_SQUASHFS_VERSION=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" \
+         "$PERCHDIR" version) || MINIOS_SQUASHFS_VERSION=""
+      MINIOS_SQUASHFS_EDITION=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" \
+         "$PERCHDIR" edition) || MINIOS_SQUASHFS_EDITION=""
+      MINIOS_SQUASHFS_SIZE=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" \
+         "$PERCHDIR" size) || MINIOS_SQUASHFS_SIZE=""
+      MINIOS_SQUASHFS_SESSION="$PERCHDIR"
+      MINIOS_SQUASHFS_SESSION_DIR="$CHANDIR/$PERCHDIR"
+      MINIOS_SQUASHFS_STORE="$CHANDIR"
+      MINIOS_SQUASHFS_SYSTEM_UNION=$(get_union_fs)
+      case "$MINIOS_SQUASHFS_POLICY" in
+      manual | shutdown) ;;
+      *)
+         perch_state_fail_now squashfs "$PERCHDIR" \
+            "SquashFS session #$PERCHDIR has an invalid save policy; continuing in memory."
+         return
+         ;;
+      esac
+      PREVIOUS_STATE=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" \
+         "$PERCHDIR" state) || PREVIOUS_STATE=""
+      if [ "$PREVIOUS_STATE" = dirty ]; then
+         boot_warning_notify warning persistence \
+            "SquashFS session #$PERCHDIR did not finish cleanly; restoring the last successfully saved snapshot."
       fi
+      if ! squashfs_generation_restore "$CHANGES"; then
+         squashfs_upper_unwind "$CHANGES" || return
+         perch_state_fail_now squashfs "$PERCHDIR" \
+            "SquashFS session #$PERCHDIR could not be restored; continuing in memory."
+         return
+      fi
+      perch_state_prepare squashfs "$PERCHDIR" "$CHANDIR" \
+         "$SQUASHFS_ACTIVE_GENERATION" "$CHANGES" "$MINIOS_SQUASHFS_CONF"
+      touch "$CHANDIR/$PERCHDIR" 2>/dev/null || true
    }
 
    # Setup the directory anyway, it will be used in all cases
@@ -2027,10 +2771,16 @@ persistent_changes() {
    PERCHDIR=$(ask_disk "$PERCHDIR" perchdir)
    PERCHDIR=$(manage_perch_partition "$DRIVE" "$PERCHDIR")
 
-   # Check if changes directory exists and is writable
+   # Check if changes directory exists and is writable. Resume is best-effort:
+   # when no writable persistence store is available, continue in memory.
    if ! check_write_access "$CHANDIR" "$PERCHDIR"; then
-      echo_yellow_star
-      echo "Persistent changes not writable or not used"
+      if [ "$AUTO_RESUME" = "true" ]; then
+         echo_yellow_star
+         echo "Persistent changes not writable or not used"
+         return
+      fi
+      perch_state_fail_now "$PERCHMODE" "${PERCHDIR:-unknown}" \
+         "Persistent changes were requested but the selected store is not writable."
       return
    fi
 
@@ -2039,55 +2789,17 @@ persistent_changes() {
    # unmounted cleanly afterwards.
    perch_space_warn "$CHANDIR" || true
 
-   # A LUKS setup failure must not publish the session selected above. Avoid
-   # backup I/O when the existing non-LUKS path cannot select a LUKS session.
-   LUKS_BACKUP_REQUIRED="false"
-   if [ "$PERCHMODE" = "luks" ] || [ "$ACTION" = "ask" ]; then
-      LUKS_BACKUP_REQUIRED="true"
-   elif [ -z "$PERCHMODE" ] && [ "$ACTION" = "resume" ]; then
-      if command -v jq >/dev/null 2>&1 && [ -f "$CHANDIR/session.json" ]; then
-         LASTSESSION=$(jq -r '.default // empty' "$CHANDIR/session.json")
-         LASTMODE=$(jq -r ".sessions[\"$LASTSESSION\"].mode // empty" "$CHANDIR/session.json")
-      elif [ -f "$CHANDIR/session.conf" ]; then
-         LASTSESSION=$(sed -n 's/^default=//p' "$CHANDIR/session.conf")
-         LASTMODE=$(sed -n "s/^session_mode\[$LASTSESSION\]=//p" "$CHANDIR/session.conf")
-      fi
-      [ "$LASTMODE" = "luks" ] && LUKS_BACKUP_REQUIRED="true"
+   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE" "$AUTO_RESUME"); then
+      boot_warning_notify warning persistence \
+         "Persistent changes could not select a usable session; continuing in memory."
+      perch_state_publish failed "${PERCHMODE:-unknown}" "${PERCHDIR:-unknown}"
+      return
    fi
 
-   LUKS_SESSION_BACKUP="/tmp/minios-luks-session-$$"
-   LUKS_SESSION_JSON="$CHANDIR/session.json"
-   LUKS_SESSION_CONF="$CHANDIR/session.conf"
-   if [ "$LUKS_BACKUP_REQUIRED" = "true" ]; then
-      mkdir -p "$LUKS_SESSION_BACKUP" || return
-      if [ -f "$LUKS_SESSION_JSON" ]; then
-         cp "$LUKS_SESSION_JSON" "$LUKS_SESSION_BACKUP/json" || {
-            rm -rf "$LUKS_SESSION_BACKUP"
-            return
-         }
-      else
-         LUKS_SESSION_JSON=""
-      fi
-      if [ -f "$LUKS_SESSION_CONF" ]; then
-         cp "$LUKS_SESSION_CONF" "$LUKS_SESSION_BACKUP/conf" || {
-            rm -rf "$LUKS_SESSION_BACKUP"
-            return
-         }
-      else
-         LUKS_SESSION_CONF=""
-      fi
-   fi
-   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE"); then
-      rm -rf "$LUKS_SESSION_BACKUP"
-      echo_yellow_star
-      echo "Persistent changes could not select a usable session; continuing in memory"
-      return 0
-   fi
-
-   PERCHDIR=$(echo "$PERCHSESSION" | awk '{print $1}')
-   : "${PERCHMODE:=$(echo "$PERCHSESSION" | awk '{print $2}')}"
-
-   [ "$PERCHMODE" = "luks" ] || rm -rf "$LUKS_SESSION_BACKUP"
+   set -- $PERCHSESSION
+   PERCHDIR=$1
+   : "${PERCHMODE:=$2}"
+   NEW_SESSION=$3
 
    if [ -z "$PERCHMODE" ]; then
       native_mode
@@ -2097,9 +2809,10 @@ persistent_changes() {
       "dynfilefs") dynfilefs_mode ;;
       "raw") raw_mode ;;
       "luks") luks_mode ;;
+      "squashfs") squashfs_mode ;;
       *)
-         echo_yellow_star
-         echo "Unknown type of persistent changes specified, falling back to native"
+         boot_warning_notify warning mode \
+            "Unknown persistence mode '$PERCHMODE'; falling back to native."
          native_mode
          ;;
       esac
@@ -2140,18 +2853,51 @@ user_preinit() {
    fi
 }
 
+# Release Ventoy device-mapper mappings after the live data has been
+# successfully detached from its boot media. This is intentionally best-effort:
+# an in-use mapping must stay in place rather than making boot fail.
+ventoy_release_mappings() {
+   local VDIR DM RAWMAP
+   VDIR="${MINIOS_VENTOY_DIR:-/ventoy}"
+
+   [ -f "$VDIR/ventoy_dm_table" ] || return 0
+
+   if [ -x "$VDIR/tool/dmsetup" ]; then
+      DM="$VDIR/tool/dmsetup"
+   else
+      DM="$(command -v dmsetup 2>/dev/null)"
+   fi
+   [ -n "$DM" ] || return 0
+
+   RAWMAP=""
+   if [ -f "$VDIR/ventoy_iso_part_dm_cmd" ]; then
+      RAWMAP=$(awk '$2 == "create" {print $3; exit}' "$VDIR/ventoy_iso_part_dm_cmd" 2>/dev/null)
+      case "$RAWMAP" in
+      '' | *[!A-Za-z0-9_.+-]*) RAWMAP="" ;;
+      esac
+   fi
+
+   if [ -f "$VDIR/ventoy_persistent_map" ]; then
+      "$DM" remove vtoy_persistent >/dev/null 2>&1 || true
+   fi
+   if [ -n "$RAWMAP" ] && [ "$RAWMAP" != ventoy ]; then
+      "$DM" remove "$RAWMAP" >/dev/null 2>&1 || true
+   fi
+   "$DM" remove ventoy >/dev/null 2>&1 || true
+}
+
 # Copy data to RAM if requested
 # $1 = live data directory
 # $2 = changes directory
 #
 copy_to_ram() {
    debug_log "copy_to_ram" "$*"
-   local MDIR MDEV RAM DATA CHANGES LOAD NOLOAD FILE DIR
+   local MDIR MDEV RAM DATA CHANGES LOAD NOLOAD FILE DIR TORAM_PATH DETACHED
    DATA="$1"
    CHANGES="$2"
 
    RAM="$(dirname "$CHANGES")"/toram
-   CMDLINE=$(cat /proc/cmdline)
+   CMDLINE=$(cat "$MINIOS_CMDLINE_FILE")
 
    # Function to copy filtered MiniOS data to RAM
    copy_filtered_bundles() {
@@ -2186,7 +2932,7 @@ copy_to_ram() {
       mkdir -p "$RAM"
       echo "* Copying filtered MiniOS data to RAM..." >&2 >/dev/tty1
       copy_filtered_bundles
-      if echo "$CMDLINE" | grep -q "perch"; then
+      if cmdline_requests_persistence; then
          echo "* Copying changes to RAM..." >&2 >/dev/tty1
          cp -a "$DATA/changes" "$RAM/changes" || {
             echo_red_star
@@ -2198,7 +2944,7 @@ copy_to_ram() {
    *toram* | *toram=full*)
       mkdir -p "$RAM"
       echo "* Copying all MiniOS data to RAM..." >&2 >/dev/tty1
-      if echo "$CMDLINE" | grep -q "perch"; then
+      if cmdline_requests_persistence; then
          cp -a "$DATA"/* "$RAM" || {
             echo_red_star
             echo "Failed to copy data to RAM" >&2 >/dev/tty1
@@ -2224,10 +2970,11 @@ copy_to_ram() {
    MDEV="$(losetup "$MDEV" 2>/dev/null | cut -d " " -f 3)"
 
    # Attempt to unmount and move RAM directory
-   if ! umount "$MDIR" 2>/dev/null || ! rm -rf "$DATA" || ! mv "$RAM" "$DATA"; then
-      echo "$RAM"
-   else
-      echo "$DATA"
+   TORAM_PATH="$RAM"
+   DETACHED=false
+   if umount "$MDIR" 2>/dev/null && rm -rf "$DATA" && mv "$RAM" "$DATA"; then
+      TORAM_PATH="$DATA"
+      DETACHED=true
    fi
 
    # If an ISO was mounted, try to unmount its filesystem
@@ -2235,6 +2982,14 @@ copy_to_ram() {
       MDEV="$(mounted_device "$MDEV")"
       umount "$MDEV" 2>/dev/null
    fi
+
+   # Ventoy keeps its ISO and raw-partition device-mapper mappings after the
+   # filesystem is detached. They are no longer needed for a RAM-only boot.
+   if [ "$DETACHED" = true ] && ! cmdline_requests_persistence; then
+      ventoy_release_mappings
+   fi
+
+   echo "$TORAM_PATH"
 }
 
 # universal filter
@@ -2387,14 +3142,21 @@ mount_bundles() {
 #
 union_append_bundles() {
    debug_log "union_append_bundles" "$*"
+   local LIST BUNDLE STATUS=0 RECORD FILESYSTEM
 
-   if aufs_is_supported >/dev/null; then
+   RECORD=$(perch_mount_record "$2")
+   FILESYSTEM=$(printf '%s\n' "$RECORD" | cut -f2)
+   if [ "$FILESYSTEM" = "aufs" ]; then
       echo_white_star
       echo "Adding bundles to union"
-      find "$1" -mindepth 1 -maxdepth 1 | sortmod | while read BUNDLE; do
-         mount -o remount,add:1:"$BUNDLE=rr+wh" aufs "$2"
-      done
+      LIST="/tmp/minios-aufs-branches.$$"
+      find "$1" -mindepth 1 -maxdepth 1 | sortmod >"$LIST" || return 1
+      while IFS= read -r BUNDLE; do
+         mount -o remount,add:1:"$BUNDLE=rr+wh" aufs "$2" || STATUS=1
+      done <"$LIST"
+      rm -f "$LIST"
    fi
+   return "$STATUS"
 }
 
 # Create empty fstab properly
@@ -2728,6 +3490,10 @@ change_root() {
       mount -n -o move /sys sys 2>/dev/null || mount -t sysfs sysfs sys
    fi
    mkdir -p run/initramfs
+   perch_state_stage_livekit || {
+      echo_yellow_star >&2
+      echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
+   }
    if [ "$UNION_TYPE" = "aufs" ]; then
       mount -n -o remount,ro aufs .
    fi
@@ -2766,6 +3532,10 @@ prepare_shutdown_dracut() {
    # Preserve initramfs for shutdown (dracut requirement)
    # Copy usr directory (without modules) and recreate symlinks
    mkdir -p run/initramfs/usr
+   perch_state_preserve "$UNION" || {
+      echo_yellow_star >&2
+      echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
+   }
 
    # Copy /etc (may contain necessary config for eject and other tools)
    [ -d /etc ] && cp -a /etc run/initramfs/ 2>/dev/null || true
@@ -2854,6 +3624,10 @@ prepare_initramfs_dracut() {
    # Preserve initramfs for shutdown
 
    mkdir -p run/initramfs/usr
+   perch_state_preserve "$UNION" || {
+      echo_yellow_star >&2
+      echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
+   }
 
    # Copy /dracut-mos if exists
    [ -d /dracut-mos ] && cp -a /dracut-mos run/initramfs/ 2>/dev/null || true

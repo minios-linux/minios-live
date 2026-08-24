@@ -9,6 +9,8 @@ LIVEKITNAME="minios"
 
 . /lib/livekitlib
 
+boot_console_mirror_start
+
 BEXT=$(cmdline_value bext)
 [ -z "$BEXT" ] && BEXT="sb"
 
@@ -67,10 +69,15 @@ mount_bundles "$DATA" "$BUNDLES"
 debug_shell
 
 # init aufs union, or setup overlayfs union
-init_union "$CHANGES" "$UNION" "$BUNDLES"
+init_union "$CHANGES" "$UNION" "$BUNDLES" ||
+    fatal "Cannot construct the root union"
 
-# add data to aufs union
-union_append_bundles "$BUNDLES" "$UNION"
+# add data to aufs union. AUFS keeps its historical best-effort behavior: try
+# every branch, but never publish successful persistence authority for an
+# incomplete union.
+union_append_bundles "$BUNDLES" "$UNION" ||
+    perch_state_abort "Cannot complete the root union; continuing with available bundles."
+perch_state_commit "$UNION" || true
 debug_shell
 
 # rootcopy
@@ -99,5 +106,6 @@ if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
 fi
 
 prepare_initramfs_dracut "$UNION"
+boot_console_mirror_stop
 
 # The union is ready - dracut will handle the final switch_root

@@ -1,6 +1,12 @@
 #!/bin/bash
 #
-# System boot configuration script.
+# Early userspace configuration helper for MiniOS live boot.
+#
+# This script is copied into the prepared root filesystem by the initramfs and
+# executed there in a chroot before switch_root. It applies boot-time userspace
+# settings from the kernel command line and /etc/live/config.conf: default
+# target selection, service enable/disable policy, and autologin-related setup.
+#
 # Author: crims0n <https://minios.dev>
 #
 
@@ -12,10 +18,13 @@ CMDLINE="$(cat /proc/cmdline)"
 set_log() {
     mkdir -p /var/log/minios
     mkfifo /tmp/minios-boot.pipe
+    # Keep the inherited initramfs output path. When SERIAL_CONSOLE is enabled,
+    # boot_console_mirror already mirrors it to tty0 and ttyS0; writing directly
+    # to /dev/console here would bypass that routing.
     if [ -w /var/log/minios ] || [ ! -e /var/log/minios/minios-boot.log ]; then
-        tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log >/dev/console 2>/dev/null &
+        tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log 2>/dev/null &
     else
-        cat </tmp/minios-boot.pipe >/dev/console 2>/dev/null &
+        cat </tmp/minios-boot.pipe 2>/dev/null &
     fi
     exec >/tmp/minios-boot.pipe 2>&1
 
