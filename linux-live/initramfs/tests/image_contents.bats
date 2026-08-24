@@ -12,7 +12,11 @@ teardown() {
 }
 
 list_image() {
-    if command -v lsinitramfs >/dev/null 2>&1; then
+    # The built-in fixture is deliberately a plain newc archive, so inspect it
+    # with cpio even on hosts that also provide lsinitramfs for compressed initrds.
+    if [ -n "$FIXTURE" ] && command -v cpio >/dev/null 2>&1; then
+        cpio -it <"$IMAGE" 2>/dev/null
+    elif command -v lsinitramfs >/dev/null 2>&1; then
         lsinitramfs "$IMAGE"
     elif command -v lsinitrd >/dev/null 2>&1; then
         lsinitrd "$IMAGE"

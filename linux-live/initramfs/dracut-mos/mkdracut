@@ -88,18 +88,51 @@ if ! command -v dracut >/dev/null 2>&1; then
     exit 1
 fi
 
+KERNEL_CONFIG="/boot/config-$KERNEL"
+if [ ! -r "$KERNEL_CONFIG" ]; then
+    echo "E: Kernel configuration not found: $KERNEL_CONFIG" >&2
+    exit 1
+fi
+
+if grep -q '^CONFIG_RD_ZSTD=y$' "$KERNEL_CONFIG" && command -v zstd >/dev/null 2>&1; then
+    COMPRESSION="zstd"
+elif grep -q '^CONFIG_RD_GZIP=y$' "$KERNEL_CONFIG" && command -v gzip >/dev/null 2>&1; then
+    COMPRESSION="gzip"
+elif grep -q '^CONFIG_RD_XZ=y$' "$KERNEL_CONFIG" && command -v xz >/dev/null 2>&1; then
+    COMPRESSION="xz"
+else
+    echo "E: No initramfs compression is supported by both kernel $KERNEL and the build environment" >&2
+    exit 1
+fi
+
 if [ "$CRYPT" = "true" ]; then
-    for tool in cryptsetup dmsetup losetup; do
-        if ! command -v "$tool" >/dev/null 2>&1; then
-            echo "E: --crypt requires $tool on the build host" >&2
-            exit 1
-        fi
-    done
     if ! compgen -G "/lib/modules/$KERNEL/kernel/drivers/md/dm-crypt.*" >/dev/null &&
         ! grep -q '^CONFIG_DM_CRYPT=y$' "/boot/config-$KERNEL" 2>/dev/null; then
         echo "E: --crypt requires dm-crypt support in kernel $KERNEL" >&2
         exit 1
     fi
+fi
+
+DRACUT_BASE="$(mktemp -d /tmp/minios-dracut.XXXXXX)" || exit 1
+trap 'rm -rf "$DRACUT_BASE"' EXIT
+trap 'exit 1' HUP INT TERM
+cp -a /usr/lib/dracut/. "$DRACUT_BASE/"
+export dracutbasedir="$DRACUT_BASE"
+
+DRACUT_INSTALL="$DRACUT_BASE/dracut-install"
+DRACUT_INSTALL_REAL="${DRACUT_INSTALL}.minios-real"
+if grep -q '^CONFIG_CRYPTO_CRC32C=y$' "$KERNEL_CONFIG" &&
+    [ -x "$DRACUT_INSTALL" ] && [ ! -e "$DRACUT_INSTALL_REAL" ]; then
+    mv "$DRACUT_INSTALL" "$DRACUT_INSTALL_REAL"
+    cat >"$DRACUT_INSTALL" <<'EOF'
+#!/bin/bash
+args=()
+for arg in "$@"; do
+    [ "$arg" = "crc32c" ] || args+=("$arg")
+done
+exec "${0}.minios-real" "${args[@]}"
+EOF
+    chmod 755 "$DRACUT_INSTALL"
 fi
 
 # Check if kernel modules exist
@@ -118,7 +151,7 @@ else
     exit 1
 fi
 
-DRACUT_MODULES_DIR="/usr/lib/dracut/modules.d"
+DRACUT_MODULES_DIR="$DRACUT_BASE/modules.d"
 if [ -d "$DRACUT_MODULES_DIR" ]; then
     rm -rf "$DRACUT_MODULES_DIR/90minios" "$DRACUT_MODULES_DIR/99minios-cleanup"
     cp -r "$DRACUT_MOS/90minios" "$DRACUT_MODULES_DIR/"
@@ -129,14 +162,22 @@ fi
 
 # Build filesystem driver list for --add-drivers
 AVAILABLE_DRIVERS=""
-REQUIRED_DRIVERS="squashfs overlay loop zram ext4 vfat"
+REQUIRED_DRIVERS="squashfs overlay loop zram ext4 vfat isofs ahci"
 OPTIONAL_DRIVERS="aufs ntfs ntfs3 exfat"
+
+if [ "$CLOUD" = "true" ]; then
+    REQUIRED_DRIVERS="$REQUIRED_DRIVERS virtio_pci virtio_net"
+fi
 
 for driver in $REQUIRED_DRIVERS $OPTIONAL_DRIVERS; do
     if modinfo -k "$KERNEL" "$driver" >/dev/null 2>&1; then
         AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS $driver"
     fi
 done
+
+if [ "$CRYPT" = "true" ] && modinfo -k "$KERNEL" dm-crypt >/dev/null 2>&1; then
+    AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS dm-crypt"
+fi
 
 # Export flags for use in installkernel()
 export MINIOS_CLOUD="$CLOUD"
@@ -149,6 +190,7 @@ DRACUT_CMD=(
     --force
     --conf "$(dirname "$0")/90-minios.conf"
     --kver "$KERNEL"
+    --compress "$COMPRESSION"
     --add-drivers "$AVAILABLE_DRIVERS"
     --strip
     --hardlink
@@ -172,6 +214,7 @@ echo "  Output: $OUTPUT"
 echo "  Network: $NETWORK"
 echo "  Cloud: $CLOUD"
 echo "  Crypt: $CRYPT"
+echo "  Compression: $COMPRESSION"
 echo "  Debug: $DEBUG"
 echo
 

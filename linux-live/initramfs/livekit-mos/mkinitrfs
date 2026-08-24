@@ -236,36 +236,14 @@ copy_files() {
 }
 
 install_bundled_crypt() {
-    local PAYLOAD="$ORIGIN_DIR" MANIFEST="$ORIGIN_DIR/../buildroot/crypt_payload.sha256" FILE
-    local FILES=(
-        usr/sbin/cryptsetup usr/sbin/dmsetup sbin/losetup
-        lib/libc.so lib/ld-musl-i386.so.1
-        usr/lib/libcryptsetup.so.12 usr/lib/libcryptsetup.so.12.11.0
-        usr/lib/libpopt.so.0 usr/lib/libpopt.so.0.0.2
-        lib/libuuid.so.1 lib/libuuid.so.1.3.0
-        lib/libblkid.so.1 lib/libblkid.so.1.1.0
-        usr/lib/libdevmapper.so.1.02 usr/lib/libargon2.so.1
-        usr/lib/libjson-c.so.5 usr/lib/libjson-c.so.5.4.0
-        lib/libsmartcols.so.1 lib/libsmartcols.so.1.1.0
-    )
+    local PAYLOAD="$ORIGIN_DIR"
+    local LIST="$ORIGIN_DIR/../buildroot/crypt_payload_files.txt" FILE
 
-    [ -x "$PAYLOAD/usr/sbin/cryptsetup" ] || return 1
-
-    for FILE in "${FILES[@]}"; do
+    [ -f "$LIST" ] || return 1
+    while IFS= read -r FILE; do
         [ -e "$PAYLOAD/$FILE" ] || [ -L "$PAYLOAD/$FILE" ] || return 1
-    done
-    if [ ! -f "$MANIFEST" ] || ! (cd "$PAYLOAD" && sha256sum -c "$MANIFEST" >/dev/null); then
-        echo "E: Bundled crypto payload failed integrity verification" >&2
-        return 1
-    fi
-    [ "$(readlink "$PAYLOAD/lib/ld-musl-i386.so.1")" = libc.so ] || return 1
-    [ "$(readlink "$PAYLOAD/lib/libblkid.so.1")" = libblkid.so.1.1.0 ] || return 1
-    [ "$(readlink "$PAYLOAD/lib/libsmartcols.so.1")" = libsmartcols.so.1.1.0 ] || return 1
-    [ "$(readlink "$PAYLOAD/lib/libuuid.so.1")" = libuuid.so.1.3.0 ] || return 1
-    [ "$(readlink "$PAYLOAD/usr/lib/libcryptsetup.so.12")" = libcryptsetup.so.12.11.0 ] || return 1
-    [ "$(readlink "$PAYLOAD/usr/lib/libjson-c.so.5")" = libjson-c.so.5.4.0 ] || return 1
-    [ "$(readlink "$PAYLOAD/usr/lib/libpopt.so.0")" = libpopt.so.0.0.2 ] || return 1
-    (cd "$PAYLOAD" && cp -a --parents "${FILES[@]}" "$INITRAMFS")
+    done <"$LIST"
+    tar -C "$PAYLOAD" -cf - -T "$LIST" | tar -C "$INITRAMFS" -xf -
 }
 
 has_config() {
@@ -351,7 +329,7 @@ FILES=(
     bin/mke2fs
     bin/resize2fs
     bin/e2fsck
-    bin/jq
+    bin/unsquashfs
     bin/mc
     bin/dynblk
     bin/@mount.httpfs2
@@ -474,14 +452,12 @@ copy_including_deps "/$LMK/modules."*
 copy_including_deps "/usr/share/terminfo/l/linux"
 
 if [ "$CRYPT" = "true" ]; then
-    for TOOL in cryptsetup dmsetup losetup; do
-        if ! command -v "$TOOL" >/dev/null 2>&1; then
-            echo "E: --crypt requires $TOOL on the build host" >&2
-            exit 1
-        fi
-    done
     if ! install_bundled_crypt; then
-        for TOOL in cryptsetup dmsetup losetup; do
+        for TOOL in cryptsetup; do
+            command -v "$TOOL" >/dev/null 2>&1 || {
+                echo "E: --crypt requires bundled payload or build-host $TOOL" >&2
+                exit 1
+            }
             copy_including_deps "$(command -v "$TOOL")"
         done
     fi

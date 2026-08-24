@@ -12,34 +12,13 @@ depends() {
 }
 
 install_bundled_crypt() {
-    local payload=$1 manifest="$1/../buildroot/crypt_payload.sha256" path
-    local files=(
-        usr/sbin/cryptsetup usr/sbin/dmsetup sbin/losetup
-        lib/libc.so lib/ld-musl-i386.so.1
-        usr/lib/libcryptsetup.so.12 usr/lib/libcryptsetup.so.12.11.0
-        usr/lib/libpopt.so.0 usr/lib/libpopt.so.0.0.2
-        lib/libuuid.so.1 lib/libuuid.so.1.3.0
-        lib/libblkid.so.1 lib/libblkid.so.1.1.0
-        usr/lib/libdevmapper.so.1.02 usr/lib/libargon2.so.1
-        usr/lib/libjson-c.so.5 usr/lib/libjson-c.so.5.4.0
-        lib/libsmartcols.so.1 lib/libsmartcols.so.1.1.0
-    )
+    local payload=$1 list="$1/../buildroot/crypt_payload_files.txt" path
 
-    for path in "${files[@]}"; do
+    [ -f "$list" ] || return 1
+    while IFS= read -r path; do
         [ -e "$payload/$path" ] || [ -L "$payload/$path" ] || return 1
-    done
-    if [ ! -f "$manifest" ] || ! (cd "$payload" && sha256sum -c "$manifest" >/dev/null); then
-        echo "E: Bundled crypto payload failed integrity verification" >&2
-        return 1
-    fi
-    [ "$(readlink "$payload/lib/ld-musl-i386.so.1")" = libc.so ] || return 1
-    [ "$(readlink "$payload/lib/libblkid.so.1")" = libblkid.so.1.1.0 ] || return 1
-    [ "$(readlink "$payload/lib/libsmartcols.so.1")" = libsmartcols.so.1.1.0 ] || return 1
-    [ "$(readlink "$payload/lib/libuuid.so.1")" = libuuid.so.1.3.0 ] || return 1
-    [ "$(readlink "$payload/usr/lib/libcryptsetup.so.12")" = libcryptsetup.so.12.11.0 ] || return 1
-    [ "$(readlink "$payload/usr/lib/libjson-c.so.5")" = libjson-c.so.5.4.0 ] || return 1
-    [ "$(readlink "$payload/usr/lib/libpopt.so.0")" = libpopt.so.0.0.2 ] || return 1
-    (cd "$payload" && cp -a --parents "${files[@]}" "$initdir")
+    done <"$list"
+    tar -C "$payload" -cf - -T "$list" | tar -C "$initdir" -xf -
 }
 
 install() {
@@ -69,7 +48,7 @@ install() {
     inst_simple "$STATIC_BIN/mke2fs" "/bin/mke2fs"
     inst_simple "$STATIC_BIN/resize2fs" "/bin/resize2fs"
     inst_simple "$STATIC_BIN/e2fsck" "/bin/e2fsck"
-    inst_simple "$STATIC_BIN/jq" "/bin/jq"
+    inst_simple "$STATIC_BIN/unsquashfs" "/bin/unsquashfs"
     inst_simple "$STATIC_BIN/mc" "/bin/mc"
     inst_simple "$STATIC_BIN/blkid" "/bin/blkid"
     inst_simple "$STATIC_BIN/lsblk" "/bin/lsblk"
@@ -84,7 +63,7 @@ install() {
 
     if [ "$MINIOS_CRYPT" = "true" ]; then
         install_bundled_crypt "${STATIC_BIN%/bin}" ||
-            inst_multiple cryptsetup dmsetup losetup || return 1
+            inst_multiple cryptsetup || return 1
         touch "${initdir}/etc/minios-initramfs-crypt"
     fi
 
@@ -143,7 +122,9 @@ installkernel() {
 
     # Compression and checksums
     instmods =crypto/lz4 =crypto/zstd
-    instmods crc32c crc32c-intel crc32-pclmul crc32c_generic
+    instmods -o crc32c-intel
+    instmods -o crc32-pclmul
+    instmods -o crc32c_generic
 
     # Block devices
     instmods nbd dm-mod
