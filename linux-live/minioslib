@@ -13,6 +13,138 @@ LIVEKITNAME="minios"
 BEXT="sb"
 OUTPUT_MODE="console"
 
+kernel_family_for_suite() {
+    case "$1" in
+    bionic | focal | jammy | noble | resolute) printf '%s\n' ubuntu ;;
+    stretch | buster | bullseye | bookworm | trixie | forky | testing | sid | kali-rolling | orel) printf '%s\n' debian ;;
+    *) return 1 ;;
+    esac
+}
+
+kernel_debian_base_suite() {
+    case "$1" in
+    beowulf) printf '%s\n' buster ;;
+    chimaera) printf '%s\n' bullseye ;;
+    daedalus) printf '%s\n' bookworm ;;
+    excalibur) printf '%s\n' trixie ;;
+    *) printf '%s\n' "$1" ;;
+    esac
+}
+
+resolve_kernel_selection() {
+    local AUTO_VALUE="${KERNEL_AUTO_SELECT:-true}"
+    local REQUESTED_ARCH="${KERNEL_ARCH:-}"
+
+    case "${AUTO_VALUE}" in
+    true | false) ;;
+    *)
+        warning "Unknown KERNEL_AUTO_SELECT value '${AUTO_VALUE}'; using automatic kernel selection."
+        AUTO_VALUE=true
+        ;;
+    esac
+    KERNEL_AUTO_SELECT="${AUTO_VALUE}"
+
+    if [ "${KERNEL_AUTO_SELECT}" = "true" ]; then
+        KERNEL_ARCH="${DEFAULT_KERNEL_ARCH}"
+        KERNEL_SOURCE_SUITE="$(kernel_debian_base_suite "${DISTRIBUTION}")"
+        [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ] && KERNEL_SOURCE_SUITE="${DISTRIBUTION}"
+        if [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
+            case "${KERNEL_SOURCE_SUITE}" in
+            trixie | forky | testing | sid) KERNEL_SOURCE_SUITE=bookworm ;;
+            esac
+        fi
+        KERNEL_PACKAGE_VERSION=""
+        KERNEL_SNAPSHOT_DATE=""
+        KERNEL_UPDATE_POLICY=track
+    else
+        [ -n "${KERNEL_DISTRIBUTION:-}" ] || {
+            error "KERNEL_DISTRIBUTION is required when KERNEL_AUTO_SELECT=false"
+            return 1
+        }
+        [ -n "${REQUESTED_ARCH}" ] || {
+            error "KERNEL_ARCH is required when KERNEL_AUTO_SELECT=false"
+            return 1
+        }
+        KERNEL_SOURCE_SUITE="${KERNEL_DISTRIBUTION}"
+        KERNEL_ARCH="${REQUESTED_ARCH}"
+        : "${KERNEL_PACKAGE_VERSION:=}"
+        : "${KERNEL_SNAPSHOT_DATE:=}"
+        : "${KERNEL_UPDATE_POLICY:=track}"
+    fi
+
+    KERNEL_SOURCE_FAMILY="$(kernel_family_for_suite "${KERNEL_SOURCE_SUITE}")" || {
+        error "Unsupported kernel distribution: ${KERNEL_SOURCE_SUITE}"
+        return 1
+    }
+    case "${KERNEL_ARCH}" in
+    amd64) KERNEL_APT_ARCH=amd64 ;;
+    686 | 686-pae) KERNEL_APT_ARCH=i386 ;;
+    arm64)
+        [ "${KERNEL_AUTO_SELECT}" = "true" ] || {
+            error "Manual arm64 kernel selection is not supported"
+            return 1
+        }
+        KERNEL_APT_ARCH=arm64
+        ;;
+    *)
+        error "Unsupported kernel architecture: ${KERNEL_ARCH}"
+        return 1
+        ;;
+    esac
+    if [ "${DISTRIBUTION_ARCH}" = amd64 ] && [ "${KERNEL_APT_ARCH}" = i386 ]; then
+        error "An i386 kernel cannot run amd64 userspace"
+        return 1
+    fi
+    if [ "${KERNEL_BUILD_DKMS}" = true ] && [ "${DISTRIBUTION_ARCH}" != "${KERNEL_APT_ARCH}" ]; then
+        error "KERNEL_BUILD_DKMS=true requires matching userspace and kernel package architectures"
+        return 1
+    fi
+    case "${KERNEL_UPDATE_POLICY}" in
+    track | frozen) ;;
+    *)
+        error "Unsupported KERNEL_UPDATE_POLICY: ${KERNEL_UPDATE_POLICY}"
+        return 1
+        ;;
+    esac
+    if [ -n "${KERNEL_SNAPSHOT_DATE}" ] && ! [[ "${KERNEL_SNAPSHOT_DATE}" =~ ^[0-9]{8}T[0-9]{6}Z$ ]]; then
+        error "KERNEL_SNAPSHOT_DATE must use YYYYMMDDTHHMMSSZ"
+        return 1
+    fi
+    if [ -n "${KERNEL_SNAPSHOT_DATE}" ] && [ "${KERNEL_SOURCE_FAMILY}" != "debian" ]; then
+        error "Kernel snapshots are currently supported only for Debian sources"
+        return 1
+    fi
+
+    if [ "${KERNEL_SOURCE_FAMILY}" = "debian" ]; then
+        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
+            KERNEL_METAPACKAGE="linux-image-${KERNEL_ARCH}"
+            KERNEL_HEADER_METAPACKAGE="linux-headers-${KERNEL_ARCH}"
+        else
+            KERNEL_METAPACKAGE="linux-image-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
+            KERNEL_HEADER_METAPACKAGE="linux-headers-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
+        fi
+    else
+        if [ "${KERNEL_ARCH}" != "amd64" ] && ! { [ "${KERNEL_SOURCE_SUITE}" = "bionic" ] && [ "${KERNEL_APT_ARCH}" = "i386" ]; }; then
+            error "Ubuntu ${KERNEL_SOURCE_SUITE} does not provide the selected ${KERNEL_ARCH} stock kernel"
+            return 1
+        fi
+        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
+            KERNEL_METAPACKAGE=linux-image-generic
+            KERNEL_HEADER_METAPACKAGE=linux-headers-generic
+        else
+            KERNEL_METAPACKAGE="linux-image-${KERNEL_FLAVOUR}"
+            KERNEL_HEADER_METAPACKAGE="linux-headers-${KERNEL_FLAVOUR}"
+        fi
+    fi
+
+    KERNEL_DISTRIBUTION="${KERNEL_SOURCE_SUITE}"
+    KERNEL_REQUEST="${KERNEL_METAPACKAGE}:${KERNEL_APT_ARCH}"
+    KERNEL_HEADER_REQUEST="${KERNEL_HEADER_METAPACKAGE}:${KERNEL_APT_ARCH}"
+    [ -n "${KERNEL_PACKAGE_VERSION}" ] && KERNEL_REQUEST="${KERNEL_REQUEST}=${KERNEL_PACKAGE_VERSION}"
+    [ -n "${KERNEL_PACKAGE_VERSION}" ] && KERNEL_HEADER_REQUEST="${KERNEL_HEADER_REQUEST}=${KERNEL_PACKAGE_VERSION}"
+    return 0
+}
+
 common_variables() {
     local locale layout layoutcode
 
@@ -20,7 +152,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_PROFILE INIT_SYSTEM PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS INITRAMFS_BUILDER INITRAMFS_CRYPT LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE USE_SHARED_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_PROFILE INIT_SYSTEM PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_AUTO_SELECT KERNEL_DISTRIBUTION KERNEL_SOURCE_FAMILY KERNEL_SOURCE_SUITE KERNEL_APT_ARCH KERNEL_METAPACKAGE KERNEL_HEADER_METAPACKAGE KERNEL_REQUEST KERNEL_HEADER_REQUEST KERNEL_PACKAGE_VERSION KERNEL_SNAPSHOT_DATE KERNEL_UPDATE_POLICY INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS INITRAMFS_BUILDER INITRAMFS_CRYPT LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE USE_SHARED_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
 
     : "${container:=}"
     : "${MODULE:=}"
@@ -33,17 +165,20 @@ common_variables() {
 
     if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
         ISO_ARCH="amd64"
-        KERNEL_ARCH="amd64"
+        DEFAULT_KERNEL_ARCH="amd64"
     elif [ "${DISTRIBUTION_ARCH}" = "i386-pae" ]; then
         ISO_ARCH="i386-pae"
-        KERNEL_ARCH="686-pae"
+        DEFAULT_KERNEL_ARCH="686-pae"
         DISTRIBUTION_ARCH="i386"
     elif [ "${DISTRIBUTION_ARCH}" = "i386" ]; then
         ISO_ARCH="i386"
-        KERNEL_ARCH="686"
+        DEFAULT_KERNEL_ARCH="686"
     elif [ "${DISTRIBUTION_ARCH}" = "arm64" ]; then
         ISO_ARCH="arm64"
-        KERNEL_ARCH="arm64"
+        DEFAULT_KERNEL_ARCH="arm64"
+    else
+        error "Unsupported distribution architecture: ${DISTRIBUTION_ARCH}"
+        exit 1
     fi
 
     if [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
@@ -63,7 +198,7 @@ common_variables() {
     fi
 
     case "${DISTRIBUTION}" in
-    stretch | buster | bullseye | bookworm | trixie | kali-rolling | sid | orel)
+    stretch | buster | bullseye | bookworm | trixie | forky | testing | kali-rolling | sid | orel)
         DISTRIBUTION_PROFILE="debian"
         : "${INIT_SYSTEM:=systemd}"
         ;;
@@ -80,6 +215,8 @@ common_variables() {
         exit 1
         ;;
     esac
+
+    resolve_kernel_selection || exit 1
 
     case "${INIT_SYSTEM}" in
     systemd | sysvinit) ;;
@@ -320,7 +457,7 @@ read_config() {
     local CONFIG_FILE="${1}"
 
     # All other arguments are the variable names to look for.
-    local KEYLIST="${@:2}"
+    local KEYLIST="${*:2}"
 
     # Check if the configuration file is set, exists and is readable.
     if [[ ! "$CONFIG_FILE" ]]; then
@@ -361,7 +498,7 @@ read_config() {
                 eval ${LHS}=\"${RHS}\"
             fi
         fi
-    done <<<"$(tr -d '\r' <${CONFIG_FILE})"
+    done <<<"$(tr -d '\r' <"${CONFIG_FILE}")"
 
     # Disable extended globbing after we're done using it.
     shopt -u extglob
@@ -410,7 +547,7 @@ update_config() {
         local -n VAR="$ARG"
         local NEW_VALUE ELEMENT
 
-        if ! $ALL_DECLARED && [[ -z "${VAR[@]}" ]]; then
+        if ! $ALL_DECLARED && [[ -z "${VAR[*]}" ]]; then
             continue
         elif $ALL_DECLARED && [[ -z "${VAR+x}" ]]; then
             continue
@@ -1218,6 +1355,18 @@ INIT_SYSTEM="${INIT_SYSTEM}"
 
 # Kernel settings
 KERNEL_ARCH="${KERNEL_ARCH}"
+KERNEL_AUTO_SELECT="${KERNEL_AUTO_SELECT}"
+KERNEL_DISTRIBUTION="${KERNEL_DISTRIBUTION}"
+KERNEL_SOURCE_FAMILY="${KERNEL_SOURCE_FAMILY}"
+KERNEL_SOURCE_SUITE="${KERNEL_SOURCE_SUITE}"
+KERNEL_APT_ARCH="${KERNEL_APT_ARCH}"
+KERNEL_METAPACKAGE="${KERNEL_METAPACKAGE}"
+KERNEL_HEADER_METAPACKAGE="${KERNEL_HEADER_METAPACKAGE}"
+KERNEL_REQUEST="${KERNEL_REQUEST}"
+KERNEL_HEADER_REQUEST="${KERNEL_HEADER_REQUEST}"
+KERNEL_PACKAGE_VERSION="${KERNEL_PACKAGE_VERSION}"
+KERNEL_SNAPSHOT_DATE="${KERNEL_SNAPSHOT_DATE}"
+KERNEL_UPDATE_POLICY="${KERNEL_UPDATE_POLICY}"
 INSTALL_KERNEL="${INSTALL_KERNEL}"
 KERNEL_FLAVOUR="${KERNEL_FLAVOUR}"
 KERNEL_AUFS="${KERNEL_AUFS}"
@@ -1662,7 +1811,7 @@ copy_build_scripts() {
 
     mkdir -p "${DESTINATION}/linux-live"
     # Build scripts come from the host checkout; host uid/gid must not leak into the chroot.
-    rsync -a --no-owner --no-group --exclude='.git' "${BUILD_SCRIPTS_DIR}/" "${DESTINATION}/${BUILD_SCRIPTS}/"
+    rsync -a --delete --no-owner --no-group --exclude='.git' "${BUILD_SCRIPTS_DIR}/" "${DESTINATION}/${BUILD_SCRIPTS}/"
 
     cp $BUILD_CONF "${DESTINATION}/${BUILD_SCRIPTS}"
 
@@ -1824,7 +1973,7 @@ EOF
 
 mkmod_corefs() {
     local FOLDER
-    cd "${1}"
+    cd "${1}" || return 1
     COREFS=""
     # List of directories for root filesystem
     # No subdirectories are allowed, no slashes,
@@ -1954,14 +2103,9 @@ create_config_files() {
         DEBUG_SETTINGS="${DEBUG_SETTINGS} console=tty0 console=ttyS0,115200n8"
         SYSLINUX_SERIAL_SETTINGS="SERIAL 0 115200 0"
         GRUB_TERMINAL_SETTINGS="if [ \"\$grub_platform\" = \"pc\" ]; then
-    if [ \"\$lockdown\" != \"y\" ]; then
-        serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-        terminal_input console serial
-        terminal_output gfxterm serial
-    else
-        terminal_input console
-        terminal_output gfxterm
-    fi
+    serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+    terminal_input console serial
+    terminal_output gfxterm serial
 else
     terminal_input console
     terminal_output gfxterm
@@ -2121,11 +2265,11 @@ EOF
             fi
 
             # Extract translations from mo file if it exists
-            local RESUME="Resume previous session"
+            local RESUME="Start MiniOS"
             local START_NEW="Start a new session"
-            local CHOOSE_SESSION="Choose session during startup"
-            local FRESH_START="Fresh start"
-            local COPY_RAM="Copy to RAM"
+            local CHOOSE_SESSION="Choose a saved session"
+            local FRESH_START="Start without saving"
+            local COPY_RAM="Run from RAM"
             local PRESS_ESC="Press Esc for options, automatic boot in # second{,s} ..."
             local F1_HELP="[F1] help"
             local TAB_CMDLINE="[Tab] cmdline >"
@@ -2134,11 +2278,11 @@ EOF
             # Parse translations from po file
             local PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${CURRENT_LANG}.po"
             if [ -f "$PO_FILE" ]; then
-                local TEMP_RESUME=$(awk '/^msgid "Resume previous session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_RESUME=$(awk '/^msgid "Start MiniOS"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
                 local TEMP_START_NEW=$(awk '/^msgid "Start a new session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose session during startup"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_FRESH_START=$(awk '/^msgid "Fresh start"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_COPY_RAM=$(awk '/^msgid "Copy to RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose a saved session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_FRESH_START=$(awk '/^msgid "Start without saving"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
+                local TEMP_COPY_RAM=$(awk '/^msgid "Run from RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
                 local TEMP_PRESS_ESC=$(awk '/^msgid "Press Esc for options, automatic boot in # second/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
                 local TEMP_F1_HELP=$(awk '/^msgid "\[F1\] help"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
                 local TEMP_TAB_CMDLINE=$(awk '/^msgid "\[Tab\] cmdline >"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
@@ -2275,16 +2419,12 @@ set default=0
 set timeout=10
 set message="Loading kernel and ramdisk..."
 
+# Initialize GRUB 2.12 graphical output before loading the theme.
+echo -n ""
+
 insmod regexp
 insmod gettext
 set localedir=\$prefix/locale
-
-# Detect lockdown mode (Secure Boot)
-set lockdown=n
-insmod font
-if ! loadfont \$prefix/unicode.pf2 ; then
-    set lockdown=y
-fi
 
 # Language selection (title in theme)
 
@@ -2395,6 +2535,7 @@ menuentry "Português (Portugal)" {
 if [ "\$lockdown" = "y" ]; then
     loadfont (memdisk)/fonts/unicode.pf2
 else
+    insmod font
     loadfont \$prefix/dejavu-bold-16.pf2
     loadfont \$prefix/dejavu-bold-14.pf2
     loadfont \$prefix/roboto-bold-20.pf2
@@ -2410,9 +2551,11 @@ else
     set gfxpayload=auto
 fi
 
-insmod all_video
-insmod gfxterm
-insmod png
+if [ "\$grub_platform" = "pc" ]; then
+    insmod all_video
+    insmod gfxterm
+    insmod png
+fi
 
 set color_normal=light-gray/black
 set color_highlight=white/black
@@ -2432,6 +2575,9 @@ EOF
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/main.cfg"
 set default=0
 set timeout=10
+
+# Initialize GRUB 2.12 graphical output before loading the theme.
+echo -n ""
 
 # Initialize gettext support
 insmod regexp
@@ -2458,11 +2604,11 @@ fi
 
 # Gettext-based localized menu strings
 set OS=\$"MiniOS"
-set resume=\$"Resume previous session"
+set resume=\$"Start MiniOS"
 set newsession=\$"Start a new session"
-set choosesession=\$"Choose session during startup"
-set freshstart=\$"Fresh start"
-set copyram=\$"Copy to RAM"
+set choosesession=\$"Choose a saved session"
+set freshstart=\$"Start without saving"
+set copyram=\$"Run from RAM"
 set loading=\$"Loading kernel and ramdisk..."
 
 # Export variables for proper gettext functionality
@@ -2475,19 +2621,11 @@ export copyram
 export backtolang
 export loading
 
-# Detect lockdown mode (Secure Boot) if not already set
-if [ -z "\$lockdown" ]; then
-    set lockdown=n
-    insmod font
-    if ! loadfont \$prefix/unicode.pf2 ; then
-        set lockdown=y
-    fi
-fi
-
 # Load fonts
 if [ "\$lockdown" = "y" ]; then
     loadfont (memdisk)/fonts/unicode.pf2
 else
+    insmod font
     loadfont \$prefix/dejavu-bold-16.pf2
     loadfont \$prefix/dejavu-bold-14.pf2
     loadfont \$prefix/roboto-bold-20.pf2
@@ -2503,9 +2641,11 @@ else
     set gfxpayload=auto
 fi
 
-insmod all_video
-insmod gfxterm
-insmod png
+if [ "\$grub_platform" = "pc" ]; then
+    insmod all_video
+    insmod gfxterm
+    insmod png
+fi
 
 set color_normal=light-gray/black
 set color_highlight=white/black
@@ -2575,17 +2715,14 @@ set default=0
 set timeout=10
 set message="Loading kernel and ramdisk..."
 
-# Detect lockdown mode (Secure Boot)
-set lockdown=n
-insmod font
-if ! loadfont \$prefix/unicode.pf2 ; then
-    set lockdown=y
-fi
+# Initialize GRUB 2.12 graphical output before loading the theme.
+echo -n ""
 
 # Load fonts
 if [ "\$lockdown" = "y" ]; then
     loadfont (memdisk)/fonts/unicode.pf2
 else
+    insmod font
     loadfont \$prefix/dejavu-bold-16.pf2
     loadfont \$prefix/dejavu-bold-14.pf2
     loadfont \$prefix/roboto-bold-20.pf2
@@ -2601,9 +2738,11 @@ else
     set gfxpayload=auto
 fi
 
-insmod all_video
-insmod gfxterm
-insmod png
+if [ "\$grub_platform" = "pc" ]; then
+    insmod all_video
+    insmod gfxterm
+    insmod png
+fi
 
 set color_normal=light-gray/black
 set color_highlight=white/black
@@ -2617,7 +2756,7 @@ fi
 
 ${GRUB_TERMINAL_SETTINGS}
 
-menuentry "Resume previous session" --class resume {
+menuentry "Start MiniOS" --class resume {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
@@ -2631,21 +2770,21 @@ menuentry "Start a new session" --class new {
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=new
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Choose session during startup" --class switch {
+menuentry "Choose a saved session" --class switch {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Fresh start" --class live {
+menuentry "Start without saving" --class live {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
     linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS}
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
-menuentry "Copy to RAM" --class ram {
+menuentry "Run from RAM" --class ram {
     echo \$message
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
@@ -2699,18 +2838,391 @@ build_initrd() {
 
     cp "${OVERLAY[merged]}/boot/vmlinuz"-* "${WORK_DIR}/image/${LIVEKITNAME}/boot/${VMLINUZNAME}"
     cp "${OVERLAY[merged]}/boot/initrfs.img" "${WORK_DIR}/image/${LIVEKITNAME}/boot/${INITRFSNAME}"
+    rm -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/config"-*
+    rm -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/System.map"-*
 
     # Create compatibility symlinks for Ventoy
     if [ "$NAMED_BOOT_FILES" = "true" ]; then
-        cd "${WORK_DIR}/image/${LIVEKITNAME}/boot"
-        ln -sf "${VMLINUZNAME}" "vmlinuz" 2>/dev/null || true
-        ln -sf "${INITRFSNAME}" "initrfs.img" 2>/dev/null || true
-        cd - >/dev/null
+        (
+            cd "${WORK_DIR}/image/${LIVEKITNAME}/boot" || exit 1
+            ln -sf "${VMLINUZNAME}" "vmlinuz" 2>/dev/null
+            ln -sf "${INITRFSNAME}" "initrfs.img" 2>/dev/null
+        ) || return 1
     fi
 
     overlay_chroot_finish_up
 
     overlay_unmount_dirs
+}
+
+kernel_lock_value() {
+    local FIELD="$1"
+    local LOCK="${WORK_DIR}/kernel.lock"
+
+    [ -f "${LOCK}" ] || return 1
+    sed -n '/"kernel"[[:space:]]*:/,/^[[:space:]]*}/ {
+        s/.*"'"${FIELD}"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p
+    }' "${LOCK}" | head -n 1
+}
+
+validate_kernel_lock() {
+    local LOCKED_SUITE LOCKED_ARCH LOCKED_VERSION KERNEL_MODULE
+
+    if [ "${INSTALL_KERNEL}" != true ]; then
+        LOCKED_EFI_VENDOR="${KERNEL_SOURCE_FAMILY}"
+        return 0
+    fi
+    LOCKED_SUITE="$(kernel_lock_value distribution)" || {
+        error "Kernel lock is missing; rebuild 01-kernel with ./minios-live build-modules -"
+        return 1
+    }
+    LOCKED_ARCH="$(kernel_lock_value package_architecture)"
+    LOCKED_VERSION="$(kernel_lock_value version)"
+    LOCKED_EFI_VENDOR="${KERNEL_SOURCE_FAMILY}"
+    if [ "${LOCKED_SUITE}" != "${KERNEL_SOURCE_SUITE}" ] || [ "${LOCKED_ARCH}" != "${KERNEL_APT_ARCH}" ]; then
+        error "Kernel lock selects ${LOCKED_SUITE}/${LOCKED_ARCH}, but build.conf resolves ${KERNEL_SOURCE_SUITE}/${KERNEL_APT_ARCH}; rebuild 01-kernel"
+        return 1
+    fi
+    [ -f "${WORK_DIR}/kernel/vmlinuz-${LOCKED_VERSION}" ] || {
+        error "Kernel lock references missing vmlinuz-${LOCKED_VERSION}; rebuild 01-kernel"
+        return 1
+    }
+    [ -f "${WORK_DIR}/kernel/config-${LOCKED_VERSION}" ] || {
+        error "Kernel lock references missing config-${LOCKED_VERSION}; rebuild 01-kernel"
+        return 1
+    }
+    KERNEL_MODULE="${WORK_DIR}/image/${LIVEKITNAME}/01-kernel-${LOCKED_VERSION}.${BEXT}"
+    [ -f "${KERNEL_MODULE}" ] && [ ! -L "${KERNEL_MODULE}" ] || {
+        error "Kernel lock references missing 01-kernel-${LOCKED_VERSION}.${BEXT}; rebuild 01-kernel"
+        return 1
+    }
+    case "${LOCKED_EFI_VENDOR}" in
+    debian | ubuntu) ;;
+    *)
+        error "Kernel source has unsupported EFI vendor: ${LOCKED_EFI_VENDOR}"
+        return 1
+        ;;
+    esac
+}
+
+verify_shim_vendor_ca() {
+    local SHIM="$1" CA="$2"
+    local TEMP SECTION COPY CERT_SIZE CERT EXPECTED ACTUAL
+
+    TEMP="$(mktemp -d "${WORK_DIR}/shim-cert.XXXXXX")"
+    SECTION="${TEMP}/vendor-cert"
+    COPY="${TEMP}/shim-copy"
+    CERT="${TEMP}/vendor.der"
+    objcopy --dump-section .vendor_cert="${SECTION}" "${SHIM}" "${COPY}" 2>/dev/null || {
+        rm -rf "${TEMP}"
+        return 1
+    }
+    CERT_SIZE="$(od -An -tu4 -N4 "${SECTION}" | tr -d ' ')"
+    [[ "${CERT_SIZE}" =~ ^[0-9]+$ ]] && [ "${CERT_SIZE}" -gt 0 ] || {
+        rm -rf "${TEMP}"
+        return 1
+    }
+    dd if="${SECTION}" of="${CERT}" bs=1 skip=16 count="${CERT_SIZE}" status=none
+    EXPECTED="$(openssl x509 -in "${CA}" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')"
+    ACTUAL="$(openssl x509 -inform DER -in "${CERT}" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')"
+    rm -rf "${TEMP}"
+    [ "${EXPECTED}" = "${ACTUAL}" ]
+}
+
+verify_signed_pe() {
+    LC_ALL=C sbverify --list "$1" 2>&1 | grep -Eq '^signature [0-9]+$'
+}
+
+efi_manifest_arch_value() {
+    local MANIFEST="$1" ARCHITECTURE="$2" FIELD="$3"
+    sed -n '/"'"${ARCHITECTURE}"'"[[:space:]]*:/ {
+        s/.*"'"${FIELD}"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p
+    }' "${MANIFEST}" | head -n 1
+}
+
+efi_binary_grub_version() {
+    strings "$1" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\)-.*/\1/p' | head -n 1
+}
+
+directory_tree_sha256() {
+    local DIRECTORY="$1"
+
+    (
+        LC_ALL=C
+        export LC_ALL
+        cd "${DIRECTORY}" || exit 1
+        find . -type f -print0 | sort -z | xargs -0 -r sha256sum | sha256sum | cut -d' ' -f1
+    )
+}
+
+grub_module_version() {
+    sed -n 's/^grub_package_version="\([^"]*\)"$/\1/p' "$1" | head -n 1
+}
+
+copy_verified_manifest_file() {
+    local MANIFEST="$1" KEY="$2" SOURCE="$3" DESTINATION="$4"
+    local EXPECTED ACTUAL
+
+    EXPECTED="$(sed -n 's/.*"'"${KEY}"'":"\([0-9a-fA-F]*\)".*/\1/p' "${MANIFEST}" | head -n 1)"
+    [ -n "${EXPECTED}" ] || return 1
+    ACTUAL="$(sha256sum "${SOURCE}" | cut -d' ' -f1)" || return 1
+    [ "${EXPECTED,,}" = "${ACTUAL}" ] || return 1
+    cp -- "${SOURCE}" "${DESTINATION}" || return 1
+    ACTUAL="$(sha256sum "${DESTINATION}" | cut -d' ' -f1)" || return 1
+    [ "${EXPECTED,,}" = "${ACTUAL}" ]
+}
+
+select_efi_chain() {
+    local EFI_PARENT="${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI"
+    local EFI_DIR="${EFI_PARENT}/boot"
+    local GRUB_PARENT="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub"
+    local DEBIAN_CA="${BUILD_SCRIPTS_DIR}/bootfiles/secure-boot/debian-secure-boot-ca.pem"
+    local CANONICAL_CA="${BUILD_SCRIPTS_DIR}/bootfiles/secure-boot/canonical-uefi-ca.pem"
+    local FILE SOURCE MANIFEST STAGE MODULE_SOURCE EXPECTED ACTUAL
+
+    [ ! -L "${EFI_PARENT}" ] && [ ! -L "${GRUB_PARENT}" ] || {
+        error "EFI publication parent must not be a symlink"
+        return 1
+    }
+    STAGE="$(mktemp -d "${WORK_DIR}/efi-chain.XXXXXX")" || return 1
+    mkdir -p "${STAGE}/boot" "${STAGE}/grub" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+
+    MANIFEST="${WORK_DIR}/efi-support/debian-manifest.json"
+    [ -f "${MANIFEST}" ] || {
+        error "Pinned Debian EFI manifest is missing"
+        return 1
+    }
+    EFI_IA32_VENDOR="debian"
+    EFI_IA32_SUITE="$(efi_manifest_arch_value "${MANIFEST}" ia32 suite)"
+    EFI_IA32_GRUB_VERSION="$(efi_manifest_arch_value "${MANIFEST}" ia32 grub_version)"
+    [ "${EFI_IA32_SUITE}" = bookworm ] && [ "${EFI_IA32_GRUB_VERSION}" = 2.06 ] || {
+        error "Pinned Debian IA32 EFI contract must remain Bookworm GRUB 2.06"
+        return 1
+    }
+    for FILE in bootia32.efi grubia32.efi; do
+        SOURCE="debian-${FILE}"
+        copy_verified_manifest_file "${MANIFEST}" "${SOURCE}" \
+            "${WORK_DIR}/efi-support/${SOURCE}" "${STAGE}/boot/${FILE}" || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+    done
+    MODULE_SOURCE="${WORK_DIR}/efi-support/debian-grub/i386-efi"
+    EXPECTED="$(efi_manifest_arch_value "${MANIFEST}" ia32 modules_sha256)"
+    [ -d "${MODULE_SOURCE}" ] && [ -n "${EXPECTED}" ] || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    cp -a "${MODULE_SOURCE}" "${STAGE}/grub/" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    ACTUAL="$(directory_tree_sha256 "${STAGE}/grub/i386-efi")" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    [ "${EXPECTED}" = "${ACTUAL}" ] || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+
+    if [ "${LOCKED_EFI_VENDOR}" = ubuntu ]; then
+        MANIFEST="${WORK_DIR}/efi-support/canonical-manifest.json"
+        [ -f "${MANIFEST}" ] || {
+            error "Canonical kernel lock has no acquired Canonical EFI chain"
+            return 1
+        }
+        for FILE in bootx64.efi grubx64.efi; do
+            SOURCE="canonical-${FILE}"
+            copy_verified_manifest_file "${MANIFEST}" "${SOURCE}" \
+                "${WORK_DIR}/efi-support/${SOURCE}" "${STAGE}/boot/${FILE}" || {
+                rm -rf -- "${STAGE}"
+                error "Canonical EFI manifest mismatch for ${FILE}"
+                return 1
+            }
+        done
+        verify_shim_vendor_ca "${STAGE}/boot/bootx64.efi" "${CANONICAL_CA}" || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        verify_signed_pe "${STAGE}/boot/bootx64.efi" || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        sbverify --cert "${CANONICAL_CA}" "${STAGE}/boot/grubx64.efi" >/dev/null 2>&1 || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        strings "${STAGE}/boot/grubx64.efi" | grep -q '/EFI/ubuntu' || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        EFI_X64_VENDOR="ubuntu"
+        EFI_X64_SUITE="${KERNEL_SOURCE_SUITE}"
+        EFI_X64_GRUB_VERSION="$(efi_binary_grub_version "${STAGE}/boot/grubx64.efi")"
+        MODULE_SOURCE="${WORK_DIR}/efi-support/canonical-grub/x86_64-efi"
+        EXPECTED="$(sed -n 's/.*"modules_sha256"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F]*\)".*/\1/p' \
+            "${MANIFEST}" | head -n 1)"
+    else
+        for FILE in bootx64.efi grubx64.efi; do
+            SOURCE="debian-${FILE}"
+            copy_verified_manifest_file "${MANIFEST}" "${SOURCE}" \
+                "${WORK_DIR}/efi-support/${SOURCE}" "${STAGE}/boot/${FILE}" || {
+                rm -rf -- "${STAGE}"
+                return 1
+            }
+        done
+        verify_shim_vendor_ca "${STAGE}/boot/bootx64.efi" "${DEBIAN_CA}" || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        verify_signed_pe "${STAGE}/boot/bootx64.efi" || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        sbverify --cert "${DEBIAN_CA}" "${STAGE}/boot/grubx64.efi" >/dev/null 2>&1 || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        strings "${STAGE}/boot/grubx64.efi" | grep -q '/EFI/debian' || {
+            rm -rf -- "${STAGE}"
+            return 1
+        }
+        EFI_X64_VENDOR="debian"
+        EFI_X64_SUITE="$(efi_manifest_arch_value "${MANIFEST}" x64 suite)"
+        EFI_X64_GRUB_VERSION="$(efi_manifest_arch_value "${MANIFEST}" x64 grub_version)"
+        [ "${EFI_X64_SUITE}" = trixie ] && [ "${EFI_X64_GRUB_VERSION}" = 2.12 ] || {
+            error "Pinned Debian x64 EFI contract must use Trixie GRUB 2.12"
+            return 1
+        }
+        MODULE_SOURCE="${WORK_DIR}/efi-support/debian-grub/x86_64-efi"
+        EXPECTED="$(efi_manifest_arch_value "${MANIFEST}" x64 modules_sha256)"
+    fi
+    [ -d "${MODULE_SOURCE}" ] && [ -n "${EXPECTED}" ] || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    cp -a "${MODULE_SOURCE}" "${STAGE}/grub/" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    ACTUAL="$(directory_tree_sha256 "${STAGE}/grub/x86_64-efi")" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    [ "${EXPECTED}" = "${ACTUAL}" ] || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    verify_shim_vendor_ca "${STAGE}/boot/bootia32.efi" "${DEBIAN_CA}" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    verify_signed_pe "${STAGE}/boot/bootia32.efi" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    sbverify --cert "${DEBIAN_CA}" "${STAGE}/boot/grubia32.efi" >/dev/null 2>&1 || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    strings "${STAGE}/boot/grubia32.efi" | grep -q '/EFI/debian' || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+
+    rm -rf -- "${EFI_DIR}" "${GRUB_PARENT}/i386-efi" "${GRUB_PARENT}/x86_64-efi"
+    mv "${STAGE}/boot" "${EFI_DIR}" || {
+        rm -rf -- "${STAGE}"
+        return 1
+    }
+    mv "${STAGE}/grub/i386-efi" "${GRUB_PARENT}/i386-efi" || return 1
+    mv "${STAGE}/grub/x86_64-efi" "${GRUB_PARENT}/x86_64-efi" || return 1
+    rm -rf -- "${STAGE}"
+}
+
+efi_image_fits() {
+    local IMAGE="$1" SOURCE="$2" SECTORS="$3"
+
+    rm -f "${IMAGE}"
+    truncate -s "$((SECTORS * 512))" "${IMAGE}" || return 1
+    mformat -i "${IMAGE}" :: >/dev/null 2>&1 || return 1
+    mcopy -s -i "${IMAGE}" "${SOURCE}" ::/ >/dev/null 2>&1
+}
+
+build_efi_images() {
+    local EFI_SOURCE="${WORK_DIR}/image/EFI"
+    local EFI_IMAGE="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi.img"
+    local MANIFEST="${WORK_DIR}/image/${LIVEKITNAME}/boot/efi-manifest.json"
+    local X64_MODULE_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/x86_64-efi"
+    local IA32_MODULE_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-efi"
+    local PATHNAME FIRST=true PAYLOAD_BYTES LOW HIGH MID MAX OVERHEAD=2048
+    local X64_MODULE_VERSION IA32_MODULE_VERSION X64_MODULE_HASH IA32_MODULE_HASH
+
+    for PATHNAME in bootia32.efi grubia32.efi bootx64.efi grubx64.efi; do
+        [ -f "${EFI_SOURCE}/boot/${PATHNAME}" ] || return 1
+    done
+    [ -f "${X64_MODULE_DIR}/modinfo.sh" ] && [ -f "${IA32_MODULE_DIR}/modinfo.sh" ] || return 1
+    X64_MODULE_VERSION="$(grub_module_version "${X64_MODULE_DIR}/modinfo.sh")"
+    IA32_MODULE_VERSION="$(grub_module_version "${IA32_MODULE_DIR}/modinfo.sh")"
+    [ -n "${X64_MODULE_VERSION}" ] && [ -n "${IA32_MODULE_VERSION}" ] || return 1
+    X64_MODULE_HASH="$(directory_tree_sha256 "${X64_MODULE_DIR}")" || return 1
+    IA32_MODULE_HASH="$(directory_tree_sha256 "${IA32_MODULE_DIR}")" || return 1
+    rm -f "${EFI_IMAGE}" \
+        "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi32.img" \
+        "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/efi64.img"
+    PAYLOAD_BYTES="$(du -sb "${EFI_SOURCE}" | cut -f1)"
+    LOW="$(((PAYLOAD_BYTES + 511) / 512))"
+    MAX="$(((PAYLOAD_BYTES * 2 + 64 * 1024 * 1024 + 511) / 512))"
+    HIGH="$((LOW + OVERHEAD))"
+    while ! efi_image_fits "${EFI_IMAGE}" "${EFI_SOURCE}" "${HIGH}"; do
+        OVERHEAD="$((OVERHEAD * 2))"
+        HIGH="$((LOW + OVERHEAD))"
+        if [ "${HIGH}" -gt "${MAX}" ]; then
+            HIGH="${MAX}"
+            if ! efi_image_fits "${EFI_IMAGE}" "${EFI_SOURCE}" "${HIGH}"; then
+                rm -f "${EFI_IMAGE}"
+                error "Unable to create EFI image within $((MAX * 512)) bytes; check mformat, mcopy, and the EFI source tree"
+                return 1
+            fi
+            break
+        fi
+    done
+    while [ "${LOW}" -lt "${HIGH}" ]; do
+        MID="$(((LOW + HIGH) / 2))"
+        if efi_image_fits "${EFI_IMAGE}" "${EFI_SOURCE}" "${MID}"; then
+            HIGH="${MID}"
+        else
+            LOW="$((MID + 1))"
+        fi
+    done
+    efi_image_fits "${EFI_IMAGE}" "${EFI_SOURCE}" "${LOW}" || return 1
+    # ISO files occupy 2048-byte blocks. Keep the FAT filesystem minimal, then
+    # pad its carrier so hybrid partition tables cover the complete image.
+    truncate -s "$((((LOW + 3) / 4) * 4 * 512))" "${EFI_IMAGE}" || return 1
+
+    {
+        printf '{\n  "format": 1,\n  "layout": "dual-architecture-esp",\n  "architectures": {'
+        printf '\n    "x64": {"vendor":"%s","suite":"%s","grub_version":"%s","modules_version":"%s","modules_path":"/%s/boot/grub/x86_64-efi","modules_sha256":"%s","shim_path":"/EFI/boot/bootx64.efi","grub_path":"/EFI/boot/grubx64.efi"},' \
+            "${EFI_X64_VENDOR}" "${EFI_X64_SUITE}" "${EFI_X64_GRUB_VERSION}" \
+            "${X64_MODULE_VERSION}" "${LIVEKITNAME}" "${X64_MODULE_HASH}"
+        printf '\n    "ia32": {"vendor":"%s","suite":"%s","grub_version":"%s","modules_version":"%s","modules_path":"/%s/boot/grub/i386-efi","modules_sha256":"%s","shim_path":"/EFI/boot/bootia32.efi","grub_path":"/EFI/boot/grubia32.efi"}' \
+            "${EFI_IA32_VENDOR}" "${EFI_IA32_SUITE}" "${EFI_IA32_GRUB_VERSION}" \
+            "${IA32_MODULE_VERSION}" "${LIVEKITNAME}" "${IA32_MODULE_HASH}"
+        printf '\n  },\n  "files": ['
+        while IFS= read -r PATHNAME; do
+            [ "${FIRST}" = true ] || printf ','
+            FIRST=false
+            printf '\n    {"path":"/%s","sha256":"%s"}' \
+                "${PATHNAME#"${WORK_DIR}/image/"}" "$(sha256sum "${PATHNAME}" | cut -d' ' -f1)"
+        done < <(find "${EFI_SOURCE}" -type f -print | sort)
+        printf '\n  ],\n  "vendor": "%s",' "${LOCKED_EFI_VENDOR}"
+        printf '\n  "image": {"path":"efi.img","sha256":"%s"}\n}\n' \
+            "$(sha256sum "${EFI_IMAGE}" | cut -d' ' -f1)"
+    } >"${MANIFEST}"
 }
 
 debug_ssh_keys() {
@@ -2957,11 +3469,11 @@ generate_localized_grub_config() {
 
     # Define menu entries to translate
     local ENGLISH_TEXTS=(
-        "Resume previous session"
+        "Start MiniOS"
         "Start a new session"
-        "Choose session during startup"
-        "Fresh start"
-        "Copy to RAM"
+        "Choose a saved session"
+        "Start without saving"
+        "Run from RAM"
         "Loading kernel and ramdisk..."
         "MiniOS"
     )
@@ -3050,12 +3562,32 @@ generate_localized_grub_config() {
 build_boot() {
     current_process
 
-    local OLD_KERNEL
+    validate_kernel_lock || exit 1
 
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
+    EFI_CACHE_DIR="${BUILD_DIR}/cache/kernel/efi" \
+        EFI_OUTPUT_DIR="${WORK_DIR}/efi-support" \
+        EFI_VENDOR="${LOCKED_EFI_VENDOR}" \
+        EFI_KERNEL_SUITE="${KERNEL_SOURCE_SUITE}" \
+        EFI_TARGET_ROOT="${INSTALL_DIR}" \
+        "${BUILD_SCRIPTS_DIR}/efi-acquire" || {
+        error "EFI acquisition failed"
+        exit 1
+    }
+
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"
-    cp -r "${BUILD_SCRIPTS_DIR}/bootfiles/"* "${WORK_DIR}/image/${LIVEKITNAME}"
+    [ ! -L "${WORK_DIR}/image/${LIVEKITNAME}" ] || {
+        error "Live image root must not be a symlink"
+        exit 1
+    }
+    rm -rf -- "${WORK_DIR}/image/${LIVEKITNAME}/boot"
+    rm -rf -- "${WORK_DIR}/image/${LIVEKITNAME}/secure-boot"
+    cp -a "${BUILD_SCRIPTS_DIR}/bootfiles/boot" "${WORK_DIR}/image/${LIVEKITNAME}/" || exit 1
+    select_efi_chain || {
+        error "EFI chain does not match the locked kernel trust domain"
+        exit 1
+    }
 
     # Generate SYSLINUX help files from UTF-8 sources
     if [ -d "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/help/UTF-8" ]; then
@@ -3161,25 +3693,33 @@ build_boot() {
 
     build_initrd
 
-    if [ "${DISTRIBUTION_ARCH}" = "amd64" ]; then
-        ARCH="x86_64"
-    elif [[ "${DISTRIBUTION_ARCH}" == *"i386"* ]]; then
-        ARCH="i386"
-    fi
-
-    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian"
-    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian/grub.cfg"
+    mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/debian" \
+        "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/ubuntu" \
+        "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/minios" \
+        "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/boot"
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/minios/grub.cfg"
 search --file --set=root /.disk/info
 set prefix=(\$root)/minios/boot/grub
-source \$prefix/${ARCH}-efi/grub.cfg
+if [ "\${grub_cpu}" = "i386" ]; then
+    source \$prefix/i386-efi/grub.cfg
+else
+    source \$prefix/x86_64-efi/grub.cfg
+fi
 EOF
+    for VENDOR in debian ubuntu boot; do
+        cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/minios/grub.cfg" \
+            "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/${VENDOR}/grub.cfg"
+    done
 
-    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/${ARCH}-efi/grub.cfg"
+    for ARCH in i386 x86_64; do
+        mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/${ARCH}-efi"
+        cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/${ARCH}-efi/grub.cfg"
 # GRUB EFI bootstrap configuration
 
 search --file --set=root /.disk/info
 source /${LIVEKITNAME}/boot/grub/grub.cfg
 EOF
+    done
 
     # Create GRUB BIOS configuration only if not using syslinux-native
     if [ "${BOOTLOADER}" != "syslinux-native" ]; then
@@ -3204,8 +3744,13 @@ source /${LIVEKITNAME}/boot/grub/grub.cfg
 EOF
     fi
 
+    [ ! -L "${WORK_DIR}/image" ] || {
+        error "Image directory must not be a symlink"
+        exit 1
+    }
+    rm -rf -- "${WORK_DIR}/image/EFI"
     mkdir -p "${WORK_DIR}/image/EFI"
-    cp -r "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/"* "${WORK_DIR}/image/EFI"
+    cp -a "${WORK_DIR}/image/${LIVEKITNAME}/boot/EFI/." "${WORK_DIR}/image/EFI/" || exit 1
 
     mkdir -p "${WORK_DIR}/image/.disk"
     echo "MiniOS" >"${WORK_DIR}/image/.disk/info"
@@ -3263,6 +3808,8 @@ EOF
         warning "Invalid MENU_LANG setting: ${MENU_LANG}, using multilingual"
         ;;
     esac
+
+    build_efi_images || exit 1
 
     debug_ssh_keys
 }
@@ -3328,16 +3875,14 @@ build_iso() {
         BIOS_BOOT_CATALOG="${LIVEKITNAME}/boot/syslinux/isolinux.boot"
         BIOS_MBR_IMG="${DIR}/${LIVEKITNAME}/boot/syslinux/isohdpfx.bin"
         BIOS_BOOT_PARAMS="-eltorito-catalog ${BIOS_BOOT_CATALOG}"
-        HYBRID_PARAMS="-isohybrid-gpt-basdat"
-        HYBRID_PARAMS=""
     else
         # GRUB parameters
         BIOS_BOOT_IMG="${LIVEKITNAME}/boot/grub/i386-pc/eltorito.img"
         BIOS_BOOT_CATALOG="${LIVEKITNAME}/boot/grub/boot.cat"
         BIOS_MBR_IMG="${DIR}/${LIVEKITNAME}/boot/grub/i386-pc/boot_hybrid.img"
         BIOS_BOOT_PARAMS="-eltorito-catalog ${BIOS_BOOT_CATALOG}"
-        HYBRID_PARAMS=""
     fi
+    HYBRID_PARAMS="-isohybrid-gpt-basdat"
 
     # Prepare persistence image
     dd if=/dev/zero of="${PERCHIMG}" bs=1 count=0 seek=128k
@@ -3357,14 +3902,11 @@ build_iso() {
             -boot-load-size 4 \
             -boot-info-table \
             -eltorito-alt-boot \
-            -e "${LIVEKITNAME}/boot/grub/efi64.img" \
-            -no-emul-boot \
-            -eltorito-alt-boot \
-            -e "${LIVEKITNAME}/boot/grub/efi32.img" \
+            -e "${LIVEKITNAME}/boot/grub/efi.img" \
             -no-emul-boot \
             --isohybrid-mbr "${BIOS_MBR_IMG}" \
             ${HYBRID_PARAMS} \
-            -append_partition 2 0x83 "${PERCHIMG}" \
+            -append_partition 3 0x83 "${PERCHIMG}" \
             -partition_cyl_align on \
             -partition_offset 16 \
             -part_like_isohybrid \
@@ -3390,9 +3932,10 @@ build_iso() {
     rm -f "${PERCHIMG}"
 
     if [[ -f "${ISO}" ]]; then
-        pushd "$(dirname "${ISO}")" >/dev/null
-        sha256sum "$(basename "${ISO}")" >"${ISO}.sha256"
-        popd >/dev/null
+        (
+            cd "$(dirname "${ISO}")" || exit 1
+            sha256sum "$(basename "${ISO}")"
+        ) >"${ISO}.sha256" || exit 1
         information "SHA256 checksum saved to ${CYAN}${ISO}.sha256${ENDCOLOR}."
     fi
 
@@ -3426,14 +3969,14 @@ uncompress_files() {
         ln -sfn "${LINK}" "${FILE}"
         rm -f "${LINE}"
     done
-    find "${1}" -type f -name "*.gz" | xargs -r gunzip 2>/dev/null
+    find "${1}" -type f -name "*.gz" -print0 | xargs -0 -r gunzip 2>/dev/null
 }
 
 # remove broken links
 # $1 = search directory
 remove_broken_links() {
     current_function
-    find "${1}" -type l -exec test ! -e {} \; -print | xargs rm -f
+    find "${1}" -type l -exec test ! -e {} \; -exec rm -f -- {} +
 }
 
 get_base_path() {
@@ -3527,7 +4070,9 @@ chroot_cleanup() {
 
     if [ "${REMOVE_LARGE_ICONS}" = "true" ]; then
         if [ -d "${BASE_PATH}/usr/share/icons" ]; then
-            find "${BASE_PATH}/usr/share/icons/" -name 256x256 -o -name 512x512 -o -name 1024x1024 2>/dev/null | xargs rm -rf
+            find "${BASE_PATH}/usr/share/icons/" -type d \
+                \( -name 256x256 -o -name 512x512 -o -name 1024x1024 \) \
+                -prune -exec rm -rf -- {} + 2>/dev/null
         fi
     fi
 
@@ -3631,7 +4176,7 @@ install_core_packages() {
 
     # Workaround to prevent initctl from running within the chroot.
     dpkg-divert --local --rename --add /sbin/initctl >/dev/null
-    ln -s /bin/true /sbin/initctl
+    ln -sfn /bin/true /sbin/initctl
 
     # Some packages still invoke systemctl unconditionally in maintscripts,
     # even on sysvinit/elogind-based systems. Provide a temporary no-op shim
@@ -3740,7 +4285,7 @@ overlay_chroot_mount_fs() {
     for ((i = ${#MODULES[@]} - 1; i >= 0; i--)); do
         BUNDLE=$(basename "${MODULES[$i]}" ."${BEXT}")
         mkdir -p "${OVERLAYS}/bundles/${BUNDLE}"
-        mount "${MODULES[$i]}" "${OVERLAYS}/bundles/${BUNDLE}"
+        mount -o ro "${MODULES[$i]}" "${OVERLAYS}/bundles/${BUNDLE}"
     done
     toggle_shell_options e
     filter_modules "${OVERLAYS}/bundles/"
@@ -3868,29 +4413,79 @@ should_skip_module() {
     return 1 # No skip conditions matched
 }
 
-module_artifact_is_current() {
-    local MODULE_NAME="$1"
-    local MODULE_KEY="${MODULE_NAME#*-}"
-    local ARTIFACT=""
-    local CANDIDATE=""
+remove_module_chain_from() {
+    local START_MODULE="$1"
+    local STARTED=false
+    local CHAIN_PATH CHAIN_MODULE
+
+    for CHAIN_PATH in "${ENVIRONMENTS}"/*; do
+        [ -d "${CHAIN_PATH}" ] || continue
+        CHAIN_MODULE="$(basename "${CHAIN_PATH}")"
+        if [ "${CHAIN_MODULE}" = "${START_MODULE}" ]; then
+            STARTED=true
+        fi
+        [ "${STARTED}" = true ] || continue
+        remove_module_artifact "${CHAIN_MODULE}"
+    done
+}
+
+module_artifact_paths() {
+    local MODULE_KEY="${1#*-}" CANDIDATE BASENAME FOUND=false
 
     for CANDIDATE in "${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}"; do
         [ -e "${CANDIDATE}" ] || continue
-        case "$(basename "${CANDIDATE}")" in
-        *"${MODULE_KEY}"*)
-            ARTIFACT="${CANDIDATE}"
-            break
+        BASENAME="$(basename "${CANDIDATE}")"
+        case "${BASENAME}" in
+        [0-9][0-9]-"${MODULE_KEY}"."${BEXT}" | [0-9][0-9]-"${MODULE_KEY}"-*."${BEXT}")
+            printf '%s\n' "${CANDIDATE}"
+            FOUND=true
             ;;
         esac
     done
+    [ "${FOUND}" = true ]
+}
 
-    [ -n "${ARTIFACT}" ] || return 1
+module_artifact_path() {
+    local ARTIFACT="" CANDIDATE COUNT=0
 
-    if find "${ENVIRONMENTS}/${MODULE_NAME}" "${BUILD_SCRIPTS_DIR}/scripts/${MODULE_NAME}" \
-        "${BUILD_SCRIPTS_DIR}/minioslib" "${BUILD_SCRIPTS_DIR}/condinapt.map" \
-        -newer "${ARTIFACT}" -print -quit 2>/dev/null | grep -q .; then
+    while IFS= read -r CANDIDATE; do
+        ARTIFACT="${CANDIDATE}"
+        COUNT=$((COUNT + 1))
+        [ "${COUNT}" -eq 1 ] || return 1
+    done < <(module_artifact_paths "$1")
+
+    [ "${COUNT}" -eq 1 ] || return 1
+    printf '%s\n' "${ARTIFACT}"
+}
+
+remove_module_artifact() {
+    local ARTIFACT
+
+    while IFS= read -r ARTIFACT; do
+        rm -f -- "${ARTIFACT}"
+    done < <(module_artifact_paths "$1")
+}
+
+module_artifact_is_current() {
+    local MODULE_NAME="$1"
+    local MODULE_SOURCE="${ENVIRONMENTS}/${MODULE_NAME}"
+    local ARTIFACT
+
+    ARTIFACT="$(module_artifact_path "${MODULE_NAME}")" || return 1
+    [ -e "${MODULE_SOURCE}" ] || return 1
+
+    local -a SOURCES=(
+        "${MODULE_SOURCE}"
+        "${BUILD_SCRIPTS_DIR}/minioslib"
+        "${BUILD_SCRIPTS_DIR}/condinapt"
+        "${BUILD_SCRIPTS_DIR}/condinapt.map"
+    )
+    if [[ "${MODULE_NAME}" == *"kernel"* ]]; then
+        SOURCES+=("${BUILD_SCRIPTS_DIR}/scripts/01-kernel/acquire" "${BUILD_CONF}")
+    fi
+
+    if find -H "${SOURCES[@]}" -newer "${ARTIFACT}" -print -quit 2>/dev/null | grep -q .; then
         information "${YELLOW}${MODULE_NAME}${ENDCOLOR} module artifact is older than build scripts; rebuilding it."
-        rm -f "${ARTIFACT}"
         return 1
     fi
 
@@ -3903,6 +4498,7 @@ build_modules() {
 
     # Initialize local variables for names, versions, and paths
     local VMLINUZNAME INITRFSNAME PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS OVERLAY DIR
+    local MODULE_CHAIN_INVALIDATED=false MODULE_CURRENT
 
     # If running inside a container, install host prerequisites first
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
@@ -3922,13 +4518,33 @@ build_modules() {
 
     # Iterate over each module in the environments directory
     for MODULE in *; do
-        # Skip module if already present in the image folder
-        if [ "${MODULE#*-}" != "debug" ] && module_artifact_is_current "${MODULE}"; then
-            information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
-        elif should_skip_module "${ENVIRONMENTS}/${MODULE}/skip_conditions.conf"; then
+        if should_skip_module "${ENVIRONMENTS}/${MODULE}/skip_conditions.conf"; then
+            if [[ "${MODULE}" == *"kernel"* ]]; then
+                remove_module_artifact "${MODULE}"
+            elif [ "${MODULE_CHAIN_INVALIDATED}" = false ]; then
+                remove_module_chain_from "${MODULE}"
+                MODULE_CHAIN_INVALIDATED=true
+            fi
             information "Skipping module ${YELLOW}${MODULE}${ENDCOLOR} due to matching skip condition."
             continue
+        fi
+
+        MODULE_CURRENT=false
+        if [ "${MODULE#*-}" != "debug" ] && [ "${MODULE_CHAIN_INVALIDATED}" = false ] &&
+            module_artifact_is_current "${MODULE}"; then
+            MODULE_CURRENT=true
+        fi
+        if [ "${MODULE_CURRENT}" = true ]; then
+            information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         else
+            if [ "${MODULE_CHAIN_INVALIDATED}" = false ] && [ "${MODULE#*-}" != "debug" ]; then
+                if [[ "${MODULE}" == *"kernel"* ]]; then
+                    remove_module_artifact "${MODULE}"
+                else
+                    remove_module_chain_from "${MODULE}"
+                    MODULE_CHAIN_INVALIDATED=true
+                fi
+            fi
             # Prepare overlay mount points
             declare -A OVERLAY=(
                 [upper]="${OVERLAYS}/${MODULE}/upper"
@@ -3939,6 +4555,14 @@ build_modules() {
 
             overlay_cleanup
             overlay_chroot_mount_fs
+
+            if [[ "${MODULE}" == *"kernel"* ]]; then
+                rm -f "${WORK_DIR}/kernel.lock.pending"
+                mkdir -p "${BUILD_DIR}/cache/kernel" "${OVERLAY[merged]}/kernel-cache"
+                mount --bind "${BUILD_DIR}/cache/kernel" "${OVERLAY[merged]}/kernel-cache"
+                cp "${BUILD_SCRIPTS_DIR}/scripts/01-kernel/acquire" "${OVERLAY[merged]}/kernel-acquire"
+                chmod +x "${OVERLAY[merged]}/kernel-acquire"
+            fi
 
             information "Start building ${YELLOW}${MODULE}${ENDCOLOR} module ..."
 
@@ -3990,6 +4614,17 @@ build_modules() {
                     rm -f "${WORK_DIR}/kernel/vmlinuz"-* "${WORK_DIR}/kernel/config"-*
                     cp "${OVERLAY[merged]}/boot/vmlinuz"-* "${WORK_DIR}/kernel/"
                     cp "${OVERLAY[merged]}/boot/config"-* "${WORK_DIR}/kernel/"
+                    if [ -f "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg/manifest.json" ]; then
+                        cp "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg/manifest.json" \
+                            "${WORK_DIR}/kernel.lock.pending"
+                    elif [ "${KERNEL_AUFS}" = true ]; then
+                        printf '{"format":1,"kernel":{"distribution":"%s","version":"%s","package_architecture":"%s"}}\n' \
+                            "${KERNEL_SOURCE_SUITE}" "${KERNEL}" "${KERNEL_APT_ARCH}" \
+                            >"${WORK_DIR}/kernel.lock.pending"
+                    else
+                        error "Kernel package manifest is missing"
+                        exit 1
+                    fi
                 fi
             fi
 
@@ -4077,21 +4712,21 @@ build_modules() {
                     ls initrd* >/dev/null 2>&1 && rm -f initrd*
                     ls vmlinuz* >/dev/null 2>&1 && rm -f vmlinuz*
                     if [ "${KERNEL_MODULES_ONLY}" = "true" ]; then
-                        bash -c "
-                        shopt -s extglob
-                        if [ -d "${OVERLAY[upper]}/squashfs-root/usr/lib/modules" ]; then
-                            rm -rf !(usr)
-                            cd "${OVERLAY[upper]}/squashfs-root/usr"
-                            rm -Rf !(lib)
-                            cd "${OVERLAY[upper]}/squashfs-root/usr/lib"
-                            rm -Rf !(modules)
-                        elif [ -d "${OVERLAY[upper]}/squashfs-root/lib/modules" ]; then
-                            rm -Rf !(lib)
-                            cd "${OVERLAY[upper]}/squashfs-root/lib"
-                            rm -Rf !(modules)
+                        bash -O extglob -c '
+                        root=$1
+                        cd "${root}" || exit 1
+                        if [ -d usr/lib/modules ]; then
+                            rm -rf -- !(usr)
+                            cd usr || exit 1
+                            rm -rf -- !(lib)
+                            cd lib || exit 1
+                            rm -rf -- !(modules)
+                        elif [ -d lib/modules ]; then
+                            rm -rf -- !(lib)
+                            cd lib || exit 1
+                            rm -rf -- !(modules)
                         fi
-                        cd "${OVERLAY[upper]}/squashfs-root"
-                        shopt -u extglob"
+                        ' bash "${OVERLAY[upper]}/squashfs-root" || exit 1
                     else
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
                     fi
@@ -4101,6 +4736,10 @@ build_modules() {
                         cp -a "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg" \
                             "${OVERLAY[upper]}/squashfs-root/usr/share/minios/"
                     fi
+                    mkdir -p "${OVERLAY[upper]}/squashfs-root/boot"
+                    cp -a "${OVERLAY[merged]}/boot/config-${KERNEL}" \
+                        "${OVERLAY[merged]}/boot/System.map-${KERNEL}" \
+                        "${OVERLAY[upper]}/squashfs-root/boot/"
                 fi
 
                 information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
@@ -4220,8 +4859,16 @@ build_modules() {
             # Copy built module to the target image directory
             if [ -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 if [[ "${MODULE}" == *"kernel"* ]]; then
+                    rm -f -- "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}.new"
                     cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" \
-                        "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}"
+                        "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}.new" || exit 1
+                    mv "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}.new" \
+                        "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE}-${KERNEL}.${BEXT}" || exit 1
+                    [ -f "${WORK_DIR}/kernel.lock.pending" ] || {
+                        error "Kernel lock was not staged"
+                        exit 1
+                    }
+                    mv "${WORK_DIR}/kernel.lock.pending" "${WORK_DIR}/kernel.lock" || exit 1
                 else
                     cp "${OVERLAY[upper]}/${MODULE}.${BEXT}" \
                         "${WORK_DIR}/image/${LIVEKITNAME}/${MODULE_NAME}-${DISTRIBUTION_ARCH}.${BEXT}"

@@ -1,0 +1,594 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+set -u
+
+. /minios_build.conf
+
+CACHE_DIR="${MINIOS_KERNEL_CACHE:-/kernel-cache}"
+WORK="$(mktemp -d /tmp/minios-kernel-acquire.XXXXXX)"
+APT_ROOT="${WORK}/apt"
+DOWNLOAD_DIR="${WORK}/archives"
+ANALYSIS_DIR="${WORK}/packages"
+SUPPORT_DIR="/usr/share/minios/kernel-dpkg"
+PACKAGE_TABLE="${WORK}/packages.tsv"
+REPOSITORY_TABLE="${WORK}/repositories.tsv"
+
+cleanup() {
+    rm -rf "${WORK}"
+}
+trap cleanup EXIT INT TERM HUP
+
+fail() {
+    printf 'E: %s\n' "$*" >&2
+    exit 1
+}
+
+json_escape() {
+    local VALUE="$1"
+    VALUE="${VALUE//\\/\\\\}"
+    VALUE="${VALUE//\"/\\\"}"
+    VALUE="${VALUE//$'\n'/\\n}"
+    VALUE="${VALUE//$'\r'/\\r}"
+    printf '%s' "${VALUE}"
+}
+
+require_commands() {
+    local COMMAND
+    for COMMAND in apt-get curl dpkg-deb dpkg-query find gpg gpgv md5sum sha256sum; do
+        command -v "${COMMAND}" >/dev/null 2>&1 || fail "Required command is unavailable: ${COMMAND}"
+    done
+}
+
+add_repository() {
+    local URI="$1"
+    local SUITE="$2"
+    local COMPONENTS="$3"
+    local KEYRING="$4"
+    local INDEX
+
+    INDEX="$(wc -l <"${REPOSITORY_TABLE}")"
+    printf 'deb [arch=%s signed-by=%s] %s %s %s\n' \
+        "${KERNEL_APT_ARCH}" "${KEYRING}" "${URI}" "${SUITE}" "${COMPONENTS}" >>"${APT_ROOT}/sources.list"
+    printf '%s\t%s\t%s\t%s\n' "${URI}" "${SUITE}" "${COMPONENTS}" "${INDEX}" >>"${REPOSITORY_TABLE}"
+}
+
+configure_repositories() {
+    local KEYRING
+
+    : >"${APT_ROOT}/sources.list"
+    : >"${REPOSITORY_TABLE}"
+    if [ "${KERNEL_SOURCE_FAMILY}" = "debian" ]; then
+        KEYRING=/usr/share/keyrings/debian-archive-keyring.gpg
+        [ -f "${KEYRING}" ] || fail "Debian archive keyring is unavailable"
+        if [ -n "${KERNEL_SNAPSHOT_DATE}" ]; then
+            add_repository "https://snapshot.debian.org/archive/debian/${KERNEL_SNAPSHOT_DATE}" \
+                "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
+            return
+        fi
+        case "${KERNEL_SOURCE_SUITE}" in
+        buster)
+            add_repository "https://archive.debian.org/debian" buster "main" "${KEYRING}"
+            ;;
+        bullseye | bookworm | trixie)
+            add_repository "https://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
+            add_repository "https://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}-updates" "main" "${KEYRING}"
+            add_repository "https://security.debian.org/debian-security" "${KERNEL_SOURCE_SUITE}-security" "main" "${KEYRING}"
+            ;;
+        forky | testing | sid)
+            add_repository "https://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
+            ;;
+        *)
+            fail "No isolated Debian kernel repository profile for ${KERNEL_SOURCE_SUITE}"
+            ;;
+        esac
+    else
+        KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+        [ -f "${KEYRING}" ] || fail "Ubuntu archive keyring is unavailable"
+        add_repository "https://archive.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}" \
+            "main restricted universe multiverse" "${KEYRING}"
+        add_repository "https://archive.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-updates" \
+            "main restricted universe multiverse" "${KEYRING}"
+        add_repository "https://security.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-security" \
+            "main restricted universe multiverse" "${KEYRING}"
+    fi
+}
+
+apt_options() {
+    if [ "${KERNEL_SOURCE_FAMILY}" = "debian" ] && [ -n "${KERNEL_SNAPSHOT_DATE}" ]; then
+        printf '%s\n' "-o" "Acquire::Check-Valid-Until=false"
+    fi
+    printf '%s\n' \
+        "-o" "Dir::Etc::sourcelist=${APT_ROOT}/sources.list" \
+        "-o" "Dir::Etc::sourceparts=-" \
+        "-o" "Dir::State=${APT_ROOT}/state" \
+        "-o" "Dir::State::status=${APT_ROOT}/state/status" \
+        "-o" "Dir::State::extended_states=${APT_ROOT}/state/extended_states" \
+        "-o" "Dir::Cache=${APT_ROOT}/cache" \
+        "-o" "Dir::Cache::archives=${DOWNLOAD_DIR}" \
+        "-o" "APT::Architecture=${DISTRIBUTION_ARCH}" \
+        "-o" "APT::Architectures::=${DISTRIBUTION_ARCH}" \
+        "-o" "APT::Architectures::=${KERNEL_APT_ARCH}" \
+        "-o" "Acquire::Languages=none" \
+        "-o" "APT::Install-Recommends=false" \
+        "-o" "APT::Install-Suggests=false" \
+        "-o" "DPkg::Pre-Install-Pkgs::=" \
+        "-o" "APT::Update::Post-Invoke-Success::=" \
+        "-o" "APT::Update::Post-Invoke::=" \
+        "-o" "Binary::apt-get::APT::Keep-Downloaded-Packages=true"
+}
+
+download_packages() {
+    local -a OPTIONS=()
+    local -a REQUESTS=("${KERNEL_REQUEST}")
+    local OPTION
+
+    mkdir -p "${APT_ROOT}/state/lists/partial" "${APT_ROOT}/cache" "${DOWNLOAD_DIR}/partial"
+    cp /var/lib/dpkg/status "${APT_ROOT}/state/status"
+    if [ -f /var/lib/apt/extended_states ]; then
+        cp /var/lib/apt/extended_states "${APT_ROOT}/state/extended_states"
+    else
+        : >"${APT_ROOT}/state/extended_states"
+    fi
+    while IFS= read -r OPTION; do
+        OPTIONS+=("${OPTION}")
+    done < <(apt_options)
+    apt-get "${OPTIONS[@]}" update
+    [ "${KERNEL_BUILD_DKMS}" = true ] && REQUESTS+=("${KERNEL_HEADER_REQUEST}")
+    apt-get "${OPTIONS[@]}" --download-only --no-install-recommends -y install "${REQUESTS[@]}"
+    find "${DOWNLOAD_DIR}" -maxdepth 1 -type f -name '*.deb' -print -quit | grep -q . ||
+        fail "Private APT did not download the selected kernel closure"
+}
+
+use_local_packages() {
+    local FOUND=false DEB
+    [ -d /rootcopy-install ] || return 1
+    while IFS= read -r DEB; do
+        cp "${DEB}" "${DOWNLOAD_DIR}/"
+        FOUND=true
+    done < <(find /rootcopy-install -maxdepth 1 -type f \
+        \( -name 'linux-image-*.deb' -o -name 'linux-binary-*.deb' \
+        -o -name 'linux-base-*.deb' -o -name 'linux-modules-*.deb' \
+        -o -name 'linux-headers-*.deb' -o -name 'linux-kbuild-*.deb' \) -print | sort)
+    [ "${FOUND}" = true ] || return 1
+    KERNEL_UPDATE_POLICY=frozen
+    : >"${REPOSITORY_TABLE}"
+}
+
+package_has() {
+    local ROOT="$1"
+    local PATTERN="$2"
+    find "${ROOT}" -path "${PATTERN}" -print -quit 2>/dev/null | grep -q .
+}
+
+classify_package() {
+    local NAME="$1"
+    local ROOT="$2"
+
+    if [ "${NAME}" = "${KERNEL_METAPACKAGE}" ]; then
+        printf '%s\n' tracking-meta
+    elif [[ "${NAME}" == linux-modules-extra-* ]]; then
+        package_has "${ROOT}" '*/modules/*/*.ko*' || fail "modules-extra package has no modules: ${NAME}"
+        printf '%s\n' modules-extra
+    elif [[ "${NAME}" == linux-modules-* ]]; then
+        package_has "${ROOT}" '*/modules/*/*.ko*' || fail "modules package has no modules: ${NAME}"
+        printf '%s\n' modules
+    elif [[ "${NAME}" == linux-binary-* ]]; then
+        package_has "${ROOT}" '*/boot/vmlinuz-*' || fail "binary package has no vmlinuz: ${NAME}"
+        printf '%s\n' binary
+    elif [[ "${NAME}" == linux-base-* ]]; then
+        if package_has "${ROOT}" '*/boot/config-*'; then
+            printf '%s\n' base
+        else
+            printf '%s\n' base-meta
+        fi
+    elif [[ "${NAME}" == linux-image-* ]]; then
+        printf '%s\n' image
+    else
+        printf '%s\n' dependency
+    fi
+}
+
+canonical_instance() {
+    local NAME="$1"
+    local ARCH="$2"
+    if [ "${ARCH}" = all ] || [ "${ARCH}" = "${DISTRIBUTION_ARCH}" ]; then
+        printf '%s\n' "${NAME}"
+    else
+        printf '%s:%s\n' "${NAME}" "${ARCH}"
+    fi
+}
+
+collect_package_paths() {
+    local ROOT="$1"
+    local OUTPUT="$2"
+    local PATHNAME
+
+    : >"${OUTPUT}"
+    for PATHNAME in "${ROOT}"/boot/vmlinuz-* "${ROOT}"/boot/config-* "${ROOT}"/boot/System.map-*; do
+        [ -e "${PATHNAME}" ] || [ -L "${PATHNAME}" ] || continue
+        printf '/%s\n' "${PATHNAME#"${ROOT}"/}" >>"${OUTPUT}"
+    done
+    for PATHNAME in "${ROOT}"/lib/modules "${ROOT}"/usr/lib/modules; do
+        [ -d "${PATHNAME}" ] || continue
+        find "${PATHNAME}" \( -type f -o -type l \) -print | while IFS= read -r PATHNAME; do
+            case "${PATHNAME}" in
+            */build | */source | */modules.alias | */modules.alias.bin | */modules.builtin.bin | \
+                */modules.dep | */modules.dep.bin | */modules.devname | */modules.softdep | \
+                */modules.symbols | */modules.symbols.bin | */modules.weakdep)
+                continue
+                ;;
+            esac
+            printf '/%s\n' "${PATHNAME#"${ROOT}"/}"
+        done >>"${OUTPUT}"
+    done
+    sort -u -o "${OUTPUT}" "${OUTPUT}"
+}
+
+copy_package_payload() {
+    local ROOT="$1"
+    local PATHS="$2"
+    local PATHNAME
+
+    while IFS= read -r PATHNAME; do
+        [ -n "${PATHNAME}" ] || continue
+        mkdir -p "$(dirname "${PATHNAME}")"
+        cp -a "${ROOT}${PATHNAME}" "${PATHNAME}"
+    done <"${PATHS}"
+}
+
+analyze_packages() {
+    local DEB NAME VERSION ARCH SOURCE HASH ROOT CONTROL ROLE INSTANCE PATHS INDEX=0
+
+    mkdir -p "${ANALYSIS_DIR}"
+    : >"${PACKAGE_TABLE}"
+    while IFS= read -r DEB; do
+        ROOT="${ANALYSIS_DIR}/${INDEX}/payload"
+        CONTROL="${ANALYSIS_DIR}/${INDEX}/control"
+        PATHS="${ANALYSIS_DIR}/${INDEX}/paths"
+        mkdir -p "${ROOT}" "${CONTROL}"
+        dpkg-deb -x "${DEB}" "${ROOT}"
+        dpkg-deb -e "${DEB}" "${CONTROL}"
+        NAME="$(dpkg-deb -f "${DEB}" Package)"
+        VERSION="$(dpkg-deb -f "${DEB}" Version)"
+        ARCH="$(dpkg-deb -f "${DEB}" Architecture)"
+        [ "${ARCH}" = all ] || [ "${ARCH}" = "${KERNEL_APT_ARCH}" ] ||
+            fail "Kernel package architecture mismatch: ${NAME}:${ARCH}"
+        SOURCE="$(dpkg-deb -f "${DEB}" Source 2>/dev/null || true)"
+        SOURCE="${SOURCE%% *}"
+        [ -n "${SOURCE}" ] || SOURCE="${NAME}"
+        HASH="$(sha256sum "${DEB}" | cut -d' ' -f1)"
+        if [ "${KERNEL_BUILD_DKMS}" = true ] &&
+            { [[ "${NAME}" == linux-headers-* ]] || [[ "${NAME}" == linux-kbuild-* ]]; }; then
+            cp -a "${ROOT}/." /
+            INDEX=$((INDEX + 1))
+            continue
+        fi
+        ROLE="$(classify_package "${NAME}" "${ROOT}")"
+        INSTANCE="$(canonical_instance "${NAME}" "${ARCH}")"
+        collect_package_paths "${ROOT}" "${PATHS}"
+
+        if [ "${KERNEL_UPDATE_POLICY}" = frozen ] &&
+            { [ "${ROLE}" = tracking-meta ] || [ "${ROLE}" = base-meta ]; }; then
+            INDEX=$((INDEX + 1))
+            continue
+        fi
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "${DEB}" "${NAME}" "${VERSION}" "${ARCH}" "${SOURCE}" "${HASH}" \
+            "${ROLE}" "${INSTANCE}" "${ROOT}" "${CONTROL}" >>"${PACKAGE_TABLE}"
+        if [ "${ROLE}" != tracking-meta ] && [ "${ROLE}" != base-meta ]; then
+            copy_package_payload "${ROOT}" "${PATHS}"
+        fi
+        INDEX=$((INDEX + 1))
+    done < <(find "${DOWNLOAD_DIR}" -maxdepth 1 -type f -name '*.deb' -print | sort)
+}
+
+validate_kernel_closure() {
+    local TRACKING IMAGE BINARY BASE MODULES VMLINUZ CONFIG SYSTEM_MAP KERNEL_PATH
+
+    TRACKING="$(cut -f7 "${PACKAGE_TABLE}" | grep -c '^tracking-meta$' || true)"
+    IMAGE="$(cut -f7 "${PACKAGE_TABLE}" | grep -c '^image$' || true)"
+    BINARY="$(cut -f7 "${PACKAGE_TABLE}" | grep -c '^binary$' || true)"
+    BASE="$(cut -f7 "${PACKAGE_TABLE}" | grep -c '^base$' || true)"
+    MODULES="$(cut -f7 "${PACKAGE_TABLE}" | grep -c '^modules$' || true)"
+    [ "${KERNEL_UPDATE_POLICY}" != track ] || [ "${TRACKING}" -eq 1 ] || fail "Tracked kernel requires one tracking metapackage"
+    [ "${IMAGE}" -eq 1 ] || fail "Kernel closure requires exactly one image package"
+    if [ "${BINARY}" -gt 0 ] || [ "${BASE}" -gt 0 ]; then
+        if [ "${BINARY}" -ne 1 ] || [ "${BASE}" -ne 1 ] || [ "${MODULES}" -ne 1 ]; then
+            fail "Debian split kernel closure is incomplete"
+        fi
+    fi
+
+    VMLINUZ="$(find /boot -maxdepth 1 -type f -name 'vmlinuz-*' -print)"
+    [ "$(printf '%s\n' "${VMLINUZ}" | grep -c .)" -eq 1 ] || fail "Kernel closure must provide exactly one vmlinuz"
+    KERNEL_PATH="${VMLINUZ}"
+    KERNEL_VERSION="${KERNEL_PATH##*/vmlinuz-}"
+    CONFIG="/boot/config-${KERNEL_VERSION}"
+    [ -f "${CONFIG}" ] || fail "Kernel closure has no matching config: ${CONFIG}"
+    SYSTEM_MAP="/boot/System.map-${KERNEL_VERSION}"
+    [ -f "${SYSTEM_MAP}" ] || fail "Kernel closure has no matching symbol map: ${SYSTEM_MAP}"
+    [ -d "/lib/modules/${KERNEL_VERSION}" ] || [ -d "/usr/lib/modules/${KERNEL_VERSION}" ] ||
+        fail "Kernel closure has no matching modules tree"
+    grep -q '^CONFIG_EFI_STUB=y$' "${CONFIG}" || fail "Selected kernel lacks CONFIG_EFI_STUB=y"
+    if [ "${DISTRIBUTION_ARCH}" = i386 ] && [ "${KERNEL_APT_ARCH}" = amd64 ]; then
+        for SYMBOL in CONFIG_BINFMT_ELF CONFIG_IA32_EMULATION CONFIG_EFI_MIXED; do
+            grep -q "^${SYMBOL}=y$" "${CONFIG}" || fail "Selected mixed-mode kernel lacks ${SYMBOL}=y"
+        done
+    fi
+}
+
+decompress_modules() {
+    local FILE OUTPUT MODULES_ROOT
+
+    if [ -L /lib ]; then
+        MODULES_ROOT=/usr/lib/modules
+    else
+        MODULES_ROOT=/lib/modules
+    fi
+
+    while IFS= read -r FILE; do
+        OUTPUT="${FILE%.xz}"
+        xz -dc "${FILE}" >"${OUTPUT}.tmp"
+        chmod --reference="${FILE}" "${OUTPUT}.tmp"
+        mv "${OUTPUT}.tmp" "${OUTPUT}"
+        rm -f "${FILE}"
+    done < <(find "${MODULES_ROOT}" -type f -name '*.ko.xz' -print 2>/dev/null)
+    while IFS= read -r FILE; do
+        OUTPUT="${FILE%.zst}"
+        zstd -q -d -c "${FILE}" >"${OUTPUT}.tmp"
+        chmod --reference="${FILE}" "${OUTPUT}.tmp"
+        mv "${OUTPUT}.tmp" "${OUTPUT}"
+        rm -f "${FILE}"
+    done < <(find "${MODULES_ROOT}" -type f -name '*.ko.zst' -print 2>/dev/null)
+    depmod -b / "${KERNEL_VERSION}"
+}
+
+final_path() {
+    local PATHNAME="$1"
+    case "${PATHNAME}" in
+    *.ko.xz | *.ko.zst) printf '%s\n' "${PATHNAME%.*}" ;;
+    *) printf '%s\n' "${PATHNAME}" ;;
+    esac
+}
+
+write_package_metadata() {
+    local DEB NAME VERSION ARCH SOURCE HASH ROLE INSTANCE ROOT CONTROL PATHS PATHNAME FINAL FIRST
+    local STATUS_DIR="${SUPPORT_DIR}/status.d"
+    local INFO_DIR="${SUPPORT_DIR}/info"
+    local PAYLOAD_DIR="${SUPPORT_DIR}/payload.d"
+
+    mkdir -p "${STATUS_DIR}" "${INFO_DIR}" "${PAYLOAD_DIR}"
+    : >"${WORK}/package-fragments"
+    while IFS=$'\t' read -r DEB NAME VERSION ARCH SOURCE HASH ROLE INSTANCE ROOT CONTROL; do
+        PATHS="${ROOT%/payload}/paths"
+        # Private APT downloads transient dependencies to validate and materialize
+        # the kernel closure. Native deployment installs its own target toolchain;
+        # only packages represented by the materialized kernel payload are locked.
+        [ "${ROLE}" != dependency ] || continue
+        {
+            dpkg-deb -f "${DEB}" | sed '1a Status: install ok installed'
+            printf '\n'
+        } >"${STATUS_DIR}/${INSTANCE}.status"
+        for PATHNAME in preinst postinst prerm postrm triggers conffiles templates config shlibs symbols; do
+            [ -f "${CONTROL}/${PATHNAME}" ] || continue
+            cp -a "${CONTROL}/${PATHNAME}" "${INFO_DIR}/${INSTANCE}.${PATHNAME}"
+        done
+        printf '/.\n' >"${INFO_DIR}/${INSTANCE}.list"
+        : >"${INFO_DIR}/${INSTANCE}.md5sums"
+        if [ "${ROLE}" = image ] || [ "${ROLE}" = binary ] || [ "${ROLE}" = base ] ||
+            [ "${ROLE}" = modules ] || [ "${ROLE}" = modules-extra ]; then
+            FIRST=true
+            {
+                printf '{\n  "format": 1,\n  "dpkg_instance": "'
+                json_escape "${INSTANCE}"
+                printf '",\n  "files": ['
+                while IFS= read -r PATHNAME; do
+                    [ -n "${PATHNAME}" ] || continue
+                    FINAL="$(final_path "${PATHNAME}")"
+                    [ -e "${FINAL}" ] || [ -L "${FINAL}" ] || fail "Final kernel payload is missing: ${FINAL}"
+                    printf '%s\n' "${FINAL}" >>"${INFO_DIR}/${INSTANCE}.list"
+                    if [ -f "${FINAL}" ] && [ ! -L "${FINAL}" ]; then
+                        md5sum "${FINAL}" | sed "s#  ${FINAL}#  ${FINAL#/}#" >>"${INFO_DIR}/${INSTANCE}.md5sums"
+                        [ "${FIRST}" = true ] || printf ','
+                        FIRST=false
+                        printf '\n    {"path": "'
+                        json_escape "${FINAL}"
+                        printf '", "type": "file", "sha256": "%s"}' "$(sha256sum "${FINAL}" | cut -d' ' -f1)"
+                    elif [ -L "${FINAL}" ]; then
+                        [ "${FIRST}" = true ] || printf ','
+                        FIRST=false
+                        printf '\n    {"path": "'
+                        json_escape "${FINAL}"
+                        printf '", "type": "symlink", "target": "'
+                        json_escape "$(readlink "${FINAL}")"
+                        printf '"}'
+                    fi
+                done <"${PATHS}"
+                [ "${FIRST}" = true ] || printf '\n  '
+                printf ']\n}\n'
+            } >"${PAYLOAD_DIR}/${INSTANCE}.json"
+            sort -u -o "${INFO_DIR}/${INSTANCE}.list" "${INFO_DIR}/${INSTANCE}.list"
+        fi
+
+        {
+            printf '{"role":"%s","name":"' "${ROLE}"
+            json_escape "${NAME}"
+            printf '","version":"'
+            json_escape "${VERSION}"
+            printf '","architecture":"%s","dpkg_instance":"' "${ARCH}"
+            json_escape "${INSTANCE}"
+            printf '","source_package":"'
+            json_escape "${SOURCE}"
+            printf '","source_archive_sha256":"%s","registration":"synthetic-installed",' "${HASH}"
+            printf '"status":"status.d/%s.status","info_prefix":"info/%s.",' "${INSTANCE}" "${INSTANCE}"
+            if [ "${ROLE}" = tracking-meta ]; then
+                printf '"apt_mark":"manual","hold":false'
+            elif [ "${KERNEL_UPDATE_POLICY}" = frozen ] && [ "${ROLE}" = image ]; then
+                printf '"apt_mark":"manual","hold":true'
+            else
+                printf '"apt_mark":"auto","hold":false'
+            fi
+            if [ "${ROLE}" = image ] || [ "${ROLE}" = binary ] || [ "${ROLE}" = base ] ||
+                [ "${ROLE}" = modules ] || [ "${ROLE}" = modules-extra ]; then
+                printf ',"payload_manifest":"payload.d/%s.json"' "${INSTANCE}"
+            fi
+            printf '}\n'
+        } >>"${WORK}/package-fragments"
+    done <"${PACKAGE_TABLE}"
+}
+
+keyring_fingerprints_json() {
+    local KEYRING="$1"
+    local FIRST=true FINGERPRINT
+    printf '['
+    while IFS= read -r FINGERPRINT; do
+        [[ "${FINGERPRINT}" =~ ^[0-9A-Fa-f]{40,64}$ ]] || continue
+        [ "${FIRST}" = true ] || printf ','
+        FIRST=false
+        printf '"%s"' "${FINGERPRINT}"
+    done < <(gpg --batch --show-keys --with-colons "${KEYRING}" 2>/dev/null |
+        sed -n 's/^fpr:::::::::\([^:]*\):$/\1/p')
+    [ "${FIRST}" = false ] || fail "Archive keyring has no fingerprints"
+    printf ']'
+}
+
+verify_repository_release() {
+    local URI="$1" SUITE="$2" COMPONENTS="$3" INDEX="$4" KEYRING="$5"
+    local INRELEASE="${WORK}/InRelease-${INDEX}"
+    local ORIGIN LABEL CODENAME
+
+    curl -fsSL "${URI}/dists/${SUITE}/InRelease" -o "${INRELEASE}"
+    gpgv --keyring "${KEYRING}" "${INRELEASE}" >/dev/null 2>&1 || fail "Invalid InRelease signature for ${URI} ${SUITE}"
+    ORIGIN="$(sed -n 's/^Origin: //p' "${INRELEASE}" | head -n 1)"
+    LABEL="$(sed -n 's/^Label: //p' "${INRELEASE}" | head -n 1)"
+    CODENAME="$(sed -n 's/^Codename: //p' "${INRELEASE}" | head -n 1)"
+    if [ -z "${ORIGIN}" ] || [ -z "${LABEL}" ] || [ -z "${CODENAME}" ]; then
+        fail "Incomplete release identity for ${URI} ${SUITE}"
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "${URI}" "${SUITE}" "${COMPONENTS}" "${ORIGIN}" "${LABEL}" "${CODENAME}" \
+        "$(sha256sum "${INRELEASE}" | cut -d' ' -f1)" >>"${WORK}/verified-repositories.tsv"
+}
+
+write_repository_metadata() {
+    local KEYRING SOURCE_KEYRING URI SUITE COMPONENTS INDEX
+
+    mkdir -p "${SUPPORT_DIR}/keyrings"
+    : >"${WORK}/verified-repositories.tsv"
+    if [ "${KERNEL_SOURCE_FAMILY}" = debian ]; then
+        SOURCE_KEYRING=/usr/share/keyrings/debian-archive-keyring.gpg
+        KEYRING=debian-kernel.gpg
+    else
+        SOURCE_KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+        KEYRING=ubuntu-kernel.gpg
+    fi
+    cp "${SOURCE_KEYRING}" "${SUPPORT_DIR}/keyrings/${KEYRING}"
+    while IFS=$'\t' read -r URI SUITE COMPONENTS INDEX; do
+        verify_repository_release "${URI}" "${SUITE}" "${COMPONENTS}" "${INDEX}" "${SOURCE_KEYRING}"
+    done <"${REPOSITORY_TABLE}"
+    KERNEL_KEYRING_NAME="${KEYRING}"
+    KERNEL_KEYRING_SHA256="$(sha256sum "${SUPPORT_DIR}/keyrings/${KEYRING}" | cut -d' ' -f1)"
+    KERNEL_KEYRING_FINGERPRINTS="$(keyring_fingerprints_json "${SOURCE_KEYRING}")"
+}
+
+write_manifest() {
+    local FIRST URI SUITE COMPONENTS ORIGIN LABEL CODENAME INRELEASE FRAGMENT COMPONENT
+
+    {
+        printf '{\n  "format": 1,\n  "install_policy": "register-materialized-payload",\n'
+        printf '  "update_policy": "%s",\n' "${KERNEL_UPDATE_POLICY}"
+        printf '  "userspace": {"family": "%s", "suite": "' "${DISTRIBUTION_PROFILE}"
+        json_escape "${DISTRIBUTION}"
+        printf '", "dpkg_architecture": "%s"},\n' "${DISTRIBUTION_ARCH}"
+        printf '  "kernel": {"distribution": "'
+        json_escape "${KERNEL_SOURCE_SUITE}"
+        printf '", "version": "'
+        json_escape "${KERNEL_VERSION}"
+        printf '", "package_architecture": "%s"},\n' "${KERNEL_APT_ARCH}"
+        printf '  "repositories": ['
+        FIRST=true
+        if [ "${KERNEL_UPDATE_POLICY}" = track ]; then
+            while IFS=$'\t' read -r URI SUITE COMPONENTS ORIGIN LABEL CODENAME INRELEASE; do
+                [ "${FIRST}" = true ] || printf ','
+                FIRST=false
+                printf '\n    {"family":"%s","uris":["' "${KERNEL_SOURCE_FAMILY}"
+                json_escape "${URI}"
+                printf '"],"suite":"'
+                json_escape "${SUITE}"
+                printf '","components":['
+                local COMPONENT_FIRST=true
+                for COMPONENT in ${COMPONENTS}; do
+                    [ "${COMPONENT_FIRST}" = true ] || printf ','
+                    COMPONENT_FIRST=false
+                    printf '"%s"' "${COMPONENT}"
+                done
+                printf '],"architectures":["%s"],' "${KERNEL_APT_ARCH}"
+                printf '"release_identity":{"origin":"'
+                json_escape "${ORIGIN}"
+                printf '","label":"'
+                json_escape "${LABEL}"
+                printf '","codename":"'
+                json_escape "${CODENAME}"
+                printf '","inrelease_sha256":"%s"},' "${INRELEASE}"
+                printf '"keyring":{"path":"keyrings/%s","sha256":"%s","fingerprints":%s}}' \
+                    "${KERNEL_KEYRING_NAME}" "${KERNEL_KEYRING_SHA256}" "${KERNEL_KEYRING_FINGERPRINTS}"
+            done <"${WORK}/verified-repositories.tsv"
+        fi
+        [ "${FIRST}" = true ] || printf '\n  '
+        printf '],\n  "packages": ['
+        FIRST=true
+        while IFS= read -r FRAGMENT; do
+            [ "${FIRST}" = true ] || printf ','
+            FIRST=false
+            printf '\n    %s' "${FRAGMENT}"
+        done <"${WORK}/package-fragments"
+        printf '\n  ]\n}\n'
+    } >"${SUPPORT_DIR}/manifest.json"
+}
+
+cache_archives() {
+    local DEB HASH TARGET
+    mkdir -p "${CACHE_DIR}/archives"
+    while IFS= read -r DEB; do
+        HASH="$(sha256sum "${DEB}" | cut -d' ' -f1)"
+        TARGET="${CACHE_DIR}/archives/${HASH}.deb"
+        if [ ! -e "${TARGET}" ]; then
+            mv "${DEB}" "${TARGET}"
+        fi
+    done < <(find "${DOWNLOAD_DIR}" -maxdepth 1 -type f -name '*.deb' -print)
+}
+
+write_kernel_config() {
+    sed -i '/^KERNEL=/d;/^KERNEL_VERSION=/d;/^KERNEL_BUILD_ARCH=/d' /minios_build.conf
+    {
+        printf 'KERNEL="%s"\n' "${KERNEL_VERSION}"
+        printf 'KERNEL_VERSION="%s"\n' "${KERNEL_VERSION}"
+        printf 'KERNEL_BUILD_ARCH="%s"\n' "${KERNEL_APT_ARCH}"
+    } >>/minios_build.conf
+}
+
+main() {
+    require_commands
+    mkdir -p "${CACHE_DIR}" "${DOWNLOAD_DIR}" "${APT_ROOT}"
+    rm -rf "${SUPPORT_DIR}"
+    if ! use_local_packages; then
+        configure_repositories
+        download_packages
+    fi
+    analyze_packages
+    validate_kernel_closure
+    decompress_modules
+    write_package_metadata
+    if [ "${KERNEL_UPDATE_POLICY}" = track ]; then
+        write_repository_metadata
+    else
+        : >"${WORK}/verified-repositories.tsv"
+    fi
+    write_manifest
+    write_kernel_config
+    cache_archives
+    printf 'I: Acquired %s %s for %s\n' "${KERNEL_SOURCE_SUITE}" "${KERNEL_VERSION}" "${KERNEL_APT_ARCH}"
+}
+
+main "$@"
