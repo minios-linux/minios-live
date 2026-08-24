@@ -1,0 +1,47 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          minios-squashfs-shutdown-save
+# Required-Start:
+# Required-Stop:     sendsigs
+# Should-Start:
+# Should-Stop:
+# X-Stop-After:      lightdm minios-xorg
+# Default-Start:
+# Default-Stop:      0 6
+# Short-Description: Save MiniOS SquashFS persistence before teardown
+# Description:       Saves the active SquashFS session after the graphical
+#                    session stops and before sendsigs and filesystem teardown.
+### END INIT INFO
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+SAVE=${MINIOS_SHUTDOWN_SAVE_COMMAND:-/usr/bin/minios-squashfs-shutdown-save}
+
+shutdown_runlevel() {
+    level=${runlevel:-${RUNLEVEL:-}}
+    if [ -z "$level" ] && command -v runlevel >/dev/null 2>&1; then
+        level=$(runlevel 2>/dev/null | awk '{print $2}')
+    fi
+    printf '%s\n' "$level"
+}
+
+case "$1" in
+    start)
+        exit 0
+        ;;
+    stop)
+        case "$(shutdown_runlevel)" in
+            0|6)
+                [ -x "$SAVE" ] || exit 0
+                MINIOS_SHUTDOWN_FORCE=1 exec "$SAVE"
+                ;;
+        esac
+        exit 0
+        ;;
+    restart|force-reload|status)
+        exit 0
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+        exit 3
+        ;;
+esac

@@ -213,6 +213,10 @@ exec /etc/init.d/rc "$@"
 EOF
     chmod 755 /usr/sbin/minios-sysv-rc
 
+    if [ -x /etc/init.d/minios-squashfs-shutdown-save ]; then
+        minios-svc enable minios-squashfs-shutdown-save >/dev/null 2>&1
+    fi
+
     if [ -f /etc/inittab ]; then
         sed -i \
             -e 's|/etc/init.d/rcS$|/usr/sbin/minios-sysv-rc S|' \

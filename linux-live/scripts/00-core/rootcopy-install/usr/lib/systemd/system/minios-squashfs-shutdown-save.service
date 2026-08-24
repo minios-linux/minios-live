@@ -1,0 +1,18 @@
+[Unit]
+Description=Save MiniOS SquashFS session at shutdown
+After=local-fs.target
+Before=display-manager.service
+ConditionPathExists=/usr/bin/minios-squashfs-shutdown-save
+RefuseManualStart=yes
+RefuseManualStop=yes
+IgnoreOnIsolate=yes
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+ExecStop=/usr/bin/minios-squashfs-shutdown-save
+RemainAfterExit=yes
+TimeoutStopSec=infinity
+
+[Install]
+WantedBy=multi-user.target
