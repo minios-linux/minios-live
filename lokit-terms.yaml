@@ -1,0 +1,389 @@
+version: 1
+
+exact:
+  - id: grub-menu.start-minios
+    source: Start MiniOS
+    when:
+      target: grub-theme
+    translations:
+      de: MiniOS starten
+      es: Iniciar MiniOS
+      fr: Démarrer MiniOS
+      id: Mulai MiniOS
+      it: Avviare MiniOS
+      pt: Iniciar MiniOS
+      pt-BR: Iniciar MiniOS
+      ru: Запустить MiniOS
+
+  - id: grub-menu.start-new-session
+    source: Start a new session
+    when:
+      target: grub-theme
+    translations:
+      de: Neue Sitzung beginnen
+      es: Iniciar nueva sesión
+      fr: Démarrer une nouvelle session
+      id: Mulai sesi baru
+      it: Avviare una nuova sessione
+      pt: Iniciar nova sessão
+      pt-BR: Iniciar nova sessão
+      ru: Начать новую сессию
+
+  - id: grub-menu.choose-saved-session
+    source: Choose a saved session
+    when:
+      target: grub-theme
+    translations:
+      de: Gespeicherte Sitzung auswählen
+      es: Elegir una sesión guardada
+      fr: Choisir une session enregistrée
+      id: Pilih sesi yang disimpan
+      it: Scegliere una sessione salvata
+      pt: Escolher uma sessão guardada
+      pt-BR: Escolher uma sessão salva
+      ru: Выбрать сохранённую сессию
+
+  - id: grub-menu.start-without-saving
+    source: Start without saving
+    when:
+      target: grub-theme
+    translations:
+      de: Ohne Speichern starten
+      es: Iniciar sin guardar
+      fr: Démarrer sans enregistrer
+      id: Mulai tanpa menyimpan
+      it: Avviare senza salvare
+      pt: Iniciar sem guardar
+      pt-BR: Iniciar sem salvar
+      ru: Запустить без сохранения
+
+  - id: grub-menu.run-from-ram
+    source: Run from RAM
+    when:
+      target: grub-theme
+    translations:
+      de: Aus dem RAM ausführen
+      es: Ejecutar desde RAM
+      fr: Exécuter depuis la RAM
+      id: Jalankan dari RAM
+      it: Eseguire dalla RAM
+      pt: Executar a partir da RAM
+      pt-BR: Executar a partir da RAM
+      ru: Запустить из RAM
+
+  - id: grub-menu.loading
+    source: Loading kernel and ramdisk...
+    when:
+      target: grub-theme
+    translations:
+      de: Kernel und Ramdisk werden geladen...
+      es: Cargando kernel y ramdisk...
+      fr: Chargement du noyau et du ramdisk...
+      id: Memuat kernel dan ramdisk...
+      it: Caricamento del kernel e del ramdisk...
+      pt: A carregar o kernel e o ramdisk...
+      pt-BR: Carregando kernel e ramdisk...
+      ru: Загрузка ядра и ramdisk...
+
+  - id: grub-menu.back-to-language
+    source: Back to language selection
+    when:
+      target: grub-theme
+    translations:
+      de: Zurück zur Sprachauswahl
+      es: Volver a la selección de idioma
+      fr: Retour à la sélection de la langue
+      id: Kembali ke pilihan bahasa
+      it: Tornare alla selezione della lingua
+      pt: Voltar à seleção de idioma
+      pt-BR: Voltar à seleção de idioma
+      ru: Назад к выбору языка
+
+  - id: grub-menu.autoboot
+    source: "Press Esc for options, automatic boot in # second{,s} ..."
+    when:
+      target: grub-theme
+    translations:
+      de: "Drücken Sie Esc für Optionen, automatischer Start in # Sekunde{,n} ..."
+      es: "Pulse Esc para ver las opciones, arranque automático en # segundo{,s} ..."
+      fr: "Appuyez sur Esc pour les options, démarrage automatique dans # seconde{,s} ..."
+      id: "Tekan Esc untuk opsi, boot otomatis dalam # detik ..."
+      it: "Premere Esc per le opzioni, avvio automatico tra # secondo{,i} ..."
+      pt: "Prima Esc para opções, arranque automático em # segundo{,s} ..."
+      pt-BR: "Pressione Esc para opções, inicialização automática em # segundo{,s} ..."
+      ru: "Нажмите Esc для параметров, автозагрузка через # с ..."
+
+  - id: grub-menu.f1-help
+    source: "[F1] help"
+    when:
+      target: grub-theme
+    translations:
+      de: "[F1] Hilfe"
+      es: "[F1] ayuda"
+      fr: "[F1] aide"
+      id: "[F1] bantuan"
+      it: "[F1] aiuto"
+      pt: "[F1] ajuda"
+      pt-BR: "[F1] ajuda"
+      ru: "[F1] помощь"
+
+  - id: grub-menu.tab-cmdline
+    source: "[Tab] cmdline >"
+    when:
+      target: grub-theme
+    translations:
+      de: "[Tab] Befehlszeile >"
+      es: "[Tab] línea de comandos >"
+      fr: "[Tab] ligne de commande >"
+      id: "[Tab] baris perintah >"
+      it: "[Tab] riga di comando >"
+      pt: "[Tab] linha de comandos >"
+      pt-BR: "[Tab] linha de comando >"
+      ru: "[Tab] командная строка >"
+
+  - id: grub-menu.choose-language
+    source: Choose Language
+    when:
+      target: grub-theme
+    translations:
+      de: Sprache wählen
+      es: Elegir idioma
+      fr: Choisir la langue
+      id: Pilih Bahasa
+      it: Scegliere la lingua
+      pt: Escolher idioma
+      pt-BR: Escolher idioma
+      ru: Выбрать язык
+
+  - id: module-role.core-system
+    source: Core system
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Kernsystem
+      es: Sistema principal
+      fr: Système principal
+      id: Sistem inti
+      it: Sistema core
+      pt: Sistema principal
+      pt-BR: Sistema principal
+      ru: Базовая система
+
+  - id: module-role.kernel-and-drivers
+    source: Kernel and drivers
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Kernel und Treiber
+      es: Kernel y controladores
+      fr: Noyau et pilotes
+      id: Kernel dan driver
+      it: Kernel e driver
+      pt: Kernel e drivers
+      pt-BR: Kernel e drivers
+      ru: Ядро и драйверы
+
+  - id: module-role.hardware-firmware
+    source: Hardware firmware
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Hardware-Firmware
+      es: Firmware de hardware
+      fr: Micrologiciel matériel
+      id: Firmware perangkat keras
+      it: Firmware hardware
+      pt: Firmware de hardware
+      pt-BR: Firmware de hardware
+      ru: Прошивки оборудования
+
+  - id: module-role.graphical-base
+    source: Graphical base
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Grafische Basis
+      es: Base gráfica
+      fr: Base graphique
+      id: Basis grafis
+      it: Base grafica
+      pt: Base gráfica
+      pt-BR: Base gráfica
+      ru: Графическая база
+
+  - id: module-role.desktop-environment
+    source: Desktop environment
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Desktop-Umgebung
+      es: Entorno de escritorio
+      fr: Environnement de bureau
+      id: Lingkungan desktop
+      it: Ambiente desktop
+      pt: Ambiente de desktop
+      pt-BR: Ambiente de desktop
+      ru: Рабочее окружение
+
+  - id: module-role.toolbox-utilities
+    source: Toolbox utilities
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Toolbox-Dienstprogramme
+      es: Utilidades de la caja de herramientas
+      fr: Utilitaires de la boîte à outils
+      id: Utilitas Toolbox
+      it: Utility della Toolbox
+      pt: Utilitários da caixa de ferramentas
+      pt-BR: Utilitários da caixa de ferramentas
+      ru: Утилиты Toolbox
+
+  - id: module-role.ultra-applications
+    source: Ultra applications
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Ultra-Anwendungen
+      es: Aplicaciones Ultra
+      fr: Applications Ultra
+      id: Aplikasi Ultra
+      it: Applicazioni Ultra
+      pt: Aplicativos Ultra
+      pt-BR: Aplicativos Ultra
+      ru: Приложения Ultra
+
+  - id: module-role.application-bundle
+    source: Application bundle
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Anwendungspaket
+      es: Paquete de aplicaciones
+      fr: Bundle d'applications
+      id: Bundel Aplikasi
+      it: Bundle applicazione
+      pt: Pacote de aplicativos
+      pt-BR: Pacote de aplicativos
+      ru: Пакет приложений
+
+  - id: module-role.web-browser
+    source: Web browser
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Webbrowser
+      es: Navegador web
+      fr: Navigateur web
+      id: Peramban web
+      it: Browser web
+      pt: Navegador web
+      pt-BR: Navegador web
+      ru: Веб-браузер
+
+  - id: module-role.custom-module
+    source: Custom module
+    when:
+      target: [minios-installer, minios-module-manager, minios-image-builder]
+    translations:
+      de: Benutzerdefiniertes Modul
+      es: Módulo personalizado
+      fr: Module personnalisé
+      id: Modul Kustom
+      it: Modulo personalizzato
+      pt: Módulo personalizado
+      pt-BR: Módulo personalizado
+      ru: Пользовательский модуль
+
+  - id: image-builder.discard-changes-question
+    source: Discard changes?
+    when:
+      target: minios-image-builder
+    translations:
+      de: Änderungen verwerfen?
+      es: ¿Descartar los cambios?
+      fr: Abandonner les modifications ?
+      id: Buang perubahan?
+      it: Scartare le modifiche?
+      pt: Descartar alterações?
+      pt-BR: Descartar alterações?
+      ru: Не сохранять изменения?
+
+  - id: image-builder.discard-changes-action
+    source: Discard changes
+    when:
+      target: minios-image-builder
+    translations:
+      de: Änderungen verwerfen
+      es: Descartar los cambios
+      fr: Abandonner les modifications
+      id: Buang perubahan
+      it: Scarta le modifiche
+      pt: Descartar alterações
+      pt-BR: Descartar alterações
+      ru: Не сохранять
+
+
+terms:
+  - id: hardware.ram
+    source: RAM
+    preserve: true
+    case_sensitive: true
+
+  - id: brand.minios
+    source: MiniOS
+    preserve: true
+    case_sensitive: true
+
+  - id: filesystem.aufs
+    source: AUFS
+    preserve: true
+    case_sensitive: true
+
+  - id: filesystem.overlayfs
+    source: OverlayFS
+    preserve: true
+    case_sensitive: true
+
+  - id: filesystem.squashfs
+    source: SquashFS
+    preserve: true
+    case_sensitive: true
+
+  - id: tool.condinapt
+    source: CondinAPT
+    preserve: true
+    case_sensitive: true
+
+  - id: tool.rufus
+    source: Rufus
+    preserve: true
+    case_sensitive: true
+
+  - id: tool.ventoy
+    source: Ventoy
+    preserve: true
+    case_sensitive: true
+
+  - id: tool.balena-etcher
+    source: Balena Etcher
+    preserve: true
+    case_sensitive: true
+
+  - id: tool.unetbootin
+    source: UNetbootin
+    preserve: true
+    case_sensitive: true
+
+  - id: product.drive-utility.docs
+    source: Drive Utility
+    when:
+      target: docs-ui
+    preserve: true
+    case_sensitive: true
+
+  - id: module-extension.sb
+    source: .sb
+    match: substring
+    preserve: true
+    case_sensitive: true
