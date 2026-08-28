@@ -3919,6 +3919,11 @@ build_iso() {
 
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
 
+    if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/config.conf" ]; then
+        error "Missing ${WORK_DIR}/image/${LIVEKITNAME}/config.conf. Run build-config before build-iso."
+        exit 1
+    fi
+
     cd "${WORK_DIR}/image" || exit 1
     mkdir -p "${ISO_DIR}"
     DIR="${WORK_DIR}/image"
