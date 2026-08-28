@@ -44,8 +44,11 @@ contains() {
     contains "$lib" 'tee "$TTY0" "$TTYS0"'
     contains "$lib" 'wait "$BOOT_CONSOLE_MIRROR_PID"'
     contains "$boot" 'executed there in a chroot before switch_root'
-    contains "$boot" 'tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log 2>/dev/null &'
-    contains "$boot" 'cat </tmp/minios-boot.pipe 2>/dev/null &'
+    contains "$boot" 'tee <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &'
+    contains "$boot" 'cat <"$LOG_PIPE" 2>/dev/null &'
+    contains "$boot" 'wait "$LOG_PID" 2>/dev/null || true'
+    contains "$boot" "trap 'stop_log' EXIT"
+    contains "$boot" 'stop_log'
     ! contains "$boot" '>/dev/console'
     for init in "$ROOT/livekit-mos/init" "$ROOT/dracut-mos/90minios/minios-init"; do
         contains "$init" boot_console_mirror_start
