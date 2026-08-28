@@ -1,4 +1,4 @@
-## 🏗️ Building MiniOS with `minios-live`
+## Building MiniOS with `minios-live`
 
 `minios-live` is a step-by-step build tool that builds bootable MiniOS ISO images. It uses pre-defined configurations to create a customized MiniOS live system with a controlled and modular build process, including the ability to add software layered on top of the base system using SquashFS modules.
 
@@ -7,11 +7,11 @@
 Using `minios-live`, you can build various configurations including:
 
 - **Debian distributions:** Buster (10), Bullseye (11), Bookworm (12), Trixie (13)
-- **Ubuntu distributions:** Jammy (22.04), Noble (24.04)  
-- **Desktop environments:** 
+- **Ubuntu distributions:** Jammy (22.04), Noble (24.04)
+- **Desktop environments:**
   - **Debian:** Xfce (standard), Flux (minimum), LXQt (Bookworm/Trixie only)
   - **Ubuntu:** Xfce only
-- **Package variants:** 
+- **Package variants:**
   - **All Debian:** Standard (xfce), Minimum (flux)
   - **Bookworm/Trixie only:** Toolbox, Ultra
   - **Ubuntu:** Standard only
@@ -20,7 +20,7 @@ Using `minios-live`, you can build various configurations including:
 ### Prerequisites
 
 - It is advisable to use the latest version of Debian or Ubuntu for building.
-- ⚠️ **WARNING**: Never run scripts from the `linux-live` folder directly. It will break your system.
+- **WARNING**: Never run scripts from the `linux-live` folder directly. It will break your system.
 
 ### Supported Commands
 
@@ -30,7 +30,7 @@ Using `minios-live`, you can build various configurations including:
 - **`build-chroot`** - Installs the remaining core components and chosen desktop environment within the chroot environment
 - **`build-live`** - Creates the main SquashFS image containing the core MiniOS system
 - **`build-modules`** - Builds additional SquashFS modules containing extra software packages
-- **`build-boot`** - Copies the boot files, generates the initrd and the necessary boot configuration files  
+- **`build-boot`** - Copies the boot files, generates the initrd and the necessary boot configuration files
 - **`build-config`** - Generates configuration files for the build
 - **`build-iso`** - Creates the final ISO image, incorporating both the core SquashFS image and any additional modules
 - **`remove-sources`** - Removes source files after the build
@@ -43,7 +43,7 @@ Using `minios-live`, you can build various configurations including:
 
 **Parameters:**
 - **`start_cmd`**: (Optional) The build stage to start from. If omitted, starts from the first command
-- **`-`**: (Optional) A range operator for running command sequences  
+- **`-`**: (Optional) A range operator for running command sequences
 - **`end_cmd`**: (Optional) The build stage to end with. If omitted, ends with the last command
 
 **How it works:**
@@ -63,7 +63,7 @@ Run the build from start to finish:
 ./minios-live -
 ```
 
-#### Partial Build Range  
+#### Partial Build Range
 Start the build by building the base environment and finish by installing the entire system in chroot:
 ```bash
 ./minios-live build-bootstrap - build-chroot
