@@ -1,6 +1,6 @@
 % CONDINAPT-MINIOS(7) MiniOS CondinAPT Integration
 % MiniOS Development Team
-% October 2025
+% August 2026
 
 # NAME
 
@@ -56,7 +56,8 @@ Contents of **condinapt.map** in MiniOS:
     pv=PACKAGE_VARIANT
     ik=INSTALL_KERNEL
     kf=KERNEL_FLAVOUR
-    ka=KERNEL_AUFS
+    kp=KERNEL_PROVIDER
+    kc=KERNEL_CAPABILITIES
     kbd=KERNEL_BUILD_DKMS
     ib=INITRAMFS_BUILDER
     lo=LOCALE
@@ -85,8 +86,17 @@ Main variables from **build.conf**:
 **KERNEL_FLAVOUR**
 :   Kernel flavour (none, rt, cloud)
 
-**KERNEL_AUFS**
-:   AUFS support (true/false)
+**KERNEL_PROVIDER**
+:   Kernel package provider (distribution, minios)
+
+**MINIOS_KERNEL_SERIES**
+:   MiniOS kernel series (auto, 6.1, 6.12)
+
+**KERNEL_CAPABILITIES**
+:   Capabilities detected from the selected kernel, such as aufs or ntfs3
+
+**KERNEL_PAYLOAD_MODE**
+:   Kernel module payload mode (runtime, full)
 
 **KERNEL_BUILD_DKMS**
 :   Build DKMS modules (true/false)
@@ -182,15 +192,15 @@ From **minioslib**:
 **packages.list:**
 
     # DKMS modules with kernel and distribution conditions
-    ntfs3-dkms -ka=true -d=buster -d=trixie -d=sid
+    ntfs3-dkms -kc=ntfs3
     zfs-dkms +{pv=toolbox|pv=ultra} +da=amd64 +kbd=true -kf=none
 
     # Drivers for old systems
-    broadcom-sta-dkms -d=jammy -ka=true -da=i386
-    aufs-dkms +dp=debian +d=buster
+    broadcom-sta-dkms -d=jammy -da=i386
+    aufs-dkms +dp=debian +d=buster -kc=aufs
 
-    # Exclusion for new distributions
-    realtek-rtl8821cu-dkms -d=trixie -d=sid
+    # Exclusion when the selected kernel already provides the driver
+    realtek-rtl8821cu-dkms -kc=rtw88_8821cu
     firmware-b43-installer -d=bionic
 
     # Complex alternatives with filters

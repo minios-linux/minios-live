@@ -7,15 +7,23 @@ dpkg-dev
 dkms
 bc
 git
-ntfs3-dkms -ka=true -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bionic -d=focal -d=jammy -d=noble -d=resolute -d=trixie -d=excalibur -d=sid
-broadcom-sta-dkms -d=jammy -ka=true -da=i386
-aufs-dkms +dp=debian +d=buster +d=beowulf
+pahole +kc=btf_modules || dwarves +kc=btf_modules
+ntfs3-dkms -kc=ntfs3
+broadcom-sta-dkms -d=jammy -da=i386
+aufs-dkms +dp=debian +d=buster +d=beowulf -kc=aufs
 zfs-dkms +pv=toolbox +pv=ultra +da=amd64
-realtek-rtl8723cs-dkms -d=trixie -d=excalibur -d=sid -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bionic -d=focal -d=jammy -d=noble -d=resolute
-realtek-rtl8821au-dkms -d=trixie -d=excalibur -d=sid
-realtek-rtl8821cu-dkms -d=trixie -d=excalibur -d=sid
-realtek-rtl88xxau-dkms -d=trixie -d=excalibur -d=sid
-realtek-rtl8188eus-dkms -d=trixie -d=excalibur -d=sid
-realtek-rtl8814au-dkms -d=trixie -d=excalibur -d=sid
-realtek-rtl8821ce-dkms -d=trixie -d=excalibur -d=sid
+# Skip the vendor driver when the selected kernel provides in-tree rtw88_8723cs.
+# Other exclusions below are legacy compatibility exclusions for this old 2020 vendor driver, not in-tree replacements.
+realtek-rtl8723cs-dkms -kc=rtw88_8723cs -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bionic -d=focal -d=jammy -d=noble
+# Skip the vendor driver when the selected kernel provides usable in-tree rtw88_8821au support.
+realtek-rtl8821au-dkms -kc=rtw88_8821au
+# Skip the vendor driver when the selected kernel provides in-tree rtw88_8821cu.
+realtek-rtl8821cu-dkms -kc=rtw88_8821cu
+# Linux >= 6.14 provides rtw88_8812au/rtw88_8821au, but this combined vendor driver still covers device IDs not handled by rtw88.
+realtek-rtl88xxau-dkms
+# Linux provides in-tree RTL8188EU support, but the vendor DKMS is retained for its broader feature set (for example monitor/injection use cases).
+realtek-rtl8188eus-dkms
+# Skip the vendor driver when the selected kernel provides in-tree rtw88_8814au.
+realtek-rtl8814au-dkms -kc=rtw88_8814au
+# Linux >= 6.2 provides rtw88_8822bu, but it does not cover all hardware/device IDs supported by rtl88x2bu; keep the vendor DKMS where it is usable.
 realtek-rtl88x2bu-dkms -d=bookworm -d=daedalus -d=trixie -d=excalibur -d=sid

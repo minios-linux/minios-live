@@ -189,6 +189,9 @@ targets:
   - name: docs
     format: markdown
     root: submodules/docs
+    ignored_patterns:
+      - '^fm:updated$'
+      - '^fm:program_commits\.'
     from:
       - index.md
       - about/**/*.md

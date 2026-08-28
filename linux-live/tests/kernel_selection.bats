@@ -7,10 +7,77 @@ setup() {
     KERNEL_PACKAGE_VERSION=""
     KERNEL_SNAPSHOT_DATE=""
     KERNEL_UPDATE_POLICY=track
+    KERNEL_PROVIDER=distribution
+    MINIOS_KERNEL_SERIES=auto
     WARNING=""
     ERROR=""
     warning() { WARNING="$1"; }
     error() { ERROR="$1"; }
+}
+
+@test "MiniOS provider selects the AUFS kernel package and freezes updates" {
+    DISTRIBUTION=trixie
+    DISTRIBUTION_PROFILE=debian
+    DISTRIBUTION_ARCH=amd64
+    DEFAULT_KERNEL_ARCH=amd64
+    KERNEL_PROVIDER=minios
+    KERNEL_AUTO_SELECT=true
+    KERNEL_ARCH=""
+
+    resolve_kernel_selection
+
+    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.12 ]
+    [ "${KERNEL_METAPACKAGE}" = linux-image-6.12-mos-amd64 ]
+    [ "${KERNEL_HEADER_METAPACKAGE}" = linux-headers-6.12-mos-amd64 ]
+    [ "${KERNEL_REQUEST}" = linux-image-6.12-mos-amd64 ]
+    [ "${KERNEL_UPDATE_POLICY}" = frozen ]
+}
+
+@test "legacy AUFS option selects the MiniOS provider with a warning" {
+    DISTRIBUTION=bookworm
+    DISTRIBUTION_PROFILE=debian
+    DISTRIBUTION_ARCH=amd64
+    DEFAULT_KERNEL_ARCH=amd64
+    unset KERNEL_PROVIDER
+    KERNEL_AUFS=true
+    KERNEL_AUTO_SELECT=true
+    KERNEL_ARCH=""
+
+    resolve_kernel_selection
+
+    [ "${KERNEL_PROVIDER}" = minios ]
+    [[ "${WARNING}" == *KERNEL_AUFS* ]]
+}
+
+@test "automatic MiniOS selection ignores a stale manual architecture" {
+    DISTRIBUTION=bookworm
+    DISTRIBUTION_PROFILE=debian
+    DISTRIBUTION_ARCH=i386
+    DEFAULT_KERNEL_ARCH=686
+    KERNEL_PROVIDER=minios
+    KERNEL_AUTO_SELECT=true
+    KERNEL_ARCH=amd64
+
+    resolve_kernel_selection
+
+    [ "${KERNEL_ARCH}" = 686 ]
+    [ "${KERNEL_APT_ARCH}" = i386 ]
+    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.1 ]
+}
+
+@test "MiniOS rejects the unsupported i386 6.12 series" {
+    DISTRIBUTION=bookworm
+    DISTRIBUTION_PROFILE=debian
+    DISTRIBUTION_ARCH=i386
+    DEFAULT_KERNEL_ARCH=686
+    KERNEL_PROVIDER=minios
+    MINIOS_KERNEL_SERIES=6.12
+    KERNEL_AUTO_SELECT=true
+    KERNEL_ARCH=""
+
+    ! resolve_kernel_selection
+
+    [[ "${ERROR}" == *"i386"*"6.1"* ]]
 }
 
 make_grub_module_fixture() {
@@ -114,6 +181,39 @@ make_grub_module_fixture() {
     [[ "${output}" != *'Acquire::Check-Valid-Until=false'* ]]
 }
 
+@test "kernel archive URLs remain cacheable by apt-cacher-ng" {
+    local acquire="${LIVE_ROOT}/scripts/01-kernel/acquire"
+    local body apt_root
+    body="$(awk '/^add_repository\(\)/,/^}/' "${acquire}")"
+    body+=$'\n'
+    body+="$(awk '/^configure_repositories\(\)/,/^}/' "${acquire}")"
+    apt_root="${BATS_TEST_TMPDIR}/apt"
+    mkdir -p "${apt_root}"
+
+    run env APT_ROOT="${apt_root}" KERNEL_SOURCE_FAMILY=debian \
+        KERNEL_SOURCE_SUITE=trixie KERNEL_SNAPSHOT_DATE= KERNEL_APT_ARCH=amd64 \
+        bash -c "fail() { return 1; }; REPOSITORY_TABLE=\"\${APT_ROOT}/repositories.tsv\"; ${body}; configure_repositories; cat \"\${APT_ROOT}/sources.list\""
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"http://deb.debian.org/debian trixie"* ]]
+    [[ "${output}" == *"http://security.debian.org/debian-security trixie-security"* ]]
+    [[ "${output}" != *"https://deb.debian.org"* ]]
+}
+
+@test "kernel acquisition reads fingerprints with the legacy-compatible GPG interface" {
+    local acquire="${LIVE_ROOT}/scripts/01-kernel/acquire"
+    local body keyring
+    body="$(awk '/^keyring_fingerprints_json\(\)/,/^}/' "${acquire}")"
+    keyring=/usr/share/keyrings/debian-archive-keyring.gpg
+    [ -f "${keyring}" ] || skip "Debian archive keyring is unavailable"
+
+    run env WORK="${BATS_TEST_TMPDIR}" KEYRING="${keyring}" \
+        bash -c "fail() { return 1; }; ${body}; keyring_fingerprints_json \"\${KEYRING}\""
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" =~ ^\[\"[0-9A-F]{40,64}\" ]]
+}
+
 @test "kernel lock parser reads compact kernel object" {
     WORK_DIR="${BATS_TEST_TMPDIR}/work"
     mkdir -p "${WORK_DIR}/kernel"
@@ -124,6 +224,36 @@ EOF
     [ "$(kernel_lock_value distribution)" = bookworm ]
     [ "$(kernel_lock_value version)" = 6.1-test ]
     [ "$(kernel_lock_value package_architecture)" = i386 ]
+}
+
+@test "kernel module overlay includes only the core lower layer" {
+    local bundles="${BATS_TEST_TMPDIR}/bundles"
+    mkdir -p "${bundles}/00-core" "${bundles}/01-kernel" "${bundles}/02-firmware"
+    BUILD_CONF="${BATS_TEST_TMPDIR}/build.conf"
+    printf 'FILTER_MODULES="false"\nFILTER_LEVEL="3"\n' >"${BUILD_CONF}"
+    MODULE=01-kernel
+    PACKAGE_VARIANT=standard
+    current_function() { :; }
+
+    filter_modules "${bundles}/"
+
+    [ "${MODULES_LIST%:}" = "${bundles}/00-core" ]
+}
+
+@test "kernel runtime payload keeps integration files but excludes firmware" {
+    local source="${BATS_TEST_TMPDIR}/source"
+    local destination="${BATS_TEST_TMPDIR}/destination"
+    mkdir -p "${source}/etc/modprobe.d" "${source}/usr/lib/udev/rules.d" \
+        "${source}/usr/lib/firmware" "${destination}"
+    printf 'blacklist r8188eu\n' >"${source}/etc/modprobe.d/r8188eus-dkms.conf"
+    printf 'test rule\n' >"${source}/usr/lib/udev/rules.d/80-test.rules"
+    printf 'firmware\n' >"${source}/usr/lib/firmware/test.bin"
+
+    copy_kernel_runtime_payload "${source}" "${destination}"
+
+    [ -f "${destination}/etc/modprobe.d/r8188eus-dkms.conf" ]
+    [ -f "${destination}/usr/lib/udev/rules.d/80-test.rules" ]
+    [ ! -e "${destination}/usr/lib/firmware/test.bin" ]
 }
 
 @test "kernel lock requires the matching published module" {
@@ -255,7 +385,7 @@ EOF
     RELEASE=true
     RELEASE_VERSION=test
     KERNEL_FLAVOUR=none
-    KERNEL_AUFS=false
+    KERNEL_PROVIDER=distribution
     BUILD_FROM_SNAPSHOT=false
     ISO_ARCH=amd64
     REMOVE_OLD_ISO=false

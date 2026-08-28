@@ -1,4 +1,4 @@
-## 🏗️ Building MiniOS with `minios-cmd`
+## Building MiniOS with `minios-cmd`
 
 `minios-cmd` is a command-line utility designed to simplify the process of configuring and building customized MiniOS system images. Acting as a frontend for `minios-live`, it manages the configuration and invokes `minios-live` to execute the actual build steps.
 
@@ -18,7 +18,7 @@ With `minios-cmd`, you can customize various aspects of your MiniOS image, inclu
   - **Bookworm/Trixie only:** `toolbox`, `ultra`
   - **Ubuntu:** `standard` only
 - **Compression Type:** Specify the image compression method (`zstd`)
-- **Kernel:** Configure kernel type, enable backports, AUFS support, and DKMS module compilation
+- **Kernel:** Select a distribution or AUFS-enabled MiniOS kernel and compile optional DKMS modules
 - **Locale and Timezone:** Set the system locale and timezone with multilingual support
 
 ---
@@ -52,8 +52,11 @@ These options **must be provided** unless a configuration file is used:
 - `-c, --compression-type NAME`: Specify the compression type (e.g., 'zstd').
 
 #### Kernel Options
+- `-kp, --kernel-provider NAME`: Select the kernel provider ('distribution' or 'minios').
 - `-kf, --kernel-flavour NAME`: Specify the kernel flavour (e.g., 'none').
-- `-aufs, --kernel-aufs`: Enable AUFS support in the kernel.
+- `-mk, --minios-kernel`: Install the AUFS-enabled MiniOS kernel.
+- `-mks, --minios-kernel-series NAME`: Select the MiniOS kernel series ('auto', '6.1', or '6.12') and use the MiniOS provider.
+- `-kpm, --kernel-payload-mode NAME`: Select the kernel payload mode ('runtime' or 'full').
 - `-dkms, --kernel-build-dkms`: Enable compilation of additional drivers during kernel installation.
 
 #### Locale and Timezone Options
@@ -74,6 +77,9 @@ These options **must be provided** unless a configuration file is used:
 
 #### Kernel Settings
 - **KERNEL_FLAVOUR:** "none"
+- **KERNEL_PROVIDER:** "distribution"
+- **MINIOS_KERNEL_SERIES:** "auto"
+- **KERNEL_PAYLOAD_MODE:** "runtime"
 
 #### Locale & Timezone Settings
 - **LOCALE:** "en_US"
@@ -99,14 +105,14 @@ These options **must be provided** unless a configuration file is used:
 Create a MiniOS Standard system image with default settings:
 
 ```bash
-minios-cmd -d bookworm -a amd64 -de xfce -pv standard -c zstd -aufs -dkms -kl
+minios-cmd -d bookworm -a amd64 -de xfce -pv standard -c zstd -mk -dkms -kl
 ```
 
 #### Toolbox Build (Default Settings)
 Create a MiniOS Toolbox system image with default settings:
 
 ```bash
-minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -aufs -dkms -kl
+minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -mk -dkms -kl
 ```
 
 #### Custom Locale
@@ -192,4 +198,3 @@ minios-cmd --help
 ```
 
 `minios-cmd` has many more options available. Please refer to the above options list for more details.
-

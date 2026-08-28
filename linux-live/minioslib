@@ -34,6 +34,24 @@ kernel_debian_base_suite() {
 resolve_kernel_selection() {
     local AUTO_VALUE="${KERNEL_AUTO_SELECT:-true}"
     local REQUESTED_ARCH="${KERNEL_ARCH:-}"
+    local PROVIDER="${KERNEL_PROVIDER:-}"
+
+    if [ -z "${PROVIDER}" ]; then
+        if [ "${KERNEL_AUFS:-false}" = true ]; then
+            PROVIDER=minios
+            warning "KERNEL_AUFS is deprecated; use KERNEL_PROVIDER=minios."
+        else
+            PROVIDER=distribution
+        fi
+    fi
+    case "${PROVIDER}" in
+    distribution | minios) ;;
+    *)
+        error "Unsupported KERNEL_PROVIDER: ${PROVIDER}"
+        return 1
+        ;;
+    esac
+    KERNEL_PROVIDER="${PROVIDER}"
 
     case "${AUTO_VALUE}" in
     true | false) ;;
@@ -44,7 +62,22 @@ resolve_kernel_selection() {
     esac
     KERNEL_AUTO_SELECT="${AUTO_VALUE}"
 
-    if [ "${KERNEL_AUTO_SELECT}" = "true" ]; then
+    if [ "${KERNEL_PROVIDER}" = minios ]; then
+        if [ "${KERNEL_AUTO_SELECT}" = true ]; then
+            KERNEL_ARCH="${DEFAULT_KERNEL_ARCH}"
+        else
+            [ -n "${REQUESTED_ARCH}" ] || {
+                error "KERNEL_ARCH is required when KERNEL_AUTO_SELECT=false"
+                return 1
+            }
+            KERNEL_ARCH="${REQUESTED_ARCH}"
+        fi
+        KERNEL_SOURCE_SUITE="$(kernel_debian_base_suite "${DISTRIBUTION}")"
+        [ "${DISTRIBUTION_PROFILE}" = ubuntu ] && KERNEL_SOURCE_SUITE="${DISTRIBUTION}"
+        KERNEL_PACKAGE_VERSION=""
+        KERNEL_SNAPSHOT_DATE=""
+        KERNEL_UPDATE_POLICY=frozen
+    elif [ "${KERNEL_AUTO_SELECT}" = "true" ]; then
         KERNEL_ARCH="${DEFAULT_KERNEL_ARCH}"
         KERNEL_SOURCE_SUITE="$(kernel_debian_base_suite "${DISTRIBUTION}")"
         [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ] && KERNEL_SOURCE_SUITE="${DISTRIBUTION}"
@@ -95,6 +128,10 @@ resolve_kernel_selection() {
         error "An i386 kernel cannot run amd64 userspace"
         return 1
     fi
+    if [ "${KERNEL_PROVIDER}" = minios ] && [ "${DISTRIBUTION_ARCH}" != "${KERNEL_APT_ARCH}" ]; then
+        error "KERNEL_PROVIDER=minios requires matching userspace and kernel package architectures"
+        return 1
+    fi
     if [ "${KERNEL_BUILD_DKMS}" = true ] && [ "${DISTRIBUTION_ARCH}" != "${KERNEL_APT_ARCH}" ]; then
         error "KERNEL_BUILD_DKMS=true requires matching userspace and kernel package architectures"
         return 1
@@ -115,7 +152,35 @@ resolve_kernel_selection() {
         return 1
     fi
 
-    if [ "${KERNEL_SOURCE_FAMILY}" = "debian" ]; then
+    if [ "${KERNEL_PROVIDER}" = minios ]; then
+        if [ "${KERNEL_FLAVOUR}" != none ]; then
+            error "KERNEL_FLAVOUR is not supported with KERNEL_PROVIDER=minios"
+            return 1
+        fi
+        : "${MINIOS_KERNEL_SERIES:=auto}"
+        case "${MINIOS_KERNEL_SERIES}" in
+        auto)
+            if [ "${DISTRIBUTION_ARCH}" = i386 ] ||
+                [ "${DISTRIBUTION}" = buster ] || [ "${DISTRIBUTION}" = bullseye ] ||
+                [ "${DISTRIBUTION}" = bookworm ] || [ "${DISTRIBUTION}" = jammy ]; then
+                MINIOS_KERNEL_SERIES_RESOLVED=6.1
+            else
+                MINIOS_KERNEL_SERIES_RESOLVED=6.12
+            fi
+            ;;
+        6.1 | 6.12) MINIOS_KERNEL_SERIES_RESOLVED="${MINIOS_KERNEL_SERIES}" ;;
+        *)
+            error "Unsupported MINIOS_KERNEL_SERIES: ${MINIOS_KERNEL_SERIES}"
+            return 1
+            ;;
+        esac
+        if [ "${KERNEL_APT_ARCH}" = i386 ] && [ "${MINIOS_KERNEL_SERIES_RESOLVED}" != 6.1 ]; then
+            error "MiniOS i386 kernels are supported only in the 6.1 series"
+            return 1
+        fi
+        KERNEL_METAPACKAGE="linux-image-${MINIOS_KERNEL_SERIES_RESOLVED}-mos-${KERNEL_ARCH}"
+        KERNEL_HEADER_METAPACKAGE="linux-headers-${MINIOS_KERNEL_SERIES_RESOLVED}-mos-${KERNEL_ARCH}"
+    elif [ "${KERNEL_SOURCE_FAMILY}" = "debian" ]; then
         if [ "${KERNEL_FLAVOUR}" = "none" ]; then
             KERNEL_METAPACKAGE="linux-image-${KERNEL_ARCH}"
             KERNEL_HEADER_METAPACKAGE="linux-headers-${KERNEL_ARCH}"
@@ -138,10 +203,15 @@ resolve_kernel_selection() {
     fi
 
     KERNEL_DISTRIBUTION="${KERNEL_SOURCE_SUITE}"
-    KERNEL_REQUEST="${KERNEL_METAPACKAGE}:${KERNEL_APT_ARCH}"
-    KERNEL_HEADER_REQUEST="${KERNEL_HEADER_METAPACKAGE}:${KERNEL_APT_ARCH}"
-    [ -n "${KERNEL_PACKAGE_VERSION}" ] && KERNEL_REQUEST="${KERNEL_REQUEST}=${KERNEL_PACKAGE_VERSION}"
-    [ -n "${KERNEL_PACKAGE_VERSION}" ] && KERNEL_HEADER_REQUEST="${KERNEL_HEADER_REQUEST}=${KERNEL_PACKAGE_VERSION}"
+    if [ "${KERNEL_PROVIDER}" = minios ]; then
+        KERNEL_REQUEST="${KERNEL_METAPACKAGE}"
+        KERNEL_HEADER_REQUEST="${KERNEL_HEADER_METAPACKAGE}"
+    else
+        KERNEL_REQUEST="${KERNEL_METAPACKAGE}:${KERNEL_APT_ARCH}"
+        KERNEL_HEADER_REQUEST="${KERNEL_HEADER_METAPACKAGE}:${KERNEL_APT_ARCH}"
+        [ -n "${KERNEL_PACKAGE_VERSION}" ] && KERNEL_REQUEST="${KERNEL_REQUEST}=${KERNEL_PACKAGE_VERSION}"
+        [ -n "${KERNEL_PACKAGE_VERSION}" ] && KERNEL_HEADER_REQUEST="${KERNEL_HEADER_REQUEST}=${KERNEL_PACKAGE_VERSION}"
+    fi
     return 0
 }
 
@@ -152,7 +222,7 @@ common_variables() {
     declare_locales
 
     # List of variables passed to chroot.
-    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_PROFILE INIT_SYSTEM PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_AUTO_SELECT KERNEL_DISTRIBUTION KERNEL_SOURCE_FAMILY KERNEL_SOURCE_SUITE KERNEL_APT_ARCH KERNEL_METAPACKAGE KERNEL_HEADER_METAPACKAGE KERNEL_REQUEST KERNEL_HEADER_REQUEST KERNEL_PACKAGE_VERSION KERNEL_SNAPSHOT_DATE KERNEL_UPDATE_POLICY INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_AUFS KERNEL_BUILD_DKMS INITRAMFS_BUILDER INITRAMFS_CRYPT LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE USE_SHARED_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
+    VARIABLES="BUILD_SCRIPTS DEBIAN_FRONTEND_TYPE DESKTOP_ENVIRONMENT DISTRIBUTION DISTRIBUTION_PROFILE INIT_SYSTEM PACKAGE_VARIANT COMP_TYPE KERNEL KERNEL_VERSION KERNEL_ARCH KERNEL_AUTO_SELECT KERNEL_PROVIDER MINIOS_KERNEL_SERIES MINIOS_KERNEL_SERIES_RESOLVED KERNEL_DISTRIBUTION KERNEL_SOURCE_FAMILY KERNEL_SOURCE_SUITE KERNEL_APT_ARCH KERNEL_METAPACKAGE KERNEL_HEADER_METAPACKAGE KERNEL_REQUEST KERNEL_HEADER_REQUEST KERNEL_PACKAGE_VERSION KERNEL_SNAPSHOT_DATE KERNEL_UPDATE_POLICY KERNEL_PAYLOAD_MODE INSTALL_KERNEL KERNEL_FLAVOUR KERNEL_BUILD_DKMS INITRAMFS_BUILDER INITRAMFS_CRYPT LIVEKITNAME DISTRIBUTION_ARCH LOCALE LOCALES MULTILINGUAL LAYOUTDSC LAYOUTID LIVE_TIMEZONE MODULE LIVE_USERNAME LIVE_USER_PASSWORD LIVE_ROOT_PASSWORD LIVE_USER_PASSWORD_CRYPTED LIVE_ROOT_PASSWORD_CRYPTED BEXT EXPORT_LOGS USE_APT_CACHE USE_SHARED_APT_CACHE DEBUG_SET_ROOT_PASSWORD BOOTLOADER MENU_LANG USE_UBUNTU_PRO UBUNTU_PRO_TOKEN"
 
     : "${container:=}"
     : "${MODULE:=}"
@@ -212,6 +282,26 @@ common_variables() {
         ;;
     *)
         error "Unknown distribution: ${DISTRIBUTION}"
+        exit 1
+        ;;
+    esac
+
+    if [ -z "${KERNEL_PAYLOAD_MODE:-}" ]; then
+        if [ -n "${KERNEL_MODULES_ONLY:-}" ]; then
+            warning "KERNEL_MODULES_ONLY is deprecated; use KERNEL_PAYLOAD_MODE=runtime or full."
+            if [ "${KERNEL_MODULES_ONLY}" = true ]; then
+                KERNEL_PAYLOAD_MODE=runtime
+            else
+                KERNEL_PAYLOAD_MODE=full
+            fi
+        else
+            KERNEL_PAYLOAD_MODE=runtime
+        fi
+    fi
+    case "${KERNEL_PAYLOAD_MODE}" in
+    runtime | full) ;;
+    *)
+        error "Unsupported KERNEL_PAYLOAD_MODE: ${KERNEL_PAYLOAD_MODE}"
         exit 1
         ;;
     esac
@@ -1324,7 +1414,8 @@ new_run() {
     echo "========== Arch: ${DISTRIBUTION_ARCH}"
     echo "========== Install kernel: ${INSTALL_KERNEL}"
     echo "========== Kernel flavour: ${KERNEL_FLAVOUR}"
-    echo "========== Kernel AUFS: ${KERNEL_AUFS}"
+    echo "========== Kernel provider: ${KERNEL_PROVIDER}"
+    echo "========== Kernel payload mode: ${KERNEL_PAYLOAD_MODE}"
     echo "========== Install additional drivers: ${KERNEL_BUILD_DKMS}"
     echo "========== Named boot files: ${NAMED_BOOT_FILES}"
     echo "========== Compression: ${COMP_TYPE}"
@@ -1356,6 +1447,9 @@ INIT_SYSTEM="${INIT_SYSTEM}"
 # Kernel settings
 KERNEL_ARCH="${KERNEL_ARCH}"
 KERNEL_AUTO_SELECT="${KERNEL_AUTO_SELECT}"
+KERNEL_PROVIDER="${KERNEL_PROVIDER}"
+MINIOS_KERNEL_SERIES="${MINIOS_KERNEL_SERIES:-auto}"
+MINIOS_KERNEL_SERIES_RESOLVED="${MINIOS_KERNEL_SERIES_RESOLVED:-}"
 KERNEL_DISTRIBUTION="${KERNEL_DISTRIBUTION}"
 KERNEL_SOURCE_FAMILY="${KERNEL_SOURCE_FAMILY}"
 KERNEL_SOURCE_SUITE="${KERNEL_SOURCE_SUITE}"
@@ -1367,9 +1461,9 @@ KERNEL_HEADER_REQUEST="${KERNEL_HEADER_REQUEST}"
 KERNEL_PACKAGE_VERSION="${KERNEL_PACKAGE_VERSION}"
 KERNEL_SNAPSHOT_DATE="${KERNEL_SNAPSHOT_DATE}"
 KERNEL_UPDATE_POLICY="${KERNEL_UPDATE_POLICY}"
+KERNEL_PAYLOAD_MODE="${KERNEL_PAYLOAD_MODE}"
 INSTALL_KERNEL="${INSTALL_KERNEL}"
 KERNEL_FLAVOUR="${KERNEL_FLAVOUR}"
-KERNEL_AUFS="${KERNEL_AUFS}"
 KERNEL_BUILD_ARCH="${KERNEL_BUILD_ARCH}"
 KERNEL_BUILD_DKMS="${KERNEL_BUILD_DKMS}"
 INITRAMFS_BUILDER="${INITRAMFS_BUILDER}"
@@ -2866,7 +2960,7 @@ kernel_lock_value() {
 }
 
 validate_kernel_lock() {
-    local LOCKED_SUITE LOCKED_ARCH LOCKED_VERSION KERNEL_MODULE
+    local LOCKED_PROVIDER LOCKED_SUITE LOCKED_ARCH LOCKED_VERSION KERNEL_MODULE
 
     if [ "${INSTALL_KERNEL}" != true ]; then
         LOCKED_EFI_VENDOR="${KERNEL_SOURCE_FAMILY}"
@@ -2878,9 +2972,13 @@ validate_kernel_lock() {
     }
     LOCKED_ARCH="$(kernel_lock_value package_architecture)"
     LOCKED_VERSION="$(kernel_lock_value version)"
+    LOCKED_PROVIDER="$(kernel_lock_value provider || true)"
+    [ -n "${LOCKED_PROVIDER}" ] || LOCKED_PROVIDER=distribution
     LOCKED_EFI_VENDOR="${KERNEL_SOURCE_FAMILY}"
-    if [ "${LOCKED_SUITE}" != "${KERNEL_SOURCE_SUITE}" ] || [ "${LOCKED_ARCH}" != "${KERNEL_APT_ARCH}" ]; then
-        error "Kernel lock selects ${LOCKED_SUITE}/${LOCKED_ARCH}, but build.conf resolves ${KERNEL_SOURCE_SUITE}/${KERNEL_APT_ARCH}; rebuild 01-kernel"
+    if [ "${LOCKED_PROVIDER}" != "${KERNEL_PROVIDER}" ] ||
+        [ "${LOCKED_SUITE}" != "${KERNEL_SOURCE_SUITE}" ] ||
+        [ "${LOCKED_ARCH}" != "${KERNEL_APT_ARCH}" ]; then
+        error "Kernel lock selects ${LOCKED_PROVIDER}/${LOCKED_SUITE}/${LOCKED_ARCH}, but build.conf resolves ${KERNEL_PROVIDER}/${KERNEL_SOURCE_SUITE}/${KERNEL_APT_ARCH}; rebuild 01-kernel"
         return 1
     fi
     [ -f "${WORK_DIR}/kernel/vmlinuz-${LOCKED_VERSION}" ] || {
@@ -3837,7 +3935,7 @@ build_iso() {
             IMAGE+="-${KERNEL_FLAVOUR}"
         fi
     else
-        if [[ "${KERNEL_AUFS}" == "true" ]]; then
+        if [[ "${KERNEL_PROVIDER}" == minios ]]; then
             IMAGE+="-aufs"
         fi
         if [[ "${KERNEL_FLAVOUR}" != "none" ]]; then
@@ -4252,7 +4350,10 @@ install_core_packages() {
 # This function filters and lists modules based on package variant and other conditions like filter modules configuration.
 filter_modules() {
     current_function
-    if [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
+    if [[ "${MODULE:-}" == *"kernel"* ]]; then
+        FILTER_MODULES="true"
+        FILTER_LEVEL="0"
+    elif [ "${PACKAGE_VARIANT}" = "puzzle" ]; then
         FILTER_MODULES="true"
         if ! [[ ${MODULE} =~ ^0[0-9]-* ]]; then
             FILTER_LEVEL="3"
@@ -4270,6 +4371,36 @@ filter_modules() {
     else
         MODULES_LIST=$(ls -1dr $1[0-9]* | tr '\n' ':')
     fi
+}
+
+copy_kernel_runtime_path() {
+    local SOURCE_ROOT="$1"
+    local DESTINATION_ROOT="$2"
+    local RELATIVE_PATH="$3"
+    local SOURCE="${SOURCE_ROOT}/${RELATIVE_PATH}"
+    local DESTINATION="${DESTINATION_ROOT}/${RELATIVE_PATH}"
+
+    [ -e "${SOURCE}" ] || [ -L "${SOURCE}" ] || return 0
+    mkdir -p "$(dirname "${DESTINATION}")"
+    if [ -d "${SOURCE}" ] && [ ! -L "${SOURCE}" ]; then
+        mkdir -p "${DESTINATION}"
+        cp -a "${SOURCE}/." "${DESTINATION}/"
+    else
+        cp -a "${SOURCE}" "${DESTINATION}"
+    fi
+}
+
+copy_kernel_runtime_payload() {
+    local SOURCE_ROOT="$1"
+    local DESTINATION_ROOT="$2"
+    local RUNTIME_PATH
+
+    for RUNTIME_PATH in \
+        etc/modprobe.d etc/modules-load.d etc/udev/rules.d \
+        lib/modprobe.d lib/modules-load.d lib/udev/rules.d \
+        usr/lib/modprobe.d usr/lib/modules-load.d usr/lib/udev/rules.d; do
+        copy_kernel_runtime_path "${SOURCE_ROOT}" "${DESTINATION_ROOT}" "${RUNTIME_PATH}"
+    done
 }
 
 # This function mounts file systems for modules within a chroot environment.
@@ -4617,8 +4748,8 @@ build_modules() {
                     if [ -f "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg/manifest.json" ]; then
                         cp "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg/manifest.json" \
                             "${WORK_DIR}/kernel.lock.pending"
-                    elif [ "${KERNEL_AUFS}" = true ]; then
-                        printf '{"format":1,"kernel":{"distribution":"%s","version":"%s","package_architecture":"%s"}}\n' \
+                    elif [ "${KERNEL_PROVIDER}" = minios ]; then
+                        printf '{"format":1,"kernel":{"provider":"minios","distribution":"%s","version":"%s","package_architecture":"%s","features":["aufs"]}}\n' \
                             "${KERNEL_SOURCE_SUITE}" "${KERNEL}" "${KERNEL_APT_ARCH}" \
                             >"${WORK_DIR}/kernel.lock.pending"
                     else
@@ -4711,7 +4842,7 @@ build_modules() {
                     cd "${OVERLAY[upper]}/squashfs-root" || exit 1
                     ls initrd* >/dev/null 2>&1 && rm -f initrd*
                     ls vmlinuz* >/dev/null 2>&1 && rm -f vmlinuz*
-                    if [ "${KERNEL_MODULES_ONLY}" = "true" ]; then
+                    if [ "${KERNEL_PAYLOAD_MODE}" = runtime ]; then
                         bash -O extglob -c '
                         root=$1
                         cd "${root}" || exit 1
@@ -4727,8 +4858,18 @@ build_modules() {
                             rm -rf -- !(modules)
                         fi
                         ' bash "${OVERLAY[upper]}/squashfs-root" || exit 1
-                    else
+                        rm -rf \
+                            "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}/build" \
+                            "${OVERLAY[upper]}/squashfs-root/lib/modules/${KERNEL}/source" \
+                            "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}/build" \
+                            "${OVERLAY[upper]}/squashfs-root/usr/lib/modules/${KERNEL}/source"
+                        copy_kernel_runtime_payload "${OVERLAY[upper]}" \
+                            "${OVERLAY[upper]}/squashfs-root"
+                    elif [ "${KERNEL_PAYLOAD_MODE}" = full ]; then
                         rm -Rf boot dev etc proc run sys tmp var/lib/apt
+                    else
+                        error "Unsupported kernel payload mode: ${KERNEL_PAYLOAD_MODE}"
+                        exit 1
                     fi
 
                     if [ -d "${OVERLAY[merged]}/usr/share/minios/kernel-dpkg" ]; then

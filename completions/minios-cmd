@@ -3,7 +3,7 @@ _minios_cmd() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD - 1]}"
-    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-flavour --kernel-backports --kernel-aufs --kernel-build-dkms --locale --multilingual --keep-locales --timezone --initramfs-builder --menu-language -b -d -a -de -pv -c -kf -bpo -aufs -dkms -l -ml -kl -tz -ib -mln"
+    opts="--help --build-dir --config-file --config-only --distribution --architecture --desktop-environment --package-variant --compression-type --kernel-provider --kernel-flavour --minios-kernel --minios-kernel-series --kernel-payload-mode --kernel-build-dkms --locale --multilingual --keep-locales --timezone --initramfs-builder --menu-language -b -d -a -de -pv -c -kp -kf -mk -mks -kpm -dkms -l -ml -kl -tz -ib -mln"
 
     if [[ ${cur} == -* ]]; then
         COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
@@ -41,6 +41,18 @@ _minios_cmd() {
     --kernel-flavour | -kf)
         local kernel_flavours="none rt cloud"
         COMPREPLY=($(compgen -W "${kernel_flavours}" -- ${cur}))
+        ;;
+    --kernel-provider | -kp)
+        local kernel_providers="distribution minios"
+        COMPREPLY=($(compgen -W "${kernel_providers}" -- ${cur}))
+        ;;
+    --minios-kernel-series | -mks)
+        local minios_kernel_series="auto 6.1 6.12"
+        COMPREPLY=($(compgen -W "${minios_kernel_series}" -- ${cur}))
+        ;;
+    --kernel-payload-mode | -kpm)
+        local kernel_payload_modes="runtime full"
+        COMPREPLY=($(compgen -W "${kernel_payload_modes}" -- ${cur}))
         ;;
     --locale | -l)
         local locales="en_US ru_RU es_ES de_DE fr_FR it_IT pt_PT pt_BR id_ID"

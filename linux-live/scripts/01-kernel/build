@@ -7,50 +7,89 @@ set -u          # treat unset variable as error
 . "/minioslib" || exit 1
 . "/minios_build.conf" || exit 1
 
-if [ "${KERNEL_BUILD_DKMS}" = "true" ]; then
-    KERNEL="$(file /boot/vmlinuz-* | grep -oP 'version \K[^\s]+')"
-    # Determine the kernel version (major.minor).
-    KERNEL_VERSION=$(echo "$KERNEL" | cut -d'.' -f1,2)
+[ "${KERNEL_BUILD_DKMS}" = true ] || exit 0
 
-    # AUFS kernel headers selection (MiniOS custom kernel)
-    if [ "${KERNEL_AUFS}" = "true" ]; then
-        HEADERS="linux-headers-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
-    # Standard kernel headers selection
-    elif [ "${DISTRIBUTION_PROFILE}" = "debian" ]; then
-        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
-            HEADERS="linux-headers-${KERNEL_ARCH}"
-        else
-            HEADERS="linux-headers-${KERNEL_FLAVOUR}-${KERNEL_ARCH}"
-        fi
-    elif [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
-        if [ "${KERNEL_FLAVOUR}" = "none" ]; then
-            HEADERS="linux-headers-generic"
-        else
-            HEADERS="linux-headers-${KERNEL_FLAVOUR}"
-        fi
-    fi
+[ -f /packages.list ] || {
+    error "Fixed build package list not found: /packages.list"
+    exit 1
+}
 
-    # Check that the fixed build package list exists.
-    if [ ! -f "/packages.list" ]; then
-        error "Fixed build package list not found: /packages.list"
-        exit 1
-    fi
+mapfile -t KERNEL_IMAGES < <(find /boot -maxdepth 1 -type f -name 'vmlinuz-*' -print | sort -V)
+[ "${#KERNEL_IMAGES[@]}" -eq 1 ] || {
+    error "DKMS build requires exactly one kernel image"
+    exit 1
+}
+KERNEL_RELEASE="${KERNEL_IMAGES[0]##*/vmlinuz-}"
+KERNEL_CONFIG="/boot/config-${KERNEL_RELEASE}"
+[ -f "${KERNEL_CONFIG}" ] || {
+    error "Kernel config is missing: ${KERNEL_CONFIG}"
+    exit 1
+}
 
-    # Create a temporary combined package list file.
-    TMP_COMBINED=$(mktemp /tmp/combined_packages.list.XXXXXX)
+MODULES_ROOT="/lib/modules/${KERNEL_RELEASE}"
+[ -d "${MODULES_ROOT}" ] || MODULES_ROOT="/usr/lib/modules/${KERNEL_RELEASE}"
+[ -d "${MODULES_ROOT}" ] || {
+    error "Kernel modules are missing for ${KERNEL_RELEASE}"
+    exit 1
+}
 
-    # Write the kernel headers as the first line.
-    echo "${HEADERS}" >"${TMP_COMBINED}"
-    # Append the contents of the fixed package list, preserving one package per line.
-    cat "/packages.list" >>"${TMP_COMBINED}"
+KERNEL_CAPABILITIES=()
+kernel_has_config() {
+    grep -Eq "^$1=[ym]$" "${KERNEL_CONFIG}"
+}
+kernel_has_module() {
+    grep -Eq "[[:space:]]$1$" "${MODULES_ROOT}/modules.alias" 2>/dev/null
+}
+kernel_add_capability() {
+    KERNEL_CAPABILITIES+=("$1")
+}
 
-    # Call the external condinapt command with the combined list.
-    /condinapt -l "${TMP_COMBINED}" -c "/minios_build.conf" -m "/condinapt.map"
-    if [ $? -ne 0 ]; then
-        error "Failed to install packages."
-        exit 1
-    fi
-
-    # Clean up the temporary file.
-    rm -f "${TMP_COMBINED}"
+kernel_has_config CONFIG_AUFS_FS && kernel_add_capability aufs
+kernel_has_config CONFIG_NTFS3_FS && kernel_add_capability ntfs3
+kernel_has_config CONFIG_DEBUG_INFO_BTF_MODULES && kernel_add_capability btf_modules
+if kernel_has_config CONFIG_RTW88_8723CS || kernel_has_module rtw88_8723cs; then
+    kernel_add_capability rtw88_8723cs
 fi
+if kernel_has_config CONFIG_RTW88_8821AU || kernel_has_module rtw88_8821au; then
+    kernel_add_capability rtw88_8821au
+fi
+if kernel_has_config CONFIG_RTW88_8821CU || kernel_has_module rtw88_8821cu; then
+    kernel_add_capability rtw88_8821cu
+fi
+if kernel_has_config CONFIG_RTW88_8814AU || kernel_has_module rtw88_8814au; then
+    kernel_add_capability rtw88_8814au
+fi
+if kernel_has_config CONFIG_RTW88_8822BU || kernel_has_module rtw88_8822bu; then
+    kernel_add_capability rtw88_8822bu
+fi
+
+TMP_COMBINED="$(mktemp /tmp/combined_packages.list.XXXXXX)"
+TMP_CONFIG="$(mktemp /tmp/kernel_build.conf.XXXXXX)"
+trap 'rm -f "${TMP_COMBINED}" "${TMP_CONFIG}"' EXIT
+cp /minios_build.conf "${TMP_CONFIG}"
+{
+    printf 'KERNEL_RELEASE=%q\n' "${KERNEL_RELEASE}"
+    printf 'KERNEL_CAPABILITIES=('
+    if [ "${#KERNEL_CAPABILITIES[@]}" -gt 0 ]; then
+        printf ' %q' "${KERNEL_CAPABILITIES[@]}"
+    fi
+    printf ' )\n'
+} >>"${TMP_CONFIG}"
+
+if [ "${KERNEL_PROVIDER}" = minios ]; then
+    printf '%s\n---\n' "${KERNEL_HEADER_METAPACKAGE}" >"${TMP_COMBINED}"
+else
+    [ -e "${MODULES_ROOT}/build/Makefile" ] || {
+        error "Matching headers are unavailable for ${KERNEL_RELEASE}"
+        exit 1
+    }
+    : >"${TMP_COMBINED}"
+fi
+cat /packages.list >>"${TMP_COMBINED}"
+
+/condinapt -l "${TMP_COMBINED}" -c "${TMP_CONFIG}" -m /condinapt.map
+[ -e "${MODULES_ROOT}/build/Makefile" ] || {
+    error "Matching headers are unavailable for ${KERNEL_RELEASE}"
+    exit 1
+}
+depmod "${KERNEL_RELEASE}"

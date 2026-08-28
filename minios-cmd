@@ -65,8 +65,11 @@ help() {
     echo -e "  ${LIGHTGREEN}-c, --compression-type${ENDCOLOR} NAME       $(gettext "Specify the compression type (e.g., 'zstd').")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Options:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}-kp, --kernel-provider${ENDCOLOR} NAME        $(gettext "Specify the kernel provider ('distribution' or 'minios').")"
     echo -e "  ${LIGHTGREEN}-kf, --kernel-flavour${ENDCOLOR} NAME        $(gettext "Specify the kernel flavour (e.g., 'none').")"
-    echo -e "  ${LIGHTGREEN}-aufs, --kernel-aufs${ENDCOLOR}              $(gettext "Enable AUFS support in the kernel.")"
+    echo -e "  ${LIGHTGREEN}-mk, --minios-kernel${ENDCOLOR}               $(gettext "Install the AUFS-enabled MiniOS kernel.")"
+    echo -e "  ${LIGHTGREEN}-mks, --minios-kernel-series${ENDCOLOR} NAME  $(gettext "Specify the MiniOS kernel series ('auto', '6.1', or '6.12').")"
+    echo -e "  ${LIGHTGREEN}-kpm, --kernel-payload-mode${ENDCOLOR} NAME   $(gettext "Specify the kernel payload mode ('runtime' or 'full').")"
     echo -e "  ${LIGHTGREEN}-dkms, --kernel-build-dkms${ENDCOLOR}        $(gettext "Enable compilation of additional drivers during kernel installation.")"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale and Timezone Options:")${ENDCOLOR}"
@@ -87,6 +90,9 @@ help() {
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
+    echo -e "  ${LIGHTGREEN}KERNEL_PROVIDER${ENDCOLOR}=\"distribution\""
+    echo -e "  ${LIGHTGREEN}MINIOS_KERNEL_SERIES${ENDCOLOR}=\"auto\""
+    echo -e "  ${LIGHTGREEN}KERNEL_PAYLOAD_MODE${ENDCOLOR}=\"runtime\""
     echo -e "  ${LIGHTGREEN}KERNEL_FLAVOUR${ENDCOLOR}=\"none\""
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Locale & Timezone Settings:")${ENDCOLOR}"
@@ -102,10 +108,10 @@ help() {
     echo -e "${BOLD}$(gettext "Examples:")${ENDCOLOR}"
     echo ""
     echo -e "  $(gettext "1. Create a MiniOS Standard system image (default settings):")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -c zstd -aufs -dkms -kl"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv standard -c zstd -mk -dkms -kl"
     echo ""
     echo -e "  $(gettext "2. Create a MiniOS Toolbox system image (default settings):")"
-    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -aufs -dkms -kl"
+    echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -mk -dkms -kl"
     echo ""
     echo -e "  $(gettext "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'toolbox' package variant, and Russian locale:")"
     echo -e "     $(basename $0) -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU"
@@ -188,8 +194,26 @@ while (("$#")); do
         KERNEL_FLAVOUR="$2"
         shift 2
         ;;
+    -kp | --kernel-provider)
+        KERNEL_PROVIDER="$2"
+        shift 2
+        ;;
+    -mk | --minios-kernel)
+        KERNEL_PROVIDER=minios
+        shift
+        ;;
+    -mks | --minios-kernel-series)
+        KERNEL_PROVIDER=minios
+        MINIOS_KERNEL_SERIES="$2"
+        shift 2
+        ;;
+    -kpm | --kernel-payload-mode)
+        KERNEL_PAYLOAD_MODE="$2"
+        shift 2
+        ;;
     -aufs | --kernel-aufs)
-        KERNEL_AUFS=true
+        warning "--kernel-aufs is deprecated; use --minios-kernel."
+        KERNEL_PROVIDER=minios
         shift
         ;;
     -dkms | --kernel-build-dkms)
@@ -253,7 +277,9 @@ done
 : "${COMP_TYPE:="zstd"}"
 : "${INSTALL_KERNEL:=true}"
 : "${KERNEL_FLAVOUR:="none"}"
-: "${KERNEL_AUFS:=false}"
+: "${KERNEL_PROVIDER:=distribution}"
+: "${MINIOS_KERNEL_SERIES:=auto}"
+: "${KERNEL_PAYLOAD_MODE:=runtime}"
 : "${KERNEL_BUILD_DKMS:=false}"
 : "${LOCALE:="en_US"}"
 : "${MULTILINGUAL:=false}"

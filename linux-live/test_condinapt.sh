@@ -216,7 +216,8 @@ DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
 INSTALL_KERNEL="true"
 KERNEL_FLAVOUR="none"
-KERNEL_AUFS="false"
+KERNEL_PROVIDER="distribution"
+KERNEL_CAPABILITIES=("ntfs3" "rtw88_8821cu" "btf_modules")
 # These variables are intentionally not in the filter map
 KERNEL_BUILD_DKMS="true"
 EOF
@@ -226,7 +227,8 @@ de=DESKTOP_ENVIRONMENT
 pv=PACKAGE_VARIANT
 ik=INSTALL_KERNEL
 kf=KERNEL_FLAVOUR
-ka=KERNEL_AUFS
+kp=KERNEL_PROVIDER
+kc=KERNEL_CAPABILITIES
 EOF
 }
 
@@ -433,10 +435,24 @@ test_direct_variable_pass() {
 test_direct_variable_fail() {
     create_common_files
     export TEST_AVAILABLE_PACKAGES="linux-image-rt-amd64:6.1"
-    # KERNEL_AUFS is "false" in config. This filter requires "true", so it should fail.
-    echo "linux-image-rt-amd64 +KERNEL_AUFS=true" >"${TEST_DIR}/packages.list"
+    # KERNEL_PROVIDER is "distribution" in config. This filter requires "minios".
+    echo "linux-image-rt-amd64 +KERNEL_PROVIDER=minios" >"${TEST_DIR}/packages.list"
     "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -s
     assert_not_installs "linux-image-rt-amd64"
+}
+
+test_kernel_capability_exclusion() {
+    create_common_files
+    export TEST_AVAILABLE_PACKAGES="ntfs3-dkms:1.0 aufs-dkms:1.0 dwarves:1.0"
+    cat >"${TEST_DIR}/packages.list" <<EOF
+ntfs3-dkms -kc=ntfs3
+aufs-dkms -kc=aufs
+pahole +kc=btf_modules || dwarves +kc=btf_modules
+EOF
+    "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -s
+    assert_not_installs "ntfs3-dkms"
+    assert_installs "aufs-dkms"
+    assert_installs "dwarves"
 }
 
 # === Section: Group Filters (+{...} and -{...}) ===
@@ -613,6 +629,7 @@ main() {
     echo "${BOLD}${CYAN}--- Section: Direct Variable Filters ---${ENDCOLOR}"
     run_test "Direct variable filter pass" test_direct_variable_pass
     run_test "Direct variable filter fail" test_direct_variable_fail
+    run_test "Kernel capability array exclusion" test_kernel_capability_exclusion
 
     echo
     echo "${BOLD}${CYAN}--- Section: Group Filters (+{} and -{}) ---${ENDCOLOR}"

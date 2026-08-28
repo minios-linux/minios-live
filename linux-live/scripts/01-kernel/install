@@ -13,22 +13,36 @@ trap 'rm -f "${TMP_PKGLIST}"' EXIT
 
 run_with_spinner "Updating package lists" apt-get update --allow-releaseinfo-change
 run_with_spinner "Installing kernel build prerequisites" \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg gpgv xz-utils zstd kmod
+    apt-get install -y --no-install-recommends ca-certificates gnupg gpgv xz-utils zstd kmod
 [ ! -e /etc/kernel/postinst.d/initramfs-tools ] || chmod -x /etc/kernel/postinst.d/initramfs-tools
 [ ! -e /etc/kernel/postrm.d/initramfs-tools ] || chmod -x /etc/kernel/postrm.d/initramfs-tools
 
-if [ "${KERNEL_AUFS}" = true ]; then
-    if [ "${DISTRIBUTION_ARCH}" = i386 ]; then
-        KERNEL_VERSION=6.1
-    elif [ "${DISTRIBUTION}" = buster ] || [ "${DISTRIBUTION}" = bullseye ] ||
-        [ "${DISTRIBUTION}" = bookworm ] || [ "${DISTRIBUTION}" = jammy ]; then
-        KERNEL_VERSION=6.1
-    else
-        KERNEL_VERSION=6.12
-    fi
-    KERNEL_IMAGE="linux-image-${KERNEL_VERSION}-mos-${KERNEL_ARCH}"
-    printf '%s\n' "${KERNEL_IMAGE}" >"${TMP_PKGLIST}"
+if [ "${KERNEL_PROVIDER}" = minios ]; then
+    printf '%s\n' "${KERNEL_METAPACKAGE}" >"${TMP_PKGLIST}"
     /condinapt -l "${TMP_PKGLIST}" -c /minios_build.conf -m /condinapt.map
+
+    mapfile -t KERNEL_IMAGES < <(find /boot -maxdepth 1 -type f -name 'vmlinuz-*' -print | sort -V)
+    [ "${#KERNEL_IMAGES[@]}" -eq 1 ] || {
+        error "MiniOS kernel provider must install exactly one kernel image"
+        exit 1
+    }
+    KERNEL_RELEASE="${KERNEL_IMAGES[0]##*/vmlinuz-}"
+    KERNEL_CONFIG="/boot/config-${KERNEL_RELEASE}"
+    [ -f "${KERNEL_CONFIG}" ] || {
+        error "MiniOS kernel has no matching config: ${KERNEL_CONFIG}"
+        exit 1
+    }
+    grep -Eq '^CONFIG_AUFS_FS=[ym]$' "${KERNEL_CONFIG}" || {
+        error "MiniOS kernel ${KERNEL_RELEASE} does not provide AUFS support"
+        exit 1
+    }
+    depmod "${KERNEL_RELEASE}"
+    sed -i '/^KERNEL=/d;/^KERNEL_VERSION=/d;/^KERNEL_BUILD_ARCH=/d' /minios_build.conf
+    {
+        printf 'KERNEL="%s"\n' "${KERNEL_RELEASE}"
+        printf 'KERNEL_VERSION="%s"\n' "${KERNEL_RELEASE}"
+        printf 'KERNEL_BUILD_ARCH="%s"\n' "${KERNEL_APT_ARCH}"
+    } >>/minios_build.conf
     exit 0
 fi
 

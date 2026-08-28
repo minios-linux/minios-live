@@ -5,6 +5,8 @@ set -o pipefail
 set -u
 
 . /minios_build.conf
+. /minioslib
+console_colors
 
 CACHE_DIR="${MINIOS_KERNEL_CACHE:-/kernel-cache}"
 WORK="$(mktemp -d /tmp/minios-kernel-acquire.XXXXXX)"
@@ -21,7 +23,7 @@ cleanup() {
 trap cleanup EXIT INT TERM HUP
 
 fail() {
-    printf 'E: %s\n' "$*" >&2
+    error "$*"
     exit 1
 }
 
@@ -36,7 +38,7 @@ json_escape() {
 
 require_commands() {
     local COMMAND
-    for COMMAND in apt-get curl dpkg-deb dpkg-query find gpg gpgv md5sum sha256sum; do
+    for COMMAND in apt-config apt-get dpkg-deb dpkg-query find gpg gpgv md5sum sha256sum; do
         command -v "${COMMAND}" >/dev/null 2>&1 || fail "Required command is unavailable: ${COMMAND}"
     done
 }
@@ -69,15 +71,15 @@ configure_repositories() {
         fi
         case "${KERNEL_SOURCE_SUITE}" in
         buster)
-            add_repository "https://archive.debian.org/debian" buster "main" "${KEYRING}"
+            add_repository "http://archive.debian.org/debian" buster "main" "${KEYRING}"
             ;;
         bullseye | bookworm | trixie)
-            add_repository "https://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
-            add_repository "https://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}-updates" "main" "${KEYRING}"
-            add_repository "https://security.debian.org/debian-security" "${KERNEL_SOURCE_SUITE}-security" "main" "${KEYRING}"
+            add_repository "http://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
+            add_repository "http://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}-updates" "main" "${KEYRING}"
+            add_repository "http://security.debian.org/debian-security" "${KERNEL_SOURCE_SUITE}-security" "main" "${KEYRING}"
             ;;
         forky | testing | sid)
-            add_repository "https://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
+            add_repository "http://deb.debian.org/debian" "${KERNEL_SOURCE_SUITE}" "main" "${KEYRING}"
             ;;
         *)
             fail "No isolated Debian kernel repository profile for ${KERNEL_SOURCE_SUITE}"
@@ -86,11 +88,11 @@ configure_repositories() {
     else
         KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
         [ -f "${KEYRING}" ] || fail "Ubuntu archive keyring is unavailable"
-        add_repository "https://archive.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}" \
+        add_repository "http://archive.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}" \
             "main restricted universe multiverse" "${KEYRING}"
-        add_repository "https://archive.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-updates" \
+        add_repository "http://archive.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-updates" \
             "main restricted universe multiverse" "${KEYRING}"
-        add_repository "https://security.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-security" \
+        add_repository "http://security.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-security" \
             "main restricted universe multiverse" "${KEYRING}"
     fi
 }
@@ -113,6 +115,7 @@ apt_options() {
         "-o" "Acquire::Languages=none" \
         "-o" "APT::Install-Recommends=false" \
         "-o" "APT::Install-Suggests=false" \
+        "-o" "APT::Sandbox::User=root" \
         "-o" "DPkg::Pre-Install-Pkgs::=" \
         "-o" "APT::Update::Post-Invoke-Success::=" \
         "-o" "APT::Update::Post-Invoke::=" \
@@ -134,6 +137,9 @@ download_packages() {
     while IFS= read -r OPTION; do
         OPTIONS+=("${OPTION}")
     done < <(apt_options)
+    if apt-config "${OPTIONS[@]}" dump | grep -Eq '^Acquire::(http|https)::Proxy '; then
+        information "Using the configured APT proxy for kernel acquisition"
+    fi
     apt-get "${OPTIONS[@]}" update
     [ "${KERNEL_BUILD_DKMS}" = true ] && REQUESTS+=("${KERNEL_HEADER_REQUEST}")
     apt-get "${OPTIONS[@]}" --download-only --no-install-recommends -y install "${REQUESTS[@]}"
@@ -441,13 +447,16 @@ write_package_metadata() {
 keyring_fingerprints_json() {
     local KEYRING="$1"
     local FIRST=true FINGERPRINT
+    local GNUPG_HOME="${WORK}/gnupg"
+    mkdir -m 700 "${GNUPG_HOME}"
     printf '['
     while IFS= read -r FINGERPRINT; do
         [[ "${FINGERPRINT}" =~ ^[0-9A-Fa-f]{40,64}$ ]] || continue
         [ "${FIRST}" = true ] || printf ','
         FIRST=false
         printf '"%s"' "${FINGERPRINT}"
-    done < <(gpg --batch --show-keys --with-colons "${KEYRING}" 2>/dev/null |
+    done < <(gpg --batch --homedir "${GNUPG_HOME}" --no-default-keyring --keyring "${KEYRING}" \
+        --with-colons --fingerprint 2>/dev/null |
         sed -n 's/^fpr:::::::::\([^:]*\):$/\1/p')
     [ "${FIRST}" = false ] || fail "Archive keyring has no fingerprints"
     printf ']'
@@ -457,8 +466,16 @@ verify_repository_release() {
     local URI="$1" SUITE="$2" COMPONENTS="$3" INDEX="$4" KEYRING="$5"
     local INRELEASE="${WORK}/InRelease-${INDEX}"
     local ORIGIN LABEL CODENAME
+    local -a INRELEASE_CANDIDATES=()
 
-    curl -fsSL "${URI}/dists/${SUITE}/InRelease" -o "${INRELEASE}"
+    information "Verifying repository metadata: ${URI} ${SUITE}"
+    mapfile -t INRELEASE_CANDIDATES < <(
+        find "${APT_ROOT}/state/lists" -maxdepth 1 -type f \
+            -name "*_dists_${SUITE}_InRelease" -print
+    )
+    [ "${#INRELEASE_CANDIDATES[@]}" -eq 1 ] ||
+        fail "Private APT state does not contain one InRelease for ${URI} ${SUITE}"
+    cp "${INRELEASE_CANDIDATES[0]}" "${INRELEASE}"
     gpgv --keyring "${KEYRING}" "${INRELEASE}" >/dev/null 2>&1 || fail "Invalid InRelease signature for ${URI} ${SUITE}"
     ORIGIN="$(sed -n 's/^Origin: //p' "${INRELEASE}" | head -n 1)"
     LABEL="$(sed -n 's/^Label: //p' "${INRELEASE}" | head -n 1)"
@@ -501,7 +518,7 @@ write_manifest() {
         printf '  "userspace": {"family": "%s", "suite": "' "${DISTRIBUTION_PROFILE}"
         json_escape "${DISTRIBUTION}"
         printf '", "dpkg_architecture": "%s"},\n' "${DISTRIBUTION_ARCH}"
-        printf '  "kernel": {"distribution": "'
+        printf '  "kernel": {"provider": "distribution", "distribution": "'
         json_escape "${KERNEL_SOURCE_SUITE}"
         printf '", "version": "'
         json_escape "${KERNEL_VERSION}"
@@ -573,22 +590,30 @@ main() {
     mkdir -p "${CACHE_DIR}" "${DOWNLOAD_DIR}" "${APT_ROOT}"
     rm -rf "${SUPPORT_DIR}"
     if ! use_local_packages; then
+        information "Configuring isolated kernel repositories"
         configure_repositories
+        information "Resolving and downloading the kernel package closure"
         download_packages
     fi
+    information "Extracting kernel package payloads"
     analyze_packages
+    information "Validating the kernel package closure"
     validate_kernel_closure
+    information "Decompressing kernel modules and generating module indexes"
     decompress_modules
+    information "Writing synthetic kernel package metadata"
     write_package_metadata
     if [ "${KERNEL_UPDATE_POLICY}" = track ]; then
+        information "Recording verified kernel repository metadata"
         write_repository_metadata
     else
         : >"${WORK}/verified-repositories.tsv"
     fi
     write_manifest
     write_kernel_config
+    information "Caching verified kernel package archives"
     cache_archives
-    printf 'I: Acquired %s %s for %s\n' "${KERNEL_SOURCE_SUITE}" "${KERNEL_VERSION}" "${KERNEL_APT_ARCH}"
+    information "Acquired ${KERNEL_SOURCE_SUITE} ${KERNEL_VERSION} for ${KERNEL_APT_ARCH}"
 }
 
 main "$@"
