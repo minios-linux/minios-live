@@ -163,12 +163,35 @@ acquire_canonical() {
     local ARCHIVES="${WORK}/canonical-archives" ROOT="${WORK}/canonical-root" APT_ROOT="${WORK}/apt"
     local KEYRING="${TARGET_ROOT%/}/usr/share/keyrings/ubuntu-archive-keyring.gpg"
     local CA="${SCRIPT_DIR}/bootfiles/secure-boot/canonical-uefi-ca.pem"
+    local APT_POLICY="" DEFAULT_APT_POLICY=/usr/share/apt/default-sequoia.config
     local DEB SHIM GRUB MODULES MODULES_VERSION MODULES_HASH
     local -a OPTIONS
 
     [ "${EFI_VENDOR}" = ubuntu ] || return 0
     [ -f "${KEYRING}" ] || fail "Ubuntu archive keyring is unavailable for Canonical EFI acquisition"
     mkdir -p "${ARCHIVES}" "${ROOT}" "${APT_ROOT}/lists/partial" "${APT_ROOT}/cache/archives/partial"
+
+    # Debian 13 APT uses Sequoia, whose default policy rejects the SHA1
+    # self-certification on the legacy Ubuntu Bionic archive key after
+    # 2026-02-01. Relax only that binding check for this isolated Bionic
+    # acquisition; repository signatures and signed-by verification stay on.
+    if [ "${KERNEL_SUITE}" = bionic ] && [ -f "${DEFAULT_APT_POLICY}" ]; then
+        APT_POLICY="${WORK}/apt-sequoia-bionic.config"
+        cp "${DEFAULT_APT_POLICY}" "${APT_POLICY}"
+        sed -i 's/^sha1[.]second_preimage_resistance[[:space:]]*=.*/sha1.second_preimage_resistance = "always"/' "${APT_POLICY}"
+        grep -Fqx 'sha1.second_preimage_resistance = "always"' "${APT_POLICY}" ||
+            fail "Could not prepare the Bionic APT cryptographic policy"
+        chmod 0644 "${APT_POLICY}"
+    fi
+
+    # Let APT keep its normal _apt download sandbox even though its state lives
+    # below our temporary directory.
+    if [ "$(id -u)" -eq 0 ] && id _apt >/dev/null 2>&1; then
+        chmod 0755 "${WORK}" "${APT_ROOT}" "${APT_ROOT}/lists" \
+            "${APT_ROOT}/cache" "${APT_ROOT}/cache/archives" "${ARCHIVES}"
+        chown _apt:root "${APT_ROOT}/lists/partial" "${APT_ROOT}/cache/archives/partial" "${ARCHIVES}"
+        chmod 0700 "${APT_ROOT}/lists/partial" "${APT_ROOT}/cache/archives/partial"
+    fi
     {
         printf 'deb [arch=amd64 signed-by=%s] https://archive.ubuntu.com/ubuntu %s main\n' "${KEYRING}" "${KERNEL_SUITE}"
         printf 'deb [arch=amd64 signed-by=%s] https://archive.ubuntu.com/ubuntu %s-updates main\n' "${KEYRING}" "${KERNEL_SUITE}"
@@ -184,9 +207,16 @@ acquire_canonical() {
         -o "APT::Architecture=amd64"
         -o "Acquire::Languages=none"
     )
-    LC_ALL=C apt-get "${OPTIONS[@]}" update >/dev/null
-    (cd "${ARCHIVES}" && LC_ALL=C apt-get "${OPTIONS[@]}" download \
-        shim-signed:amd64 grub-efi-amd64-signed:amd64 grub-efi-amd64-bin:amd64)
+    if [ -n "${APT_POLICY}" ]; then
+        APT_SEQUOIA_CRYPTO_POLICY="${APT_POLICY}" LC_ALL=C apt-get "${OPTIONS[@]}" update >/dev/null
+        (cd "${ARCHIVES}" && APT_SEQUOIA_CRYPTO_POLICY="${APT_POLICY}" LC_ALL=C \
+            apt-get "${OPTIONS[@]}" download shim-signed:amd64 \
+            grub-efi-amd64-signed:amd64 grub-efi-amd64-bin:amd64)
+    else
+        LC_ALL=C apt-get "${OPTIONS[@]}" update >/dev/null
+        (cd "${ARCHIVES}" && LC_ALL=C apt-get "${OPTIONS[@]}" download \
+            shim-signed:amd64 grub-efi-amd64-signed:amd64 grub-efi-amd64-bin:amd64)
+    fi
     while IFS= read -r DEB; do dpkg-deb -x "${DEB}" "${ROOT}"; done < <(find "${ARCHIVES}" -name '*.deb' -print)
     SHIM="$(find "${ROOT}" -type f -name 'shimx64.efi.signed*' -print | sort | tail -n 1)"
     GRUB="$(find "${ROOT}" -type f -name 'grubx64.efi.signed*' -print | sort | tail -n 1)"
@@ -195,11 +225,11 @@ acquire_canonical() {
         fail "Canonical signed EFI package set is incomplete"
     fi
     MODULES_VERSION="$(grub_module_version "${MODULES}/modinfo.sh")"
-    strings "${GRUB}" | grep -Fq "${MODULES_VERSION}" || fail "Canonical signed GRUB and modules version mismatch"
+    strings "${GRUB}" | grep -F "${MODULES_VERSION}" >/dev/null || fail "Canonical signed GRUB and modules version mismatch"
     verify_shim_vendor_ca "${SHIM}" "${CA}" || fail "Canonical shim vendor CA mismatch"
     verify_signed_pe "${SHIM}" || fail "Canonical shim PE signature is missing"
     sbverify --cert "${CA}" "${GRUB}" >/dev/null 2>&1 || fail "Canonical GRUB signature is invalid"
-    strings "${GRUB}" | grep -q '/EFI/ubuntu' || fail "Canonical GRUB compiled prefix mismatch"
+    strings "${GRUB}" | grep -F '/EFI/ubuntu' >/dev/null || fail "Canonical GRUB compiled prefix mismatch"
     cp "${SHIM}" "${STAGE}/canonical-bootx64.efi"
     cp "${GRUB}" "${STAGE}/canonical-grubx64.efi"
     mkdir -p "${STAGE}/canonical-grub"
