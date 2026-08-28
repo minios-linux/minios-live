@@ -284,6 +284,19 @@ EOF
     [ "${LOCKED_EFI_VENDOR}" = debian ]
 }
 
+@test "Bionic Canonical EFI acquisition scopes legacy SHA1 policy" {
+    local acquire="${LIVE_ROOT}/efi-acquire"
+
+    grep -Fq '[ "${KERNEL_SUITE}" = bionic ]' "${acquire}"
+    grep -Fq 'sha1.second_preimage_resistance = "always"' "${acquire}"
+    grep -Fq 'APT_SEQUOIA_CRYPTO_POLICY="${APT_POLICY}"' "${acquire}"
+    grep -Fq 'signed-by=%s' "${acquire}"
+    ! grep -Fq 'AllowInsecureRepositories' "${acquire}"
+    ! grep -Fq 'trusted=yes' "${acquire}"
+    grep -Fq 'strings "${GRUB}" | grep -F "${MODULES_VERSION}" >/dev/null' "${acquire}"
+    ! grep -Fq 'strings "${GRUB}" | grep -Fq "${MODULES_VERSION}"' "${acquire}"
+}
+
 @test "EFI image builder publishes one minimal firmware-readable dual-architecture ESP" {
     command -v mformat >/dev/null
     command -v mcopy >/dev/null
