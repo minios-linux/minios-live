@@ -12,21 +12,25 @@
 
 CONFIG="/etc/live/config.conf"
 CMDLINE="$(cat /proc/cmdline)"
+LOG_PIPE="/tmp/minios-boot.pipe"
+LOG_PID=""
 
 # ======= Functions =======
 
 set_log() {
     mkdir -p /var/log/minios
-    mkfifo /tmp/minios-boot.pipe
+    mkfifo "$LOG_PIPE"
+    exec 3>&1 4>&2
     # Keep the inherited initramfs output path. When SERIAL_CONSOLE is enabled,
     # boot_console_mirror already mirrors it to tty0 and ttyS0; writing directly
     # to /dev/console here would bypass that routing.
     if [ -w /var/log/minios ] || [ ! -e /var/log/minios/minios-boot.log ]; then
-        tee </tmp/minios-boot.pipe /var/log/minios/minios-boot.log 2>/dev/null &
+        tee <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &
     else
-        cat </tmp/minios-boot.pipe 2>/dev/null &
+        cat <"$LOG_PIPE" 2>/dev/null &
     fi
-    exec >/tmp/minios-boot.pipe 2>&1
+    LOG_PID=$!
+    exec >"$LOG_PIPE" 2>&1
 
     case "${LIVE_CONFIG_DEBUG}" in
     true)
@@ -34,6 +38,20 @@ set_log() {
         set -x
         ;;
     esac
+}
+
+stop_log() {
+    local STATUS=$?
+
+    trap - EXIT
+    [ -n "$LOG_PID" ] || return "$STATUS"
+    exec 1>&3 2>&4
+    wait "$LOG_PID" 2>/dev/null || true
+    rm -f "$LOG_PIPE"
+    exec 3>&- 4>&-
+    LOG_PID=""
+
+    return "$STATUS"
 }
 
 echo_green_star() {
@@ -222,10 +240,10 @@ set_autologin() {
 
 # Main script execution
 set_log
+trap 'stop_log' EXIT
 read_cmdline
 set_default_target
 manage_services enable
 manage_services disable
 set_autologin
-
-rm -f /tmp/minios-boot.pipe
+stop_log
