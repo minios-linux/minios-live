@@ -377,6 +377,103 @@ setup_dispatch() {
     [ "$output" = ntfs3 ]
 }
 
+@test "union module loader falls back from legacy aufs to aufs-ng" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    log="$WORK/aufs-modprobe.log"
+    aufs_loaded=false
+    debug_log() { :; }
+    cmdline_value() { :; }
+    refresh_devs() { :; }
+    aufs_is_supported() { "$aufs_loaded"; }
+    modprobe() {
+        printf '%s\n' "$1" >>"$log"
+        if [ "$1" = aufs-ng ]; then
+            aufs_loaded=true
+            return 0
+        fi
+        return 1
+    }
+
+    init_union_modules
+
+    [ "$(sed -n '1p' "$log")" = aufs ]
+    [ "$(sed -n '2p' "$log")" = aufs-ng ]
+    [ "$(wc -l <"$log")" -eq 2 ]
+    [ "$(get_union_fs)" = aufs ]
+}
+
+@test "AUFS mount options distinguish classic AUFS from aufs-ng" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    export MINIOS_SYS_MODULE="$WORK/sys/module"
+    log="$WORK/aufs-mount.log"
+    mkdir -p "$MINIOS_SYS_MODULE"
+    mount() { printf '%s\n' "$*" >>"$log"; }
+
+    mount_aufs_union /memory/classic /union
+    mkdir -p "$MINIOS_SYS_MODULE/aufs_ng"
+    mount_aufs_union /memory/ng /union
+
+    [ "$(sed -n '1p' "$log")" = \
+        '-t aufs -o xino=/.xino,trunc_xino,br=/memory/classic aufs /union' ]
+    [ "$(sed -n '2p' "$log")" = \
+        '-t aufs -o xino=/.xino,br:/memory/ng=rw aufs /union' ]
+}
+
+@test "runtime union removes only visible OverlayFS whiteout devices" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    log="$WORK/removed-whiteouts.log"
+    get_union_fs() { printf '%s\n' aufs; }
+    find() {
+        printf '%s\n' /union/etc/removed /union/dev/console
+    }
+    stat() {
+        case "$3" in
+        /union/etc/removed) printf '%s\n' 0:0 ;;
+        /union/dev/console) printf '%s\n' 5:1 ;;
+        *) return 1 ;;
+        esac
+    }
+    rm() {
+        case "${!#}" in
+        /union/*) printf '%s\n' "${!#}" >>"$log" ;;
+        *) /bin/rm "$@" ;;
+        esac
+    }
+
+    normalize_module_whiteouts /union
+
+    [ "$(cat "$log")" = /union/etc/removed ]
+}
+
+@test "AUFS inventory and whiteout scans propagate enumeration failures" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    get_union_fs() { printf '%s\n' aufs; }
+    active="/tmp/minios-aufs-active-branches.$$"
+    /bin/rm -f "$active"
+    find() { return 1; }
+
+    ! normalize_module_whiteouts /union
+    ! publish_union_branch_inventory /changes /bundles
+
+    printf '%s\n' /bundles/00-core.sb >"$active"
+    sort() { return 1; }
+    ! publish_union_branch_inventory /changes /bundles
+    /bin/rm -f "$active"
+}
+
+@test "OverlayFS runtime keeps native module whiteouts untouched" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    find() { return 1; }
+
+    normalize_module_whiteouts /union
+}
+
 @test "LUKS activation failure continues without unencrypted persistence" {
     setup_dispatch luks vfat
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
@@ -752,6 +849,11 @@ EOF
     grep -Fq '01-core=rr+wh' "$MINIOS_TEST_LOG"
     grep -Fq '02-broken=rr+wh' "$MINIOS_TEST_LOG"
     grep -Fq '03-apps=rr+wh' "$MINIOS_TEST_LOG"
+    active="/tmp/minios-aufs-active-branches.$$"
+    grep -Fq "$bundles/01-core" "$active"
+    ! grep -Fq "$bundles/02-broken" "$active"
+    grep -Fq "$bundles/03-apps" "$active"
+    rm -f "$active"
 }
 
 @test "toram does not request persistence without explicit perch" {

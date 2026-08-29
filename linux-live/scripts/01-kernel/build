@@ -7,6 +7,16 @@ set -u          # treat unset variable as error
 . "/minioslib" || exit 1
 . "/minios_build.conf" || exit 1
 
+kernel_release_series() {
+    local RELEASE="$1"
+
+    if [[ "${RELEASE}" =~ ^([0-9]+)\.([0-9]+)([.-]|$) ]]; then
+        printf '%s.%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+        return 0
+    fi
+    return 1
+}
+
 [ "${KERNEL_BUILD_DKMS}" = true ] || exit 0
 
 [ -f /packages.list ] || {
@@ -20,6 +30,10 @@ mapfile -t KERNEL_IMAGES < <(find /boot -maxdepth 1 -type f -name 'vmlinuz-*' -p
     exit 1
 }
 KERNEL_RELEASE="${KERNEL_IMAGES[0]##*/vmlinuz-}"
+KERNEL_SERIES="$(kernel_release_series "${KERNEL_RELEASE}")" || {
+    error "Unable to determine kernel series from ${KERNEL_RELEASE}"
+    exit 1
+}
 KERNEL_CONFIG="/boot/config-${KERNEL_RELEASE}"
 [ -f "${KERNEL_CONFIG}" ] || {
     error "Kernel config is missing: ${KERNEL_CONFIG}"
@@ -69,6 +83,7 @@ trap 'rm -f "${TMP_COMBINED}" "${TMP_CONFIG}"' EXIT
 cp /minios_build.conf "${TMP_CONFIG}"
 {
     printf 'KERNEL_RELEASE=%q\n' "${KERNEL_RELEASE}"
+    printf 'KERNEL_SERIES=%q\n' "${KERNEL_SERIES}"
     printf 'KERNEL_CAPABILITIES=('
     if [ "${#KERNEL_CAPABILITIES[@]}" -gt 0 ]; then
         printf ' %q' "${KERNEL_CAPABILITIES[@]}"
@@ -93,3 +108,10 @@ cat /packages.list >>"${TMP_COMBINED}"
     exit 1
 }
 depmod "${KERNEL_RELEASE}"
+if [ "${KERNEL_PROVIDER}" = distribution ] && [ "${KERNEL_SERIES}" = 6.12 ] &&
+    [ "${DISTRIBUTION_ARCH}" != i386 ] && ! kernel_has_config CONFIG_AUFS_FS; then
+    modinfo -k "${KERNEL_RELEASE}" aufs-ng >/dev/null 2>&1 || {
+        error "aufs-ng was not installed for Linux ${KERNEL_RELEASE}"
+        exit 1
+    }
+fi

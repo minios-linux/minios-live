@@ -22,18 +22,26 @@ contains() {
         persistence_line=$(grep -nF 'persistent_changes "$DATA" "$CHANGES"' "$init" | cut -d: -f1)
         union_line=$(grep -nF 'init_union "$CHANGES" "$UNION" "$BUNDLES"' "$init" | cut -d: -f1)
         append_line=$(grep -nF 'union_append_bundles "$BUNDLES" "$UNION"' "$init" | cut -d: -f1)
+        inventory_line=$(grep -nF 'publish_union_branch_inventory "$CHANGES" "$BUNDLES"' "$init" | cut -d: -f1)
+        normalize_line=$(grep -nF 'normalize_module_whiteouts "$UNION"' "$init" | cut -d: -f1)
         commit_line=$(grep -nF 'perch_state_commit "$UNION"' "$init" | cut -d: -f1)
         [ "$persistence_line" -lt "$union_line" ]
         [ "$union_line" -lt "$append_line" ]
-        [ "$append_line" -lt "$commit_line" ]
+        [ "$append_line" -lt "$inventory_line" ]
+        [ "$inventory_line" -lt "$normalize_line" ]
+        [ "$normalize_line" -lt "$commit_line" ]
     done
 }
 
 @test "LiveKit and Dracut preserve runtime state at the consumer path" {
-    contains "$ROOT/livekit-mos/lib/livekitlib" 'perch_state_stage_livekit'
-    contains "$ROOT/livekit-mos/lib/livekitlib" 'perch_state_preserve "$UNION"'
-    contains "$ROOT/livekit-mos/lib/livekitlib" 'run/initramfs/minios-persistence'
-    [ "$(grep -Fc 'perch_state_preserve "$UNION"' "$ROOT/livekit-mos/lib/livekitlib")" -eq 2 ]
+    lib="$ROOT/livekit-mos/lib/livekitlib"
+    contains "$lib" 'perch_state_stage_livekit'
+    contains "$lib" 'perch_state_preserve "$UNION"'
+    contains "$lib" 'run/initramfs/minios-persistence'
+    contains "$lib" 'local INVENTORY=/minios-aufs-branches'
+    contains "$lib" 'cp -a /minios-aufs-branches run/initramfs/'
+    [ "$(grep -Fc 'perch_state_preserve "$UNION"' "$lib")" -eq 2 ]
+    [ "$(grep -Fc 'cp -a /minios-aufs-branches run/initramfs/' "$lib")" -eq 3 ]
 }
 
 @test "LiveKit and Dracut mirror boot output only across requested consoles" {
@@ -89,6 +97,10 @@ contains() {
         contains "$init" 'perch_state_abort "Cannot complete the root union; continuing with available bundles."'
     done
     ! contains "$ROOT/livekit-mos/lib/livekitlib" 'fatal_stop()'
+    contains "$ROOT/livekit-mos/lib/livekitlib" \
+        'mount -t aufs -o "xino=/.xino,br:$1=rw" aufs "$2"'
+    contains "$ROOT/livekit-mos/lib/livekitlib" \
+        'mount -t aufs -o xino="/.xino",trunc_xino,br="$1" aufs "$2"'
 }
 
 @test "Dracut activates MiniOS live root only for boot=live" {
@@ -185,6 +197,14 @@ contains() {
     union_line=$(printf '%s\n' "$body" | grep -n 'UNION_TYPE=$(get_union_fs)' | cut -d: -f1)
     unmount_line=$(printf '%s\n' "$body" | grep -n 'umount /proc' | cut -d: -f1)
     [ "$union_line" -lt "$unmount_line" ]
+}
+
+@test "both initrd builders include the aufs-ng DKMS module" {
+    contains "$ROOT/dracut-mos/mkdracut" 'OPTIONAL_DRIVERS="aufs aufs-ng ntfs ntfs3 exfat"'
+    contains "$ROOT/dracut-mos/90minios/module-setup.sh" \
+        'instmods squashfs overlay loop zram aufs aufs-ng'
+    contains "$ROOT/livekit-mos/mkinitrfs" \
+        'copy_including_deps "/$LMK/updates/dkms/aufs-ng."*'
 }
 
 

@@ -163,7 +163,7 @@ fi
 # Build filesystem driver list for --add-drivers
 AVAILABLE_DRIVERS=""
 REQUIRED_DRIVERS="squashfs overlay loop zram ext4 vfat isofs ahci"
-OPTIONAL_DRIVERS="aufs ntfs ntfs3 exfat"
+OPTIONAL_DRIVERS="aufs aufs-ng ntfs ntfs3 exfat"
 
 if [ "$CLOUD" = "true" ]; then
     REQUIRED_DRIVERS="$REQUIRED_DRIVERS virtio_pci virtio_net"

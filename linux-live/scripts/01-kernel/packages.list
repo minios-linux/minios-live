@@ -11,6 +11,7 @@ pahole +kc=btf_modules || dwarves +kc=btf_modules
 ntfs3-dkms -kc=ntfs3
 broadcom-sta-dkms -d=jammy -da=i386
 aufs-dkms +dp=debian +d=buster +d=beowulf -kc=aufs
+aufs-ng-dkms +kp=distribution +ks=6.12 -da=i386 -kc=aufs
 zfs-dkms +pv=toolbox +pv=ultra +da=amd64
 # Skip the vendor driver when the selected kernel provides in-tree rtw88_8723cs.
 # Other exclusions below are legacy compatibility exclusions for this old 2020 vendor driver, not in-tree replacements.

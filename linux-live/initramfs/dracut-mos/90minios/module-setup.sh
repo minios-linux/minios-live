@@ -115,7 +115,7 @@ install() {
 # Explicit kernel module selection - matches livekit approach
 installkernel() {
     # Filesystems
-    instmods squashfs overlay loop zram aufs
+    instmods squashfs overlay loop zram aufs aufs-ng
     instmods ext2 ext3 ext4 fat vfat ntfs ntfs3 exfat
     instmods isofs fuse efivarfs btrfs xfs
     instmods nls_cp437 nls_iso8859-1 nls_utf8

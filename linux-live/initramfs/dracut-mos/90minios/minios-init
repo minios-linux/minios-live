@@ -77,6 +77,8 @@ init_union "$CHANGES" "$UNION" "$BUNDLES" ||
 # incomplete union.
 union_append_bundles "$BUNDLES" "$UNION" ||
     perch_state_abort "Cannot complete the root union; continuing with available bundles."
+publish_union_branch_inventory "$CHANGES" "$BUNDLES" || fatal "Cannot publish union branch inventory"
+normalize_module_whiteouts "$UNION" || fatal "Cannot normalize module whiteouts"
 perch_state_commit "$UNION" || true
 debug_shell
 

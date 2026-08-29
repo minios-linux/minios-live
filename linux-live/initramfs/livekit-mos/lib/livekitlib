@@ -422,6 +422,83 @@ aufs_is_supported() {
    cat /proc/filesystems | grep aufs >/dev/null 2>&1
 }
 
+load_aufs_module() {
+   modprobe aufs 2>/dev/null || modprobe aufs-ng 2>/dev/null
+}
+
+aufs_ng_is_loaded() {
+   [ -d "${MINIOS_SYS_MODULE:-/sys/module}/aufs_ng" ]
+}
+
+mount_aufs_union() {
+   if aufs_ng_is_loaded; then
+      mount -t aufs -o "xino=/.xino,br:$1=rw" aufs "$2"
+   else
+      mount -t aufs -o xino="/.xino",trunc_xino,br="$1" aufs "$2"
+   fi
+}
+
+# OverlayFS build layers encode deletions as character devices 0:0. Remove any
+# visible markers through the runtime union so its native whiteout is created.
+normalize_module_whiteouts() {
+   local ROOT="$1" PATHNAME DEVICE STATUS=0
+   local LIST="/tmp/minios-whiteouts.$$"
+
+   [ "$(get_union_fs)" = aufs ] || return 0
+
+   find "$ROOT" -xdev -type c -print >"$LIST" 2>/dev/null || {
+      rm -f "$LIST"
+      return 1
+   }
+   while IFS= read -r PATHNAME; do
+      DEVICE=$(stat -c '%t:%T' "$PATHNAME" 2>/dev/null) || {
+         STATUS=1
+         break
+      }
+      [ "$DEVICE" = 0:0 ] || continue
+      rm -f -- "$PATHNAME" || {
+         STATUS=1
+         break
+      }
+   done <"$LIST"
+   rm -f "$LIST"
+   return "$STATUS"
+}
+
+publish_union_branch_inventory() {
+   local CHANGES="$1" BUNDLES="$2"
+   local INVENTORY=/minios-aufs-branches
+   local TEMP="${INVENTORY}.tmp.$$" RAW="/tmp/minios-aufs-active-branches.$$"
+   local KEYED="/tmp/minios-aufs-keyed.$$" SORTED="/tmp/minios-aufs-sorted.$$"
+   local PATHS="/tmp/minios-aufs-paths.$$" ORDERED="/tmp/minios-aufs-ordered.$$" BUNDLE
+
+   if [ "$(get_union_fs)" != aufs ]; then
+      rm -f "$INVENTORY"
+      return 0
+   fi
+
+   [ -f "$RAW" ] || return 1
+   sed -r 's,(.*/(.*)),\2:\1,' <"$RAW" >"$KEYED" &&
+      sort -n <"$KEYED" >"$SORTED" &&
+      cut -d : -f 2- <"$SORTED" >"$PATHS" &&
+      tac <"$PATHS" >"$ORDERED" || {
+         rm -f "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
+         return 1
+      }
+   umask 077
+   {
+      printf '%s=rw\n' "$CHANGES"
+      while IFS= read -r BUNDLE; do
+         printf '%s=rr+wh\n' "$BUNDLE"
+      done <"$ORDERED"
+   } >"$TEMP" || {
+      rm -f "$TEMP" "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
+      return 1
+   }
+   rm -f "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
+   mv -f "$TEMP" "$INVENTORY"
+}
+
 # Detect which union filesystem to use
 # Can be overridden with union= kernel parameter
 #
@@ -479,17 +556,17 @@ init_union_modules() {
    debug_log "init_union_modules" "$*"
    local UNION_PARAM=$(cmdline_value union)
 
-   if [ "$UNION_PARAM" = "aufs" ]; then
-      modprobe aufs 2>/dev/null
-      if ! aufs_is_supported >/dev/null; then
-         modprobe overlay 2>/dev/null
-      fi
+    if [ "$UNION_PARAM" = "aufs" ]; then
+       load_aufs_module
+       if ! aufs_is_supported >/dev/null; then
+          modprobe overlay 2>/dev/null
+       fi
    elif [ "$UNION_PARAM" = "overlayfs" ]; then
       modprobe overlay 2>/dev/null
-   else
-      modprobe aufs 2>/dev/null
-      if ! aufs_is_supported >/dev/null; then
-         modprobe overlay 2>/dev/null
+    else
+       load_aufs_module
+       if ! aufs_is_supported >/dev/null; then
+          modprobe overlay 2>/dev/null
       fi
    fi
    refresh_devs
@@ -508,11 +585,11 @@ init_union() {
    local UNION_TYPE=$(get_union_fs)
    local UNION_PARAM=$(cmdline_value union)
 
-   if [ "$UNION_TYPE" = "aufs" ]; then
-      echo_white_star
-      echo "Setting up empty union using aufs"
-      [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "aufs" ] && echo "(forced by union=$UNION_PARAM parameter)"
-      mount -t aufs -o xino="/.xino",trunc_xino,br="$1" aufs "$2"
+    if [ "$UNION_TYPE" = "aufs" ]; then
+       echo_white_star
+       echo "Setting up empty union using aufs"
+       [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "aufs" ] && echo "(forced by union=$UNION_PARAM parameter)"
+      mount_aufs_union "$1" "$2"
    else
       echo_white_star
       echo "Setting up union using overlayfs"
@@ -3143,6 +3220,7 @@ mount_bundles() {
 union_append_bundles() {
    debug_log "union_append_bundles" "$*"
    local LIST BUNDLE STATUS=0 RECORD FILESYSTEM
+   local ACTIVE="/tmp/minios-aufs-active-branches.$$"
 
    RECORD=$(perch_mount_record "$2")
    FILESYSTEM=$(printf '%s\n' "$RECORD" | cut -f2)
@@ -3151,8 +3229,16 @@ union_append_bundles() {
       echo "Adding bundles to union"
       LIST="/tmp/minios-aufs-branches.$$"
       find "$1" -mindepth 1 -maxdepth 1 | sortmod >"$LIST" || return 1
+      : >"$ACTIVE" || {
+         rm -f "$LIST"
+         return 1
+      }
       while IFS= read -r BUNDLE; do
-         mount -o remount,add:1:"$BUNDLE=rr+wh" aufs "$2" || STATUS=1
+         if mount -o remount,add:1:"$BUNDLE=rr+wh" aufs "$2"; then
+            printf '%s\n' "$BUNDLE" >>"$ACTIVE" || STATUS=1
+         else
+            STATUS=1
+         fi
       done <"$LIST"
       rm -f "$LIST"
    fi
@@ -3490,6 +3576,7 @@ change_root() {
       mount -n -o move /sys sys 2>/dev/null || mount -t sysfs sysfs sys
    fi
    mkdir -p run/initramfs
+   [ ! -f /minios-aufs-branches ] || cp -a /minios-aufs-branches run/initramfs/
    perch_state_stage_livekit || {
       echo_yellow_star >&2
       echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
@@ -3532,6 +3619,7 @@ prepare_shutdown_dracut() {
    # Preserve initramfs for shutdown (dracut requirement)
    # Copy usr directory (without modules) and recreate symlinks
    mkdir -p run/initramfs/usr
+   [ ! -f /minios-aufs-branches ] || cp -a /minios-aufs-branches run/initramfs/
    perch_state_preserve "$UNION" || {
       echo_yellow_star >&2
       echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
@@ -3624,6 +3712,7 @@ prepare_initramfs_dracut() {
    # Preserve initramfs for shutdown
 
    mkdir -p run/initramfs/usr
+   [ ! -f /minios-aufs-branches ] || cp -a /minios-aufs-branches run/initramfs/
    perch_state_preserve "$UNION" || {
       echo_yellow_star >&2
       echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2

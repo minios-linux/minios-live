@@ -15,6 +15,7 @@ set -u
 set -o pipefail
 
 # --- Test Configuration ---
+TEST_SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONDINAPT_SCRIPT_PATH="${1-}"
 if [[ -z "${CONDINAPT_SCRIPT_PATH}" ]] || [[ ! -x "${CONDINAPT_SCRIPT_PATH}" ]]; then
     echo "Error: Path to the executable condinapt script is required." >&2
@@ -212,22 +213,26 @@ create_common_files() {
     export TEST_INSTALLED_PACKAGES=""
     cat >"${TEST_DIR}/config.sh" <<EOF
 DISTRIBUTION="trixie"
+DISTRIBUTION_ARCH="amd64"
 DESKTOP_ENVIRONMENT="xfce"
 PACKAGE_VARIANT="standard"
 INSTALL_KERNEL="true"
 KERNEL_FLAVOUR="none"
 KERNEL_PROVIDER="distribution"
+KERNEL_SERIES="6.12"
 KERNEL_CAPABILITIES=("ntfs3" "rtw88_8821cu" "btf_modules")
 # These variables are intentionally not in the filter map
 KERNEL_BUILD_DKMS="true"
 EOF
     cat >"${TEST_DIR}/filter.map" <<EOF
 d=DISTRIBUTION
+da=DISTRIBUTION_ARCH
 de=DESKTOP_ENVIRONMENT
 pv=PACKAGE_VARIANT
 ik=INSTALL_KERNEL
 kf=KERNEL_FLAVOUR
 kp=KERNEL_PROVIDER
+ks=KERNEL_SERIES
 kc=KERNEL_CAPABILITIES
 EOF
 }
@@ -258,6 +263,41 @@ test_conjunction_and() {
     echo "exfat-utils && exfat-fuse" >"${TEST_DIR}/packages.list"
     "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" -l "${TEST_DIR}/packages.list" -s
     assert_installs "exfat-utils" "exfat-fuse"
+}
+
+run_kernel_package_selection() {
+    export TEST_AVAILABLE_PACKAGES="aufs-ng-dkms:0.1"
+    cp "${TEST_SCRIPT_ROOT}/scripts/01-kernel/packages.list" \
+        "${TEST_DIR}/packages.list"
+    "${CONDINAPT_SCRIPT_PATH}" -c "${TEST_DIR}/config.sh" -m "${TEST_DIR}/filter.map" \
+        -l "${TEST_DIR}/packages.list" -s
+}
+
+test_aufs_ng_selected_for_612() {
+    create_common_files
+    run_kernel_package_selection
+    assert_installs "aufs-ng-dkms"
+}
+
+test_aufs_ng_skipped_for_other_series() {
+    create_common_files
+    sed -i 's/KERNEL_SERIES="6.12"/KERNEL_SERIES="6.1"/' "${TEST_DIR}/config.sh"
+    run_kernel_package_selection
+    assert_not_installs "aufs-ng-dkms"
+}
+
+test_aufs_ng_skipped_for_32_bit() {
+    create_common_files
+    sed -i 's/DISTRIBUTION_ARCH="amd64"/DISTRIBUTION_ARCH="i386"/' "${TEST_DIR}/config.sh"
+    run_kernel_package_selection
+    assert_not_installs "aufs-ng-dkms"
+}
+
+test_aufs_ng_skipped_for_builtin_aufs() {
+    create_common_files
+    sed -i 's/"btf_modules")/"btf_modules" "aufs")/' "${TEST_DIR}/config.sh"
+    run_kernel_package_selection
+    assert_not_installs "aufs-ng-dkms"
 }
 
 test_check_only_alternative_fallback() {
@@ -611,6 +651,10 @@ main() {
     run_test "Simple package installation" test_simple_install
     run_test "Alternative operator (||)" test_alternative_or
     run_test "Conjunction operator (&&)" test_conjunction_and
+    run_test "aufs-ng selected for Linux 6.12" test_aufs_ng_selected_for_612
+    run_test "aufs-ng skipped for other kernel series" test_aufs_ng_skipped_for_other_series
+    run_test "aufs-ng skipped for 32-bit userspace" test_aufs_ng_skipped_for_32_bit
+    run_test "aufs-ng skipped for built-in AUFS" test_aufs_ng_skipped_for_builtin_aufs
     run_test "Check-only accepts installed alternative" test_check_only_alternative_fallback
     run_test "Check-only accepts installed mandatory alternative" test_check_only_mandatory_alternative_fallback
     run_test "Check-only reports missing alternatives" test_check_only_missing_alternatives

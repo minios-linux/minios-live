@@ -368,6 +368,7 @@ mknod "$INITRAMFS/dev/tty3" c 4 3
 mknod "$INITRAMFS/dev/tty4" c 4 4
 
 copy_including_deps "/$LMK/kernel/fs/aufs"
+copy_including_deps "/$LMK/updates/dkms/aufs-ng."*
 copy_including_deps "/$LMK/kernel/fs/overlayfs"
 copy_including_deps "/$LMK/kernel/fs/ext2"
 copy_including_deps "/$LMK/kernel/fs/ext3"
