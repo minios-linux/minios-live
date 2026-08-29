@@ -253,7 +253,7 @@ common_variables() {
 
     if [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
         PACKAGE_VARIANT="minimum"
-        LIVE_USERNAME="root"
+        #LIVE_USERNAME="root"
     fi
 
     if [ "${DESKTOP_ENVIRONMENT}" = "cloud" ]; then
@@ -356,7 +356,7 @@ common_variables() {
         ;;
     beowulf | chimaera | daedalus | excalibur)
         #DISTRIBUTION_URL="http://ftp.fau.de/devuan/merged"
-        DISTRIBUTION_URL="http://deb.devuan.ru/devuan/merged"
+        DISTRIBUTION_URL="http://deb.devuan.org/merged"
         ;;
     bionic | focal | jammy | noble | resolute)
         DISTRIBUTION_URL="http://archive.ubuntu.com/ubuntu"
@@ -3300,7 +3300,7 @@ build_efi_images() {
     efi_image_fits "${EFI_IMAGE}" "${EFI_SOURCE}" "${LOW}" || return 1
     # ISO files occupy 2048-byte blocks. Keep the FAT filesystem minimal, then
     # pad its carrier so hybrid partition tables cover the complete image.
-    truncate -s "$((((LOW + 3) / 4) * 4 * 512))" "${EFI_IMAGE}" || return 1
+    truncate -s "$(( (LOW + 3) / 4 * 4 * 512 ))" "${EFI_IMAGE}" || return 1
 
     {
         printf '{\n  "format": 1,\n  "layout": "dual-architecture-esp",\n  "architectures": {'
@@ -4602,30 +4602,8 @@ remove_module_artifact() {
     done < <(module_artifact_paths "$1")
 }
 
-module_artifact_is_current() {
-    local MODULE_NAME="$1"
-    local MODULE_SOURCE="${ENVIRONMENTS}/${MODULE_NAME}"
-    local ARTIFACT
-
-    ARTIFACT="$(module_artifact_path "${MODULE_NAME}")" || return 1
-    [ -e "${MODULE_SOURCE}" ] || return 1
-
-    local -a SOURCES=(
-        "${MODULE_SOURCE}"
-        "${BUILD_SCRIPTS_DIR}/minioslib"
-        "${BUILD_SCRIPTS_DIR}/condinapt"
-        "${BUILD_SCRIPTS_DIR}/condinapt.map"
-    )
-    if [[ "${MODULE_NAME}" == *"kernel"* ]]; then
-        SOURCES+=("${BUILD_SCRIPTS_DIR}/scripts/01-kernel/acquire" "${BUILD_CONF}")
-    fi
-
-    if find -H "${SOURCES[@]}" -newer "${ARTIFACT}" -print -quit 2>/dev/null | grep -q .; then
-        information "${YELLOW}${MODULE_NAME}${ENDCOLOR} module artifact is older than build scripts; rebuilding it."
-        return 1
-    fi
-
-    return 0
+module_artifact_exists() {
+    module_artifact_path "$1" >/dev/null
 }
 
 # Orchestrates module packaging and installation into overlays and images
@@ -4634,7 +4612,7 @@ build_modules() {
 
     # Initialize local variables for names, versions, and paths
     local VMLINUZNAME INITRFSNAME PACKAGE VERSION BUNDLE FILENAME KEEP_DIRS OVERLAY DIR
-    local MODULE_CHAIN_INVALIDATED=false MODULE_CURRENT
+    local MODULE_CHAIN_INVALIDATED=false MODULE_PRESENT
 
     # If running inside a container, install host prerequisites first
     [[ "${CONTAINER,,}" == "true" ]] && export SKIP_SETUP_HOST="false" && ensure_host_prerequisites
@@ -4665,12 +4643,12 @@ build_modules() {
             continue
         fi
 
-        MODULE_CURRENT=false
+        MODULE_PRESENT=false
         if [ "${MODULE#*-}" != "debug" ] && [ "${MODULE_CHAIN_INVALIDATED}" = false ] &&
-            module_artifact_is_current "${MODULE}"; then
-            MODULE_CURRENT=true
+            module_artifact_exists "${MODULE}"; then
+            MODULE_PRESENT=true
         fi
-        if [ "${MODULE_CURRENT}" = true ]; then
+        if [ "${MODULE_PRESENT}" = true ]; then
             information "${YELLOW}${MODULE}${ENDCOLOR} module building is skipped, because it is already present in the image folder."
         else
             if [ "${MODULE_CHAIN_INVALIDATED}" = false ] && [ "${MODULE#*-}" != "debug" ]; then
