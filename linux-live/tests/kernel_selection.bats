@@ -200,6 +200,23 @@ make_grub_module_fixture() {
     [[ "${output}" != *"https://deb.debian.org"* ]]
 }
 
+@test "kernel release series parser selects Linux 6.12 exactly" {
+    local build_script="${LIVE_ROOT}/scripts/01-kernel/build"
+    local body
+    body="$(awk '/^kernel_release_series\(\)/,/^}/' "${build_script}")"
+
+    run bash -c "${body}; kernel_release_series 6.12.105-mos-amd64"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = 6.12 ]
+
+    run bash -c "${body}; kernel_release_series 6.13.0-amd64"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = 6.13 ]
+
+    run bash -c "${body}; kernel_release_series invalid"
+    [ "${status}" -ne 0 ]
+}
+
 @test "kernel acquisition reads fingerprints with the legacy-compatible GPG interface" {
     local acquire="${LIVE_ROOT}/scripts/01-kernel/acquire"
     local body keyring
@@ -515,7 +532,7 @@ EOF
     [ ! -e "${WORK_DIR}/image/minios/05-apps-test.sb" ]
 }
 
-@test "module freshness follows environment symlink targets without deleting artifacts" {
+@test "existing module ignores newer environment source" {
     WORK_DIR="${BATS_TEST_TMPDIR}/work"
     LIVEKITNAME=minios
     BEXT=sb
@@ -533,11 +550,11 @@ EOF
     touch -d '2 minutes ago' "${WORK_DIR}/image/minios/03-shared-amd64.sb"
     touch "${BUILD_SCRIPTS_DIR}/scripts/10-shared/install"
 
-    ! module_artifact_is_current 03-shared
+    module_artifact_exists 03-shared
     [ -f "${WORK_DIR}/image/minios/03-shared-amd64.sb" ]
 }
 
-@test "non-kernel module freshness includes the shared minioslib" {
+@test "existing module ignores newer shared build inputs" {
     WORK_DIR="${BATS_TEST_TMPDIR}/work"
     LIVEKITNAME=minios
     BEXT=sb
@@ -551,7 +568,49 @@ EOF
     touch -d '2 minutes ago' "${WORK_DIR}/image/minios/03-gui-base-amd64.sb"
     touch "${BUILD_SCRIPTS_DIR}/minioslib"
 
-    ! module_artifact_is_current 03-gui-base
+    module_artifact_exists 03-gui-base
+}
+
+@test "existing kernel module ignores newer kernel build inputs" {
+    WORK_DIR="${BATS_TEST_TMPDIR}/work"
+    LIVEKITNAME=minios
+    BEXT=sb
+    BUILD_SCRIPTS_DIR="${BATS_TEST_TMPDIR}/linux-live"
+    BUILD_CONF="${BATS_TEST_TMPDIR}/build.conf"
+    mkdir -p "${WORK_DIR}/image/minios" "${BUILD_SCRIPTS_DIR}/scripts/01-kernel"
+    : >"${BUILD_SCRIPTS_DIR}/minioslib"
+    : >"${BUILD_SCRIPTS_DIR}/scripts/01-kernel/acquire"
+    : >"${BUILD_CONF}"
+    : >"${WORK_DIR}/image/minios/01-kernel-6.12-test.sb"
+    touch -d '2 minutes ago' "${WORK_DIR}/image/minios/01-kernel-6.12-test.sb"
+    touch "${BUILD_SCRIPTS_DIR}/minioslib" \
+        "${BUILD_SCRIPTS_DIR}/scripts/01-kernel/acquire" "${BUILD_CONF}"
+
+    module_artifact_exists 01-kernel
+}
+
+@test "build_modules skips every existing module artifact" {
+    WORK_DIR="${BATS_TEST_TMPDIR}/work"
+    LIVEKITNAME=minios
+    BEXT=sb
+    BUILD_SCRIPTS_DIR="${BATS_TEST_TMPDIR}/linux-live"
+    DESKTOP_ENVIRONMENT=xfce
+    CONTAINER=false
+    mkdir -p "${WORK_DIR}/image/minios" \
+        "${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
+    for module in 01-kernel 02-firmware 03-apps; do
+        mkdir -p "${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}/${module}"
+        : >"${WORK_DIR}/image/minios/${module}-test.sb"
+    done
+    : >"${BUILD_SCRIPTS_DIR}/minioslib"
+    touch -d '2 minutes ago' "${WORK_DIR}/image/minios/"*.sb
+    touch "${BUILD_SCRIPTS_DIR}/minioslib"
+    current_process() { :; }
+    copy_build_scripts() { :; }
+    information() { :; }
+    overlay_cleanup() { return 1; }
+
+    build_modules
 }
 
 @test "duplicate module artifacts are rejected and all removed" {
@@ -568,7 +627,7 @@ EOF
     : >"${WORK_DIR}/image/minios/03-apps-new.sb"
     : >"${WORK_DIR}/image/minios/03-myapps.sb"
 
-    ! module_artifact_is_current 03-apps
+    ! module_artifact_exists 03-apps
     remove_module_artifact 03-apps
 
     [ ! -e "${WORK_DIR}/image/minios/03-apps-old.sb" ]
