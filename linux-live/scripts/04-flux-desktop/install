@@ -11,6 +11,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Debian renamed the Breeze cursor directory; keep the stable MiniOS theme name.
+if [ ! -e /usr/share/icons/breeze_cursors ] && [ -d /usr/share/icons/Breeze_Light ]; then
+    ln -s Breeze_Light /usr/share/icons/breeze_cursors
+fi
+
 rm -f /usr/share/applications/chromium-flux.desktop
 rm -f /usr/share/applications/compton.desktop
 rm -f /usr/share/applications/panel-preferences.desktop
@@ -20,6 +25,7 @@ rm -f /usr/share/applications/exo-mail-reader.desktop
 rm -f /usr/share/applications/exo-preferred-applications.desktop
 rm -f /usr/share/applications/exo-terminal-emulator.desktop
 rm -f /usr/share/applications/exo-web-browser.desktop
+rm -f /usr/share/applications/gpicview.desktop
 
 rm -f /etc/skel/.fluxbox/fbpotgen.sh
 rm -f /etc/skel/.fluxbox/menu.pot

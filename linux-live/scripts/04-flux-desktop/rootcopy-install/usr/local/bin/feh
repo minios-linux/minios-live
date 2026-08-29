@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# Keep the feh calls used by Flux compatible while avoiding its heavy image
+# loader dependency chain when xwallpaper and gpicview are available.
+if [ -x /usr/bin/feh ]; then
+    exec /usr/bin/feh "$@"
+fi
+
+mode=""
+write_fehbg=true
+geometry=""
+files=()
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --bg-fill)
+        mode="--zoom"
+        ;;
+    --bg-scale)
+        mode="--stretch"
+        ;;
+    --bg-max)
+        mode="--maximize"
+        ;;
+    --bg-center)
+        mode="--center"
+        ;;
+    --bg-tile)
+        mode="--tile"
+        ;;
+    --no-fehbg)
+        write_fehbg=false
+        ;;
+    --geometry)
+        shift
+        geometry="${1:-}"
+        ;;
+    --geometry=*)
+        geometry="${1#*=}"
+        ;;
+    --help)
+        cat <<'EOF'
+MiniOS feh compatibility launcher
+
+Wallpaper options: --bg-fill, --bg-scale, --bg-max, --bg-center, --bg-tile
+Viewer options: --geometry WIDTHxHEIGHT
+EOF
+        exit 0
+        ;;
+    --version)
+        echo "MiniOS feh compatibility launcher"
+        exit 0
+        ;;
+    --*)
+        echo "feh compatibility launcher: unsupported option: $1" >&2
+        exit 2
+        ;;
+    *)
+        files+=("$1")
+        ;;
+    esac
+    shift
+done
+
+if [ -n "$mode" ]; then
+    if [ "${#files[@]}" -ne 1 ]; then
+        echo "feh compatibility launcher: wallpaper mode requires one image" >&2
+        exit 2
+    fi
+    if ! command -v xwallpaper >/dev/null 2>&1; then
+        echo "feh compatibility launcher: xwallpaper is not installed" >&2
+        exit 127
+    fi
+
+    xwallpaper "$mode" "${files[0]}" || exit $?
+
+    if $write_fehbg; then
+        mkdir -p "$HOME"
+        {
+            echo '#!/bin/bash'
+            printf 'exec xwallpaper %q %q\n' "$mode" "${files[0]}"
+        } >"$HOME/.fehbg"
+        chmod 755 "$HOME/.fehbg"
+    fi
+    exit 0
+fi
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "feh compatibility launcher: no image specified" >&2
+    exit 2
+fi
+if ! command -v gpicview >/dev/null 2>&1; then
+    echo "feh compatibility launcher: gpicview is not installed" >&2
+    exit 127
+fi
+
+if [ -n "$geometry" ] && command -v xdotool >/dev/null 2>&1; then
+    gpicview "${files[@]}" &
+    viewer_pid=$!
+    viewer_window=""
+
+    for _ in {1..40}; do
+        viewer_window=$(xdotool search --onlyvisible --pid "$viewer_pid" 2>/dev/null | tail -n 1)
+        [ -n "$viewer_window" ] && break
+        sleep 0.05
+    done
+
+    if [ -n "$viewer_window" ] && [[ "$geometry" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        xdotool windowsize "$viewer_window" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    fi
+    wait "$viewer_pid"
+    exit $?
+fi
+
+exec gpicview "${files[@]}"
