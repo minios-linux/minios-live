@@ -66,7 +66,10 @@ EOF
             prepare_minios_i386_headers
         '
 
-    [ "${status}" -eq 0 ]
+    if [ "${status}" -ne 0 ]; then
+        printf '%s\n' "${output}" >&2
+        false
+    fi
 }
 
 @test "MiniOS i386 installs prerequisites before DKMS packages" {
@@ -79,4 +82,49 @@ EOF
     [ "${prerequisites_line}" -lt "${prepare_line}" ]
     [ "${prepare_line}" -lt "${dkms_line}" ]
     grep -Fq 'libssl-dev +kp=minios +da=i386' "${LIVE_ROOT}/scripts/01-kernel/packages.list"
+}
+
+@test "Realtek package rules select one compatible package per architecture" {
+    condinapt="${LIVE_ROOT}/condinapt"
+    conditions="${BATS_TEST_TMPDIR}/conditions"
+    functions="${BATS_TEST_TMPDIR}/functions"
+    awk '/^process_condition\(\)/,/^}/' "${condinapt}" >"${functions}"
+    awk '/^check_filter\(\)/,/^}/' "${condinapt}" >>"${functions}"
+    grep -E '^realtek-rtl(88xx|8814)au-dkms' "${LIVE_ROOT}/scripts/01-kernel/packages.list" >"${conditions}"
+
+    run env FUNCTIONS="${functions}" CONDITIONS="${conditions}" bash -c '
+        set -euo pipefail
+        . "${FUNCTIONS}"
+        declare -A FILTER_ENV_VARS=([d]=DISTRIBUTION [da]=DISTRIBUTION_ARCH [kc]=KERNEL_CAPABILITIES)
+        CHECK_ONLY=false VERBOSITY_LEVEL=0 GREEN= RED= ENDCOLOR=
+        warning() { :; }
+        information() { :; }
+        check_package() { FOUND_EXACT_VERSION=true; return 0; }
+
+        check_case() {
+            DISTRIBUTION="$1" DISTRIBUTION_ARCH="$2" KERNEL_CAPABILITIES=()
+            PACKAGES_TO_INSTALL=() PACKAGES_TO_HOLD=() MISSING_PACKAGES=()
+            while IFS= read -r condition; do
+                process_condition "${condition}" false 0 || true
+            done <"${CONDITIONS}"
+            if [ "${#PACKAGES_TO_INSTALL[@]}" -ne 2 ]; then
+                return 1
+            fi
+            printf "%s\n" "${PACKAGES_TO_INSTALL[@]}"
+        }
+
+        legacy=$'"'"'realtek-rtl88xxau-dkms=5.6.4.2~git20240726.63cf0b4-0kali1\nrealtek-rtl8814au-dkms=5.8.5.1~git20240527.d8208c8-0kali1'"'"'
+        modern=$'"'"'realtek-rtl88xxau-dkms\nrealtek-rtl8814au-dkms'"'"'
+        [ "$(check_case buster i386)" = "${legacy}" ]
+        [ "$(check_case bullseye i386)" = "${legacy}" ]
+        [ "$(check_case bookworm i386)" = "${legacy}" ]
+        [ "$(check_case bookworm i386-pae)" = "${legacy}" ]
+        [ "$(check_case trixie i386)" = "${modern}" ]
+        [ "$(check_case bookworm amd64)" = "${modern}" ]
+    '
+
+    if [ "${status}" -ne 0 ]; then
+        printf '%s\n' "${output}" >&2
+        false
+    fi
 }

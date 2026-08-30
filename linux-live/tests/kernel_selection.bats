@@ -257,6 +257,24 @@ EOF
     [ "${MODULES_LIST%:}" = "${bundles}/00-core" ]
 }
 
+@test "kernel header payload preserves usrmerge directory symlinks" {
+    local acquire="${LIVE_ROOT}/scripts/01-kernel/acquire"
+    local body root destination
+    body="$(awk '/^copy_payload_tree\(\)/,/^}/' "${acquire}")"
+    root="${BATS_TEST_TMPDIR}/payload"
+    destination="${BATS_TEST_TMPDIR}/rootfs"
+    mkdir -p "${root}/lib/modules/test" "${destination}/usr/lib"
+    ln -s usr/lib "${destination}/lib"
+    printf module >"${root}/lib/modules/test/module.ko"
+
+    run bash -c "${body}; copy_payload_tree \"${root}\" \"${destination}\""
+
+    [ "${status}" -eq 0 ]
+    [ -L "${destination}/lib" ]
+    [ "$(readlink "${destination}/lib")" = usr/lib ]
+    [ "$(cat "${destination}/usr/lib/modules/test/module.ko")" = module ]
+}
+
 @test "kernel runtime payload keeps integration files but excludes firmware" {
     local source="${BATS_TEST_TMPDIR}/source"
     local destination="${BATS_TEST_TMPDIR}/destination"

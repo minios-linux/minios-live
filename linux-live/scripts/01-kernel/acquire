@@ -244,6 +244,21 @@ copy_package_payload() {
     done <"${PATHS}"
 }
 
+copy_payload_tree() {
+    local ROOT="$1"
+    local DESTINATION="${2:-/}"
+    local ENTRY TARGET
+
+    while IFS= read -r -d '' ENTRY; do
+        TARGET="${DESTINATION%/}/${ENTRY#"${ROOT}"/}"
+        if [ -d "${ENTRY}" ] && [ -L "${TARGET}" ] && [ -d "${TARGET}" ]; then
+            cp -a "${ENTRY}/." "${TARGET}/"
+        else
+            cp -a "${ENTRY}" "${DESTINATION}/"
+        fi
+    done < <(find "${ROOT}" -mindepth 1 -maxdepth 1 -print0)
+}
+
 analyze_packages() {
     local DEB NAME VERSION ARCH SOURCE HASH ROOT CONTROL ROLE INSTANCE PATHS INDEX=0
 
@@ -267,7 +282,7 @@ analyze_packages() {
         HASH="$(sha256sum "${DEB}" | cut -d' ' -f1)"
         if [ "${KERNEL_BUILD_DKMS}" = true ] &&
             { [[ "${NAME}" == linux-headers-* ]] || [[ "${NAME}" == linux-kbuild-* ]]; }; then
-            cp -a "${ROOT}/." /
+            copy_payload_tree "${ROOT}"
             INDEX=$((INDEX + 1))
             continue
         fi
