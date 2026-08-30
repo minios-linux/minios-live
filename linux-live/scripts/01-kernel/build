@@ -17,6 +17,70 @@ kernel_release_series() {
     return 1
 }
 
+split_dkms_package_list() {
+    local INPUT="$1" PREREQUISITES="$2" DKMS_PACKAGES="$3"
+    local LINE DKMS_SECTION=false
+
+    : >"${PREREQUISITES}"
+    : >"${DKMS_PACKAGES}"
+    while IFS= read -r LINE || [ -n "${LINE}" ]; do
+        if [ "${LINE}" = '# BEGIN DKMS PACKAGES' ]; then
+            DKMS_SECTION=true
+            continue
+        fi
+        case "${LINE}" in
+        '' | \#*) continue ;;
+        esac
+        if [ "${DKMS_SECTION}" = true ]; then
+            printf '%s\n' "${LINE}" >>"${DKMS_PACKAGES}"
+        else
+            printf '%s\n' "${LINE}" >>"${PREREQUISITES}"
+        fi
+    done <"${INPUT}"
+    if [ "${DKMS_SECTION}" != true ]; then
+        printf 'DKMS package boundary is missing from %s\n' "${INPUT}" >&2
+        return 1
+    fi
+}
+
+prepare_minios_i386_headers() {
+    local HEADERS TOOL
+    local HOST_TOOLS=(
+        scripts/basic/fixdep
+        scripts/genksyms/genksyms
+        scripts/mod/modpost
+        scripts/sign-file
+    )
+
+    HEADERS="$(readlink -f "${MODULES_ROOT}/build")"
+    if [ ! -d "${HEADERS}" ]; then
+        printf 'MiniOS i386 kernel headers are unavailable for %s\n' "${KERNEL_RELEASE}" >&2
+        return 1
+    fi
+    if ! (
+        cd "${HEADERS}"
+        gcc -O2 -std=gnu11 -o scripts/basic/fixdep scripts/basic/fixdep.c
+        gcc -O2 -std=gnu11 -I scripts/genksyms -c -o scripts/genksyms/genksyms.o scripts/genksyms/genksyms.c
+        gcc -O2 -std=gnu11 -I scripts/genksyms -c -o scripts/genksyms/parse.tab.o scripts/genksyms/parse.tab.c
+        gcc -O2 -std=gnu11 -I scripts/genksyms -c -o scripts/genksyms/lex.lex.o scripts/genksyms/lex.lex.c
+        gcc -o scripts/genksyms/genksyms scripts/genksyms/genksyms.o scripts/genksyms/parse.tab.o scripts/genksyms/lex.lex.o
+        gcc -O2 -std=gnu11 -c -o scripts/mod/modpost.o scripts/mod/modpost.c
+        gcc -O2 -std=gnu11 -c -o scripts/mod/file2alias.o scripts/mod/file2alias.c
+        gcc -O2 -std=gnu11 -c -o scripts/mod/sumversion.o scripts/mod/sumversion.c
+        gcc -o scripts/mod/modpost scripts/mod/modpost.o scripts/mod/file2alias.o scripts/mod/sumversion.o
+        gcc -O2 -std=gnu11 -o scripts/sign-file scripts/sign-file.c -lcrypto
+    ); then
+        printf 'Cannot rebuild MiniOS i386 kernel header host tools\n' >&2
+        return 1
+    fi
+    for TOOL in "${HOST_TOOLS[@]}"; do
+        if ! objdump -f "${HEADERS}/${TOOL}" 2>/dev/null | grep -q 'file format elf32'; then
+            printf 'MiniOS i386 kernel header tool is not executable in i386 userspace: %s\n' "${TOOL}" >&2
+            return 1
+        fi
+    done
+}
+
 [ "${KERNEL_BUILD_DKMS}" = true ] || exit 0
 
 [ -f /packages.list ] || {
@@ -78,8 +142,10 @@ if kernel_has_config CONFIG_RTW88_8822BU || kernel_has_module rtw88_8822bu; then
 fi
 
 TMP_COMBINED="$(mktemp /tmp/combined_packages.list.XXXXXX)"
+TMP_PREREQUISITES="$(mktemp /tmp/kernel_prerequisites.list.XXXXXX)"
+TMP_DKMS_PACKAGES="$(mktemp /tmp/kernel_dkms.list.XXXXXX)"
 TMP_CONFIG="$(mktemp /tmp/kernel_build.conf.XXXXXX)"
-trap 'rm -f "${TMP_COMBINED}" "${TMP_CONFIG}"' EXIT
+trap 'rm -f "${TMP_COMBINED}" "${TMP_PREREQUISITES}" "${TMP_DKMS_PACKAGES}" "${TMP_CONFIG}"' EXIT
 cp /minios_build.conf "${TMP_CONFIG}"
 {
     printf 'KERNEL_RELEASE=%q\n' "${KERNEL_RELEASE}"
@@ -91,18 +157,23 @@ cp /minios_build.conf "${TMP_CONFIG}"
     printf ' )\n'
 } >>"${TMP_CONFIG}"
 
-if [ "${KERNEL_PROVIDER}" = minios ]; then
+if [ "${KERNEL_PROVIDER}" = minios ] && [ "${DISTRIBUTION_ARCH}" = i386 ]; then
+    split_dkms_package_list /packages.list "${TMP_PREREQUISITES}" "${TMP_DKMS_PACKAGES}"
+    printf '%s\n' "${KERNEL_HEADER_METAPACKAGE}" | cat - "${TMP_PREREQUISITES}" >"${TMP_COMBINED}"
+    /condinapt -l "${TMP_COMBINED}" -c "${TMP_CONFIG}" -m /condinapt.map
+    prepare_minios_i386_headers
+    /condinapt -l "${TMP_DKMS_PACKAGES}" -c "${TMP_CONFIG}" -m /condinapt.map
+elif [ "${KERNEL_PROVIDER}" = minios ]; then
     printf '%s\n---\n' "${KERNEL_HEADER_METAPACKAGE}" >"${TMP_COMBINED}"
+    cat /packages.list >>"${TMP_COMBINED}"
+    /condinapt -l "${TMP_COMBINED}" -c "${TMP_CONFIG}" -m /condinapt.map
 else
     [ -e "${MODULES_ROOT}/build/Makefile" ] || {
         error "Matching headers are unavailable for ${KERNEL_RELEASE}"
         exit 1
     }
-    : >"${TMP_COMBINED}"
+    /condinapt -l /packages.list -c "${TMP_CONFIG}" -m /condinapt.map
 fi
-cat /packages.list >>"${TMP_COMBINED}"
-
-/condinapt -l "${TMP_COMBINED}" -c "${TMP_CONFIG}" -m /condinapt.map
 [ -e "${MODULES_ROOT}/build/Makefile" ] || {
     error "Matching headers are unavailable for ${KERNEL_RELEASE}"
     exit 1
