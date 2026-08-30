@@ -45,6 +45,8 @@ split_dkms_package_list() {
 
 prepare_minios_i386_headers() {
     local HEADERS TOOL
+    local HOST_CFLAGS=(-O2 -std=gnu11 -I scripts/include -I tools/include)
+    local MODPOST_OBJECTS=(scripts/mod/modpost.o scripts/mod/file2alias.o scripts/mod/sumversion.o)
     local HOST_TOOLS=(
         scripts/basic/fixdep
         scripts/genksyms/genksyms
@@ -59,15 +61,19 @@ prepare_minios_i386_headers() {
     fi
     if ! (
         cd "${HEADERS}"
-        gcc -O2 -std=gnu11 -o scripts/basic/fixdep scripts/basic/fixdep.c
-        gcc -O2 -std=gnu11 -I scripts/genksyms -c -o scripts/genksyms/genksyms.o scripts/genksyms/genksyms.c
-        gcc -O2 -std=gnu11 -I scripts/genksyms -c -o scripts/genksyms/parse.tab.o scripts/genksyms/parse.tab.c
-        gcc -O2 -std=gnu11 -I scripts/genksyms -c -o scripts/genksyms/lex.lex.o scripts/genksyms/lex.lex.c
+        gcc "${HOST_CFLAGS[@]}" -o scripts/basic/fixdep scripts/basic/fixdep.c
+        gcc "${HOST_CFLAGS[@]}" -I scripts/genksyms -c -o scripts/genksyms/genksyms.o scripts/genksyms/genksyms.c
+        gcc "${HOST_CFLAGS[@]}" -I scripts/genksyms -c -o scripts/genksyms/parse.tab.o scripts/genksyms/parse.tab.c
+        gcc "${HOST_CFLAGS[@]}" -I scripts/genksyms -c -o scripts/genksyms/lex.lex.o scripts/genksyms/lex.lex.c
         gcc -o scripts/genksyms/genksyms scripts/genksyms/genksyms.o scripts/genksyms/parse.tab.o scripts/genksyms/lex.lex.o
-        gcc -O2 -std=gnu11 -c -o scripts/mod/modpost.o scripts/mod/modpost.c
-        gcc -O2 -std=gnu11 -c -o scripts/mod/file2alias.o scripts/mod/file2alias.c
-        gcc -O2 -std=gnu11 -c -o scripts/mod/sumversion.o scripts/mod/sumversion.c
-        gcc -o scripts/mod/modpost scripts/mod/modpost.o scripts/mod/file2alias.o scripts/mod/sumversion.o
+        gcc "${HOST_CFLAGS[@]}" -c -o scripts/mod/modpost.o scripts/mod/modpost.c
+        gcc "${HOST_CFLAGS[@]}" -c -o scripts/mod/file2alias.o scripts/mod/file2alias.c
+        gcc "${HOST_CFLAGS[@]}" -c -o scripts/mod/sumversion.o scripts/mod/sumversion.c
+        if [ -f scripts/mod/symsearch.c ]; then
+            gcc "${HOST_CFLAGS[@]}" -c -o scripts/mod/symsearch.o scripts/mod/symsearch.c
+            MODPOST_OBJECTS+=(scripts/mod/symsearch.o)
+        fi
+        gcc -o scripts/mod/modpost "${MODPOST_OBJECTS[@]}"
         gcc -O2 -std=gnu11 -o scripts/sign-file scripts/sign-file.c -lcrypto
     ); then
         printf 'Cannot rebuild MiniOS i386 kernel header host tools\n' >&2

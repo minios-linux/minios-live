@@ -47,6 +47,17 @@ setup() {
 
     [ "${KERNEL_PROVIDER}" = minios ]
     [[ "${WARNING}" == *KERNEL_AUFS* ]]
+
+    DISTRIBUTION=trixie
+    DISTRIBUTION_ARCH=i386
+    DEFAULT_KERNEL_ARCH=686
+    unset KERNEL_PROVIDER
+    WARNING=""
+
+    resolve_kernel_selection
+
+    [ "${KERNEL_PROVIDER}" = minios ]
+    [[ "${WARNING}" == *KERNEL_AUFS* ]]
 }
 
 @test "automatic MiniOS selection ignores a stale manual architecture" {
@@ -62,22 +73,65 @@ setup() {
 
     [ "${KERNEL_ARCH}" = 686 ]
     [ "${KERNEL_APT_ARCH}" = i386 ]
-    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.1 ]
+    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.12 ]
 }
 
-@test "MiniOS rejects the unsupported i386 6.12 series" {
-    DISTRIBUTION=bookworm
+@test "automatic Trixie i386 selection uses the MiniOS 6.12 series" {
+    DISTRIBUTION=trixie
     DISTRIBUTION_PROFILE=debian
     DISTRIBUTION_ARCH=i386
     DEFAULT_KERNEL_ARCH=686
     KERNEL_PROVIDER=minios
-    MINIOS_KERNEL_SERIES=6.12
+    MINIOS_KERNEL_SERIES=auto
     KERNEL_AUTO_SELECT=true
     KERNEL_ARCH=""
 
-    ! resolve_kernel_selection
+    resolve_kernel_selection
 
-    [[ "${ERROR}" == *"i386"*"6.1"* ]]
+    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.12 ]
+    [ "${KERNEL_METAPACKAGE}" = linux-image-6.12-mos-686 ]
+    [ "${KERNEL_HEADER_METAPACKAGE}" = linux-headers-6.12-mos-686 ]
+}
+
+@test "implicit Trixie-based i386 selection uses the latest MiniOS kernel" {
+    DISTRIBUTION=trixie
+    DISTRIBUTION_PROFILE=debian
+    DISTRIBUTION_ARCH=i386
+    DEFAULT_KERNEL_ARCH=686
+    unset KERNEL_PROVIDER
+    MINIOS_KERNEL_SERIES=auto
+    KERNEL_AUTO_SELECT=true
+    KERNEL_ARCH=""
+
+    resolve_kernel_selection
+
+    [ "${KERNEL_PROVIDER}" = minios ]
+    [ "${KERNEL_SOURCE_SUITE}" = trixie ]
+    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.12 ]
+    [ "${KERNEL_METAPACKAGE}" = linux-image-6.12-mos-686 ]
+
+    DISTRIBUTION=excalibur
+    unset KERNEL_PROVIDER
+    KERNEL_ARCH=""
+
+    resolve_kernel_selection
+
+    [ "${KERNEL_PROVIDER}" = minios ]
+    [ "${KERNEL_SOURCE_SUITE}" = trixie ]
+    [ "${MINIOS_KERNEL_SERIES_RESOLVED}" = 6.12 ]
+    [ "${KERNEL_METAPACKAGE}" = linux-image-6.12-mos-686 ]
+}
+
+@test "CLI help documents the Trixie-based i386 kernel default" {
+    local cli_root="${BATS_TEST_TMPDIR}/cli"
+    mkdir -p "${cli_root}/linux-live"
+    cp "${LIVE_ROOT}/../minios-cmd" "${cli_root}/minios-cmd"
+    cp "${LIVE_ROOT}/minioslib" "${cli_root}/linux-live/minioslib"
+
+    run env LC_ALL=C bash "${cli_root}/minios-cmd" --help
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"MiniOS for Trixie/Excalibur i386"* ]]
 }
 
 make_grub_module_fixture() {

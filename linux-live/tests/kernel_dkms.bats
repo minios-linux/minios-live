@@ -43,13 +43,16 @@ EOF
     body="$(awk '/^prepare_minios_i386_headers\(\)/,/^}/' "${BUILD_SCRIPT}")"
     modules="${BATS_TEST_TMPDIR}/modules"
     headers="${BATS_TEST_TMPDIR}/headers"
-    mkdir -p "${modules}" "${headers}"
+    gcc_log="${BATS_TEST_TMPDIR}/gcc.log"
+    mkdir -p "${modules}" "${headers}/scripts/mod"
+    : >"${headers}/scripts/mod/symsearch.c"
     ln -s "${headers}" "${modules}/build"
 
-    run env MODULES_ROOT="${modules}" KERNEL_RELEASE=6.1-test HEADERS="${headers}" \
+    run env MODULES_ROOT="${modules}" KERNEL_RELEASE=6.12-test GCC_LOG="${gcc_log}" \
         bash -c '
             gcc() {
                 local output="" previous="" argument
+                printf "%s\n" "$*" >>"${GCC_LOG}"
                 for argument in "$@"; do
                     if [ "$previous" = -o ]; then
                         output="$argument"
@@ -70,6 +73,11 @@ EOF
         printf '%s\n' "${output}" >&2
         false
     fi
+    grep -Fq -- '-I scripts/include -I tools/include -c -o scripts/mod/symsearch.o scripts/mod/symsearch.c' "${gcc_log}"
+    grep -Fq -- '-o scripts/mod/modpost scripts/mod/modpost.o scripts/mod/file2alias.o scripts/mod/sumversion.o scripts/mod/symsearch.o' "${gcc_log}"
+    compile_line="$(grep -nF 'scripts/mod/symsearch.c' "${gcc_log}" | cut -d: -f1)"
+    link_line="$(grep -nF -- '-o scripts/mod/modpost ' "${gcc_log}" | cut -d: -f1)"
+    [ "${compile_line}" -lt "${link_line}" ]
 }
 
 @test "MiniOS i386 installs prerequisites before DKMS packages" {
@@ -95,14 +103,14 @@ EOF
     run env FUNCTIONS="${functions}" CONDITIONS="${conditions}" bash -c '
         set -euo pipefail
         . "${FUNCTIONS}"
-        declare -A FILTER_ENV_VARS=([d]=DISTRIBUTION [da]=DISTRIBUTION_ARCH [kc]=KERNEL_CAPABILITIES)
+        declare -A FILTER_ENV_VARS=([d]=DISTRIBUTION [da]=DISTRIBUTION_ARCH [kc]=KERNEL_CAPABILITIES [kp]=KERNEL_PROVIDER)
         CHECK_ONLY=false VERBOSITY_LEVEL=0 GREEN= RED= ENDCOLOR=
         warning() { :; }
         information() { :; }
         check_package() { FOUND_EXACT_VERSION=true; return 0; }
 
         check_case() {
-            DISTRIBUTION="$1" DISTRIBUTION_ARCH="$2" KERNEL_CAPABILITIES=()
+            DISTRIBUTION="$1" DISTRIBUTION_ARCH="$2" KERNEL_PROVIDER="$3" KERNEL_CAPABILITIES=()
             PACKAGES_TO_INSTALL=() PACKAGES_TO_HOLD=() MISSING_PACKAGES=()
             while IFS= read -r condition; do
                 process_condition "${condition}" false 0 || true
@@ -115,12 +123,13 @@ EOF
 
         legacy=$'"'"'realtek-rtl88xxau-dkms=5.6.4.2~git20240726.63cf0b4-0kali1\nrealtek-rtl8814au-dkms=5.8.5.1~git20240527.d8208c8-0kali1'"'"'
         modern=$'"'"'realtek-rtl88xxau-dkms\nrealtek-rtl8814au-dkms'"'"'
-        [ "$(check_case buster i386)" = "${legacy}" ]
-        [ "$(check_case bullseye i386)" = "${legacy}" ]
-        [ "$(check_case bookworm i386)" = "${legacy}" ]
-        [ "$(check_case bookworm i386-pae)" = "${legacy}" ]
-        [ "$(check_case trixie i386)" = "${modern}" ]
-        [ "$(check_case bookworm amd64)" = "${modern}" ]
+        [ "$(check_case buster i386 distribution)" = "${legacy}" ]
+        [ "$(check_case bullseye i386 distribution)" = "${legacy}" ]
+        [ "$(check_case bookworm i386 distribution)" = "${legacy}" ]
+        [ "$(check_case bookworm i386-pae distribution)" = "${legacy}" ]
+        [ "$(check_case trixie i386 distribution)" = "${modern}" ]
+        [ "$(check_case bookworm i386 minios)" = "${modern}" ]
+        [ "$(check_case bookworm amd64 distribution)" = "${modern}" ]
     '
 
     if [ "${status}" -ne 0 ]; then

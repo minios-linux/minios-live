@@ -77,7 +77,7 @@ These options **must be provided** unless a configuration file is used:
 
 #### Kernel Settings
 - **KERNEL_FLAVOUR:** "none"
-- **KERNEL_PROVIDER:** "distribution"
+- **KERNEL_PROVIDER:** "distribution" (automatically "minios" for Trixie/Excalibur i386)
 - **MINIOS_KERNEL_SERIES:** "auto"
 - **KERNEL_PAYLOAD_MODE:** "runtime"
 

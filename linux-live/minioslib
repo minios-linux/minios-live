@@ -40,6 +40,8 @@ resolve_kernel_selection() {
         if [ "${KERNEL_AUFS:-false}" = true ]; then
             PROVIDER=minios
             warning "KERNEL_AUFS is deprecated; use KERNEL_PROVIDER=minios."
+        elif [ "$(kernel_debian_base_suite "${DISTRIBUTION}")" = trixie ] && [ "${DISTRIBUTION_ARCH}" = i386 ]; then
+            PROVIDER=minios
         else
             PROVIDER=distribution
         fi
@@ -159,25 +161,13 @@ resolve_kernel_selection() {
         fi
         : "${MINIOS_KERNEL_SERIES:=auto}"
         case "${MINIOS_KERNEL_SERIES}" in
-        auto)
-            if [ "${DISTRIBUTION_ARCH}" = i386 ] ||
-                [ "${DISTRIBUTION}" = buster ] || [ "${DISTRIBUTION}" = bullseye ] ||
-                [ "${DISTRIBUTION}" = bookworm ] || [ "${DISTRIBUTION}" = jammy ]; then
-                MINIOS_KERNEL_SERIES_RESOLVED=6.1
-            else
-                MINIOS_KERNEL_SERIES_RESOLVED=6.12
-            fi
-            ;;
+        auto) MINIOS_KERNEL_SERIES_RESOLVED=6.12 ;;
         6.1 | 6.12) MINIOS_KERNEL_SERIES_RESOLVED="${MINIOS_KERNEL_SERIES}" ;;
         *)
             error "Unsupported MINIOS_KERNEL_SERIES: ${MINIOS_KERNEL_SERIES}"
             return 1
             ;;
         esac
-        if [ "${KERNEL_APT_ARCH}" = i386 ] && [ "${MINIOS_KERNEL_SERIES_RESOLVED}" != 6.1 ]; then
-            error "MiniOS i386 kernels are supported only in the 6.1 series"
-            return 1
-        fi
         KERNEL_METAPACKAGE="linux-image-${MINIOS_KERNEL_SERIES_RESOLVED}-mos-${KERNEL_ARCH}"
         KERNEL_HEADER_METAPACKAGE="linux-headers-${MINIOS_KERNEL_SERIES_RESOLVED}-mos-${KERNEL_ARCH}"
     elif [ "${KERNEL_SOURCE_FAMILY}" = "debian" ]; then

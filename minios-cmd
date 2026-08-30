@@ -90,7 +90,7 @@ help() {
     echo -e "${BOLD}$(gettext "Default Settings:")${ENDCOLOR}"
     echo ""
     echo -e "${LIGHTBLUE}$(gettext "Kernel Settings:")${ENDCOLOR}"
-    echo -e "  ${LIGHTGREEN}KERNEL_PROVIDER${ENDCOLOR}=\"distribution\""
+    echo -e "  ${LIGHTGREEN}KERNEL_PROVIDER${ENDCOLOR}=\"distribution\" $(gettext "(MiniOS for Trixie/Excalibur i386)")"
     echo -e "  ${LIGHTGREEN}MINIOS_KERNEL_SERIES${ENDCOLOR}=\"auto\""
     echo -e "  ${LIGHTGREEN}KERNEL_PAYLOAD_MODE${ENDCOLOR}=\"runtime\""
     echo -e "  ${LIGHTGREEN}KERNEL_FLAVOUR${ENDCOLOR}=\"none\""
@@ -277,7 +277,13 @@ done
 : "${COMP_TYPE:="zstd"}"
 : "${INSTALL_KERNEL:=true}"
 : "${KERNEL_FLAVOUR:="none"}"
-: "${KERNEL_PROVIDER:=distribution}"
+if [ -z "${KERNEL_PROVIDER:-}" ]; then
+    if [ "$(kernel_debian_base_suite "${DISTRIBUTION}")" = trixie ] && [[ "${DISTRIBUTION_ARCH}" =~ ^i386(-pae)?$ ]]; then
+        KERNEL_PROVIDER=minios
+    else
+        KERNEL_PROVIDER=distribution
+    fi
+fi
 : "${MINIOS_KERNEL_SERIES:=auto}"
 : "${KERNEL_PAYLOAD_MODE:=runtime}"
 : "${KERNEL_BUILD_DKMS:=false}"
