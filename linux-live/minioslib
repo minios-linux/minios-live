@@ -3940,9 +3940,6 @@ build_iso() {
             IMAGE+="-${KERNEL_FLAVOUR}"
         fi
     else
-        if [[ "${KERNEL_PROVIDER}" == minios ]]; then
-            IMAGE+="-aufs"
-        fi
         if [[ "${KERNEL_FLAVOUR}" != "none" ]]; then
             IMAGE+="-${KERNEL_FLAVOUR}"
         fi

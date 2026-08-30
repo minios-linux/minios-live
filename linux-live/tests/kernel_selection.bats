@@ -397,6 +397,13 @@ EOF
     [ ! -e "${WORK_DIR}/image/minios/boot/grub/efi.img" ]
 }
 
+@test "ISO basename does not encode the MiniOS kernel provider" {
+    local body
+    body="$(awk '/^build_iso\(\)/,/^}/' "${LIVE_ROOT}/minioslib")"
+
+    [[ "${body}" != *'IMAGE+="-aufs"'* ]]
+}
+
 @test "hybrid ISO gives EFI and persistence distinct complete partitions" {
     command -v xorriso >/dev/null
     command -v mkfs.ext2 >/dev/null
