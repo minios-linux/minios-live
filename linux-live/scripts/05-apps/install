@@ -102,6 +102,7 @@ if [ -f "/usr/share/applications/gnumeric.desktop" ]; then
     sed -i "s/Science;//g" /usr/share/applications/gnumeric.desktop
 fi
 if ! pkg_is_installed "clonezilla"; then
+    rm -f /usr/bin/clonezilla-launcher
     rm -f /usr/sbin/clonezilla.sh
     rm -f /usr/share/applications/clonezilla.desktop
     rm -f /usr/share/pixmaps/ocslogo.png
