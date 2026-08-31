@@ -1,359 +1,218 @@
-% CONDINAPT(1) CondinAPT Package Manager
+% CONDINAPT(1) Conditional APT Package Installer
 % MiniOS Development Team
-% October 2025
+% September 2026
 
 # NAME
 
-condinapt - conditional package installation tool for Debian-like systems
+condinapt - plan and install APT packages from a conditional package list
 
 # SYNOPSIS
 
-**condinapt** [*OPTIONS*]
+**condinapt** **-l** *PACKAGE-LIST* **-c** *CONFIG* [*OPTIONS*]
 
 # DESCRIPTION
 
-**CondinAPT** is a versatile tool for automating package installation in any Debian-like system (Debian, Ubuntu, and their derivatives). Its key feature is the ability to define complex conditions and rules for installing each package based on arbitrary system configurations.
+**condinapt** reads a Bash configuration and a package list, evaluates package filters, checks package availability, groups selected packages into APT transactions, and installs them. It supports exact or fallback versions, target releases, alternatives, conjunctions, mandatory alternatives, queue separators, and a priority list.
 
-## Areas of Application
-
-- Linux distribution build systems
-- Automation of server and workstation setup
-- Deployment of various system configurations
-- Package management in Docker containers
-- CI/CD pipelines for environment setup
-- Creation of custom installation images
-
-## Key Features
-
-- **Conditional Installation:** Install packages based on flexible filters (+, -)
-- **External Configuration:** Complete separation of logic (package list) from data (system parameters)
-- **Installation Queues:** Divide the process into sequential stages to resolve dependencies
-- **Priority Queue:** Guaranteed installation of critical packages first
-- **Complex Logic:** Support for "AND" (&&), "OR" (||) operators, as well as group filters (+{a|b}, -{a&b})
-- **Readability:** Support for comments and empty lines to structure lists
-- **Backward Compatibility:** Supports simple package lists without conditions
+The configuration file is sourced as Bash and must be trusted. Package installation and any APT list refresh normally require suitable privileges.
 
 # OPTIONS
 
 **-l**, **\-\-package-list** *PATH*
-:   (Required) Path to the package list file
+:   Required package list.
 
 **-c**, **\-\-config** *PATH*
-:   (Required) Path to the main configuration file
+:   Required Bash configuration file containing filter variables.
 
 **-m**, **\-\-filter-mapping** *PATH*
-:   (Optional) Path to the filter mapping file
+:   Optional prefix-to-variable mapping. Without it, filter prefixes are interpreted directly as variable names.
 
 **-P**, **\-\-priority-list** *PATH*
-:   (Optional) Path to a priority filter file. File contains regex patterns to match packages. Matched packages are moved to priority queue (preserving filters)
-
-**-s**, **\-\-simulation**
-:   Simulation mode. Packages will not be installed
+:   Optional file containing one Bash regular expression per line. Expressions match the first package token on each package-list line. Matching lines are moved to priority queues with their filters and target releases preserved.
 
 **-C**, **\-\-check-only**
-:   Only check if packages are already installed. Returns exit code 1 if there are uninstalled packages. At the end, outputs a command to install missing packages
+:   Evaluate filters and report relevant package names that are not installed. Return 1 and print a suggested **apt install** command when packages are missing. This mode checks package names only; it does not validate requested versions or target releases. An alternative expression is satisfied when one branch is installed; if none is installed, every failed branch may be reported and suggested.
 
-**-v**, **\-\-verbose**
-:   Verbose output
-
-**-vv**, **\-\-very-verbose**
-:   Very verbose output
-
-**-x**, **\-\-xtrace**
-:   Enable **set -x** command tracing
+**-s**, **\-\-simulation**
+:   Plan the installation without installing packages. Simulation always exits with status 1. It may still run **apt-get update** when the package cache is absent or **\-\-force** is used.
 
 **-f**, **\-\-force**
-:   Force package lists update before installation. By default, update is skipped if **/var/cache/apt/pkgcache.bin** exists
+:   Run **apt-get update** before normal installation or simulation even when **/var/cache/apt/pkgcache.bin** exists. It has no effect in check-only mode.
+
+**-v**, **\-\-verbose**
+:   Show filter decisions and direct APT output.
+
+**-vv**, **\-\-very-verbose**
+:   Show additional planning and priority-queue details.
+
+**-x**, **\-\-xtrace**
+:   Enable Bash command tracing.
 
 **-h**, **\-\-help**
-:   Show help
+:   Display help and exit.
 
-# CORE COMPONENTS
+# INPUT FILES
 
-CondinAPT operates with four key files:
+## Configuration
 
-## condinapt script
-The core, containing all processing logic
-
-## Main configuration file (-c)
-A file with bash variables describing the current environment
-
-Example (**system.conf**):
+The required configuration is a Bash file. Scalar values compare by exact string equality. Indexed Bash arrays match when any element equals the requested value.
 
     DISTRIBUTION="bookworm"
     SYSTEM_TYPE="server"
     ENVIRONMENT="production"
-    LOCALE="en_US"
-    FEATURES="web,database"
+    FEATURES=(web database)
 
-## Filter mapping file (-m)
-Links short prefixes (used in the package list) to variable names from the main configuration file. This file is **optional**. If a filter is not present in the filter mapping file, it will be used as a variable name from the main configuration file. If the variable is not found, CondinAPT will declare it empty.
+## Filter Mapping
 
-Example (**filters.map**):
+An optional mapping assigns short package-list prefixes to configuration variables:
 
     d=DISTRIBUTION
     st=SYSTEM_TYPE
     env=ENVIRONMENT
-    arch=ARCHITECTURE
     feat=FEATURES
 
-## Package list file (-l)
-The main file describing what to install and under what conditions
+An unmapped prefix is used as the variable name. Missing variables have an empty value. Variable names must be valid Bash identifiers.
 
-# PACKAGE LIST SYNTAX
+## Package List
 
-Each line in the package list file consists of two main parts:
-
-1. Package name with optional version and release specification
-2. Condition filters - define the conditions under which the package will be installed
-
-## Package Name Structure
-
-**Simple name:**
+Each non-empty, non-comment line contains a package expression. Text after **#** is ignored.
 
     vim
-
-**Package version:**
-
-- **package=version** - loose version requirement. If the required version is unavailable, an available version is installed
-- **package==version** - strict requirement. If the version is not found, installation aborts with an error
-
-**Release specification:**
-
-The release is specified using the **@** symbol:
-
-    telegram@bookworm-backports
-    kernel-image-6.5.0@trixie-backports
-
-## File Structure
-
-- **Package names:** Each package or condition is written on a new line
-- **Comments:** Lines starting with **#**, or text after **#** on a line, are completely ignored
-- **Empty lines:** Ignored and serve for visual separation
-
-## Filters and Conditions
-
-### Single Filters
-
-**+ (Positive):** The condition is true if the variable value **matches**
-
-Format: **+<prefix>=<value>**
-
-Example:
-
     nginx +st=server
+    debug-tools -env=production
 
-**- (Negative):** The condition is true if the variable value **does not match**
+## Priority List
 
-Format: **-<prefix>=<value>**
-
-Example:
-
-    monitoring-tools -st=desktop
-
-### Group Filters
-
-**+{a|b} (OR for inclusion):** True if **at least one** of the conditions in the group is true
-
-    web-server +{st=server|st=web-server}
-
-**+{a&b} (AND for inclusion):** True only if **all** conditions in the group are true
-
-    database-tools +{d=bookworm&st=server}
-
-**-{a|b} (OR for exclusion):** The package is excluded if **at least one** of the conditions is true
-
-    debug-tools -{env=production|st=minimal}
-
-**-{a&b} (AND for exclusion):** The package is excluded only if **all** conditions are true
-
-    development-tools -{env=production&st=minimal}
-
-### Logical Operators
-
-**|| (OR / Fallback):** Try to install the left part. If it fails, try the right part
-
-    exfatprogs -d=bookworm || exfat-utils
-
-**&& (AND / Conjunction):** All parts must successfully pass filter checks
-
-    nginx +st=web-server && php-fpm
-
-### Special Modifiers
-
-**! (Mandatory Package):** If a package is marked with **!**, but cannot be found in repositories, CondinAPT will abort execution with an error
-
-    !essential-package
-
-**@ (Release Specification):** Install a package from a specific Debian/Ubuntu release
-
-    kernel-image-6.5.0 @trixie-backports
-
-## Installation Queues
-
-The **---** separator on a separate line divides the list into groups (queues). Packages from one queue are installed together in a single apt call. Queues are executed strictly sequentially.
-
-Example:
-
-    # Queue 1: Base system
-    systemd
-    network-manager
-    ---
-    # Queue 2: Web server
-    nginx
-    php-fpm
-    ---
-    # Queue 3: Monitoring
-    prometheus
-
-## Priority Queue
-
-The file specified by the **-P** flag contains regex patterns (one pattern per line, no filters). CondinAPT scans all queues, finds packages matching these patterns, and moves them (with all their filters and conditions) to a special "Priority Queue", which is executed first.
-
-**Pattern Matching:** Uses bash regex matching (=~ operator). Patterns can be simple package names or complex regex expressions.
-
-**Preserving Context:** This mechanism preserves all package conditions, filters, and release specifications from the original package list.
-
-**Override:** Matched packages are automatically removed from their original queues (both regular and target queues with **@release**) and moved to priority queues. Target releases are preserved in separate priority target queues.
-
-Example **priority.list**:
+Each non-empty, non-comment line is a Bash **=~** regular expression matched against the first package token in a package expression:
 
     ^linux-.*
     ^firmware-.*
     ^dkms$
 
-# EXAMPLES
+# PACKAGE SYNTAX
 
-## Quick Start
+## Versions
 
-Create the configuration file **config.conf**:
+**package=version**
+:   Request an exact version. If it is unavailable but another candidate exists, install the candidate and emit a warning.
 
-    DISTRIBUTION="bookworm"
-    SYSTEM_TYPE="server"
-    ENVIRONMENT="production"
+**package==version**
+:   Require an exact version during planning. If it is unavailable, this expression cannot be selected.
 
-Create the package list **packages.list**:
+When an exact requested version is selected and installed, **condinapt** applies **apt-mark hold** to that package.
 
-    # Base packages - always installed
-    vim
-    curl
+## Target Releases
 
-    # Packages only for servers
-    nginx +SYSTEM_TYPE=server
-    mysql-server +SYSTEM_TYPE=server
+Append **@release** to install through **apt-get -t release**:
 
-    # Exclude packages for production environment
-    debug-tools -ENVIRONMENT=production
+    linux-image-amd64 @bookworm-backports
 
-Run the installation:
+Entries for the same release are pooled into one release-specific queue. The **---** separator does not split target-release queues.
 
-    condinapt -l packages.list -c config.conf
+## Filters
 
-Or test in simulation mode:
+**+prefix=value**
+:   Include the package when the mapped scalar equals *value* or an array contains it.
 
-    condinapt -l packages.list -c config.conf -s
+**-prefix=value**
+:   Exclude the package when the mapped scalar equals *value* or an array contains it.
 
-## Multimedia Server
+Repeated positive filters with the same prefix are alternatives. Positive filters with different prefixes must each have at least one match:
 
-**packages.list:**
+    editor +d=bookworm +d=trixie +st=desktop
 
-    # Basic multimedia codecs - always
-    gstreamer1.0-plugins-base
-    gstreamer1.0-plugins-good
+The example selects Debian Bookworm or Trixie and also requires **SYSTEM_TYPE=desktop**.
 
-    # Additional codecs - not for minimal installation
-    gstreamer1.0-plugins-bad -st=minimal
-    gstreamer1.0-plugins-ugly -st=minimal
+Group filters make the relationship explicit:
 
-    # Professional tools - only for full configuration
-    ffmpeg +st=media-server
-    vlc +st=media-server
-    ---
-    # Distribution-specific packages from backports
-    ffmpeg @bookworm-backports +d=bookworm
+**+{a|b}**
+:   Include when at least one condition matches.
 
-## Web Server with Various Configurations
+**+{a&b}**
+:   Include only when every condition matches.
 
-**packages.list:**
+**-{a|b}**
+:   Exclude when at least one condition matches.
 
-    # Basic web server components
-    nginx
-    openssl
+**-{a&b}**
+:   Exclude only when every condition matches.
 
-    # Database - only for full installations
-    mysql-server +st=full-server -{env=minimal}
-    postgresql +st=database-server
+Examples:
 
-    # PHP - for web servers
-    php-fpm +feat=php
-    php-mysql +{feat=php&st=full-server}
+    web-server +{st=server|st=web-server}
+    database-tools +{d=bookworm&st=server}
+    debug-tools -{env=production|st=minimal}
 
-    # Monitoring - not for development
-    prometheus-node-exporter -env=development
+## Alternatives And Conjunctions
+
+**left || right**
+:   During planning, select the first alternative whose filters pass and whose required packages are installed or available from APT. It is not a runtime fallback: if the later **apt-get install** transaction fails, another alternative is not tried.
+
+**left && right**
+:   Require every expression in the alternative to pass filtering and availability checks before adding them to the same installation plan.
+
+**&&** binds within each **||** alternative:
+
+    exfatprogs || exfat-utils && exfat-fuse
+
+## Mandatory Alternatives
+
+A leading **!** marks the entire package expression as mandatory:
+
+    !essential-package
+    !preferred-package || fallback-package
+
+If no alternative can be selected because required packages are unavailable, normal execution aborts. A valid later alternative satisfies the mandatory expression. Filter-only exclusions do not trigger a mandatory-package abort, and simulation reports the failure without aborting early.
+
+# QUEUES
+
+A line containing only **---** closes the current normal-repository queue. Packages in one queue are installed in a single APT transaction, and normal queues run sequentially.
+
+Target-release entries are pooled separately by release. Processing order is:
+
+1. Priority normal-repository queue
+2. Priority target-release queues
+3. Normal queues
+4. Remaining target-release queues
+
+The priority list removes matching expressions from their original queues and preserves their complete filters, conditions, versions, and target release. Only the first package token is used for priority matching, so a pattern that matches only a later **||** branch does not prioritize the expression.
 
 # OPERATING MODES
 
-## Simulation Mode
+## Simulation
 
-Allows you to see which packages will be installed without actually installing them:
+Simulation performs planning but no package installation. It can update APT list state and always exits 1, so its exit status is not a success indicator.
 
-    condinapt -l packages.list -c system.conf -s
+    condinapt -l packages.list -c system.conf -m filters.map -s -v
 
-In simulation mode, the script exits with exit code 1.
+## Check Only
 
-## Check Mode
+Check-only evaluates filters and checks package names against the installed package database. It skips **apt-get update** and ignores version and target-release requirements. An alternative is satisfied when any branch is installed. If none is installed, the report and suggested command may contain every failed branch rather than one availability-selected alternative.
 
-Checks which packages from the list are already installed on the system:
+    condinapt -l packages.list -c system.conf -m filters.map -C
 
-    condinapt -l packages.list -c system.conf -C
+# EXIT STATUS
 
-Shows errors for uninstalled packages and returns exit code 1 if there are uninstalled packages.
+**0**
+:   Installation completed, help was displayed, or check-only found no missing packages.
 
-## Debugging Modes
-
-**Verbose Output (-v):**
-
-Shows detailed information about filter checks and displays results for each package.
-
-**Very Verbose Output (-vv):**
-
-Maximum process detail, shows all intermediate steps.
-
-**Command Tracing (-x):**
-
-Enables **set -x** for script debugging, shows each command being executed.
-
-# ERROR HANDLING
-
-## Mandatory Packages
-
-If a package is marked as mandatory (**!**) but not found in repositories, CondinAPT:
-
-1. Outputs an error message
-2. Aborts execution (unless in simulation mode)
-3. Returns exit code 1
-
-## Handling Unavailable Versions
-
-**Loose Versions (=):**
-
-If the exact version is unavailable, any available version is installed with a warning.
-
-**Strict Versions (==):**
-
-If the exact version is unavailable, the package is skipped. If the package is mandatory (**!**), execution aborts.
-
-## Version Holding
-
-CondinAPT automatically applies **apt-mark hold** when the exactly requested version was installed, preventing automatic updates.
+**1**
+:   Invalid input, missing files, package or APT failure, missing packages in check-only mode, or completion of simulation mode.
 
 # FILES
 
-**/etc/condinapt/config.conf**
-:   Default configuration file
+**condinapt** has no implicit configuration, mapping, or package-list paths. The package list and configuration must be supplied explicitly. The mapping and priority list are optional but are used only when their paths are supplied.
 
-**/etc/condinapt/filters.map**
-:   Default filter mapping file
+# EXAMPLES
+
+Install a filtered list:
+
+    condinapt -l packages.list -c system.conf -m filters.map
+
+Force an APT list refresh and install priority packages first:
+
+    condinapt -l packages.list -c system.conf -m filters.map \
+      -P priority.list -f
 
 # SEE ALSO
 

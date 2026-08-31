@@ -7,26 +7,29 @@ msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 4.0.0\n"
 "Report-Msgid-Bugs-To: support@minios.dev\n"
-"POT-Creation-Date: 2026-06-21 03:09+0300\n"
-"PO-Revision-Date: 2026-06-21 00:09+0000\n"
+"POT-Creation-Date: 2026-09-01 01:23+0300\n"
+"PO-Revision-Date: 2026-08-31 21:18+0000\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
-"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: linux-live/minioslib:693 minios-live:149
+#: linux-live/minioslib:969 minios-live:149
 msgid "Command not found:"
 msgstr "Команда не найдена:"
 
-#: linux-live/minioslib:2759
+#: linux-live/minioslib:3549
 msgid "grub.template.cfg template not found"
 msgstr "Шаблон grub.template.cfg не найден"
 
-#: minios-cmd:48 minios-cmd:140 minios-live:86
+#: linux-live/minioslib:3755 linux-live/minioslib:3771
+msgid "regexp"
+msgstr "regexp"
+
+#: minios-cmd:48 minios-cmd:146 minios-live:86
 msgid "Usage:"
 msgstr "Использование:"
 
@@ -44,13 +47,10 @@ msgstr "Параметры конфигурации:"
 
 #: minios-cmd:54
 msgid "Specify the configuration file path. All other options are ignored."
-msgstr ""
-"Укажите путь к файлу конфигурации. Все остальные параметры будут "
-"проигнорированы."
+msgstr "Укажите путь к файлу конфигурации. Все остальные параметры будут проигнорированы."
 
 #: minios-cmd:55
-msgid ""
-"Generate the configuration file only and do not start the build process."
+msgid "Generate the configuration file only and do not start the build process."
 msgstr "Только сгенерировать файл конфигурации и не запускать процесс сборки."
 
 #: minios-cmd:57
@@ -90,166 +90,146 @@ msgid "Kernel Options:"
 msgstr "Параметры ядра:"
 
 #: minios-cmd:68
+msgid "Specify the kernel provider ('distribution' or 'minios')."
+msgstr "Укажите поставщика ядра («distribution» или «minios»)."
+
+#: minios-cmd:69
 msgid "Specify the kernel flavour (e.g., 'none')."
 msgstr "Укажите вариант ядра (например, 'none')."
 
-#: minios-cmd:69
-msgid "Enable AUFS support in the kernel."
-msgstr "Включить поддержку AUFS в ядре."
-
 #: minios-cmd:70
+msgid "Install the AUFS-enabled MiniOS kernel."
+msgstr "Установить ядро с поддержкой AUFS MiniOS."
+
+#: minios-cmd:71
+msgid "Specify the MiniOS kernel series ('auto', '6.1', or '6.12')."
+msgstr "Укажите серию ядра MiniOS («auto», «6.1» или «6.12»)."
+
+#: minios-cmd:72
+msgid "Specify the kernel payload mode ('runtime' or 'full')."
+msgstr "Укажите режим загрузки ядра («runtime» или «full»)."
+
+#: minios-cmd:73
 msgid "Enable compilation of additional drivers during kernel installation."
 msgstr "Включить компиляцию дополнительных драйверов во время установки ядра."
 
-#: minios-cmd:72
+#: minios-cmd:75
 msgid "Locale and Timezone Options:"
 msgstr "Параметры локали и часового пояса:"
 
-#: minios-cmd:73
+#: minios-cmd:76
 msgid "Specify the system locale (e.g., 'en_US')."
 msgstr "Укажите локаль системы (например, 'en_US')."
 
-#: minios-cmd:74
+#: minios-cmd:77
 msgid "Enable multilingual support."
 msgstr "Включить поддержку нескольких языков."
 
-#: minios-cmd:75
+#: minios-cmd:78
 msgid "Keep all available locales."
 msgstr "Сохранить все доступные локали."
 
-#: minios-cmd:76
+#: minios-cmd:79
 msgid "Specify the timezone (e.g., 'Etc/UTC')."
 msgstr "Укажите часовой пояс (например, 'Etc/UTC')."
 
-#: minios-cmd:78
+#: minios-cmd:81
 msgid "Boot Loader Options:"
 msgstr "Параметры загрузчика:"
 
-#: minios-cmd:79
+#: minios-cmd:82
 msgid "Specify the initramfs builder ('livekit' or 'dracut')."
 msgstr "Укажите сборщик initramfs ('livekit' или 'dracut')."
 
-#: minios-cmd:81
+#: minios-cmd:84
 msgid "Boot Menu Options:"
 msgstr "Параметры загрузочного меню:"
 
-#: minios-cmd:82
-msgid ""
-"Specify the boot menu language ('multilang' for language selection or "
-"specific language code like 'ru_RU')."
-msgstr ""
-"Укажите язык загрузочного меню ('multilang' для выбора языка или конкретный "
-"код языка, например, 'ru_RU')."
+#: minios-cmd:85
+msgid "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU')."
+msgstr "Укажите язык загрузочного меню ('multilang' для выбора языка или конкретный код языка, например, 'ru_RU')."
 
-#: minios-cmd:84
+#: minios-cmd:87
 msgid "Ubuntu Pro Options:"
 msgstr "Параметры Ubuntu Pro:"
 
-#: minios-cmd:85
-msgid ""
-"Specify Ubuntu Pro subscription token for fresh packages during build "
-"(removed from final image)."
-msgstr ""
-"Укажите токен подписки Ubuntu Pro для получения свежих пакетов при сборке "
-"(будет удалён из финального образа)."
+#: minios-cmd:88
+msgid "Specify Ubuntu Pro subscription token for fresh packages during build (removed from final image)."
+msgstr "Укажите токен подписки Ubuntu Pro для получения свежих пакетов при сборке (будет удалён из финального образа)."
 
-#: minios-cmd:87
+#: minios-cmd:90
 msgid "Default Settings:"
 msgstr "Настройки по умолчанию:"
 
-#: minios-cmd:89
+#: minios-cmd:92
 msgid "Kernel Settings:"
 msgstr "Настройки ядра:"
 
-#: minios-cmd:92
+#: minios-cmd:93
+msgid "(MiniOS for Trixie/Excalibur i386)"
+msgstr "(MiniOS для Trixie/Excalibur i386)"
+
+#: minios-cmd:98
 msgid "Locale & Timezone Settings:"
 msgstr "Настройки локали и часового пояса:"
 
-#: minios-cmd:96
+#: minios-cmd:102
 msgid "Boot Loader Settings:"
 msgstr "Настройки загрузчика:"
 
-#: minios-cmd:99
+#: minios-cmd:105
 msgid "Boot Menu Settings:"
 msgstr "Настройки загрузочного меню:"
 
-#: minios-cmd:102 minios-live:109
+#: minios-cmd:108 minios-live:109
 msgid "Examples:"
 msgstr "Примеры:"
 
-#: minios-cmd:104
+#: minios-cmd:110
 msgid "1. Create a MiniOS Standard system image (default settings):"
 msgstr "1. Создать стандартный образ системы MiniOS (настройки по умолчанию):"
 
-#: minios-cmd:107
+#: minios-cmd:113
 msgid "2. Create a MiniOS Toolbox system image (default settings):"
 msgstr "2. Создать образ системы MiniOS Toolbox (настройки по умолчанию):"
 
-#: minios-cmd:110
-msgid ""
-"3. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'toolbox' package variant, and Russian locale:"
-msgstr ""
-"3. Создать образ системы с дистрибутивом 'bookworm', архитектурой 'amd64', "
-"вариантом пакета 'toolbox' и русской локалью:"
-
-#: minios-cmd:113
-msgid ""
-"4. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'standard' package variant and 'lxqt' desktop environment:"
-msgstr ""
-"4. Создать образ системы с дистрибутивом 'bookworm', архитектурой 'amd64', "
-"стандартным вариантом пакета и средой рабочего стола 'lxqt':"
-
 #: minios-cmd:116
-msgid ""
-"5. Create a system image with 'buster' distribution, 'i386' architecture, "
-"and 'xfce' desktop environment:"
-msgstr ""
-"5. Создать образ системы с дистрибутивом 'buster', архитектурой 'i386' и "
-"средой рабочего стола 'xfce':"
+msgid "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'toolbox' package variant, and Russian locale:"
+msgstr "3. Создать образ системы с дистрибутивом 'bookworm', архитектурой 'amd64', вариантом пакета 'toolbox' и русской локалью:"
 
 #: minios-cmd:119
-msgid ""
-"6. Create a system image with the 'jammy' distribution and 'standard' "
-"package variant:"
-msgstr ""
-"6. Создать образ системы с дистрибутивом 'jammy' и стандартным вариантом "
-"пакета:"
+msgid "4. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'standard' package variant and 'lxqt' desktop environment:"
+msgstr "4. Создать образ системы с дистрибутивом 'bookworm', архитектурой 'amd64', стандартным вариантом пакета и средой рабочего стола 'lxqt':"
 
 #: minios-cmd:122
-msgid ""
-"7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
-"and 'xfce' desktop environment with multilingual support enabled:"
-msgstr ""
-"7. Создать образ системы с дистрибутивом 'trixie', архитектурой 'amd64', "
-"средой рабочего стола 'xfce' и включенной поддержкой нескольких языков:"
+msgid "5. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:"
+msgstr "5. Создать образ системы с дистрибутивом 'buster', архитектурой 'i386' и средой рабочего стола 'xfce':"
 
 #: minios-cmd:125
+msgid "6. Create a system image with the 'jammy' distribution and 'standard' package variant:"
+msgstr "6. Создать образ системы с дистрибутивом 'jammy' и стандартным вариантом пакета:"
+
+#: minios-cmd:128
+msgid "7. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:"
+msgstr "7. Создать образ системы с дистрибутивом 'trixie', архитектурой 'amd64', средой рабочего стола 'xfce' и включенной поддержкой нескольких языков:"
+
+#: minios-cmd:131
 msgid "8. Create a system image with Russian boot menu language:"
 msgstr "8. Создать образ системы с русским языком загрузочного меню:"
 
-#: minios-cmd:128
-msgid "9. Create a system image with livekit initramfs builder:"
-msgstr ""
-"9. Создать системный образ с использованием сборщика initramfs livekit:"
-
-#: minios-cmd:131
-msgid ""
-"10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh "
-"packages:"
-msgstr ""
-"10. Создать образ системы Ubuntu с подпиской Ubuntu Pro для свежих пакетов:"
-
 #: minios-cmd:134
-msgid ""
-"has many more options available. Please refer to the above options list for "
-"more details."
-msgstr ""
-"имеет гораздо больше доступных параметров.  Для получения более подробной "
-"информации обратитесь к списку параметров выше."
+msgid "9. Create a system image with livekit initramfs builder:"
+msgstr "9. Создать системный образ с использованием сборщика initramfs livekit:"
 
-#: minios-cmd:141
+#: minios-cmd:137
+msgid "10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh packages:"
+msgstr "10. Создать образ системы Ubuntu с подпиской Ubuntu Pro для свежих пакетов:"
+
+#: minios-cmd:140
+msgid "has many more options available. Please refer to the above options list for more details."
+msgstr "имеет гораздо больше доступных параметров.  Для получения более подробной информации обратитесь к списку параметров выше."
+
+#: minios-cmd:147
 msgid "Try '%s --help' for more information."
 msgstr "Попробуйте '%s --help' для получения дополнительной информации."
 
@@ -299,8 +279,7 @@ msgstr "Как это работает:"
 
 #: minios-live:102
 msgid "No arguments or -h/--help: display this help (no root required)"
-msgstr ""
-"Без аргументов или -h/--help: показать эту справку (права root не требуются)"
+msgstr "Без аргументов или -h/--help: показать эту справку (права root не требуются)"
 
 #: minios-live:103
 msgid "Single command: run only that build stage (requires root)"
@@ -316,8 +295,7 @@ msgstr "Используйте '- end_cmd', чтобы запустить с п�
 
 #: minios-live:106
 msgid "Use 'start_cmd -' to run from start_cmd to the last command"
-msgstr ""
-"Используйте 'start_cmd -', чтобы запустить с start_cmd до последней команды"
+msgstr "Используйте 'start_cmd -', чтобы запустить с start_cmd до последней команды"
 
 #: minios-live:107
 msgid "Use '-' alone to run the entire build from start to finish"
@@ -332,19 +310,12 @@ msgid "Run the build from start to finish:"
 msgstr "Выполнить сборку от начала до конца:"
 
 #: minios-live:117
-msgid ""
-"Start the build by building the base environment and finish by installing "
-"the entire system in chroot:"
-msgstr ""
-"Начать сборку с создания базового окружения и завершить установкой всей "
-"системы в chroot:"
+msgid "Start the build by building the base environment and finish by installing the entire system in chroot:"
+msgstr "Начать сборку с создания базового окружения и завершить установкой всей системы в chroot:"
 
 #: minios-live:120
-msgid ""
-"Start the build from the beginning and finish by installing the entire "
-"system in chroot:"
-msgstr ""
-"Начать сборку с самого начала и завершить установкой всей системы в chroot:"
+msgid "Start the build from the beginning and finish by installing the entire system in chroot:"
+msgstr "Начать сборку с самого начала и завершить установкой всей системы в chroot:"
 
 #: minios-live:123
 msgid "Start the build by building the base environment and run to completion:"
@@ -390,6 +361,14 @@ msgstr "Веб-браузер"
 #: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop:13
 msgid "Browse the web"
 msgstr "Просмотр веб-страниц"
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/minios-pipewire.desktop:4
+msgid "PipeWire Audio"
+msgstr "PipeWire Audio"
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/minios-pipewire.desktop:5
+msgid "Start the PipeWire audio session when user services are unavailable"
+msgstr "Запускать аудиосессию PipeWire, если пользовательские сервисы недоступны"
 
 #: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/volumeicon.desktop:5
 msgid "volumeicon"

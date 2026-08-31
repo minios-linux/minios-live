@@ -1,10 +1,10 @@
 % MINIOS-CMD(1) MiniOS Command-Line Builder
 % MiniOS Development Team
-% August 2026
+% September 2026
 
 # NAME
 
-minios-cmd - command-line utility for configuring and building customized MiniOS system images
+minios-cmd - configure and build a MiniOS image
 
 # SYNOPSIS
 
@@ -12,184 +12,128 @@ minios-cmd - command-line utility for configuring and building customized MiniOS
 
 # DESCRIPTION
 
-**minios-cmd** is a command-line utility designed to simplify the process of configuring and building customized MiniOS system images. Acting as a frontend for **minios-live**(1), it manages the configuration and invokes **minios-live** to execute the actual build steps.
+**minios-cmd** is a command-line frontend for **minios-live**(1). It copies a configuration template or an existing configuration into a work directory, applies frontend values, and runs a complete build.
 
-## Build Options
+The default configuration currently lists Debian **buster**, **bullseye**, **bookworm**, and **trixie**; Ubuntu **bionic**, **focal**, **jammy**, **noble**, and **resolute**; and Devuan **beowulf**, **chimaera**, **daedalus**, and **excalibur**. It lists **amd64**, **i386**, and **i386-pae** architectures; **core**, **flux**, **xfce**, and **lxqt** environments; **minimum**, **standard**, **toolbox**, and **ultra** variants; and **xz**, **lzo**, **gz**, **lz4**, and **zstd** compression.
 
-With **minios-cmd**, you can customize various aspects of your MiniOS image, including:
+Not every combination is necessarily available. The current configuration, environment links, and repositories determine what can be built.
 
-- **Distribution:** Choose from Debian releases (**buster**, **bullseye**, **bookworm**, **trixie**) and Ubuntu releases (**jammy**, **noble**)
-- **Architecture:** Specify the target architecture (**amd64**, **i386** for older distributions)
-- **Desktop Environment:**
-  - **Debian:** **xfce** (standard), **flux** (minimum), **lxqt** (bookworm/trixie only)
-  - **Ubuntu:** **xfce** only
-- **Package Variant:**
-  - **All Debian:** **standard** (xfce), **minimum** (flux)
-  - **Bookworm/Trixie only:** **toolbox**, **ultra**
-  - **Ubuntu:** **standard** only
-- **Compression Type:** Specify the image compression method (**zstd**)
-- **Kernel:** Select a distribution or AUFS-enabled MiniOS kernel and compile optional DKMS modules
-- **Locale and Timezone:** Set the system locale and timezone with multilingual support
+# REQUIREMENTS
+
+All non-help operations, including **\-\-config-only**, currently require root. Source-tree builds require a Debian or Ubuntu host, the packages in **linux-live/prerequisites.list**, and repository access. The default template enables apt-cacher-ng at **127.0.0.1:3142**; run it or set **USE_APT_CACHER=false** in the generated configuration.
 
 # OPTIONS
+
+Without **\-\-config-file**, the distribution, architecture, desktop environment, and package variant options are required.
 
 ## Configuration Options
 
 **\-\-config-file** *FILE*
-:   Specify the configuration file path. All other options are ignored.
+:   In normal mode, copy *FILE* into the work directory as the base configuration, then write parsed frontend values and non-empty frontend defaults into that copy. With **\-\-config-only**, use *FILE* as the output path and overwrite it. To use a configuration without frontend merging, run **minios-live** directly with **BUILD_CONF**.
 
 **\-\-config-only**
-:   Generate the configuration file only and do not start the build process.
-
-## Build Options
+:   Generate a configuration file and do not build. Without **\-\-config-file**, the four required system options are required. Supplying an output path with **\-\-config-file** bypasses that check, and omitted target fields retain template values.
 
 **-b**, **\-\-build-dir** *DIR*
-:   Specify the build directory.
+:   Use *DIR* as the build directory.
 
 ## System Options
 
-These options **must be provided** unless a configuration file is used:
-
 **-d**, **\-\-distribution** *NAME*
-:   Specify the distribution name (e.g., 'bookworm'). **REQUIRED**
+:   Set the target distribution. Required without **\-\-config-file**.
 
 **-a**, **\-\-architecture** *NAME*
-:   Specify the architecture (e.g., 'amd64'). **REQUIRED**
+:   Set the target architecture. Required without **\-\-config-file**.
 
 **-de**, **\-\-desktop-environment** *NAME*
-:   Specify the desktop environment (e.g., 'xfce'). **REQUIRED**
+:   Set the desktop environment. Required without **\-\-config-file**.
 
 **-pv**, **\-\-package-variant** *NAME*
-:   Specify the package variant (e.g., 'standard'). **REQUIRED**
+:   Set the package variant. Required without **\-\-config-file**.
 
 **-c**, **\-\-compression-type** *NAME*
-:   Specify the compression type (e.g., 'zstd').
+:   Set SquashFS compression. Default: **zstd**.
 
 ## Kernel Options
 
 **-kp**, **\-\-kernel-provider** *NAME*
-:   Select the kernel provider ('distribution' or 'minios').
+:   Select **distribution** or **minios**.
 
 **-kf**, **\-\-kernel-flavour** *NAME*
-:   Specify the kernel flavour (e.g., 'none').
+:   Set the kernel flavour, such as **none**, **rt**, or **cloud**.
 
 **-mk**, **\-\-minios-kernel**
-:   Install the AUFS-enabled MiniOS kernel.
+:   Select the MiniOS kernel provider.
 
 **-mks**, **\-\-minios-kernel-series** *NAME*
-:   Select the MiniOS kernel series ('auto', '6.1', or '6.12') and use the MiniOS provider.
+:   Select **auto**, **6.1**, or **6.12** and use the MiniOS provider.
 
 **-kpm**, **\-\-kernel-payload-mode** *NAME*
-:   Select the kernel payload mode ('runtime' or 'full').
+:   Select **runtime** or **full**.
 
 **-dkms**, **\-\-kernel-build-dkms**
-:   Enable compilation of additional drivers during kernel installation.
+:   Build additional DKMS drivers.
 
-## Locale and Timezone Options
+**-aufs**, **\-\-kernel-aufs**
+:   Deprecated alias for **\-\-minios-kernel**.
+
+## Locale And Boot Options
 
 **-l**, **\-\-locale** *NAME*
-:   Specify the system locale (e.g., 'en_US').
+:   Set the system locale. Default: **en_US**.
 
 **-ml**, **\-\-multilingual**
-:   Enable multilingual support.
+:   Generate all locales declared by **minioslib**.
 
 **-kl**, **\-\-keep-locales**
-:   Keep all available locales.
+:   Retain all available locales instead of pruning them.
 
 **-tz**, **\-\-timezone** *NAME*
-:   Specify the timezone (e.g., 'Etc/UTC').
-
-## Boot Loader Options
+:   Set the timezone. Default: **Etc/UTC**.
 
 **-ib**, **\-\-initramfs-builder** *NAME*
-:   Specify the initramfs builder ('livekit' or 'dracut').
-
-## Boot Menu Options
+:   Select **livekit** or **dracut**. Default: **dracut**.
 
 **-mln**, **\-\-menu-language** *NAME*
-:   Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU').
+:   Select **multilang** or a supported menu locale. Default: **multilang**.
 
-# DEFAULT SETTINGS
+## Ubuntu Pro Option
 
-## Kernel Settings
+**\-\-ubuntu-pro-token** *TOKEN*
+:   Attach an Ubuntu Pro subscription during a Bionic, Focal, Jammy, or Noble build. Other targets skip attachment with a warning. The builder detaches the subscription and removes the token from the final image. Command-line tokens may be visible in shell history or process listings.
 
-**KERNEL_FLAVOUR**: "none"
+# DEFAULTS
 
-**KERNEL_PROVIDER**: "distribution" (automatically "minios" for Trixie/Excalibur i386)
+The frontend defaults are **COMP_TYPE=zstd**, **KERNEL_PROVIDER=distribution**, **KERNEL_FLAVOUR=none**, **MINIOS_KERNEL_SERIES=auto**, **KERNEL_PAYLOAD_MODE=runtime**, **KERNEL_BUILD_DKMS=false**, **LOCALE=en_US**, **MULTILINGUAL=false**, **KEEP_LOCALES=false**, **LIVE_TIMEZONE=Etc/UTC**, **INITRAMFS_BUILDER=dracut**, and **MENU_LANG=multilang**.
 
-**MINIOS_KERNEL_SERIES**: "auto"
-
-**KERNEL_PAYLOAD_MODE**: "runtime"
-
-## Locale & Timezone Settings
-
-**LOCALE**: "en_US"
-**LIVE_TIMEZONE**: "Etc/UTC"
-
-## Boot Loader Settings
-
-**INITRAMFS_BUILDER**: "dracut"
-
-## Boot Menu Settings
-
-**MENU_LANG**: "multilang"
-
-# INTERACTION WITH MINIOS-LIVE
-
-**minios-cmd** prepares the build environment and generates a **build.conf** configuration file based on the options provided. It then calls **minios-live** with the relevant environment variables, delegating the build execution to **minios-live**.
+Trixie-based **i386** and **i386-pae** values select the MiniOS provider when the distribution and architecture are supplied to the frontend through options or the environment. Values present only inside **\-\-config-file** are not loaded before defaults are calculated. Frontend defaults may differ from values in the full **build.conf** template.
 
 # EXAMPLES
 
-Create a MiniOS Standard system image with default settings:
+Build a standard Bookworm Xfce image with frontend defaults:
 
-    minios-cmd -d bookworm -a amd64 -de xfce -pv standard -c zstd -mk -dkms -kl
+    sudo minios-cmd -d bookworm -a amd64 -de xfce -pv standard
 
-Create a MiniOS Toolbox system image with default settings:
+Build with a MiniOS kernel, DKMS drivers, and retained locales:
 
-    minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -c zstd -mk -dkms -kl
+    sudo minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -mk -dkms -kl
 
-Create a system image with Russian locale:
+Build a multilingual image:
 
-    minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -l ru_RU
+    sudo minios-cmd -d trixie -a amd64 -de xfce -pv standard -ml
 
-Create a system image with LXQt desktop environment:
+Build the Flux minimum variant with livekit:
 
-    minios-cmd -d bookworm -a amd64 -de lxqt -pv standard
+    sudo minios-cmd -d bookworm -a amd64 -de flux -pv minimum -ib livekit
 
-Create a system image for 32-bit architecture:
+Generate or overwrite a configuration file:
 
-    minios-cmd -d buster -a i386 -de xfce -pv standard
+    sudo minios-cmd --config-only --config-file ./myconfig.conf \
+      -d bookworm -a amd64 -de xfce -pv standard
 
-Create a system image with Ubuntu Jammy:
+Use the file without frontend merging:
 
-    minios-cmd -d jammy -pv standard -a amd64 -de xfce
-
-Enable multilingual support (generates locales for English, Spanish, German, French, Italian, Portuguese, Brazilian Portuguese, Russian, and Indonesian):
-
-    minios-cmd -d trixie -a amd64 -de xfce -pv standard -ml
-
-Create a system image with Russian boot menu language:
-
-    minios-cmd -d bookworm -a amd64 -de xfce -pv standard -mln ru_RU
-
-Create a system image with livekit initramfs builder (smaller size):
-
-    minios-cmd -d bookworm -a amd64 -de flux -pv standard -ib livekit
-
-# GENERATING AND USING CONFIGURATION FILES
-
-Generate a configuration file:
-
-    minios-cmd --config-only --config-file myconfig.conf -d bookworm -a amd64 -de xfce -pv standard
-
-Use the configuration file with **minios-live**:
-
-    BUILD_CONF=/path/to/myconfig.conf minios-live -
-
-or:
-
-    export BUILD_CONF=/path/to/myconfig.conf
-    minios-live -
+    sudo BUILD_CONF=/absolute/path/myconfig.conf minios-live -
 
 # SEE ALSO
 

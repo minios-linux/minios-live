@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-21 03:09+0300\n"
+"POT-Creation-Date: 2026-09-01 01:23+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,15 +18,19 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: linux-live/minioslib:693 minios-live:149
+#: linux-live/minioslib:969 minios-live:149
 msgid "Command not found:"
 msgstr ""
 
-#: linux-live/minioslib:2759
+#: linux-live/minioslib:3549
 msgid "grub.template.cfg template not found"
 msgstr ""
 
-#: minios-cmd:48 minios-cmd:140 minios-live:86
+#: linux-live/minioslib:3755 linux-live/minioslib:3771
+msgid "regexp"
+msgstr ""
+
+#: minios-cmd:48 minios-cmd:146 minios-live:86
 msgid "Usage:"
 msgstr ""
 
@@ -47,8 +51,7 @@ msgid "Specify the configuration file path. All other options are ignored."
 msgstr ""
 
 #: minios-cmd:55
-msgid ""
-"Generate the configuration file only and do not start the build process."
+msgid "Generate the configuration file only and do not start the build process."
 msgstr ""
 
 #: minios-cmd:57
@@ -88,148 +91,146 @@ msgid "Kernel Options:"
 msgstr ""
 
 #: minios-cmd:68
-msgid "Specify the kernel flavour (e.g., 'none')."
+msgid "Specify the kernel provider ('distribution' or 'minios')."
 msgstr ""
 
 #: minios-cmd:69
-msgid "Enable AUFS support in the kernel."
+msgid "Specify the kernel flavour (e.g., 'none')."
 msgstr ""
 
 #: minios-cmd:70
-msgid "Enable compilation of additional drivers during kernel installation."
+msgid "Install the AUFS-enabled MiniOS kernel."
+msgstr ""
+
+#: minios-cmd:71
+msgid "Specify the MiniOS kernel series ('auto', '6.1', or '6.12')."
 msgstr ""
 
 #: minios-cmd:72
-msgid "Locale and Timezone Options:"
+msgid "Specify the kernel payload mode ('runtime' or 'full')."
 msgstr ""
 
 #: minios-cmd:73
-msgid "Specify the system locale (e.g., 'en_US')."
-msgstr ""
-
-#: minios-cmd:74
-msgid "Enable multilingual support."
+msgid "Enable compilation of additional drivers during kernel installation."
 msgstr ""
 
 #: minios-cmd:75
-msgid "Keep all available locales."
+msgid "Locale and Timezone Options:"
 msgstr ""
 
 #: minios-cmd:76
-msgid "Specify the timezone (e.g., 'Etc/UTC')."
+msgid "Specify the system locale (e.g., 'en_US')."
+msgstr ""
+
+#: minios-cmd:77
+msgid "Enable multilingual support."
 msgstr ""
 
 #: minios-cmd:78
-msgid "Boot Loader Options:"
+msgid "Keep all available locales."
 msgstr ""
 
 #: minios-cmd:79
-msgid "Specify the initramfs builder ('livekit' or 'dracut')."
+msgid "Specify the timezone (e.g., 'Etc/UTC')."
 msgstr ""
 
 #: minios-cmd:81
-msgid "Boot Menu Options:"
+msgid "Boot Loader Options:"
 msgstr ""
 
 #: minios-cmd:82
-msgid ""
-"Specify the boot menu language ('multilang' for language selection or "
-"specific language code like 'ru_RU')."
+msgid "Specify the initramfs builder ('livekit' or 'dracut')."
 msgstr ""
 
 #: minios-cmd:84
-msgid "Ubuntu Pro Options:"
+msgid "Boot Menu Options:"
 msgstr ""
 
 #: minios-cmd:85
-msgid ""
-"Specify Ubuntu Pro subscription token for fresh packages during build "
-"(removed from final image)."
+msgid "Specify the boot menu language ('multilang' for language selection or specific language code like 'ru_RU')."
 msgstr ""
 
 #: minios-cmd:87
+msgid "Ubuntu Pro Options:"
+msgstr ""
+
+#: minios-cmd:88
+msgid "Specify Ubuntu Pro subscription token for fresh packages during build (removed from final image)."
+msgstr ""
+
+#: minios-cmd:90
 msgid "Default Settings:"
 msgstr ""
 
-#: minios-cmd:89
+#: minios-cmd:92
 msgid "Kernel Settings:"
 msgstr ""
 
-#: minios-cmd:92
+#: minios-cmd:93
+msgid "(MiniOS for Trixie/Excalibur i386)"
+msgstr ""
+
+#: minios-cmd:98
 msgid "Locale & Timezone Settings:"
 msgstr ""
 
-#: minios-cmd:96
+#: minios-cmd:102
 msgid "Boot Loader Settings:"
 msgstr ""
 
-#: minios-cmd:99
+#: minios-cmd:105
 msgid "Boot Menu Settings:"
 msgstr ""
 
-#: minios-cmd:102 minios-live:109
+#: minios-cmd:108 minios-live:109
 msgid "Examples:"
 msgstr ""
 
-#: minios-cmd:104
+#: minios-cmd:110
 msgid "1. Create a MiniOS Standard system image (default settings):"
 msgstr ""
 
-#: minios-cmd:107
+#: minios-cmd:113
 msgid "2. Create a MiniOS Toolbox system image (default settings):"
 msgstr ""
 
-#: minios-cmd:110
-msgid ""
-"3. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'toolbox' package variant, and Russian locale:"
-msgstr ""
-
-#: minios-cmd:113
-msgid ""
-"4. Create a system image with the 'bookworm' distribution, 'amd64' "
-"architecture, 'standard' package variant and 'lxqt' desktop environment:"
-msgstr ""
-
 #: minios-cmd:116
-msgid ""
-"5. Create a system image with 'buster' distribution, 'i386' architecture, "
-"and 'xfce' desktop environment:"
+msgid "3. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'toolbox' package variant, and Russian locale:"
 msgstr ""
 
 #: minios-cmd:119
-msgid ""
-"6. Create a system image with the 'jammy' distribution and 'standard' "
-"package variant:"
+msgid "4. Create a system image with the 'bookworm' distribution, 'amd64' architecture, 'standard' package variant and 'lxqt' desktop environment:"
 msgstr ""
 
 #: minios-cmd:122
-msgid ""
-"7. Create a system image with 'trixie' distribution, 'amd64' architecture, "
-"and 'xfce' desktop environment with multilingual support enabled:"
+msgid "5. Create a system image with 'buster' distribution, 'i386' architecture, and 'xfce' desktop environment:"
 msgstr ""
 
 #: minios-cmd:125
-msgid "8. Create a system image with Russian boot menu language:"
+msgid "6. Create a system image with the 'jammy' distribution and 'standard' package variant:"
 msgstr ""
 
 #: minios-cmd:128
-msgid "9. Create a system image with livekit initramfs builder:"
+msgid "7. Create a system image with 'trixie' distribution, 'amd64' architecture, and 'xfce' desktop environment with multilingual support enabled:"
 msgstr ""
 
 #: minios-cmd:131
-msgid ""
-"10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh "
-"packages:"
+msgid "8. Create a system image with Russian boot menu language:"
 msgstr ""
 
 #: minios-cmd:134
-msgid ""
-"has many more options available. Please refer to the above options list for "
-"more details."
+msgid "9. Create a system image with livekit initramfs builder:"
 msgstr ""
 
-#: minios-cmd:141
+#: minios-cmd:137
+msgid "10. Create an Ubuntu system image with Ubuntu Pro subscription for fresh packages:"
+msgstr ""
+
+#: minios-cmd:140
+msgid "has many more options available. Please refer to the above options list for more details."
+msgstr ""
+
+#: minios-cmd:147
 msgid "Try '%s --help' for more information."
 msgstr ""
 
@@ -310,15 +311,11 @@ msgid "Run the build from start to finish:"
 msgstr ""
 
 #: minios-live:117
-msgid ""
-"Start the build by building the base environment and finish by installing "
-"the entire system in chroot:"
+msgid "Start the build by building the base environment and finish by installing the entire system in chroot:"
 msgstr ""
 
 #: minios-live:120
-msgid ""
-"Start the build from the beginning and finish by installing the entire "
-"system in chroot:"
+msgid "Start the build from the beginning and finish by installing the entire system in chroot:"
 msgstr ""
 
 #: minios-live:123
@@ -364,6 +361,14 @@ msgstr ""
 
 #: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/skel/.config/xfce4/panel/launcher-5/WebBrowser.desktop:13
 msgid "Browse the web"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/minios-pipewire.desktop:4
+msgid "PipeWire Audio"
+msgstr ""
+
+#: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/minios-pipewire.desktop:5
+msgid "Start the PipeWire audio session when user services are unavailable"
 msgstr ""
 
 #: linux-live/scripts/04-xfce-desktop/rootcopy-install/etc/xdg/autostart/volumeicon.desktop:5
