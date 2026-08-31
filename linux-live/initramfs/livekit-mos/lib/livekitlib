@@ -467,7 +467,7 @@ normalize_module_whiteouts() {
 
 publish_union_branch_inventory() {
    local CHANGES="$1" BUNDLES="$2"
-   local INVENTORY=/minios-aufs-branches
+   local INVENTORY="${3:-/minios-aufs-branches}"
    local TEMP="${INVENTORY}.tmp.$$" RAW="/tmp/minios-aufs-active-branches.$$"
    local KEYED="/tmp/minios-aufs-keyed.$$" SORTED="/tmp/minios-aufs-sorted.$$"
    local PATHS="/tmp/minios-aufs-paths.$$" ORDERED="/tmp/minios-aufs-ordered.$$" BUNDLE
@@ -485,13 +485,15 @@ publish_union_branch_inventory() {
          rm -f "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
          return 1
       }
-   umask 077
-   {
-      printf '%s=rw\n' "$CHANGES"
-      while IFS= read -r BUNDLE; do
-         printf '%s=rr+wh\n' "$BUNDLE"
-      done <"$ORDERED"
-   } >"$TEMP" || {
+   (
+      umask 077
+      {
+         printf '%s=rw\n' "$CHANGES"
+         while IFS= read -r BUNDLE; do
+            printf '%s=rr+wh\n' "$BUNDLE"
+         done <"$ORDERED"
+      } >"$TEMP"
+   ) || {
       rm -f "$TEMP" "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
       return 1
    }

@@ -465,6 +465,24 @@ setup_dispatch() {
     /bin/rm -f "$active"
 }
 
+@test "AUFS inventory keeps its private umask scoped" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    get_union_fs() { printf '%s\n' aufs; }
+    inventory="$WORK/aufs-branches"
+    active="/tmp/minios-aufs-active-branches.$$"
+    printf '%s\n' /bundles/00-core.sb /bundles/01-kernel.sb >"$active"
+    umask 022
+
+    publish_union_branch_inventory /changes /bundles "$inventory"
+
+    [ "$(umask)" = 0022 ]
+    [ "$(stat -c %a "$inventory")" = 600 ]
+    grep -Fqx '/changes=rw' "$inventory"
+    grep -Fqx '/bundles/01-kernel.sb=rr+wh' "$inventory"
+    /bin/rm -f "$active"
+}
+
 @test "OverlayFS runtime keeps native module whiteouts untouched" {
     # shellcheck source=/dev/null
     . "$LIB"

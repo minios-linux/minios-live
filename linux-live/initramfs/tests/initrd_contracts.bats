@@ -38,7 +38,7 @@ contains() {
     contains "$lib" 'perch_state_stage_livekit'
     contains "$lib" 'perch_state_preserve "$UNION"'
     contains "$lib" 'run/initramfs/minios-persistence'
-    contains "$lib" 'local INVENTORY=/minios-aufs-branches'
+    contains "$lib" 'local INVENTORY="${3:-/minios-aufs-branches}"'
     contains "$lib" 'cp -a /minios-aufs-branches run/initramfs/'
     [ "$(grep -Fc 'perch_state_preserve "$UNION"' "$lib")" -eq 2 ]
     [ "$(grep -Fc 'cp -a /minios-aufs-branches run/initramfs/' "$lib")" -eq 3 ]
