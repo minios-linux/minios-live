@@ -492,13 +492,26 @@ publish_union_branch_inventory() {
          while IFS= read -r BUNDLE; do
             printf '%s=rr+wh\n' "$BUNDLE"
          done <"$ORDERED"
-      } >"$TEMP"
+      } >"$TEMP" && chmod 0644 "$TEMP"
    ) || {
       rm -f "$TEMP" "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
       return 1
    }
    rm -f "$RAW" "$KEYED" "$SORTED" "$PATHS" "$ORDERED"
    mv -f "$TEMP" "$INVENTORY"
+}
+
+install_aufs_runtime_inventory() {
+   local ROOT="$1" SOURCE="${2:-/minios-aufs-branches}"
+   local TARGET="$ROOT/run/initramfs/minios-aufs-branches"
+   local LOCK="$ROOT/run/initramfs/minios-aufs-branches.lock"
+
+   [ -f "$SOURCE" ] || return 0
+   mkdir -p "$ROOT/run/initramfs" || return 1
+   cp -a "$SOURCE" "$TARGET" || return 1
+   chmod 0644 "$TARGET" || return 1
+   : >"$LOCK" || return 1
+   chmod 0644 "$LOCK"
 }
 
 # Detect which union filesystem to use
@@ -3578,7 +3591,7 @@ change_root() {
       mount -n -o move /sys sys 2>/dev/null || mount -t sysfs sysfs sys
    fi
    mkdir -p run/initramfs
-   [ ! -f /minios-aufs-branches ] || cp -a /minios-aufs-branches run/initramfs/
+   install_aufs_runtime_inventory . || fatal "Cannot preserve AUFS branch inventory"
    perch_state_stage_livekit || {
       echo_yellow_star >&2
       echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
@@ -3621,7 +3634,7 @@ prepare_shutdown_dracut() {
    # Preserve initramfs for shutdown (dracut requirement)
    # Copy usr directory (without modules) and recreate symlinks
    mkdir -p run/initramfs/usr
-   [ ! -f /minios-aufs-branches ] || cp -a /minios-aufs-branches run/initramfs/
+   install_aufs_runtime_inventory . || fatal "Cannot preserve AUFS branch inventory"
    perch_state_preserve "$UNION" || {
       echo_yellow_star >&2
       echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2
@@ -3714,7 +3727,7 @@ prepare_initramfs_dracut() {
    # Preserve initramfs for shutdown
 
    mkdir -p run/initramfs/usr
-   [ ! -f /minios-aufs-branches ] || cp -a /minios-aufs-branches run/initramfs/
+   install_aufs_runtime_inventory . || fatal "Cannot preserve AUFS branch inventory"
    perch_state_preserve "$UNION" || {
       echo_yellow_star >&2
       echo "Persistence runtime state could not be preserved; session saving will be unavailable." >&2

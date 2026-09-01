@@ -477,10 +477,27 @@ setup_dispatch() {
     publish_union_branch_inventory /changes /bundles "$inventory"
 
     [ "$(umask)" = 0022 ]
-    [ "$(stat -c %a "$inventory")" = 600 ]
+    [ "$(stat -c %a "$inventory")" = 644 ]
     grep -Fqx '/changes=rw' "$inventory"
     grep -Fqx '/bundles/01-kernel.sb=rr+wh' "$inventory"
     /bin/rm -f "$active"
+}
+
+@test "AUFS runtime inventory is rootless-readable with a stable lock" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    source_inventory="$WORK/source-aufs-branches"
+    runtime_root="$WORK/runtime-root"
+    printf '%s\n' '/changes=rw' '/bundles/00-core.sb=rr+wh' >"$source_inventory"
+    chmod 0600 "$source_inventory"
+
+    install_aufs_runtime_inventory "$runtime_root" "$source_inventory"
+
+    runtime_inventory="$runtime_root/run/initramfs/minios-aufs-branches"
+    runtime_lock="$runtime_root/run/initramfs/minios-aufs-branches.lock"
+    [ "$(stat -c %a "$runtime_inventory")" = 644 ]
+    [ "$(stat -c %a "$runtime_lock")" = 644 ]
+    cmp "$source_inventory" "$runtime_inventory"
 }
 
 @test "OverlayFS runtime keeps native module whiteouts untouched" {

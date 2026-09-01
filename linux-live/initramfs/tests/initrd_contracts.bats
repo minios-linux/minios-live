@@ -39,9 +39,9 @@ contains() {
     contains "$lib" 'perch_state_preserve "$UNION"'
     contains "$lib" 'run/initramfs/minios-persistence'
     contains "$lib" 'local INVENTORY="${3:-/minios-aufs-branches}"'
-    contains "$lib" 'cp -a /minios-aufs-branches run/initramfs/'
+    contains "$lib" 'install_aufs_runtime_inventory .'
     [ "$(grep -Fc 'perch_state_preserve "$UNION"' "$lib")" -eq 2 ]
-    [ "$(grep -Fc 'cp -a /minios-aufs-branches run/initramfs/' "$lib")" -eq 3 ]
+    [ "$(grep -Fc 'install_aufs_runtime_inventory .' "$lib")" -eq 3 ]
 }
 
 @test "LiveKit and Dracut mirror boot output only across requested consoles" {
