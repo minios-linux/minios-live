@@ -9,7 +9,7 @@ setup() {
 
 run_normalizer() {
     local dir="$1" suffix="$2"
-    run env VERBOSITY_LEVEL=0 DPKG_INFO_DIR="${INFO}" \
+    run env VERBOSITY_LEVEL=1 DPKG_INFO_DIR="${INFO}" \
         bash -c '. "$1"; normalize_package_compressed_files "$2" "$3"' \
         _ "${MINIOSLIB}" "${dir}" "${suffix}"
     [ "${status}" -eq 0 ]
