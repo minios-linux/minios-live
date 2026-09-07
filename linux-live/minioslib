@@ -4062,20 +4062,104 @@ remove_sources() {
 
 # ====================== INSTALL FUNCTIONS ========================
 
-# Unzip gzipped files (man pages), so LZMA can compress 2times better.
-# First we fix symlinks, then uncompress files
-# $1 = search directory
-uncompress_files() {
-    current_function
-    local LINK LINE
+# Keep package ownership metadata consistent when build-time normalization
+# replaces individually compressed files with their uncompressed form.
+sync_dpkg_decompression_metadata() {
+    local MAP_FILE="$1"
+    local INFO_DIR="${DPKG_INFO_DIR:-/var/lib/dpkg/info}"
+    local LIST_PATTERNS MD5_PATTERNS INFO TMP
 
-    find "${1}" -type l -name "*.gz" | while read LINE; do
-        LINK="$(readlink "${LINE}" | sed -r 's/.gz$//')"
-        FILE="$(echo "${LINE}" | sed -r 's/.gz$//')"
-        ln -sfn "${LINK}" "${FILE}"
-        rm -f "${LINE}"
-    done
-    find "${1}" -type f -name "*.gz" -print0 | xargs -0 -r gunzip 2>/dev/null
+    [ -s "${MAP_FILE}" ] || return 0
+    [ -d "${INFO_DIR}" ] || return 0
+
+    LIST_PATTERNS="$(mktemp)"
+    MD5_PATTERNS="$(mktemp)"
+    cut -f1 "${MAP_FILE}" >"${LIST_PATTERNS}"
+    awk -F '\t' '$3 != "-" { path=$1; sub(/^\//, "", path); print path }' \
+        "${MAP_FILE}" >"${MD5_PATTERNS}"
+
+    while IFS= read -r INFO; do
+        [ -n "${INFO}" ] || continue
+        TMP="$(mktemp)"
+        awk -F '\t' '
+            NR == FNR { renamed[$1] = $2; next }
+            { print (($0 in renamed) ? renamed[$0] : $0) }
+        ' "${MAP_FILE}" "${INFO}" >"${TMP}"
+        cat "${TMP}" >"${INFO}"
+        rm -f "${TMP}"
+    done < <(grep -Flx -f "${LIST_PATTERNS}" "${INFO_DIR}"/*.list 2>/dev/null || true)
+
+    if [ -s "${MD5_PATTERNS}" ]; then
+        while IFS= read -r INFO; do
+            [ -n "${INFO}" ] || continue
+            TMP="$(mktemp)"
+            awk -F '\t' '
+                NR == FNR {
+                    old = $1; new = $2
+                    sub(/^\//, "", old); sub(/^\//, "", new)
+                    if ($3 != "-") { renamed[old] = new; hashes[old] = $3 }
+                    next
+                }
+                {
+                    path = substr($0, 35)
+                    if (path in renamed) print hashes[path] "  " renamed[path]
+                    else print
+                }
+            ' "${MAP_FILE}" "${INFO}" >"${TMP}"
+            cat "${TMP}" >"${INFO}"
+            rm -f "${TMP}"
+        done < <(grep -FlF -f "${MD5_PATTERNS}" "${INFO_DIR}"/*.md5sums 2>/dev/null || true)
+    fi
+
+    rm -f "${LIST_PATTERNS}" "${MD5_PATTERNS}"
+}
+
+normalize_package_compressed_files() {
+    current_function
+    local SEARCH_DIR="${1%/}"
+    local SUFFIX="$2"
+    local MAP_FILE FILE OUTPUT TARGET HASH
+
+    [ -d "${SEARCH_DIR}" ] || return 0
+    MAP_FILE="$(mktemp /tmp/minios-decompress-map.XXXXXX)"
+
+    while IFS= read -r -d '' FILE; do
+        OUTPUT="${FILE%.*}"
+        case "${SUFFIX}" in
+        gz) gzip -dc -- "${FILE}" >"${OUTPUT}.tmp" ;;
+        xz) xz -dc -- "${FILE}" >"${OUTPUT}.tmp" ;;
+        zst) zstd -q -d -c -- "${FILE}" >"${OUTPUT}.tmp" ;;
+        *) error "Unsupported package compression suffix: ${SUFFIX}"; return 1 ;;
+        esac
+        cp --attributes-only --preserve=mode,ownership,timestamps \
+            "${FILE}" "${OUTPUT}.tmp"
+        mv -f "${OUTPUT}.tmp" "${OUTPUT}"
+        rm -f "${FILE}"
+        HASH="$(md5sum "${OUTPUT}")"
+        HASH="${HASH%% *}"
+        printf '%s\t%s\t%s\n' "${FILE}" "${OUTPUT}" "${HASH}" >>"${MAP_FILE}"
+    done < <(find "${SEARCH_DIR}" -type f -name "*.${SUFFIX}" -print0)
+
+    while IFS= read -r -d '' FILE; do
+        OUTPUT="${FILE%.*}"
+        TARGET="$(readlink "${FILE}")"
+        case "${TARGET}" in
+        *."${SUFFIX}") TARGET="${TARGET%.*}" ;;
+        esac
+        ln -sfn "${TARGET}" "${OUTPUT}"
+        rm -f "${FILE}"
+        printf '%s\t%s\t-\n' "${FILE}" "${OUTPUT}" >>"${MAP_FILE}"
+    done < <(find "${SEARCH_DIR}" -type l -name "*.${SUFFIX}" -print0)
+
+    sort -u -t $'\t' -k1,1 "${MAP_FILE}" -o "${MAP_FILE}"
+    sync_dpkg_decompression_metadata "${MAP_FILE}"
+    rm -f "${MAP_FILE}"
+}
+
+# Uncompress man pages and alternatives so SquashFS can compress them together,
+# while keeping dpkg ownership and verification metadata accurate.
+uncompress_files() {
+    normalize_package_compressed_files "$1" gz
 }
 
 # remove broken links
