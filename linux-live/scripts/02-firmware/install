@@ -6,6 +6,7 @@ set -u          # treat unset variable as error
 
 . /minioslib
 . /minios_build.conf
+console_colors
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
@@ -19,5 +20,7 @@ fi
 
 # Avoid storing individually compressed firmware inside the compressed MiniOS
 # module. Keep dpkg ownership metadata synchronized with the normalized paths.
+information "Normalizing compressed firmware files for SquashFS..."
 normalize_package_compressed_files /lib/firmware zst
 normalize_package_compressed_files /lib/firmware xz
+information "Firmware normalization completed."
