@@ -16,5 +16,16 @@ firmware-b43-installer -d=bionic -dp=ubuntu
 firmware-sof-signed -da=i386 -dp=ubuntu -{pv=minimum&de=xfce}
 
 # Ubuntu firmware packages
-linux-firmware +dp=ubuntu
-firmware-sof-signed +dp=ubuntu -da=i386
+!linux-firmware-minimal +dp=ubuntu || linux-firmware +dp=ubuntu
+linux-firmware-amd-graphics +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-amd-misc +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-broadcom-wireless +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-intel-misc +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-intel-wireless +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-marvell-wireless +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-mediatek +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-misc +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-qualcomm-wireless +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+linux-firmware-realtek +dp=ubuntu -{d=bionic|d=focal|d=jammy}
+firmware-b43-installer +dp=ubuntu -d=bionic
+firmware-sof-signed +dp=ubuntu -da=i386 -{pv=minimum&de=xfce}
