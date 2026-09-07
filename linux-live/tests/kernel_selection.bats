@@ -750,6 +750,33 @@ EOF
     build_modules
 }
 
+@test "skipped module does not invalidate an existing higher module" {
+    WORK_DIR="${BATS_TEST_TMPDIR}/work"
+    LIVEKITNAME=minios
+    BEXT=sb
+    BUILD_SCRIPTS_DIR="${BATS_TEST_TMPDIR}/linux-live"
+    DESKTOP_ENVIRONMENT=xfce
+    PACKAGE_VARIANT=standard
+    CONTAINER=false
+    local environment="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
+    mkdir -p "${WORK_DIR}/image/minios" "${environment}"
+    for module in 01-kernel 02-firmware 03-gui-base 04-desktop 05-apps 06-firefox; do
+        mkdir -p "${environment}/${module}"
+    done
+    for module in 01-kernel 02-firmware 03-gui-base 04-desktop 06-firefox; do
+        : >"${WORK_DIR}/image/minios/${module}-test.sb"
+    done
+    printf '%s\n' 'PACKAGE_VARIANT=standard' >"${environment}/05-apps/skip_conditions.conf"
+    current_process() { :; }
+    copy_build_scripts() { :; }
+    information() { :; }
+    overlay_cleanup() { return 1; }
+
+    build_modules
+
+    [ -f "${WORK_DIR}/image/minios/06-firefox-test.sb" ]
+}
+
 @test "duplicate module artifacts are rejected and all removed" {
     WORK_DIR="${BATS_TEST_TMPDIR}/work"
     LIVEKITNAME=minios
