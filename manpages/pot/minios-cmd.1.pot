@@ -1,0 +1,557 @@
+# SOME DESCRIPTIVE TITLE
+# Copyright (C) YEAR Free Software Foundation, Inc.
+# This file is distributed under the same license as the minios-live package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: minios-live 6.0.0-1\n"
+"POT-Creation-Date: 2026-09-06 18:17+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. type: TH
+#: minios-live.1:3 minios-cmd.1:3 condinapt.1:3 condinapt-minios.7:3
+#, no-wrap
+msgid "September 2026"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:4 minios-cmd.1:4 condinapt.1:4 condinapt-minios.7:4
+#, no-wrap
+msgid "NAME"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:6 minios-cmd.1:6 condinapt.1:7
+#, no-wrap
+msgid "SYNOPSIS"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:9 minios-cmd.1:8 condinapt.1:10 condinapt-minios.7:6
+#, no-wrap
+msgid "DESCRIPTION"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:31 minios-cmd.1:29
+#, no-wrap
+msgid "REQUIREMENTS"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:88 minios-cmd.1:155 condinapt.1:272
+#, no-wrap
+msgid "EXAMPLES"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:142 minios-cmd.1:192 condinapt.1:285 condinapt-minios.7:234
+#, no-wrap
+msgid "SEE ALSO"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:145 minios-live.1:149 minios-cmd.1:195 minios-cmd.1:199
+#: condinapt.1:288 condinapt.1:292 condinapt-minios.7:237
+#: condinapt-minios.7:241
+#, no-wrap
+msgid "AUTHORS"
+msgstr ""
+
+#. type: Plain text
+#: minios-live.1:149 minios-cmd.1:199 condinapt.1:292 condinapt-minios.7:241
+msgid "MiniOS Development Team E<.UR https://minios.dev> E<.UE>"
+msgstr ""
+
+#. type: Plain text
+#: minios-live.1:150 minios-cmd.1:200 condinapt.1:293 condinapt-minios.7:242
+msgid "MiniOS Development Team."
+msgstr ""
+
+#. type: TH
+#: minios-cmd.1:3
+#, no-wrap
+msgid "MINIOS-CMD"
+msgstr ""
+
+#. type: TH
+#: minios-cmd.1:3
+#, no-wrap
+msgid "MiniOS Command-Line Builder"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:6
+msgid "minios-cmd - configure and build a MiniOS image"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:8
+msgid "\\f[B]minios-cmd\\f[R] [\\f[I]OPTIONS\\f[R]]\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:13
+msgid ""
+"\\f[B]minios-cmd\\f[R] is a command-line frontend for \\f[B]minios-live\\f[R]"
+"(1).  It copies a configuration template or an existing configuration into a "
+"work directory, applies frontend values, and runs a complete build.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:25
+msgid ""
+"The default configuration currently lists Debian \\f[B]buster\\f[R], "
+"\\f[B]bullseye\\f[R], \\f[B]bookworm\\f[R], and \\f[B]trixie\\f[R]; Ubuntu "
+"\\f[B]bionic\\f[R], \\f[B]focal\\f[R], \\f[B]jammy\\f[R], \\f[B]noble\\f[R], "
+"and \\f[B]resolute\\f[R]; and Devuan \\f[B]beowulf\\f[R], "
+"\\f[B]chimaera\\f[R], \\f[B]daedalus\\f[R], and \\f[B]excalibur\\f[R].  It "
+"lists \\f[B]amd64\\f[R], \\f[B]i386\\f[R], and \\f[B]i386-pae\\f[R] "
+"architectures; \\f[B]core\\f[R], \\f[B]flux\\f[R], \\f[B]xfce\\f[R], and "
+"\\f[B]lxqt\\f[R] environments; \\f[B]minimum\\f[R], \\f[B]standard\\f[R], "
+"\\f[B]toolbox\\f[R], and \\f[B]ultra\\f[R] variants; and \\f[B]xz\\f[R], "
+"\\f[B]lzo\\f[R], \\f[B]gz\\f[R], \\f[B]lz4\\f[R], and \\f[B]zstd\\f[R] "
+"compression.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:29
+msgid ""
+"Not every combination is necessarily available.  The current configuration, "
+"environment links, and repositories determine what can be built."
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:37
+msgid ""
+"All non-help operations, including \\f[B]--config-only\\f[R], currently "
+"require root.  Source-tree builds require a Debian or Ubuntu host, the "
+"packages in \\f[B]linux-live/prerequisites.list\\f[R], and repository "
+"access.  The default template enables apt-cacher-ng at "
+"\\f[B]127.0.0.1:3142\\f[R]; run it or set \\f[B]USE_APT_CACHER=false\\f[R] "
+"in the generated configuration.\\fR"
+msgstr ""
+
+#. type: SH
+#: minios-cmd.1:37 condinapt.1:21
+#, no-wrap
+msgid "OPTIONS"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:40
+msgid ""
+"Without \\f[B]--config-file\\f[R], the distribution, architecture, desktop "
+"environment, and package variant options are required.\\fR"
+msgstr ""
+
+#. type: SS
+#: minios-cmd.1:40
+#, no-wrap
+msgid "Configuration Options"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:41
+#, no-wrap
+msgid "\\f[B]--config-file\\f[R] \\f[I]FILE\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:50
+msgid ""
+"In normal mode, copy \\f[I]FILE\\f[R] into the work directory as the base "
+"configuration, then write parsed frontend values and non-empty frontend "
+"defaults into that copy.  With \\f[B]--config-only\\f[R], use "
+"\\f[I]FILE\\f[R] as the output path and overwrite it.  To use a "
+"configuration without frontend merging, run \\f[B]minios-live\\f[R] directly "
+"with \\f[B]BUILD_CONF\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:50
+#, no-wrap
+msgid "\\f[B]--config-only\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:57
+msgid ""
+"Generate a configuration file and do not build.  Without \\f[B]--config-"
+"file\\f[R], the four required system options are required.  Supplying an "
+"output path with \\f[B]--config-file\\f[R] bypasses that check, and omitted "
+"target fields retain template values.\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:57
+#, no-wrap
+msgid "\\f[B]-b\\f[R], \\f[B]--build-dir\\f[R] \\f[I]DIR\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:60
+msgid "Use \\f[I]DIR\\f[R] as the build directory.\\fR"
+msgstr ""
+
+#. type: SS
+#: minios-cmd.1:60
+#, no-wrap
+msgid "System Options"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:61
+#, no-wrap
+msgid "\\f[B]-d\\f[R], \\f[B]--distribution\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:65
+msgid ""
+"Set the target distribution.  Required without \\f[B]--config-file\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:65
+#, no-wrap
+msgid "\\f[B]-a\\f[R], \\f[B]--architecture\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:69
+msgid ""
+"Set the target architecture.  Required without \\f[B]--config-file\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:69
+#, no-wrap
+msgid "\\f[B]-de\\f[R], \\f[B]--desktop-environment\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:73
+msgid ""
+"Set the desktop environment.  Required without \\f[B]--config-file\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:73
+#, no-wrap
+msgid "\\f[B]-pv\\f[R], \\f[B]--package-variant\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:77
+msgid ""
+"Set the package variant.  Required without \\f[B]--config-file\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:77
+#, no-wrap
+msgid "\\f[B]-c\\f[R], \\f[B]--compression-type\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:81
+msgid "Set SquashFS compression.  Default: \\f[B]zstd\\f[R].\\fR"
+msgstr ""
+
+#. type: SS
+#: minios-cmd.1:81
+#, no-wrap
+msgid "Kernel Options"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:82
+#, no-wrap
+msgid "\\f[B]-kp\\f[R], \\f[B]--kernel-provider\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:85
+msgid "Select \\f[B]distribution\\f[R] or \\f[B]minios\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:85
+#, no-wrap
+msgid "\\f[B]-kf\\f[R], \\f[B]--kernel-flavour\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:89
+msgid ""
+"Set the kernel flavour, such as \\f[B]none\\f[R], \\f[B]rt\\f[R], or "
+"\\f[B]cloud\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:89
+#, no-wrap
+msgid "\\f[B]-mk\\f[R], \\f[B]--minios-kernel\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:92
+msgid "Select the MiniOS kernel provider."
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:92
+#, no-wrap
+msgid "\\f[B]-mks\\f[R], \\f[B]--minios-kernel-series\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:96
+msgid ""
+"Select \\f[B]auto\\f[R], \\f[B]6.1\\f[R], or \\f[B]6.12\\f[R] and use the "
+"MiniOS provider.\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:96
+#, no-wrap
+msgid "\\f[B]-kpm\\f[R], \\f[B]--kernel-payload-mode\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:99
+msgid "Select \\f[B]runtime\\f[R] or \\f[B]full\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:99
+#, no-wrap
+msgid "\\f[B]-dkms\\f[R], \\f[B]--kernel-build-dkms\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:102
+msgid "Build additional DKMS drivers."
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:102
+#, no-wrap
+msgid "\\f[B]-aufs\\f[R], \\f[B]--kernel-aufs\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:105
+msgid "Deprecated alias for \\f[B]--minios-kernel\\f[R].\\fR"
+msgstr ""
+
+#. type: SS
+#: minios-cmd.1:105
+#, no-wrap
+msgid "Locale And Boot Options"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:106
+#, no-wrap
+msgid "\\f[B]-l\\f[R], \\f[B]--locale\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:110
+msgid "Set the system locale.  Default: \\f[B]en_US\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:110
+#, no-wrap
+msgid "\\f[B]-ml\\f[R], \\f[B]--multilingual\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:113
+msgid "Generate all locales declared by \\f[B]minioslib\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:113
+#, no-wrap
+msgid "\\f[B]-kl\\f[R], \\f[B]--keep-locales\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:116
+msgid "Retain all available locales instead of pruning them."
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:116
+#, no-wrap
+msgid "\\f[B]-tz\\f[R], \\f[B]--timezone\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:120
+msgid "Set the timezone.  Default: \\f[B]Etc/UTC\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:120
+#, no-wrap
+msgid "\\f[B]-ib\\f[R], \\f[B]--initramfs-builder\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:124
+msgid ""
+"Select \\f[B]livekit\\f[R] or \\f[B]dracut\\f[R].  Default: "
+"\\f[B]dracut\\f[R].\\fR"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:124
+#, no-wrap
+msgid "\\f[B]-mln\\f[R], \\f[B]--menu-language\\f[R] \\f[I]NAME\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:128
+msgid ""
+"Select \\f[B]multilang\\f[R] or a supported menu locale.  Default: "
+"\\f[B]multilang\\f[R].\\fR"
+msgstr ""
+
+#. type: SS
+#: minios-cmd.1:128
+#, no-wrap
+msgid "Ubuntu Pro Option"
+msgstr ""
+
+#. type: TP
+#: minios-cmd.1:129
+#, no-wrap
+msgid "\\f[B]--ubuntu-pro-token\\f[R] \\f[I]TOKEN\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:138
+msgid ""
+"Attach an Ubuntu Pro subscription during a Bionic, Focal, Jammy, or Noble "
+"build.  Other targets skip attachment with a warning.  The builder detaches "
+"the subscription and removes the token from the final image.  Command-line "
+"tokens may be visible in shell history or process listings."
+msgstr ""
+
+#. type: SH
+#: minios-cmd.1:138
+#, no-wrap
+msgid "DEFAULTS"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:147
+msgid ""
+"The frontend defaults are \\f[B]COMP_TYPE=zstd\\f[R], "
+"\\f[B]KERNEL_PROVIDER=distribution\\f[R], \\f[B]KERNEL_FLAVOUR=none\\f[R], "
+"\\f[B]MINIOS_KERNEL_SERIES=auto\\f[R], "
+"\\f[B]KERNEL_PAYLOAD_MODE=runtime\\f[R], "
+"\\f[B]KERNEL_BUILD_DKMS=false\\f[R], \\f[B]LOCALE=en_US\\f[R], "
+"\\f[B]MULTILINGUAL=false\\f[R], \\f[B]KEEP_LOCALES=false\\f[R], "
+"\\f[B]LIVE_TIMEZONE=Etc/UTC\\f[R], \\f[B]INITRAMFS_BUILDER=dracut\\f[R], and "
+"\\f[B]MENU_LANG=multilang\\f[R].\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:155
+msgid ""
+"Trixie-based \\f[B]i386\\f[R] and \\f[B]i386-pae\\f[R] values select the "
+"MiniOS provider when the distribution and architecture are supplied to the "
+"frontend through options or the environment.  Values present only inside "
+"\\f[B]--config-file\\f[R] are not loaded before defaults are calculated.  "
+"Frontend defaults may differ from values in the full \\f[B]build.conf\\f[R] "
+"template.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:157
+msgid "Build a standard Bookworm Xfce image with frontend defaults:"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:160
+#, no-wrap
+msgid "sudo minios-cmd -d bookworm -a amd64 -de xfce -pv standard\n"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:163
+msgid "Build with a MiniOS kernel, DKMS drivers, and retained locales:"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:166
+#, no-wrap
+msgid "sudo minios-cmd -d bookworm -a amd64 -de xfce -pv toolbox -mk -dkms -kl\n"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:169
+msgid "Build a multilingual image:"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:172
+#, no-wrap
+msgid "sudo minios-cmd -d trixie -a amd64 -de xfce -pv standard -ml\n"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:175
+msgid "Build the Flux minimum variant with livekit:"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:178
+#, no-wrap
+msgid "sudo minios-cmd -d bookworm -a amd64 -de flux -pv minimum -ib livekit\n"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:181
+msgid "Generate or overwrite a configuration file:"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:185
+#, no-wrap
+msgid ""
+"sudo minios-cmd --config-only --config-file ./myconfig.conf \\[rs]\n"
+"  -d bookworm -a amd64 -de xfce -pv standard\n"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:188
+msgid "Use the file without frontend merging:"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:191
+#, no-wrap
+msgid "sudo BUILD_CONF=/absolute/path/myconfig.conf minios-live -\n"
+msgstr ""
+
+#. type: Plain text
+#: minios-cmd.1:195
+msgid ""
+"\\f[B]minios-live\\f[R](1), \\f[B]condinapt\\f[R](1), \\f[B]condinapt-"
+"minios\\f[R](7)\\fR"
+msgstr ""

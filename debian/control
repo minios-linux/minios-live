@@ -2,16 +2,44 @@ Source: minios-live
 Section: utils
 Priority: optional
 Maintainer: crims0n <crims0n@minios.dev>
-Build-Depends: debhelper (>= 13), gettext, pandoc, po4a
-Standards-Version: 4.1.3
+Build-Depends: debhelper-compat (= 13),
+               bats,
+               gettext
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
 Homepage: https://minios.dev
 
 Package: minios-live
 Architecture: amd64
-Depends: ${misc:Depends}, debootstrap, xorriso, binutils, squashfs-tools, grub-common, mtools, xz-utils, liblz4-tool, zstd, curl, rsync, gpg, gettext, cpio
-Suggests: apt-cacher-ng
-Description: Scripts to build a bootable MiniOS ISO image.
- MiniOS Live provides scripts to build a bootable MiniOS ISO image.
- It supports various configurations such as Debian 10–13, Debian Unstable,
- Ubuntu 22.04, and Ubuntu 24.04 with desktop environments like Xfce4,
- Fluxbox, and LXQT.
+Depends: ${misc:Depends},
+         sudo,
+         apt,
+         debootstrap,
+         xorriso,
+         binutils,
+         squashfs-tools,
+         grub-common,
+         mtools,
+         e2fsprogs,
+         mount,
+         xz-utils,
+         liblz4-tool | lz4,
+         zstd,
+         curl,
+         ca-certificates,
+         rsync,
+         gpg,
+         gpgv,
+         gettext,
+         cpio,
+         openssl,
+         sbsigntool
+Suggests: apt-cacher-ng, reprepro, python3, net-tools
+Description: build bootable MiniOS images
+ MiniOS Live is the MiniOS 6 image build system. It creates modular bootable
+ images for the supported Debian, Ubuntu and Devuan suites, with systemd or
+ SysVinit and the maintained Xfce, Flux, LXQt and core build profiles.
+ .
+ The builder provides CondinAPT package selection, distribution or MiniOS
+ kernel acquisition, reproducible EFI and Secure Boot handling, modular
+ SquashFS composition, persistence support, localization and ISO generation.

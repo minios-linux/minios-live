@@ -1,0 +1,6 @@
+# Prebuilt Windows/EFI binaries are required boot payload for generated images.
+minios-live source: source-contains-prebuilt-windows-binary
+
+# Rootcopy trees intentionally contain absolute links whose targets exist only
+# in the final live filesystem, not in the package source checkout.
+minios-live source: absolute-symbolic-link-target-in-source

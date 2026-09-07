@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: minios-live 5.1.0\n"
-"POT-Creation-Date: 2026-09-01 00:21+0300\n"
-"PO-Revision-Date: 2026-08-31 22:24+0000\n"
+"POT-Creation-Date: 2026-09-06 18:17+0300\n"
+"PO-Revision-Date: 2026-09-06 15:29+0000\n"
 "Last-Translator: crims0n <crims0n@minios.dev>\n"
 "Language-Team: none\n"
 "Language: id\n"
@@ -22,10 +22,10 @@ msgid "MINIOS-LIVE"
 msgstr "MINIOS-LIVE"
 
 #. type: TH
-#: minios-live.1:3 condinapt.1:3
+#: minios-live.1:3 minios-cmd.1:3 condinapt.1:3 condinapt-minios.7:3
 #, no-wrap
-msgid "October 2025"
-msgstr "Oktober 2025"
+msgid "September 2026"
+msgstr "September 2026"
 
 #. type: TH
 #: minios-live.1:3
@@ -40,491 +40,416 @@ msgid "NAME"
 msgstr "NAMA"
 
 #. type: Plain text
-#: minios-live.1:7
-msgid ""
-"minios-live - step-by-step build tool for creating bootable MiniOS ISO images"
-msgstr ""
-"minios-live - alat pembuatan bertahap untuk membuat citra ISO MiniOS yang "
-"dapat di-boot"
+#: minios-live.1:6
+msgid "minios-live - build MiniOS ISO images in ordered stages"
+msgstr "minios-live - membangun citra ISO MiniOS dalam tahapan berurutan"
 
 #. type: SH
-#: minios-live.1:7 minios-cmd.1:7 condinapt.1:7
+#: minios-live.1:6 minios-cmd.1:6 condinapt.1:7
 #, no-wrap
 msgid "SYNOPSIS"
 msgstr "SINOPSIS"
 
 #. type: Plain text
-#: minios-live.1:10
+#: minios-live.1:9
 msgid ""
-"\\f[B]minios-live\\f[R] [\\f[I]start_cmd\\f[R]] \\f[B]-\\f[R] "
-"[\\f[I]end_cmd\\f[R]]\\fR"
+"\\f[B]minios-live\\f[R] [\\f[B]-h\\f[R] | \\f[B]--help\\f[R]] [\\f[I]start-"
+"command\\f[R]] [\\f[B]-\\f[R]] [\\f[I]end-command\\f[R]]\\fR"
 msgstr ""
-"\\f[B]minios-live\\f[R] [\\f[I]start_cmd\\f[R]] \\f[B]-\\f[R] "
-"[\\f[I]end_cmd\\f[R]]\\fR"
+"\\f[B]minios-live\\f[R] [\\f[B]-h\\f[R] | \\f[B]--help\\f[R]] [\\f[I]start-"
+"command\\f[R]] [\\f[B]-\\f[R]] [\\f[I]end-command\\f[R]]\\fR"
 
 #. type: SH
-#: minios-live.1:10 minios-cmd.1:9 condinapt.1:9 condinapt-minios.7:6
+#: minios-live.1:9 minios-cmd.1:8 condinapt.1:10 condinapt-minios.7:6
 #, no-wrap
 msgid "DESCRIPTION"
 msgstr "DESKRIPSI"
 
 #. type: Plain text
-#: minios-live.1:17
+#: minios-live.1:14
 msgid ""
-"\\f[B]minios-live\\f[R] is a step-by-step build tool that builds bootable "
-"MiniOS ISO images.  It uses pre-defined configurations to create a "
-"customized MiniOS live system with a controlled and modular build process, "
-"including the ability to add software layered on top of the base system "
-"using SquashFS modules.\\fR"
+"\\f[B]minios-live\\f[R] builds a MiniOS live system as an ordered sequence "
+"of stages.  It creates a base system, layered SquashFS modules, boot files, "
+"configuration data, and the final ISO.\\fR"
 msgstr ""
-"\\f[B]minios-live\\f[R] adalah alat pembuatan bertahap yang membangun citra "
-"ISO MiniOS yang dapat di-boot. Utilitas ini menggunakan konfigurasi yang "
-"telah ditentukan sebelumnya untuk membuat sistem live MiniOS yang "
-"dikustomisasi dengan proses build yang terkontrol dan modular, termasuk "
-"kemampuan menambahkan perangkat lunak yang dilapiskan di atas sistem dasar "
-"menggunakan modul SquashFS.\\fR"
-
-#. type: SS
-#: minios-live.1:17 minios-cmd.1:15 minios-cmd.1:63
-#, no-wrap
-msgid "Build Options"
-msgstr "Opsi Pembuatan"
-
-#. type: Plain text
-#: minios-live.1:20
-msgid ""
-"Using \\f[B]minios-live\\f[R], you can build various configurations "
-"including:\\fR"
-msgstr ""
-"Dengan menggunakan \\f[B]minios-live\\f[R], Anda dapat membangun berbagai "
-"konfigurasi termasuk:\\fR"
-
-#. type: IP
-#: minios-live.1:20 minios-live.1:23 minios-live.1:25 minios-live.1:28
-#: minios-live.1:31 minios-live.1:34 minios-live.1:37 minios-live.1:39
-#: minios-live.1:41 minios-live.1:44 minios-live.1:99 minios-live.1:101
-#: minios-live.1:104 minios-live.1:106 minios-live.1:108 minios-cmd.1:18
-#: minios-cmd.1:22 minios-cmd.1:25 minios-cmd.1:28 minios-cmd.1:31
-#: minios-cmd.1:34 minios-cmd.1:37 minios-cmd.1:40 minios-cmd.1:42
-#: minios-cmd.1:45 minios-cmd.1:48 minios-cmd.1:51 condinapt.1:32
-#: condinapt.1:35 condinapt.1:38 condinapt.1:41 condinapt.1:44 condinapt.1:47
-#: condinapt.1:141 condinapt.1:145 condinapt.1:161 condinapt.1:164
-#, no-wrap
-msgid "\\f[R]\\[bu]\\fR"
-msgstr "\\f[R]\\[bu]\\fR"
-
-#. type: Plain text
-#: minios-live.1:23
-msgid ""
-"\\f[B]Debian distributions:\\f[R] Buster (10), Bullseye (11), Bookworm (12), "
-"Trixie (13)\\fR"
-msgstr ""
-"\\f[B]Distribusi Debian:\\f[R] Buster (10), Bullseye (11), Bookworm (12), "
-"Trixie (13)\\fR"
-
-#. type: Plain text
-#: minios-live.1:25
-msgid "\\f[B]Ubuntu distributions:\\f[R] Jammy (22.04), Noble (24.04)\\fR"
-msgstr "\\f[B]Distribusi Ubuntu:\\f[R] Jammy (22.04), Noble (24.04)\\fR"
+"\\f[B]minios-live\\f[R] membangun sistem live MiniOS sebagai rangkaian "
+"tahapan yang terurut. Program ini membuat sistem dasar, modul SquashFS "
+"bertingkat, berkas boot, data konfigurasi, dan ISO akhir.\\fR"
 
 #. type: Plain text
 #: minios-live.1:27
-msgid "\\f[B]Desktop environments:\\fR"
-msgstr "\\f[B]Lingkungan desktop:\\fR"
+msgid ""
+"The default \\f[B]build.conf\\f[R] currently lists Debian "
+"\\f[B]buster\\f[R], \\f[B]bullseye\\f[R], \\f[B]bookworm\\f[R], and "
+"\\f[B]trixie\\f[R]; Ubuntu \\f[B]bionic\\f[R], \\f[B]focal\\f[R], "
+"\\f[B]jammy\\f[R], \\f[B]noble\\f[R], and \\f[B]resolute\\f[R]; and Devuan "
+"\\f[B]beowulf\\f[R], \\f[B]chimaera\\f[R], \\f[B]daedalus\\f[R], and "
+"\\f[B]excalibur\\f[R].  It lists \\f[B]amd64\\f[R], \\f[B]i386\\f[R], and "
+"\\f[B]i386-pae\\f[R] architectures; \\f[B]core\\f[R], \\f[B]flux\\f[R], "
+"\\f[B]xfce\\f[R], and \\f[B]lxqt\\f[R] environments; \\f[B]minimum\\f[R], "
+"\\f[B]standard\\f[R], \\f[B]toolbox\\f[R], and \\f[B]ultra\\f[R] variants; "
+"and \\f[B]xz\\f[R], \\f[B]lzo\\f[R], \\f[B]gz\\f[R], \\f[B]lz4\\f[R], and "
+"\\f[B]zstd\\f[R] compression.\\fR"
+msgstr ""
+"\\f[B]build.conf\\f[R] bawaan saat ini mencantumkan Debian "
+"\\f[B]buster\\f[R], \\f[B]bullseye\\f[R], \\f[B]bookworm\\f[R], dan "
+"\\f[B]trixie\\f[R]; Ubuntu \\f[B]bionic\\f[R], \\f[B]focal\\f[R], "
+"\\f[B]jammy\\f[R], \\f[B]noble\\f[R], dan \\f[B]resolute\\f[R]; serta Devuan "
+"\\f[B]beowulf\\f[R], \\f[B]chimaera\\f[R], \\f[B]daedalus\\f[R], dan "
+"\\f[B]excalibur\\f[R]. File ini juga mencantumkan arsitektur "
+"\\f[B]amd64\\f[R], \\f[B]i386\\f[R], dan \\f[B]i386-pae\\f[R]; lingkungan "
+"\\f[B]core\\f[R], \\f[B]flux\\f[R], \\f[B]xfce\\f[R], dan \\f[B]lxqt\\f[R]; "
+"varian \\f[B]minimum\\f[R], \\f[B]standard\\f[R], \\f[B]toolbox\\f[R], dan "
+"\\f[B]ultra\\f[R]; serta kompresi \\f[B]xz\\f[R], \\f[B]lzo\\f[R], "
+"\\f[B]gz\\f[R], \\f[B]lz4\\f[R], dan \\f[B]zstd\\f[R].\\fR"
 
 #. type: Plain text
 #: minios-live.1:31
 msgid ""
-"\\f[B]Debian:\\f[R] Xfce (standard), Flux (minimum), LXQt (Bookworm/Trixie "
-"only)\\fR"
+"Not every combination is necessarily available.  The installed "
+"configuration, selected environment, and configured repositories determine "
+"what can be built."
 msgstr ""
-"\\f[B]Debian:\\f[R] Xfce (standar), Flux (minimum), LXQt (hanya Bookworm/"
-"Trixie)\\fR"
+"Tidak semua kombinasi pasti tersedia. Konfigurasi yang terpasang, lingkungan "
+"yang dipilih, dan repositori yang dikonfigurasi menentukan apa yang dapat "
+"dibangun."
 
-#. type: Plain text
-#: minios-live.1:33
-msgid "\\f[B]Ubuntu:\\f[R] Xfce only\\fR"
-msgstr "\\f[B]Ubuntu:\\f[R] hanya Xfce\\fR"
-
-#. type: Plain text
-#: minios-live.1:36
-msgid "\\f[B]Package variants:\\fR"
-msgstr "\\f[B]Varian paket:\\fR"
-
-#. type: Plain text
-#: minios-live.1:39
-msgid "\\f[B]All Debian:\\f[R] Standard (xfce), Minimum (flux)\\fR"
-msgstr "\\f[B]Semua Debian:\\f[R] Standar (xfce), Minimum (flux)\\fR"
-
-#. type: Plain text
-#: minios-live.1:41
-msgid "\\f[B]Bookworm/Trixie only:\\f[R] Toolbox, Ultra\\fR"
-msgstr "\\f[B]Hanya Bookworm/Trixie:\\f[R] Toolbox, Ultra\\fR"
-
-#. type: Plain text
-#: minios-live.1:43
-msgid "\\f[B]Ubuntu:\\f[R] Standard only\\fR"
-msgstr "\\f[B]Ubuntu:\\f[R] hanya Standar\\fR"
-
-#. type: Plain text
-#: minios-live.1:46
-msgid "\\f[B]Architectures:\\f[R] amd64, i386 (for older distributions)\\fR"
-msgstr "\\f[B]Arsitektur:\\f[R] amd64, i386 (untuk distribusi lama)\\fR"
-
-#. type: SS
-#: minios-live.1:46
+#. type: SH
+#: minios-live.1:31 minios-cmd.1:29
 #, no-wrap
-msgid "Prerequisites"
-msgstr "Prasyarat"
+msgid "REQUIREMENTS"
+msgstr "PERSYARATAN"
 
-#. type: IP
-#: minios-live.1:47 minios-live.1:50 minios-live.1:97 condinapt.1:16
-#: condinapt.1:18 condinapt.1:20 condinapt.1:22 condinapt.1:24 condinapt.1:26
-#: condinapt.1:29 condinapt.1:158
-#, no-wrap
-msgid "\\[bu]"
-msgstr "\\[bu]"
+#. type: Plain text
+#: minios-live.1:34
+msgid "Build stages require root.  Help does not."
+msgstr "Tahapan build membutuhkan akses root. Bantuan tidak membutuhkan."
+
+#. type: Plain text
+#: minios-live.1:42
+msgid ""
+"A source-tree build requires a Debian or Ubuntu host and the packages listed "
+"in \\f[B]linux-live/prerequisites.list\\f[R].  Repository access must be "
+"available directly or through the configured cache.  The default "
+"configuration enables apt-cacher-ng at \\f[B]127.0.0.1:3142\\f[R]; run that "
+"service or set \\f[B]USE_APT_CACHER=false\\f[R].\\fR"
+msgstr ""
+"Build dari source-tree memerlukan host Debian atau Ubuntu dan paket-paket "
+"yang tercantum pada \\f[B]linux-live/prerequisites.list\\f[R]. Akses ke "
+"repositori harus tersedia secara langsung atau melalui cache yang "
+"dikonfigurasi. Konfigurasi bawaan mengaktifkan apt-cacher-ng di "
+"\\f[B]127.0.0.1:3142\\f[R]; jalankan layanan tersebut atau setel "
+"\\f[B]USE_APT_CACHER=false\\f[R].\\fR"
+
+#. type: Plain text
+#: minios-live.1:45
+msgid ""
+"Do not run internal scripts from the \\f[B]linux-live\\f[R] directory "
+"directly.\\fR"
+msgstr ""
+"Jangan jalankan skrip internal langsung dari direktori \\f[B]linux-"
+"live\\f[R].\\fR"
 
 #. type: Plain text
 #: minios-live.1:50
 msgid ""
-"It is advisable to use the latest version of Debian or Ubuntu for building."
+"The current bootstrap uses \\f[B]debootstrap \\[en]no-check-gpg\\f[R] and "
+"retrieves some repository keys over unauthenticated HTTP.  Independently "
+"verify build inputs before treating a locally built image as a trusted "
+"release artifact.\\fR"
 msgstr ""
-"Disarankan menggunakan versi terbaru Debian atau Ubuntu untuk proses "
-"pembuatan."
-
-#. type: Plain text
-#: minios-live.1:54
-msgid ""
-"\\f[B]WARNING\\f[R]: Never run scripts from the \\f[B]linux-live\\f[R] "
-"folder directly.  It will break your system.\\fR"
-msgstr ""
-"\\f[B]PERINGATAN\\f[R]: Jangan pernah menjalankan skrip dari folder "
-"\\f[B]linux-live\\f[R] secara langsung. Hal ini dapat merusak sistem Anda."
-"\\fR"
+"Bootstrap saat ini menggunakan \\f[B]debootstrap \\[en]no-check-gpg\\f[R] "
+"dan mengambil beberapa kunci repositori melalui HTTP tanpa autentikasi. "
+"Verifikasi input build secara mandiri sebelum memperlakukan citra hasil "
+"build lokal sebagai artefak rilis yang tepercaya.\\fR"
 
 #. type: SH
-#: minios-live.1:54
+#: minios-live.1:50
 #, no-wrap
 msgid "COMMANDS"
 msgstr "PERINTAH"
 
 #. type: Plain text
-#: minios-live.1:57
+#: minios-live.1:53
 msgid ""
-"\\f[B]minios-live\\f[R] breaks down the build process into discrete steps:"
-"\\fR"
+"Commands run in the following order.  Hyphens and underscores are "
+"interchangeable in command names."
 msgstr ""
-"\\f[B]minios-live\\f[R] membagi proses pembuatan menjadi beberapa langkah "
-"terpisah:\\fR"
+"Perintah dijalankan dalam urutan berikut. Tanda hubung dan garis bawah dapat "
+"dipertukarkan dalam nama perintah."
 
 #. type: TP
-#: minios-live.1:57
+#: minios-live.1:53
 #, no-wrap
 msgid "\\f[B]build-bootstrap\\fR"
 msgstr "\\f[B]build-bootstrap\\fR"
 
 #. type: Plain text
-#: minios-live.1:60
-msgid "Installs a minimal base system using \\f[B]debootstrap\\fR"
-msgstr "Menginstal sistem dasar minimal menggunakan \\f[B]debootstrap\\fR"
+#: minios-live.1:57
+msgid ""
+"Recreate the selected target\\[cq]s \\f[B]core\\f[R] and \\f[B]image\\f[R] "
+"trees, then create or restore the minimal root filesystem.\\fR"
+msgstr ""
+"Buat ulang pohon \\f[B]core\\f[R] dan \\f[B]image\\f[R] target yang dipilih, "
+"lalu buat atau pulihkan filesystem root minimal.\\fR"
 
 #. type: TP
-#: minios-live.1:60
+#: minios-live.1:57
 #, no-wrap
 msgid "\\f[B]build-chroot\\fR"
 msgstr "\\f[B]build-chroot\\fR"
 
 #. type: Plain text
-#: minios-live.1:64
-msgid ""
-"Installs the remaining core components and chosen desktop environment within "
-"the chroot environment"
-msgstr ""
-"Menginstal komponen inti yang tersisa dan lingkungan desktop pilihan di "
-"dalam lingkungan chroot"
+#: minios-live.1:60
+msgid "Install and configure core system components in the chroot."
+msgstr "Instal dan konfigurasikan komponen inti sistem di dalam chroot."
 
 #. type: TP
-#: minios-live.1:64
+#: minios-live.1:60
 #, no-wrap
 msgid "\\f[B]build-live\\fR"
 msgstr "\\f[B]build-live\\fR"
 
 #. type: Plain text
-#: minios-live.1:67
-msgid "Creates the main SquashFS image containing the core MiniOS system"
-msgstr "Membuat citra SquashFS utama yang berisi sistem inti MiniOS"
+#: minios-live.1:63
+msgid "Create the core SquashFS image."
+msgstr "Buat citra inti SquashFS."
 
 #. type: TP
-#: minios-live.1:67
+#: minios-live.1:63
 #, no-wrap
 msgid "\\f[B]build-modules\\fR"
 msgstr "\\f[B]build-modules\\fR"
 
 #. type: Plain text
-#: minios-live.1:70
-msgid "Builds additional SquashFS modules containing extra software packages"
-msgstr ""
-"Membangun modul SquashFS tambahan yang berisi paket perangkat lunak ekstra"
+#: minios-live.1:66
+msgid "Build additional SquashFS modules."
+msgstr "Bangun modul tambahan SquashFS."
 
 #. type: TP
-#: minios-live.1:70
+#: minios-live.1:66
 #, no-wrap
 msgid "\\f[B]build-boot\\fR"
 msgstr "\\f[B]build-boot\\fR"
 
 #. type: Plain text
-#: minios-live.1:74
-msgid ""
-"Copies the boot files, generates the initrd and the necessary boot "
-"configuration files"
-msgstr ""
-"Menyalin berkas boot, menghasilkan initrd dan berkas konfigurasi boot yang "
-"diperlukan"
+#: minios-live.1:69
+msgid "Generate boot files, initrd, and boot-loader configuration."
+msgstr "Hasilkan berkas boot, initrd, dan konfigurasi boot-loader."
 
 #. type: TP
-#: minios-live.1:74
+#: minios-live.1:69
 #, no-wrap
 msgid "\\f[B]build-config\\fR"
 msgstr "\\f[B]build-config\\fR"
 
 #. type: Plain text
-#: minios-live.1:77
-msgid "Generates configuration files for the build"
-msgstr "Menghasilkan berkas konfigurasi untuk proses build"
+#: minios-live.1:72
+msgid "Generate live-system configuration data."
+msgstr "Hasilkan data konfigurasi live-system."
 
 #. type: TP
-#: minios-live.1:77
+#: minios-live.1:72
 #, no-wrap
 msgid "\\f[B]build-iso\\fR"
 msgstr "\\f[B]build-iso\\fR"
 
 #. type: Plain text
-#: minios-live.1:81
-msgid ""
-"Creates the final ISO image, incorporating both the core SquashFS image and "
-"any additional modules"
-msgstr ""
-"Membuat citra ISO final, yang menggabungkan citra SquashFS inti beserta "
-"modul tambahan apa pun"
+#: minios-live.1:75
+msgid "Create the final ISO from prepared build data."
+msgstr "Buat ISO akhir dari data build yang telah disiapkan."
 
 #. type: TP
-#: minios-live.1:81
+#: minios-live.1:75
 #, no-wrap
 msgid "\\f[B]remove-sources\\fR"
 msgstr "\\f[B]remove-sources\\fR"
 
 #. type: Plain text
-#: minios-live.1:84
-msgid "Removes source files after the build"
-msgstr "Menghapus berkas sumber setelah proses pembuatan selesai"
+#: minios-live.1:80
+msgid ""
+"If \\f[B]REMOVE_SOURCES=true\\f[R], delete and recreate the complete "
+"selected work directory.  Otherwise this stage does nothing.\\fR"
+msgstr ""
+"Jika \\f[B]REMOVE_SOURCES=true\\f[R], hapus dan buat ulang seluruh direktori "
+"kerja yang dipilih. Jika tidak, tahap ini tidak melakukan apa-apa.\\fR"
 
 #. type: SH
-#: minios-live.1:84
+#: minios-live.1:80
 #, no-wrap
-msgid "USAGE"
-msgstr "PENGGUNAAN"
-
-#. type: TP
-#: minios-live.1:85
-#, no-wrap
-msgid "\\f[B]start_cmd\\fR"
-msgstr "\\f[B]start_cmd\\fR"
+msgid "RANGE SELECTION"
+msgstr "PEMILIHAN RENTANG"
 
 #. type: Plain text
-#: minios-live.1:89
+#: minios-live.1:82
+msgid "No arguments, \\f[B]-h\\f[R], or \\f[B]--help\\f[R] display help.\\fR"
+msgstr ""
+"Tanpa argumen, \\f[B]-h\\f[R], atau \\f[B]--help\\f[R] akan menampilkan "
+"bantuan.\\fR"
+
+#. type: Plain text
+#: minios-live.1:88
 msgid ""
-"(Optional) The build stage to start from.  If omitted, starts from the first "
-"command"
+"A single command runs only that stage.  \\f[B]start-command - end-"
+"command\\f[R] runs an inclusive range.  \\f[B]- end-command\\f[R] starts at "
+"the first stage.  \\f[B]start-command -\\f[R] continues through the final "
+"stage.  A lone \\f[B]-\\f[R] runs every stage.\\fR"
 msgstr ""
-"(Opsional) Tahap pembuatan yang akan dijalankan mulai dari sini. Jika tidak "
-"disebutkan, proses akan dimulai dari perintah pertama"
-
-#. type: TP
-#: minios-live.1:89
-#, no-wrap
-msgid "\\f[B]-\\fR"
-msgstr "\\f[B]-\\fR"
-
-#. type: Plain text
-#: minios-live.1:92
-msgid "(Optional) A range operator for running command sequences"
-msgstr "(Opsional) Operator rentang untuk menjalankan rangkaian perintah"
-
-#. type: TP
-#: minios-live.1:92
-#, no-wrap
-msgid "\\f[B]end_cmd\\fR"
-msgstr "\\f[B]end_cmd\\fR"
-
-#. type: Plain text
-#: minios-live.1:96
-msgid ""
-"(Optional) The build stage to end with.  If omitted, ends with the last "
-"command"
-msgstr ""
-"(Opsional) Tahap pembuatan yang akan diakhiri di sini. Jika tidak "
-"disebutkan, proses akan berakhir pada perintah terakhir"
-
-#. type: SS
-#: minios-live.1:96
-#, no-wrap
-msgid "How it works"
-msgstr "Cara kerja"
-
-#. type: Plain text
-#: minios-live.1:99
-msgid "\\f[B]No arguments (./minios-live)\\f[R]: Displays help information\\fR"
-msgstr ""
-"\\f[B]Tanpa argumen (./minios-live)\\f[R]: Menampilkan informasi bantuan\\fR"
-
-#. type: Plain text
-#: minios-live.1:101
-msgid "\\f[B]Single command\\f[R]: Runs only that specific command\\fR"
-msgstr ""
-"\\f[B]Satu perintah\\f[R]: Menjalankan hanya perintah tersebut saja\\fR"
-
-#. type: Plain text
-#: minios-live.1:104
-msgid ""
-"\\f[B]start_cmd - end_cmd\\f[R]: Runs all commands from start_cmd to "
-"end_cmd\\fR"
-msgstr ""
-"\\f[B]start_cmd - end_cmd\\f[R]: Menjalankan semua perintah dari start_cmd "
-"hingga end_cmd\\fR"
-
-#. type: Plain text
-#: minios-live.1:106
-msgid "\\f[B]- end_cmd\\f[R]: Runs from the beginning up to end_cmd\\fR"
-msgstr "\\f[B]- end_cmd\\f[R]: Menjalankan dari awal hingga end_cmd\\fR"
-
-#. type: Plain text
-#: minios-live.1:108
-msgid "\\f[B]start_cmd -\\f[R]: Runs from start_cmd to completion\\fR"
-msgstr "\\f[B]start_cmd -\\f[R]: Menjalankan dari start_cmd hingga selesai\\fR"
-
-#. type: Plain text
-#: minios-live.1:110
-msgid ""
-"\\f[B]- only\\f[R]: Runs the entire build process from start to finish\\fR"
-msgstr ""
-"\\f[B]- only\\f[R]: Menjalankan seluruh proses pembuatan dari awal hingga "
-"akhir\\fR"
+"Satu perintah hanya menjalankan tahap tersebut. \\f[B]start-command - end-"
+"command\\f[R] menjalankan rentang inklusif. \\f[B]- end-command\\f[R] mulai "
+"dari tahap pertama. \\f[B]start-command -\\f[R] melanjutkan hingga tahap "
+"terakhir. \\f[B]-\\f[R] saja menjalankan semua tahap.\\fR"
 
 #. type: SH
-#: minios-live.1:110 minios-cmd.1:153 condinapt.1:293 condinapt-minios.7:121
+#: minios-live.1:88 minios-cmd.1:155 condinapt.1:272
 #, no-wrap
 msgid "EXAMPLES"
 msgstr "CONTOH"
 
 #. type: Plain text
-#: minios-live.1:112
-msgid "Run the build from start to finish:"
-msgstr "Jalankan proses pembuatan dari awal hingga akhir:"
+#: minios-live.1:90
+msgid "Run the complete build:"
+msgstr "Jalankan build lengkap:"
 
 #. type: Plain text
-#: minios-live.1:115
+#: minios-live.1:93
 #, no-wrap
-msgid "minios-live -\n"
-msgstr "minios-live -\n"
+msgid "sudo minios-live -\n"
+msgstr "sudo minios-live -\n"
 
 #. type: Plain text
-#: minios-live.1:119
-msgid ""
-"Start the build by building the base environment and finish by installing "
-"the entire system in chroot:"
-msgstr ""
-"Mulai proses pembuatan dengan membangun lingkungan dasar dan akhiri dengan "
-"menginstal seluruh sistem di chroot:"
+#: minios-live.1:96
+msgid "Run from the first stage through chroot installation:"
+msgstr "Jalankan dari tahap pertama hingga instalasi chroot:"
 
 #. type: Plain text
-#: minios-live.1:122
+#: minios-live.1:99
 #, no-wrap
-msgid "minios-live build-bootstrap - build-chroot\n"
-msgstr "minios-live build-bootstrap - build-chroot\n"
+msgid "sudo minios-live - build-chroot\n"
+msgstr "sudo minios-live - build-chroot\n"
 
 #. type: Plain text
-#: minios-live.1:126
-msgid ""
-"Start the build from the beginning and finish by installing the entire "
-"system in chroot:"
-msgstr ""
-"Mulai proses pembuatan dari awal dan akhiri dengan menginstal seluruh sistem "
-"di chroot:"
+#: minios-live.1:102
+msgid "Rebuild boot and configuration data:"
+msgstr "Bangun ulang data boot dan konfigurasi:"
 
 #. type: Plain text
-#: minios-live.1:129
+#: minios-live.1:105
 #, no-wrap
-msgid "minios-live - build-chroot\n"
-msgstr "minios-live - build-chroot\n"
+msgid "sudo minios-live build-boot - build-config\n"
+msgstr "sudo minios-live build-boot - build-config\n"
 
 #. type: Plain text
-#: minios-live.1:132
-msgid "Start the build by building the base environment and run to completion:"
-msgstr ""
-"Mulai proses pembuatan dengan membangun lingkungan dasar dan jalankan hingga "
-"selesai:"
+#: minios-live.1:108
+msgid "Create an ISO from prepared data:"
+msgstr "Buat ISO dari data yang telah disiapkan:"
 
 #. type: Plain text
-#: minios-live.1:135
+#: minios-live.1:111
 #, no-wrap
-msgid "minios-live build-bootstrap -\n"
-msgstr "minios-live build-bootstrap -\n"
-
-#. type: Plain text
-#: minios-live.1:138
-msgid "Build only ISO image from previously prepared data:"
-msgstr "Bangun hanya citra ISO dari data yang telah dipersiapkan sebelumnya:"
-
-#. type: Plain text
-#: minios-live.1:141
-#, no-wrap
-msgid "minios-live build-iso\n"
-msgstr "minios-live build-iso\n"
+msgid "sudo minios-live build-iso\n"
+msgstr "sudo minios-live build-iso\n"
 
 #. type: SH
-#: minios-live.1:142
+#: minios-live.1:112
 #, no-wrap
 msgid "CONFIGURATION"
 msgstr "KONFIGURASI"
 
 #. type: Plain text
-#: minios-live.1:148
+#: minios-live.1:119
 msgid ""
-"Edit the configuration file \\f[B]/etc/minios-live/build.conf\\f[R] to "
-"specify your preferred distribution, desktop environment, and additional "
-"software to be included in the SquashFS modules.  Alternatively, use "
-"\\f[B]minios-cmd\\f[R](1) for an easier configuration experience.\\fR"
+"A source checkout reads \\f[B]linux-live/build.conf\\f[R] by default and "
+"uses \\f[B]build/\\f[R] below the checkout.  An installed copy reads \\f[B]/"
+"etc/minios-live/build.conf\\f[R] and uses \\f[B]build/\\f[R] below the "
+"current directory.  Set \\f[B]BUILD_CONF\\f[R] and \\f[B]BUILD_DIR\\f[R] to "
+"override those defaults.\\fR"
 msgstr ""
-"Edit berkas konfigurasi \\f[B]/etc/minios-live/build.conf\\fR untuk "
-"menentukan distribusi yang diinginkan, lingkungan desktop, dan perangkat "
-"lunak tambahan yang akan disertakan dalam modul SquashFS.  Sebagai "
-"alternatif, gunakan \\f[B]minios-cmd\\fR(1) untuk pengalaman konfigurasi "
-"yang lebih mudah.\\fR"
+"Checkout source akan membaca \\f[B]linux-live/build.conf\\f[R] secara "
+"default dan menggunakan \\f[B]build/\\f[R] di bawah checkout. Salinan "
+"terpasang akan membaca \\f[B]/etc/minios-live/build.conf\\f[R] dan "
+"menggunakan \\f[B]build/\\f[R] di bawah direktori saat ini. Setel "
+"\\f[B]BUILD_CONF\\f[R] dan \\f[B]BUILD_DIR\\f[R] untuk mengganti nilai "
+"default tersebut.\\fR"
 
 #. type: Plain text
-#: minios-live.1:154
+#: minios-live.1:121
+msgid "Configuration files are sourced as Bash and must be trusted."
+msgstr "Berkas konfigurasi dieksekusi sebagai Bash dan harus dipercaya."
+
+#. type: Plain text
+#: minios-live.1:125
 msgid ""
-"This modular approach allows for greater flexibility and maintainability "
-"when customizing your MiniOS live system.  You can easily add or update "
-"software by modifying the SquashFS module configurations and rebuilding only "
-"the affected modules using the appropriate \\f[B]minios-live\\f[R] command."
-"\\fR"
+"Additional software is selected in module \\f[B]packages.list\\f[R] files.  "
+"Modules are linked into the selected environment under \\f[B]linux-live/"
+"environments/\\f[R].\\fR"
 msgstr ""
-"Pendekatan modular ini memungkinkan fleksibilitas dan kemudahan pemeliharaan "
-"yang lebih baik saat menyesuaikan sistem live MiniOS Anda.  Anda dapat "
-"dengan mudah menambah atau memperbarui perangkat lunak dengan mengubah "
-"konfigurasi modul SquashFS dan membangun ulang hanya modul yang terdampak "
-"menggunakan perintah \\f[B]minios-live\\fR yang sesuai.\\fR"
+"Perangkat lunak tambahan dipilih dalam berkas modul "
+"\\f[B]packages.list\\f[R]. Modul-modul tersebut dihubungkan ke lingkungan "
+"yang dipilih di bawah \\f[B]linux-live/environments/\\f[R].\\fR"
+
+#. type: Plain text
+#: minios-live.1:132
+msgid ""
+"\\f[B]build-modules\\f[R] skips modules whose SquashFS artifacts already "
+"exist.  After changing a module, remove its artifact from the selected work "
+"directory\\[cq]s \\f[B]image/\\f[R] tree before rebuilding.  The builder "
+"then invalidates the following module chain; kernel module rebuilding is "
+"handled separately.\\fR"
+msgstr ""
+"\\f[B]build-modules\\f[R] melewati modul yang artefak SquashFS-nya sudah "
+"ada. Setelah mengubah modul, hapus artefaknya dari pohon \\f[B]image/\\f[R] "
+"di direktori kerja yang dipilih sebelum membangun ulang. Builder kemudian "
+"menginvalasi rantai modul berikutnya; pembangunan ulang modul kernel "
+"ditangani secara terpisah.\\fR"
 
 #. type: SH
-#: minios-live.1:154 minios-cmd.1:228 condinapt.1:430 condinapt-minios.7:274
+#: minios-live.1:132 condinapt.1:266 condinapt-minios.7:211
+#, no-wrap
+msgid "FILES"
+msgstr "BERKAS"
+
+#. type: TP
+#: minios-live.1:133 condinapt-minios.7:218
+#, no-wrap
+msgid "\\f[B]linux-live/build.conf\\fR"
+msgstr "\\f[B]linux-live/build.conf\\fR"
+
+#. type: Plain text
+#: minios-live.1:136
+msgid "Default configuration in a source checkout."
+msgstr "Konfigurasi bawaan pada checkout source."
+
+#. type: TP
+#: minios-live.1:136 condinapt-minios.7:231
+#, no-wrap
+msgid "\\f[B]/etc/minios-live/build.conf\\fR"
+msgstr "\\f[B]/etc/minios-live/build.conf\\fR"
+
+#. type: Plain text
+#: minios-live.1:139
+msgid "Default configuration for an installed copy."
+msgstr "Konfigurasi bawaan untuk salinan terpasang."
+
+#. type: TP
+#: minios-live.1:139
+#, no-wrap
+msgid "\\f[B]linux-live/prerequisites.list\\fR"
+msgstr "\\f[B]linux-live/prerequisites.list\\fR"
+
+#. type: Plain text
+#: minios-live.1:142
+msgid "Host packages required for a source-tree build."
+msgstr "Paket host yang diperlukan untuk build source-tree."
+
+#. type: SH
+#: minios-live.1:142 minios-cmd.1:192 condinapt.1:285 condinapt-minios.7:234
 #, no-wrap
 msgid "SEE ALSO"
 msgstr "LIHAT JUGA"
 
 #. type: Plain text
-#: minios-live.1:157
+#: minios-live.1:145
 msgid ""
 "\\f[B]minios-cmd\\f[R](1), \\f[B]condinapt\\f[R](1), \\f[B]condinapt-"
 "minios\\f[R](7)\\fR"
@@ -533,19 +458,19 @@ msgstr ""
 "minios\\fR(7)\\fR"
 
 #. type: SH
-#: minios-live.1:157 minios-live.1:161 minios-cmd.1:231 minios-cmd.1:235
-#: condinapt.1:433 condinapt.1:437 condinapt-minios.7:277
-#: condinapt-minios.7:281
+#: minios-live.1:145 minios-live.1:149 minios-cmd.1:195 minios-cmd.1:199
+#: condinapt.1:288 condinapt.1:292 condinapt-minios.7:237
+#: condinapt-minios.7:241
 #, no-wrap
 msgid "AUTHORS"
 msgstr "PENULIS"
 
 #. type: Plain text
-#: minios-live.1:161 minios-cmd.1:235 condinapt.1:437 condinapt-minios.7:281
+#: minios-live.1:149 minios-cmd.1:199 condinapt.1:292 condinapt-minios.7:241
 msgid "MiniOS Development Team E<.UR https://minios.dev> E<.UE>"
 msgstr "MiniOS Tim Pengembang E<.UR https://minios.dev> E<.UE>"
 
 #. type: Plain text
-#: minios-live.1:162 minios-cmd.1:236 condinapt.1:438 condinapt-minios.7:282
+#: minios-live.1:150 minios-cmd.1:200 condinapt.1:293 condinapt-minios.7:242
 msgid "MiniOS Development Team."
 msgstr "MiniOS Development Team."

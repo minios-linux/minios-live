@@ -1,0 +1,823 @@
+# SOME DESCRIPTIVE TITLE
+# Copyright (C) YEAR Free Software Foundation, Inc.
+# This file is distributed under the same license as the minios-live package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: minios-live 6.0.0-1\n"
+"POT-Creation-Date: 2026-09-06 18:17+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. type: TH
+#: minios-live.1:3 minios-cmd.1:3 condinapt.1:3 condinapt-minios.7:3
+#, no-wrap
+msgid "September 2026"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:4 minios-cmd.1:4 condinapt.1:4 condinapt-minios.7:4
+#, no-wrap
+msgid "NAME"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:6 minios-cmd.1:6 condinapt.1:7
+#, no-wrap
+msgid "SYNOPSIS"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:9 minios-cmd.1:8 condinapt.1:10 condinapt-minios.7:6
+#, no-wrap
+msgid "DESCRIPTION"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:88 minios-cmd.1:155 condinapt.1:272
+#, no-wrap
+msgid "EXAMPLES"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:132 condinapt.1:266 condinapt-minios.7:211
+#, no-wrap
+msgid "FILES"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:142 minios-cmd.1:192 condinapt.1:285 condinapt-minios.7:234
+#, no-wrap
+msgid "SEE ALSO"
+msgstr ""
+
+#. type: SH
+#: minios-live.1:145 minios-live.1:149 minios-cmd.1:195 minios-cmd.1:199
+#: condinapt.1:288 condinapt.1:292 condinapt-minios.7:237
+#: condinapt-minios.7:241
+#, no-wrap
+msgid "AUTHORS"
+msgstr ""
+
+#. type: Plain text
+#: minios-live.1:149 minios-cmd.1:199 condinapt.1:292 condinapt-minios.7:241
+msgid "MiniOS Development Team E<.UR https://minios.dev> E<.UE>"
+msgstr ""
+
+#. type: Plain text
+#: minios-live.1:150 minios-cmd.1:200 condinapt.1:293 condinapt-minios.7:242
+msgid "MiniOS Development Team."
+msgstr ""
+
+#. type: SH
+#: minios-cmd.1:37 condinapt.1:21
+#, no-wrap
+msgid "OPTIONS"
+msgstr ""
+
+#. type: TH
+#: condinapt.1:3
+#, no-wrap
+msgid "CONDINAPT"
+msgstr ""
+
+#. type: TH
+#: condinapt.1:3
+#, no-wrap
+msgid "Conditional APT Package Installer"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:7
+msgid ""
+"condinapt - plan and install APT packages from a conditional package list"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:10
+msgid ""
+"\\f[B]condinapt\\f[R] \\f[B]-l\\f[R] \\f[I]PACKAGE-LIST\\f[R] \\f[B]-c\\f[R] "
+"\\f[I]CONFIG\\f[R] [\\f[I]OPTIONS\\f[R]]\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:17
+msgid ""
+"\\f[B]condinapt\\f[R] reads a Bash configuration and a package list, "
+"evaluates package filters, checks package availability, groups selected "
+"packages into APT transactions, and installs them.  It supports exact or "
+"fallback versions, target releases, alternatives, conjunctions, mandatory "
+"alternatives, queue separators, and a priority list.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:21
+msgid ""
+"The configuration file is sourced as Bash and must be trusted.  Package "
+"installation and any APT list refresh normally require suitable privileges."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:22
+#, no-wrap
+msgid "\\f[B]-l\\f[R], \\f[B]--package-list\\f[R] \\f[I]PATH\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:25
+msgid "Required package list."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:25
+#, no-wrap
+msgid "\\f[B]-c\\f[R], \\f[B]--config\\f[R] \\f[I]PATH\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:28
+msgid "Required Bash configuration file containing filter variables."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:28
+#, no-wrap
+msgid "\\f[B]-m\\f[R], \\f[B]--filter-mapping\\f[R] \\f[I]PATH\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:32
+msgid ""
+"Optional prefix-to-variable mapping.  Without it, filter prefixes are "
+"interpreted directly as variable names."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:32
+#, no-wrap
+msgid "\\f[B]-P\\f[R], \\f[B]--priority-list\\f[R] \\f[I]PATH\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:38
+msgid ""
+"Optional file containing one Bash regular expression per line.  Expressions "
+"match the first package token on each package-list line.  Matching lines are "
+"moved to priority queues with their filters and target releases preserved."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:38
+#, no-wrap
+msgid "\\f[B]-C\\f[R], \\f[B]--check-only\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:48
+msgid ""
+"Evaluate filters and report relevant package names that are not installed.  "
+"Return 1 and print a suggested \\f[B]apt install\\f[R] command when packages "
+"are missing.  This mode checks package names only; it does not validate "
+"requested versions or target releases.  An alternative expression is "
+"satisfied when one branch is installed; if none is installed, every failed "
+"branch may be reported and suggested.\\fR"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:48
+#, no-wrap
+msgid "\\f[B]-s\\f[R], \\f[B]--simulation\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:54
+msgid ""
+"Plan the installation without installing packages.  Simulation always exits "
+"with status 1.  It may still run \\f[B]apt-get update\\f[R] when the package "
+"cache is absent or \\f[B]--force\\f[R] is used.\\fR"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:54
+#, no-wrap
+msgid "\\f[B]-f\\f[R], \\f[B]--force\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:59
+msgid ""
+"Run \\f[B]apt-get update\\f[R] before normal installation or simulation even "
+"when \\f[B]/var/cache/apt/pkgcache.bin\\f[R] exists.  It has no effect in "
+"check-only mode.\\fR"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:59
+#, no-wrap
+msgid "\\f[B]-v\\f[R], \\f[B]--verbose\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:62
+msgid "Show filter decisions and direct APT output."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:62
+#, no-wrap
+msgid "\\f[B]-vv\\f[R], \\f[B]--very-verbose\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:65
+msgid "Show additional planning and priority-queue details."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:65
+#, no-wrap
+msgid "\\f[B]-x\\f[R], \\f[B]--xtrace\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:68
+msgid "Enable Bash command tracing."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:68
+#, no-wrap
+msgid "\\f[B]-h\\f[R], \\f[B]--help\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:71
+msgid "Display help and exit."
+msgstr ""
+
+#. type: SH
+#: condinapt.1:71
+#, no-wrap
+msgid "INPUT FILES"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:72
+#, no-wrap
+msgid "Configuration"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:76
+msgid ""
+"The required configuration is a Bash file.  Scalar values compare by exact "
+"string equality.  Indexed Bash arrays match when any element equals the "
+"requested value."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:82
+#, no-wrap
+msgid ""
+"DISTRIBUTION=\\[dq]bookworm\\[dq]\n"
+"SYSTEM_TYPE=\\[dq]server\\[dq]\n"
+"ENVIRONMENT=\\[dq]production\\[dq]\n"
+"FEATURES=(web database)\n"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:83
+#, no-wrap
+msgid "Filter Mapping"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:86
+msgid ""
+"An optional mapping assigns short package-list prefixes to configuration "
+"variables:"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:92
+#, no-wrap
+msgid ""
+"d=DISTRIBUTION\n"
+"st=SYSTEM_TYPE\n"
+"env=ENVIRONMENT\n"
+"feat=FEATURES\n"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:97
+msgid ""
+"An unmapped prefix is used as the variable name.  Missing variables have an "
+"empty value.  Variable names must be valid Bash identifiers."
+msgstr ""
+
+#. type: SS
+#: condinapt.1:97
+#, no-wrap
+msgid "Package List"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:100
+msgid ""
+"Each non-empty, non-comment line contains a package expression.  Text after "
+"\\f[B]#\\f[R] is ignored.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:105
+#, no-wrap
+msgid ""
+"vim\n"
+"nginx +st=server\n"
+"debug-tools -env=production\n"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:106
+#, no-wrap
+msgid "Priority List"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:110
+msgid ""
+"Each non-empty, non-comment line is a Bash \\f[B]=\\[ti]\\f[R] regular "
+"expression matched against the first package token in a package expression:"
+"\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:115
+#, no-wrap
+msgid ""
+"\\[ha]linux-.*\n"
+"\\[ha]firmware-.*\n"
+"\\[ha]dkms$\n"
+msgstr ""
+
+#. type: SH
+#: condinapt.1:116
+#, no-wrap
+msgid "PACKAGE SYNTAX"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:117
+#, no-wrap
+msgid "Versions"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:118
+#, no-wrap
+msgid "\\f[B]package=version\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:123
+msgid ""
+"Request an exact version.  If it is unavailable but another candidate "
+"exists, install the candidate and emit a warning."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:123
+#, no-wrap
+msgid "\\f[B]package==version\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:127
+msgid ""
+"Require an exact version during planning.  If it is unavailable, this "
+"expression cannot be selected."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:130
+msgid ""
+"When an exact requested version is selected and installed, "
+"\\f[B]condinapt\\f[R] applies \\f[B]apt-mark hold\\f[R] to that package.\\fR"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:130
+#, no-wrap
+msgid "Target Releases"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:133
+msgid ""
+"Append \\f[B]\\[at]release\\f[R] to install through \\f[B]apt-get -t "
+"release\\f[R]:\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:136
+#, no-wrap
+msgid "linux-image-amd64 \\[at]bookworm-backports\n"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:141
+msgid ""
+"Entries for the same release are pooled into one release-specific queue.  "
+"The \\f[B]\\[em]\\f[R] separator does not split target-release queues.\\fR"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:141
+#, no-wrap
+msgid "Filters"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:142
+#, no-wrap
+msgid "\\f[B]+prefix=value\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:146
+msgid ""
+"Include the package when the mapped scalar equals \\f[I]value\\f[R] or an "
+"array contains it.\\fR"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:146
+#, no-wrap
+msgid "\\f[B]-prefix=value\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:150
+msgid ""
+"Exclude the package when the mapped scalar equals \\f[I]value\\f[R] or an "
+"array contains it.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:154
+msgid ""
+"Repeated positive filters with the same prefix are alternatives.  Positive "
+"filters with different prefixes must each have at least one match:"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:157
+#, no-wrap
+msgid "editor +d=bookworm +d=trixie +st=desktop\n"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:161
+msgid ""
+"The example selects Debian Bookworm or Trixie and also requires "
+"\\f[B]SYSTEM_TYPE=desktop\\f[R].\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:163
+msgid "Group filters make the relationship explicit:"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:163
+#, no-wrap
+msgid "\\f[B]+{a|b}\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:166
+msgid "Include when at least one condition matches."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:166
+#, no-wrap
+msgid "\\f[B]+{a&b}\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:169
+msgid "Include only when every condition matches."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:169
+#, no-wrap
+msgid "\\f[B]-{a|b}\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:172
+msgid "Exclude when at least one condition matches."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:172
+#, no-wrap
+msgid "\\f[B]-{a&b}\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:175
+msgid "Exclude only when every condition matches."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:177
+msgid "Examples:"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:182
+#, no-wrap
+msgid ""
+"web-server +{st=server|st=web-server}\n"
+"database-tools +{d=bookworm&st=server}\n"
+"debug-tools -{env=production|st=minimal}\n"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:183
+#, no-wrap
+msgid "Alternatives And Conjunctions"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:184
+#, no-wrap
+msgid "\\f[B]left || right\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:190
+msgid ""
+"During planning, select the first alternative whose filters pass and whose "
+"required packages are installed or available from APT.  It is not a runtime "
+"fallback: if the later \\f[B]apt-get install\\f[R] transaction fails, "
+"another alternative is not tried.\\fR"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:190
+#, no-wrap
+msgid "\\f[B]left && right\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:194
+msgid ""
+"Require every expression in the alternative to pass filtering and "
+"availability checks before adding them to the same installation plan."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:196
+msgid "\\f[B]&&\\f[R] binds within each \\f[B]||\\f[R] alternative:\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:199 condinapt-minios.7:201
+#, no-wrap
+msgid "exfatprogs || exfat-utils && exfat-fuse\n"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:200
+#, no-wrap
+msgid "Mandatory Alternatives"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:202
+msgid ""
+"A leading \\f[B]!\\f[R] marks the entire package expression as mandatory:\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:206
+#, no-wrap
+msgid ""
+"!essential-package\n"
+"!preferred-package || fallback-package\n"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:213
+msgid ""
+"If no alternative can be selected because required packages are unavailable, "
+"normal execution aborts.  A valid later alternative satisfies the mandatory "
+"expression.  Filter-only exclusions do not trigger a mandatory-package "
+"abort, and simulation reports the failure without aborting early."
+msgstr ""
+
+#. type: SH
+#: condinapt.1:213
+#, no-wrap
+msgid "QUEUES"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:218
+msgid ""
+"A line containing only \\f[B]\\[em]\\f[R] closes the current normal-"
+"repository queue.  Packages in one queue are installed in a single APT "
+"transaction, and normal queues run sequentially.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:221
+msgid ""
+"Target-release entries are pooled separately by release.  Processing order "
+"is:"
+msgstr ""
+
+#. type: IP
+#: condinapt.1:221
+#, no-wrap
+msgid "1."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:223
+msgid "Priority normal-repository queue"
+msgstr ""
+
+#. type: IP
+#: condinapt.1:223
+#, no-wrap
+msgid "2."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:225
+msgid "Priority target-release queues"
+msgstr ""
+
+#. type: IP
+#: condinapt.1:225
+#, no-wrap
+msgid "3."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:227
+msgid "Normal queues"
+msgstr ""
+
+#. type: IP
+#: condinapt.1:227
+#, no-wrap
+msgid "4."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:229
+msgid "Remaining target-release queues"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:236
+msgid ""
+"The priority list removes matching expressions from their original queues "
+"and preserves their complete filters, conditions, versions, and target "
+"release.  Only the first package token is used for priority matching, so a "
+"pattern that matches only a later \\f[B]||\\f[R] branch does not prioritize "
+"the expression.\\fR"
+msgstr ""
+
+#. type: SH
+#: condinapt.1:236
+#, no-wrap
+msgid "OPERATING MODES"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:237
+#, no-wrap
+msgid "Simulation"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:241
+msgid ""
+"Simulation performs planning but no package installation.  It can update APT "
+"list state and always exits 1, so its exit status is not a success indicator."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:244
+#, no-wrap
+msgid "condinapt -l packages.list -c system.conf -m filters.map -s -v\n"
+msgstr ""
+
+#. type: SS
+#: condinapt.1:245
+#, no-wrap
+msgid "Check Only"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:253
+msgid ""
+"Check-only evaluates filters and checks package names against the installed "
+"package database.  It skips \\f[B]apt-get update\\f[R] and ignores version "
+"and target-release requirements.  An alternative is satisfied when any "
+"branch is installed.  If none is installed, the report and suggested command "
+"may contain every failed branch rather than one availability-selected "
+"alternative.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:256
+#, no-wrap
+msgid "condinapt -l packages.list -c system.conf -m filters.map -C\n"
+msgstr ""
+
+#. type: SH
+#: condinapt.1:257
+#, no-wrap
+msgid "EXIT STATUS"
+msgstr ""
+
+#. type: TP
+#: condinapt.1:258
+#, no-wrap
+msgid "\\f[B]0\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:262
+msgid ""
+"Installation completed, help was displayed, or check-only found no missing "
+"packages."
+msgstr ""
+
+#. type: TP
+#: condinapt.1:262
+#, no-wrap
+msgid "\\f[B]1\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:266
+msgid ""
+"Invalid input, missing files, package or APT failure, missing packages in "
+"check-only mode, or completion of simulation mode."
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:272
+msgid ""
+"\\f[B]condinapt\\f[R] has no implicit configuration, mapping, or package-"
+"list paths.  The package list and configuration must be supplied "
+"explicitly.  The mapping and priority list are optional but are used only "
+"when their paths are supplied.\\fR"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:274
+msgid "Install a filtered list:"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:277
+#, no-wrap
+msgid "condinapt -l packages.list -c system.conf -m filters.map\n"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:280
+msgid "Force an APT list refresh and install priority packages first:"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:284
+#, no-wrap
+msgid ""
+"condinapt -l packages.list -c system.conf -m filters.map \\[rs]\n"
+"  -P priority.list -f\n"
+msgstr ""
+
+#. type: Plain text
+#: condinapt.1:288
+msgid ""
+"\\f[B]apt\\f[R](8), \\f[B]apt-get\\f[R](8), \\f[B]apt-cache\\f[R](8), "
+"\\f[B]condinapt-minios\\f[R](7)\\fR"
+msgstr ""

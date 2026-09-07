@@ -1,3 +1,20 @@
+minios-live (6.0.0-1) unstable; urgency=medium
+
+  * Package the MiniOS 6 build system.
+  * Raise the packaging baseline to Debian 12 with debhelper compatibility 13.
+  * Add Debian, Ubuntu and Devuan profile and init-system support.
+  * Package the current kernel, EFI, Secure Boot, initramfs and persistence
+    build workflows.
+  * Update runtime dependencies for EFI verification and ISO generation.
+  * Treat bundled boot and initramfs ELF files as target payload rather than
+    host shared-library dependencies.
+  * Install manual pages pre-rendered by Lokit before package creation, without
+    invoking Pandoc, po4a or Lokit from the Debian build.
+  * Run the package-safe boot, kernel DKMS and shutdown Bats suites plus the
+    CondinAPT regression tests during package builds.
+
+ -- crims0n <crims0n@minios.dev>  Sun, 06 Sep 2026 18:45:32 +0300
+
 minios-live (5.1.0-1) unstable; urgency=medium
 
   * Add man pages for minios-live, minios-cmd, condinapt commands
