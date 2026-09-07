@@ -293,6 +293,114 @@ exact:
       pt-BR: Carregando kernel e ramdisk...
       ru: Загрузка ядра и ramdisk...
 
+  - id: app.minios-store
+    source: MiniOS Store
+    translations:
+      de: MiniOS-App-Store
+      es: Tienda de aplicaciones de MiniOS
+      fr: Boutique d’applications MiniOS
+      id: Toko Aplikasi MiniOS
+      it: Negozio di applicazioni MiniOS
+      pt: Loja de aplicações MiniOS
+      pt-BR: Loja de aplicativos MiniOS
+      ru: Магазин приложений MiniOS
+
+  - id: app.drive-utility
+    source: Drive Utility
+    translations:
+      de: Laufwerksprogramm
+      es: Utilidad de disco
+      fr: Utilitaire de disque
+      id: Utilitas Disk
+      it: Utilità disco
+      pt: Utilitário de disco
+      pt-BR: Utilitário de disco
+      ru: Дисковая утилита
+
+  - id: app.minios-image-builder
+    source: MiniOS Image Builder
+    translations:
+      de: MiniOS-Abbildersteller
+      es: Constructor de imágenes MiniOS
+      fr: Créateur d’images MiniOS
+      id: Pembuat Citra MiniOS
+      it: Generatore di immagini MiniOS
+      pt: Construtor de imagens MiniOS
+      pt-BR: Construtor de imagens MiniOS
+      ru: Конструктор образов MiniOS
+
+  - id: app.minios-module-manager
+    source: MiniOS Module Manager
+    translations:
+      de: MiniOS-Modulmanager
+      es: Gestor de módulos de MiniOS
+      fr: Gestionnaire de modules MiniOS
+      id: Manajer Modul MiniOS
+      it: Gestore moduli MiniOS
+      pt: Gestor de módulos MiniOS
+      pt-BR: Gerenciador de módulos MiniOS
+      ru: Менеджер модулей MiniOS
+
+  - id: app.minios-session-manager
+    source: MiniOS Session Manager
+    translations:
+      de: MiniOS-Sitzungsmanager
+      es: Gestor de sesiones de MiniOS
+      fr: Gestionnaire de sessions MiniOS
+      id: Manajer Sesi MiniOS
+      it: Gestore sessioni MiniOS
+      pt: Gestor de sessões MiniOS
+      pt-BR: Gerenciador de sessões MiniOS
+      ru: Менеджер сессий MiniOS
+
+  - id: app.minios-kernel-manager
+    source: MiniOS Kernel Manager
+    translations:
+      de: MiniOS-Kernelmanager
+      es: Gestor de kernels de MiniOS
+      fr: Gestionnaire de noyaux MiniOS
+      id: Manajer Kernel MiniOS
+      it: Gestore kernel MiniOS
+      pt: Gestor de kernels MiniOS
+      pt-BR: Gerenciador de kernels MiniOS
+      ru: Менеджер ядер MiniOS
+
+  - id: app.minios-configurator
+    source: MiniOS Configurator
+    translations:
+      de: MiniOS-Konfigurator
+      es: Configurador de MiniOS
+      fr: Configurateur MiniOS
+      id: Konfigurator MiniOS
+      it: Configuratore MiniOS
+      pt: Configurador do MiniOS
+      pt-BR: Configurador do MiniOS
+      ru: Конфигуратор MiniOS
+
+  - id: app.minios-help
+    source: MiniOS Help
+    translations:
+      de: MiniOS-Hilfe
+      es: Ayuda de MiniOS
+      fr: Aide MiniOS
+      id: Bantuan MiniOS
+      it: Guida MiniOS
+      pt: Ajuda MiniOS
+      pt-BR: Ajuda MiniOS
+      ru: Справка MiniOS
+
+  - id: app.minios-installer
+    source: MiniOS Installer
+    translations:
+      de: MiniOS-Installationsprogramm
+      es: Instalador de MiniOS
+      fr: Programme d’installation MiniOS
+      id: Penginstal MiniOS
+      it: Installatore MiniOS
+      pt: Instalador do MiniOS
+      pt-BR: Instalador do MiniOS
+      ru: Установщик MiniOS
+
   - id: grub-menu.back-to-language
     source: Back to language selection
     when:
@@ -532,7 +640,260 @@ exact:
       ru: Не сохранять
 
 
+  - id: minios-session-manager.no-persistent-storage
+    source: Persistent sessions are unavailable — the system is running without changes storage.
+    when:
+      target: minios-session-manager
+    translations:
+      de: Persistente Sitzungen sind nicht verfügbar – das System läuft ohne Speicher für Änderungen.
+      es: 'Las sesiones persistentes no están disponibles: el sistema se está ejecutando sin almacenamiento de cambios.'
+      fr: Les sessions persistantes ne sont pas disponibles — le système fonctionne sans stockage des modifications.
+      id: Sesi persisten tidak tersedia — sistem berjalan tanpa penyimpanan perubahan.
+      it: 'Le sessioni persistenti non sono disponibili: il sistema è in esecuzione senza memoria per la conservazione delle modifiche.'
+      pt: Sessões persistentes indisponíveis — o sistema está sendo executado sem armazenamento de alterações.
+      pt-BR: Sessões persistentes indisponíveis — o sistema está sendo executado sem armazenamento de alterações.
+      ru: Постоянные сессии недоступны — система запущена без хранилища изменений.
+
+  - id: thunar.activate-action
+    source: Activate Module
+    when:
+      target: minios-thunar-actions
+    translations:
+      ru: Подключить модуль
+
+  - id: thunar.deactivate-action
+    source: Deactivate Module
+    when:
+      target: minios-thunar-actions
+    translations:
+      ru: Отключить модуль
+
+  - id: module-manager.mount-action
+    source: Mount Module
+    when:
+      target: minios-module-manager
+    translations:
+      de: Modul einbinden
+      es: Montar módulo
+      fr: Monter le module
+      id: Mount Modul
+      it: Monta modulo
+      pt: Montar Módulo
+      pt-BR: Montar Módulo
+      ru: Смонтировать модуль
+
+  - id: module-manager.unmount-action
+    source: Unmount Module
+    when:
+      target: minios-module-manager
+    translations:
+      de: Modul aushängen
+      es: Desmontar módulo
+      fr: Démonter le module
+      id: Unmount Modul
+      it: Smonta modulo
+      pt: Desmontar Módulo
+      pt-BR: Desmontar Módulo
+      ru: Размонтировать модуль
+
+  - id: module-manager.mount-confirmation
+    source: Mount {} in the running MiniOS session? Next Boot will not change.
+    when:
+      target: minios-module-manager
+    translations:
+      de: '{} in die laufende MiniOS-Sitzung einbinden? Der nächste Start wird nicht geändert.'
+      es: '¿Montar {} en la sesión MiniOS en ejecución? El próximo inicio no cambiará.'
+      fr: 'Monter {} dans la session MiniOS en cours ? Le prochain démarrage ne sera pas modifié.'
+      id: 'Mount {} di sesi MiniOS yang sedang berjalan? Next Boot tidak akan berubah.'
+      it: 'Montare {} nella sessione MiniOS in esecuzione? Il prossimo avvio non verrà modificato.'
+      pt: 'Montar {} na sessão MiniOS em execução? O próximo boot não será alterado.'
+      pt-BR: 'Montar {} na sessão MiniOS em execução? O próximo boot não será alterado.'
+      ru: 'Смонтировать {} в текущей сессии MiniOS? Следующая загрузка не изменится.'
+
+  - id: module-manager.unmount-confirmation
+    source: Unmount {} from the running MiniOS session? Next Boot will not change.
+    when:
+      target: minios-module-manager
+    translations:
+      de: '{} aus der laufenden MiniOS-Sitzung aushängen? Der nächste Start wird nicht geändert.'
+      es: '¿Desmontar {} de la sesión MiniOS en ejecución? El próximo inicio no cambiará.'
+      fr: 'Démonter {} de la session MiniOS en cours ? Le prochain démarrage ne sera pas modifié.'
+      id: 'Unmount {} dari sesi MiniOS yang sedang berjalan? Next Boot tidak akan berubah.'
+      it: 'Smontare {} dalla sessione MiniOS in esecuzione? Il prossimo avvio non verrà modificato.'
+      pt: 'Desmontar {} da sessão MiniOS em execução? O próximo boot não será alterado.'
+      pt-BR: 'Desmontar {} da sessão MiniOS em execução? O próximo boot não será alterado.'
+      ru: 'Размонтировать {} из текущей сессии MiniOS? Следующая загрузка не изменится.'
+
 terms:
+  - id: app-term.minios-store
+    source: MiniOS Store
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-App-Store
+        accepted: [MiniOS-App-Stores]
+      es: { preferred: Tienda de aplicaciones de MiniOS }
+      fr: { preferred: Boutique d’applications MiniOS }
+      id: { preferred: Toko Aplikasi MiniOS }
+      it: { preferred: Negozio di applicazioni MiniOS }
+      pt: { preferred: Loja de aplicações MiniOS }
+      pt-BR: { preferred: Loja de aplicativos MiniOS }
+      ru:
+        preferred: Магазин приложений MiniOS
+        accepted: [Магазина приложений MiniOS, Магазину приложений MiniOS, Магазином приложений MiniOS, Магазине приложений MiniOS]
+
+  - id: app-term.drive-utility
+    source: Drive Utility
+    validation: prompt
+    translations:
+      de:
+        preferred: Laufwerksprogramm
+        accepted: [Laufwerksprogramms]
+      es: { preferred: Utilidad de disco }
+      fr: { preferred: Utilitaire de disque }
+      id: { preferred: Utilitas Disk }
+      it: { preferred: Utilità disco }
+      pt: { preferred: Utilitário de disco }
+      pt-BR: { preferred: Utilitário de disco }
+      ru:
+        preferred: Дисковая утилита
+        accepted: [Дисковой утилиты, Дисковой утилите, Дисковую утилиту, Дисковой утилитой]
+
+  - id: app-term.minios-image-builder
+    source: MiniOS Image Builder
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-Abbildersteller
+        accepted: [MiniOS-Abbilderstellers]
+      es: { preferred: Constructor de imágenes MiniOS }
+      fr: { preferred: Créateur d’images MiniOS }
+      id: { preferred: Pembuat Citra MiniOS }
+      it: { preferred: Generatore di immagini MiniOS }
+      pt: { preferred: Construtor de imagens MiniOS }
+      pt-BR: { preferred: Construtor de imagens MiniOS }
+      ru:
+        preferred: Конструктор образов MiniOS
+        accepted: [Конструктора образов MiniOS, Конструктору образов MiniOS, Конструктором образов MiniOS, Конструкторе образов MiniOS]
+
+  - id: app-term.minios-module-manager
+    source: MiniOS Module Manager
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-Modulmanager
+        accepted: [MiniOS-Modulmanagers]
+      es: { preferred: Gestor de módulos de MiniOS }
+      fr: { preferred: Gestionnaire de modules MiniOS }
+      id: { preferred: Manajer Modul MiniOS }
+      it: { preferred: Gestore moduli MiniOS }
+      pt: { preferred: Gestor de módulos MiniOS }
+      pt-BR: { preferred: Gerenciador de módulos MiniOS }
+      ru:
+        preferred: Менеджер модулей MiniOS
+        accepted: [Менеджера модулей MiniOS, Менеджеру модулей MiniOS, Менеджером модулей MiniOS, Менеджере модулей MiniOS]
+
+  - id: app-term.minios-session-manager
+    source: MiniOS Session Manager
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-Sitzungsmanager
+        accepted: [MiniOS-Sitzungsmanagers]
+      es: { preferred: Gestor de sesiones de MiniOS }
+      fr: { preferred: Gestionnaire de sessions MiniOS }
+      id: { preferred: Manajer Sesi MiniOS }
+      it: { preferred: Gestore sessioni MiniOS }
+      pt: { preferred: Gestor de sessões MiniOS }
+      pt-BR: { preferred: Gerenciador de sessões MiniOS }
+      ru:
+        preferred: Менеджер сессий MiniOS
+        accepted: [Менеджера сессий MiniOS, Менеджеру сессий MiniOS, Менеджером сессий MiniOS, Менеджере сессий MiniOS]
+
+  - id: app-term.minios-session-manager.self
+    source: MiniOS Session Manager
+    when:
+      target: minios-session-manager
+    translations:
+      de:
+        preferred: MiniOS-Sitzungsmanager
+        accepted: [MiniOS-Sitzungsmanagers]
+      es: { preferred: Gestor de sesiones de MiniOS }
+      fr: { preferred: Gestionnaire de sessions MiniOS }
+      id: { preferred: Manajer Sesi MiniOS }
+      it: { preferred: Gestore sessioni MiniOS }
+      pt: { preferred: Gestor de sessões MiniOS }
+      pt-BR: { preferred: Gerenciador de sessões MiniOS }
+      ru:
+        preferred: Менеджер сессий MiniOS
+        accepted: [Менеджера сессий MiniOS, Менеджеру сессий MiniOS, Менеджером сессий MiniOS, Менеджере сессий MiniOS]
+
+  - id: app-term.minios-kernel-manager
+    source: MiniOS Kernel Manager
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-Kernelmanager
+        accepted: [MiniOS-Kernelmanagers, MiniOS Kernelmanager, MiniOS Kernelmanagers, MiniOS Kernel Manager, MiniOS Kernel Managers]
+      es: { preferred: Gestor de kernels de MiniOS }
+      fr: { preferred: Gestionnaire de noyaux MiniOS }
+      id: { preferred: Manajer Kernel MiniOS }
+      it: { preferred: Gestore kernel MiniOS }
+      pt: { preferred: Gestor de kernels MiniOS }
+      pt-BR: { preferred: Gerenciador de kernels MiniOS }
+      ru:
+        preferred: Менеджер ядер MiniOS
+        accepted: [Менеджера ядер MiniOS, Менеджеру ядер MiniOS, Менеджером ядер MiniOS, Менеджере ядер MiniOS]
+
+  - id: app-term.minios-configurator
+    source: MiniOS Configurator
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-Konfigurator
+        accepted: [MiniOS-Konfigurators]
+      es: { preferred: Configurador de MiniOS }
+      fr: { preferred: Configurateur MiniOS }
+      id: { preferred: Konfigurator MiniOS }
+      it: { preferred: Configuratore MiniOS }
+      pt: { preferred: Configurador do MiniOS }
+      pt-BR: { preferred: Configurador do MiniOS }
+      ru:
+        preferred: Конфигуратор MiniOS
+        accepted: [Конфигуратора MiniOS, Конфигуратору MiniOS, Конфигуратором MiniOS, Конфигураторе MiniOS]
+
+  - id: app-term.minios-help
+    source: MiniOS Help
+    validation: prompt
+    translations:
+      de: { preferred: MiniOS-Hilfe }
+      es: { preferred: Ayuda de MiniOS }
+      fr: { preferred: Aide MiniOS }
+      id: { preferred: Bantuan MiniOS }
+      it: { preferred: Guida MiniOS }
+      pt: { preferred: Ajuda MiniOS }
+      pt-BR: { preferred: Ajuda MiniOS }
+      ru:
+        preferred: Справка MiniOS
+        accepted: [Справки MiniOS, Справке MiniOS, Справку MiniOS, Справкой MiniOS]
+
+  - id: app-term.minios-installer
+    source: MiniOS Installer
+    validation: prompt
+    translations:
+      de:
+        preferred: MiniOS-Installationsprogramm
+        accepted: [MiniOS-Installationsprogramms]
+      es: { preferred: Instalador de MiniOS }
+      fr: { preferred: Programme d’installation MiniOS }
+      id: { preferred: Penginstal MiniOS }
+      it: { preferred: Installatore MiniOS }
+      pt: { preferred: Instalador do MiniOS }
+      pt-BR: { preferred: Instalador do MiniOS }
+      ru:
+        preferred: Установщик MiniOS
+        accepted: [Установщика MiniOS, Установщику MiniOS, Установщиком MiniOS, Установщике MiniOS]
+
   - id: docs-boot-menu.start-minios-term
     source: Start MiniOS
     when:
@@ -650,13 +1011,6 @@ terms:
 
   - id: tool.unetbootin
     source: UNetbootin
-    preserve: true
-    case_sensitive: true
-
-  - id: product.drive-utility.docs
-    source: Drive Utility
-    when:
-      target: docs-ui
     preserve: true
     case_sensitive: true
 

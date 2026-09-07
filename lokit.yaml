@@ -17,6 +17,15 @@ targets:
     template: po/messages.pot
     to: po/{lang}.po
 
+  - name: minios-thunar-actions
+    format: gettext
+    root: submodules/minios-thunar-integration
+    from:
+      - bin/minios-thunar-actions
+      - bin/minios-thunar-uca-sync
+    template: po/messages.pot
+    to: po/{lang}.po
+
   - name: minios-live-manpages
     format: po4a
     root: manpages
@@ -137,7 +146,7 @@ targets:
 
   - name: minios-image-builder-help
     format: markdown
-    root: submodules/minios-image-builder/share/help/en
+    root: submodules/minios-image-builder/help/en
     from:
       - '**/*.md'
     to: '../{lang}/{path}'
@@ -196,11 +205,13 @@ targets:
       - '^fm:hero\.actions\.[0-9]+\.theme$'
     from:
       - index.md
-      - about/**/*.md
-      - administration/**/*.md
-      - configuration/**/*.md
       - development/**/*.md
-      - installation/**/*.md
+      - getting-started/**/*.md
+      - installing-minios/**/*.md
+      - maintenance-and-recovery/**/*.md
+      - preparing-and-customizing/**/*.md
+      - reference/**/*.md
+      - using-minios/**/*.md
     to: translations/{lang}/{path}
     languages: [de, es, fr, id, it, pt-BR, ru]
 
@@ -230,6 +241,7 @@ targets:
   # --- submodule: website (i18next) ---
 
   - name: minios-linux.github.io
+    include_by_default: false
     format: i18next
     root: submodules/minios-linux.github.io
     from:
@@ -240,6 +252,7 @@ targets:
   # --- submodule: website blog posts (markdown) ---
 
   - name: minios-linux.github.io-blog-posts
+    include_by_default: false
     format: markdown
     root: submodules/minios-linux.github.io
     from:
@@ -250,6 +263,7 @@ targets:
   # --- submodule: flux website (json) ---
 
   - name: flux-website
+    include_by_default: false
     format: i18next
     root: submodules/flux.minios.dev
     from:
@@ -278,6 +292,7 @@ targets:
   # --- submodule: minios-store recipes (json) ---
 
   - name: minios-store-recipes
+    include_by_default: false
     format: vue-i18n
     root: submodules/minios-store/web/public/data
     to: recipe-translations/{lang}/{id}.json
