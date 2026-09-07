@@ -235,6 +235,32 @@ make_grub_module_fixture() {
     [[ "${output}" != *'Acquire::Check-Valid-Until=false'* ]]
 }
 
+@test "Ubuntu kernel acquisition keeps modules-extra but excludes firmware dependencies" {
+    local acquire="${LIVE_ROOT}/scripts/01-kernel/acquire"
+    local body package_dir deb
+    body="$(awk '/^resolve_ubuntu_kernel_payload_requests\(\)/,/^}/' "${acquire}")"
+    package_dir="${BATS_TEST_TMPDIR}/linux-image-generic"
+    deb="${BATS_TEST_TMPDIR}/linux-image-generic.deb"
+    mkdir -p "${package_dir}/DEBIAN"
+    cat >"${package_dir}/DEBIAN/control" <<'EOF'
+Package: linux-image-generic
+Version: 1.0
+Architecture: amd64
+Maintainer: MiniOS Tests <test@minios.dev>
+Depends: linux-image-6.8.0-139-generic, linux-modules-extra-6.8.0-139-generic, linux-firmware, intel-microcode, amd64-microcode
+Description: test package
+EOF
+    dpkg-deb --build "${package_dir}" "${deb}" >/dev/null
+
+    run env KERNEL_APT_ARCH=amd64 bash -c "${body}; UBUNTU_KERNEL_REQUESTS=(); resolve_ubuntu_kernel_payload_requests '$deb'; printf '%s\\n' \"\${UBUNTU_KERNEL_REQUESTS[@]}\""
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"linux-image-6.8.0-139-generic:amd64"* ]]
+    [[ "${output}" == *"linux-modules-extra-6.8.0-139-generic:amd64"* ]]
+    [[ "${output}" != *"linux-firmware"* ]]
+    [[ "${output}" != *"microcode"* ]]
+}
+
 @test "kernel archive URLs remain cacheable by apt-cacher-ng" {
     local acquire="${LIVE_ROOT}/scripts/01-kernel/acquire"
     local body apt_root

@@ -122,10 +122,47 @@ apt_options() {
         "-o" "Binary::apt-get::APT::Keep-Downloaded-Packages=true"
 }
 
+resolve_ubuntu_kernel_payload_requests() {
+    local META_DEB="$1"
+    local DEPENDS CLAUSE ALTERNATIVE PACKAGE
+    local -a DEPENDENCY_CLAUSES=()
+    local -a ALTERNATIVES=()
+    local FOUND_IMAGE=false
+
+    UBUNTU_KERNEL_REQUESTS=()
+    DEPENDS="$(dpkg-deb -f "${META_DEB}" Depends 2>/dev/null || true)"
+    [ -n "${DEPENDS}" ] || return 1
+
+    IFS=',' read -r -a DEPENDENCY_CLAUSES <<<"${DEPENDS}"
+    for CLAUSE in "${DEPENDENCY_CLAUSES[@]}"; do
+        IFS='|' read -r -a ALTERNATIVES <<<"${CLAUSE}"
+        for ALTERNATIVE in "${ALTERNATIVES[@]}"; do
+            ALTERNATIVE="$(echo "${ALTERNATIVE}" | xargs)"
+            PACKAGE="${ALTERNATIVE%% *}"
+            PACKAGE="${PACKAGE%%:*}"
+            case "${PACKAGE}" in
+            linux-image-[0-9]*)
+                UBUNTU_KERNEL_REQUESTS+=("${PACKAGE}:${KERNEL_APT_ARCH}")
+                FOUND_IMAGE=true
+                break
+                ;;
+            linux-modules-extra-[0-9]*)
+                UBUNTU_KERNEL_REQUESTS+=("${PACKAGE}:${KERNEL_APT_ARCH}")
+                break
+                ;;
+            esac
+        done
+    done
+
+    [ "${FOUND_IMAGE}" = true ]
+}
+
 download_packages() {
     local -a OPTIONS=()
     local -a REQUESTS=("${KERNEL_REQUEST}")
-    local OPTION
+    local -a UBUNTU_KERNEL_REQUESTS=()
+    local -a META_DEBS=()
+    local OPTION META_DIR META_DEB
 
     mkdir -p "${APT_ROOT}/state/lists/partial" "${APT_ROOT}/cache" "${DOWNLOAD_DIR}/partial"
     cp /var/lib/dpkg/status "${APT_ROOT}/state/status"
@@ -141,6 +178,23 @@ download_packages() {
         information "Using the configured APT proxy for kernel acquisition"
     fi
     apt-get "${OPTIONS[@]}" update
+
+    if [ "${KERNEL_SOURCE_FAMILY}" = ubuntu ]; then
+        META_DIR="${WORK}/tracking-meta"
+        mkdir -p "${META_DIR}"
+        (
+            cd "${META_DIR}"
+            apt-get "${OPTIONS[@]}" download "${KERNEL_REQUEST}"
+        )
+        mapfile -t META_DEBS < <(find "${META_DIR}" -maxdepth 1 -type f -name '*.deb' -print | sort)
+        [ "${#META_DEBS[@]}" -eq 1 ] || fail "Ubuntu kernel tracking metapackage download is ambiguous"
+        META_DEB="${META_DEBS[0]}"
+        resolve_ubuntu_kernel_payload_requests "${META_DEB}" ||
+            fail "Unable to resolve Ubuntu kernel payload from ${KERNEL_METAPACKAGE}"
+        REQUESTS=("${UBUNTU_KERNEL_REQUESTS[@]}")
+        mv "${META_DEB}" "${DOWNLOAD_DIR}/"
+    fi
+
     [ "${KERNEL_BUILD_DKMS}" = true ] && REQUESTS+=("${KERNEL_HEADER_REQUEST}")
     apt-get "${OPTIONS[@]}" --download-only --no-install-recommends -y install "${REQUESTS[@]}"
     find "${DOWNLOAD_DIR}" -maxdepth 1 -type f -name '*.deb' -print -quit | grep -q . ||
