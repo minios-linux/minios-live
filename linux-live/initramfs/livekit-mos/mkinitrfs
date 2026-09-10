@@ -331,7 +331,7 @@ FILES=(
     bin/e2fsck
     bin/unsquashfs
     bin/mc
-    bin/dynblk
+    bin/dynfilefs
     bin/@mount.httpfs2
     bin/@mount.ntfs-3g
     bin/ncurses-menu
@@ -345,7 +345,7 @@ FILES=(
 copy_files "$INITRAMFS" "${FILES[@]}"
 
 chmod a+x "$INITRAMFS/bin/"*
-ln -s dynblk "$INITRAMFS/bin/@mount.dynfilefs"
+ln -s dynfilefs "$INITRAMFS/bin/@mount.dynfilefs"
 chmod a+x "$INITRAMFS/mkinitrfs"
 mkdir -p "$INITRAMFS/etc/modprobe.d"
 echo "options loop max_loop=64" >"$INITRAMFS/etc/modprobe.d/local-loop.conf"

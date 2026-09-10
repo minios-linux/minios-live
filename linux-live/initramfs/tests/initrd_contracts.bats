@@ -313,15 +313,16 @@ contains() {
     contains "$builder" 'if [ "$CLOUD" = "true" ]'
 }
 
-@test "builders install dynblk with the legacy DynFileFS command alias" {
-    contains "$ROOT/livekit-mos/mkinitrfs" 'bin/dynblk'
-    contains "$ROOT/livekit-mos/mkinitrfs" 'ln -s dynblk "$INITRAMFS/bin/@mount.dynfilefs"'
-    contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'inst_simple "$STATIC_BIN/dynblk" "/bin/dynblk"'
-    contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'ln -sf dynblk "${initdir}/bin/@mount.dynfilefs"'
+@test "builders install dynfilefs without occupying the dynblk command" {
+    contains "$ROOT/livekit-mos/mkinitrfs" 'bin/dynfilefs'
+    contains "$ROOT/livekit-mos/mkinitrfs" 'ln -s dynfilefs "$INITRAMFS/bin/@mount.dynfilefs"'
+    contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'inst_simple "$STATIC_BIN/dynfilefs" "/bin/dynfilefs"'
+    contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'ln -sf dynfilefs "${initdir}/bin/@mount.dynfilefs"'
 
-    run "$ROOT/livekit-mos/bin/dynblk"
+    run "$ROOT/livekit-mos/bin/dynfilefs"
     [ "$status" -eq 1 ]
-    [[ "$output" == *'dynblk 4.5.0'* ]]
+    [[ "$output" == *'dynfilefs 4.5.1'* ]]
+    [ ! -e "$ROOT/livekit-mos/bin/dynblk" ]
 }
 
 @test "crypto payload copy list is complete and its symlinks are valid" {

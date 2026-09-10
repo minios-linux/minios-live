@@ -57,8 +57,8 @@ install() {
     inst_simple "$STATIC_BIN/ncurses-menu" "/bin/ncurses-menu"
     inst_simple "$STATIC_BIN/@mount.httpfs2" "/bin/@mount.httpfs2"
     inst_simple "$STATIC_BIN/@mount.ntfs-3g" "/bin/@mount.ntfs-3g"
-    inst_simple "$STATIC_BIN/dynblk" "/bin/dynblk"
-    ln -sf dynblk "${initdir}/bin/@mount.dynfilefs"
+    inst_simple "$STATIC_BIN/dynfilefs" "/bin/dynfilefs"
+    ln -sf dynfilefs "${initdir}/bin/@mount.dynfilefs"
     inst_simple "$STATIC_BIN/minios-boot" "/bin/minios-boot"
 
     if [ "$MINIOS_CRYPT" = "true" ]; then
