@@ -111,12 +111,7 @@ feh --no-fehbg --bg-fill "/usr/share/wallpapers/flux_wallpaper-logo.jpg"
 # Start XFCE4 panel
 xfce4-panel --disable-wm-check --sm-client-disable &
 
-# Adjust XFCE4-panel strut
-(
-    while ! wmctrl -l | grep -q xfce4-panel; do sleep 0.1; done
-    PANEL_ID=$(wmctrl -l | grep xfce4-panel | awk '{print $1}')
-    xprop -id "$PANEL_ID" -format _NET_WM_STRUT 32c -set _NET_WM_STRUT "0,0,0,52"
-) &
+# The panel reserves its own space through EWMH struts.
 
 # Keyboard-layout switcher (if installed)
 case "$(cat "${HOME}/.config/openbox/kblayout")" in
