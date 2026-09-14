@@ -54,6 +54,8 @@ targets:
   - name: flux-tools
     format: gettext
     root: submodules/flux-tools
+    from:
+      - bin
     template: po/messages.pot
     to: po/{lang}.po
 
@@ -130,7 +132,7 @@ targets:
   - name: minios-help-desktop
     format: desktop
     root: submodules/minios-help
-    to: share/applications/dev.minios.Help.desktop
+    to: share/applications/minios-help.desktop
     languages: [de, es, fr, id, it, pt, pt_BR, ru]
 
   # --- submodule: minios-image-builder ---
