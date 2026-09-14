@@ -33,6 +33,19 @@ contains() {
     done
 }
 
+@test "boot menus route interactive session creation through setup" {
+    minioslib="$ROOT/../minioslib"
+    lib="$ROOT/livekit-mos/lib/livekitlib"
+
+    [ "$(grep -Fc 'perchdir=setup' "$minioslib")" -eq 3 ]
+    ! grep -Fq 'perchdir=new' "$minioslib"
+    contains "$lib" 'select_new_session_mode()'
+    contains "$lib" 'if [ "$ACTION" = "ask" ] && [ -z "$LASTSESSION" ]; then'
+    contains "$lib" 'ACTION="setup"'
+    contains "$lib" "printf '%s\\n' 'DynBlk'"
+    contains "$lib" "printf '%s\\n' 'LUKS'"
+}
+
 @test "LiveKit and Dracut preserve runtime state at the consumer path" {
     lib="$ROOT/livekit-mos/lib/livekitlib"
     contains "$lib" 'perch_state_stage_livekit'
@@ -246,6 +259,27 @@ contains() {
     contains "$dracut" 'umount_all /run/initramfs/memory/changes'
 }
 
+@test "shutdown detaches boot dynblk and drains secondary devices before the backing store" {
+    for shutdown in "$ROOT/livekit-mos/shutdown" "$ROOT/dracut-mos/90minios/minios-shutdown.sh"; do
+        contains "$shutdown" 'detach_dynblk_device()'
+        contains "$shutdown" 'detach_shutdown_dynblk()'
+        contains "$shutdown" 'drain_remaining_dynblk()'
+        contains "$shutdown" 'SHUTDOWN_DYNBLK_DEVICE=$(sed -n '\''s/^dynblk_device=//p'\'' "$BOOT_STATE" | tail -n 1)'
+        contains "$shutdown" 'for SYS in /sys/block/dynblk[0-9]*; do'
+        contains "$shutdown" 'dynblk unload "$DEVICE" --execute'
+        contains "$shutdown" 'detach_shutdown_dynblk || DYNBLK_DETACH_FAILED=1'
+        contains "$shutdown" 'drain_remaining_dynblk || DYNBLK_DRAIN_FAILED=1'
+        contains "$shutdown" '[ "$DYNBLK_DRAIN_FAILED" -eq 0 ]'
+        changes_line=$(grep -nF 'umount_all /memory/changes' "$shutdown" | tail -n1 | cut -d: -f1)
+        detach_line=$(grep -nF 'detach_shutdown_dynblk || DYNBLK_DETACH_FAILED=1' "$shutdown" | cut -d: -f1)
+        drain_line=$(grep -nF 'drain_remaining_dynblk || DYNBLK_DRAIN_FAILED=1' "$shutdown" | cut -d: -f1)
+        memory_line=$(grep -nF 'umount_all /memory' "$shutdown" | tail -n1 | cut -d: -f1)
+        [ "$changes_line" -lt "$detach_line" ]
+        [ "$detach_line" -lt "$drain_line" ]
+        [ "$drain_line" -lt "$memory_line" ]
+    done
+}
+
 @test "shutdown verifies pre-unmount SquashFS save before teardown" {
     for shutdown in "$ROOT/livekit-mos/shutdown" "$ROOT/dracut-mos/90minios/minios-shutdown.sh"; do
         contains "$shutdown" 'verify_shutdown_squashfs_save || SQUASHFS_SAVE_FAILED=1'
@@ -313,16 +347,20 @@ contains() {
     contains "$builder" 'if [ "$CLOUD" = "true" ]'
 }
 
-@test "builders install dynfilefs without occupying the dynblk command" {
+@test "builders keep dynfilefs while coupling dynblk CLI to the kernel module" {
     contains "$ROOT/livekit-mos/mkinitrfs" 'bin/dynfilefs'
+    contains "$ROOT/livekit-mos/mkinitrfs" 'copy_files "$INITRAMFS" bin/dynblk'
     contains "$ROOT/livekit-mos/mkinitrfs" 'ln -s dynfilefs "$INITRAMFS/bin/@mount.dynfilefs"'
     contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'inst_simple "$STATIC_BIN/dynfilefs" "/bin/dynfilefs"'
+    contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'inst_simple "$dynblk_bin" "/bin/dynblk"'
     contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'ln -sf dynfilefs "${initdir}/bin/@mount.dynfilefs"'
 
     run "$ROOT/livekit-mos/bin/dynfilefs"
     [ "$status" -eq 1 ]
     [[ "$output" == *'dynfilefs 4.5.1'* ]]
-    [ ! -e "$ROOT/livekit-mos/bin/dynblk" ]
+    run "$ROOT/livekit-mos/bin/dynblk" --help
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'dynblk create PATH'* ]]
 }
 
 @test "crypto payload copy list is complete and its symlinks are valid" {

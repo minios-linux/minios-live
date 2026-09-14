@@ -1247,13 +1247,45 @@ mount_perch_drive() {
    echo "$PERCHDIR"
 }
 
+# Interactively choose the backend for a new persistence session. Only backends
+# that this initramfs can activate are offered. SquashFS is not a new-session
+# backend because it requires an existing captured snapshot.
+select_new_session_mode() {
+   debug_log "select_new_session_mode" "$*"
+   local OPTIONS SELECTED
+   OPTIONS="/tmp/minios-session-modes.$$"
+   : >"$OPTIONS" || return 1
+
+   printf '%s\n' 'Native' >>"$OPTIONS"
+   command -v @mount.dynfilefs >/dev/null 2>&1 && printf '%s\n' 'DynFileFS' >>"$OPTIONS"
+   command -v dynblk >/dev/null 2>&1 && printf '%s\n' 'DynBlk' >>"$OPTIONS"
+   if command -v truncate >/dev/null 2>&1 && command -v mke2fs >/dev/null 2>&1; then
+      printf '%s\n' 'Raw' >>"$OPTIONS"
+   fi
+   if { [ -f /etc/minios-initramfs-crypt ] || [ -f /run/initramfs/etc/minios-initramfs-crypt ]; } &&
+      command -v cryptsetup >/dev/null 2>&1; then
+      printf '%s\n' 'LUKS' >>"$OPTIONS"
+   fi
+
+   SELECTED=$(ncurses-menu -t 'Select session type:' -f "$OPTIONS" 2>&1 >/dev/tty1 </dev/tty1)
+   rm -f "$OPTIONS"
+   case "$SELECTED" in
+   Native) printf '%s\n' native ;;
+   DynFileFS) printf '%s\n' dynfilefs ;;
+   DynBlk) printf '%s\n' dynblk ;;
+   Raw) printf '%s\n' raw ;;
+   LUKS) printf '%s\n' luks ;;
+   *) return 1 ;;
+   esac
+}
+
 # Restore persistent changes from previous session.
 # Store persistent changes to a directory and keep the directory in a session file,
 # so we know which session was active last time so we can resume it next time
 # $1 = partition on which changes will be stored
 # $2 = changes directory
 # $3 = persistent changes directory within changes directory
-# $4 = action to perform (e.g., resume, new, ask)
+# $4 = action to perform (e.g., resume, new, setup, ask)
 # $5 = session mode
 # $6 = automatic resume (true = create a new session when resume has nothing usable)
 #
@@ -1286,7 +1318,7 @@ restore_perch_session() {
    # In this case, perchdir is mounted on $CHANDIR and action is prompted
    if echo "$PERCHDIR" | grep -q '^/dev/'; then
       PERCHDIR=$(mount_perch_drive "$DRIVE" "$CHANDIR" "$PERCHDIR" 2>/dev/null)
-      if [ "$PERCHDIR" = "resume" ] || [ "$PERCHDIR" = "new" ] || [ "$PERCHDIR" = "ask" ]; then
+      if [ "$PERCHDIR" = "resume" ] || [ "$PERCHDIR" = "new" ] || [ "$PERCHDIR" = "setup" ] || [ "$PERCHDIR" = "ask" ]; then
          ACTION="$PERCHDIR"
       fi
    fi
@@ -1318,6 +1350,18 @@ restore_perch_session() {
       LASTSIZE=$(sed -n "s/^session_size\[$LASTSESSION\]=//p" "$SESSIONS" 2>/dev/null)
    fi
 
+   if [ "$ACTION" = "ask" ] && [ -z "$LASTSESSION" ]; then
+      ACTION="setup"
+   fi
+
+   if [ "$ACTION" = "setup" ]; then
+      PERCHMODE=$(select_new_session_mode) || {
+         echo "No persistence session type was selected" >&2
+         return 1
+      }
+      ACTION="new"
+   fi
+
    if [ "$ACTION" != "new" ] && [ -z "$LASTSESSION" ]; then
       if [ "$ACTION" = "resume" ] && [ "$AUTO_RESUME" = "true" ]; then
          ACTION="new"
@@ -1328,7 +1372,7 @@ restore_perch_session() {
    fi
 
    if [ "$ACTION" = "new" ] && [ "$PERCHMODE" = "squashfs" ]; then
-      echo "SquashFS session creation is unavailable until save support is complete" >&2
+      echo "SquashFS mode cannot create new persistence sessions" >&2
       return 1
    fi
 
@@ -1373,7 +1417,7 @@ restore_perch_session() {
             fi
 
             if echo "$SELECTED" | grep -q "new"; then
-               ACTION="new"
+               ACTION="setup"
                SESSION_CONFIRMED="true"
             else
                PERCHDIR=$(echo "$SELECTED" | sed -r 's/.*#//' | sed -r 's/[^0-9].*//')
@@ -1505,6 +1549,14 @@ restore_perch_session() {
       fi
    fi
 
+   if [ "$ACTION" = "setup" ]; then
+      PERCHMODE=$(select_new_session_mode) || {
+         echo "No persistence session type was selected" >&2
+         return 1
+      }
+      ACTION="new"
+   fi
+
    if [ "$ACTION" = "new" ]; then
       # Consider only strictly-numeric session directories, ordered numerically
       # (not lexically, so 10 sorts after 9). Allocate strictly above the current
@@ -1626,7 +1678,7 @@ cmdline_requests_persistence() {
    local TOKEN
    for TOKEN in $(cat "$MINIOS_CMDLINE_FILE" 2>/dev/null); do
       case "$TOKEN" in
-      perch | perchdir=* | perchmode=* | perchsize=* | perchreserve=*) return 0 ;;
+      perch | perchdir=* | perchmode=* | perchsize=* | perchreserve=* | perchcomp=*) return 0 ;;
       esac
    done
    return 1
@@ -1635,6 +1687,27 @@ cmdline_requests_persistence() {
 persistence_requested() {
    # Known perch parameters enable persistence handling. resume remains best-effort.
    cmdline_requests_persistence
+}
+
+dynblk_available() {
+   command -v dynblk >/dev/null 2>&1
+}
+
+dynblk_device_valid() {
+   local DEVICE="$1" INDEX
+   case "$DEVICE" in
+   /dev/dynblk*) ;;
+   *) return 1 ;;
+   esac
+   INDEX=${DEVICE#/dev/dynblk}
+   case "$INDEX" in
+   '' | *[!0-9]*) return 1 ;;
+   esac
+   [ "$INDEX" -le 255 ]
+}
+
+dynblk_device_ready() {
+   dynblk_device_valid "$1" && [ -b "$1" ]
 }
 
 # Free space in whole MB on the filesystem that holds $1.
@@ -1850,8 +1923,10 @@ perch_store_identity() {
 # Publish the boot-time persistence result for runtime consumers. A successful
 # record is bound to this boot and to the actual durable numbered-session store.
 # $1 level  $2 mode  $3 session  $4 session store  $5 active generation
+# $6 dynblk device (only for dynblk mode)
 perch_state_publish() {
    local LEVEL="$1" MODE="$2" SESSION="$3" STORE="$4" GENERATION="$5"
+   local DYNBLK_DEVICE="${6:-none}"
    local TMP BOOTID DURABLE=0 WRITABLE=0 DEVICE=0 INODE=0 IDENTITY
    BOOTID=$(cat "$MINIOS_BOOT_ID_FILE" 2>/dev/null) || BOOTID="unknown"
    case "$BOOTID" in
@@ -1861,21 +1936,25 @@ perch_state_publish() {
    '' | *[!0-9]*) SESSION="unknown" ;;
    esac
    case "$MODE" in
-   native | dynfilefs | raw | luks | squashfs) ;;
+   native | dynfilefs | dynblk | raw | luks | squashfs) ;;
    *) MODE="unknown" ;;
    esac
+   [ "$MODE" = "dynblk" ] || DYNBLK_DEVICE="none"
    case "$LEVEL" in
    ok)
       if ! echo "$SESSION" | grep -q '^[0-9][0-9]*$' ||
          { [ "$GENERATION" != "current" ] &&
            { [ "$GENERATION" != "old" ] || [ "$MODE" != "squashfs" ]; }; } ||
-         [ "$BOOTID" = "unknown" ] || [ -z "$BOOTID" ]; then
+         [ "$BOOTID" = "unknown" ] || [ -z "$BOOTID" ] ||
+         { [ "$MODE" = "dynblk" ] &&
+           ! dynblk_device_ready "$DYNBLK_DEVICE"; }; then
          LEVEL="failed"
          GENERATION="none"
+         DYNBLK_DEVICE="none"
       else
-          IDENTITY=$(perch_store_identity "$STORE") || LEVEL="failed"
-          DEVICE=${IDENTITY%% *}
-          INODE=${IDENTITY#* }
+         IDENTITY=$(perch_store_identity "$STORE") || LEVEL="failed"
+         DEVICE=${IDENTITY%% *}
+         INODE=${IDENTITY#* }
          perch_store_is_writable "$STORE" && WRITABLE=1
          perch_store_is_durable "$STORE" && DURABLE=1
          if [ "$LEVEL" != "ok" ] || [ "$WRITABLE" != "1" ]; then
@@ -1883,12 +1962,14 @@ perch_state_publish() {
             DEVICE=0
             INODE=0
             GENERATION="none"
+            DYNBLK_DEVICE="none"
          fi
       fi
       ;;
    *)
       LEVEL="failed"
       GENERATION="none"
+      DYNBLK_DEVICE="none"
       ;;
    esac
    mkdir -p "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null || return 1
@@ -1905,6 +1986,7 @@ perch_state_publish() {
          echo "sessions_device=$DEVICE"
          echo "sessions_inode=$INODE"
          echo "active_generation=${GENERATION:-none}"
+         echo "dynblk_device=$DYNBLK_DEVICE"
       } >"$TMP" 2>/dev/null && chmod 600 "$TMP" 2>/dev/null &&
          mv -f "$TMP" "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
    ); then
@@ -1924,6 +2006,7 @@ perch_state_prepare() {
    MINIOS_PENDING_PERSISTENCE_GENERATION="$4"
    MINIOS_PENDING_PERSISTENCE_CHANGES="$5"
    MINIOS_PENDING_PERSISTENCE_CONF="${6:-}"
+   MINIOS_PENDING_PERSISTENCE_DYNBLK_DEVICE="${7:-none}"
 }
 
 perch_state_clear_pending() {
@@ -1933,6 +2016,7 @@ perch_state_clear_pending() {
    MINIOS_PENDING_PERSISTENCE_GENERATION=""
    MINIOS_PENDING_PERSISTENCE_CHANGES=""
    MINIOS_PENDING_PERSISTENCE_CONF=""
+   MINIOS_PENDING_PERSISTENCE_DYNBLK_DEVICE=""
 }
 
 perch_union_is_active() {
@@ -2007,7 +2091,8 @@ perch_state_commit() {
    if ! perch_state_publish ok "$MINIOS_PENDING_PERSISTENCE_MODE" \
       "$MINIOS_PENDING_PERSISTENCE_SESSION" \
       "$MINIOS_PENDING_PERSISTENCE_STORE" \
-      "$MINIOS_PENDING_PERSISTENCE_GENERATION"; then
+      "$MINIOS_PENDING_PERSISTENCE_GENERATION" \
+      "$MINIOS_PENDING_PERSISTENCE_DYNBLK_DEVICE"; then
       boot_warning_notify error persistence "Persistence was active but its runtime authority could not be published."
       perch_state_publish failed "$MINIOS_PENDING_PERSISTENCE_MODE" \
          "$MINIOS_PENDING_PERSISTENCE_SESSION"
@@ -2368,10 +2453,11 @@ squashfs_generation_restore() {
 #
 persistent_changes() {
    debug_log "persistent_changes" "$*"
-   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE NEW_SESSION AUTO_RESUME
+   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHSIZE_SPECIFIED PERCHCOMP PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE NEW_SESSION AUTO_RESUME DYNBLK_DEVICE
 
    DATA="$1"
    CHANGES="$2"
+   DYNBLK_DEVICE="none"
    perch_state_clear_pending
    MINIOS_SQUASHFS_SESSION=""
    rm -f "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
@@ -2379,8 +2465,17 @@ persistent_changes() {
    AUTO_RESUME="false"
    [ "$PERCHDIR" = "resume" ] && AUTO_RESUME="true"
    PERCHMODE="$(cmdline_value perchmode)"
+   if [ "$PERCHMODE" = "dynblk" ] && ! dynblk_available; then
+      boot_warning_notify warning mode \
+         "dynblk is unavailable in this initramfs; using the standard persistence mode."
+      PERCHMODE="native"
+   fi
    PERCHSIZE="$(cmdline_value perchsize)"
+   PERCHSIZE_SPECIFIED="false"
+   [ -z "$PERCHSIZE" ] || PERCHSIZE_SPECIFIED="true"
    : "${PERCHSIZE:=0}"
+   PERCHCOMP="$(cmdline_value perchcomp)"
+   : "${PERCHCOMP:=none}"
 
    # Parse size with units (MB, GB, TB) and convert to MB
    parse_size() {
@@ -2549,7 +2644,7 @@ persistent_changes() {
       fi
 
       session_conf_commit "$SESSIONS" "$PERCHDIR" "$PERCHMODE" "$VERSION" "$EDITION" "$UNION" "$PERCHSIZE" || return 1
-      perch_state_prepare "$PERCHMODE" "$PERCHDIR" "$CHANDIR" current "$CHANGES"
+      perch_state_prepare "$PERCHMODE" "$PERCHDIR" "$CHANDIR" current "$CHANGES" "" "$DYNBLK_DEVICE"
       touch "$CHANDIR/$PERCHDIR" 2>/dev/null || true
    }
 
@@ -2635,6 +2730,117 @@ persistent_changes() {
             rm -f -- "$CHANDIR/$PERCHFILE" "$CHANDIR/$PERCHFILE".*
             rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
          fi
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: metadata could not be updated; persistence was disabled for this boot."
+         return
+      fi
+   }
+
+   dynblk_mode() {
+      local VOLUME GROWN="false"
+      PERCHMODE="dynblk"
+      PERCHFILE="$PERCHDIR/volume000.db"
+      VOLUME="$CHANDIR/$PERCHFILE"
+      DYNBLK_DEVICE="none"
+      [ -e "$VOLUME" ] && PERCHFILE_EXISTS="true"
+
+      if [ -z "$PERCHFILE_EXISTS" ]; then
+         case "$PERCHCOMP" in
+         none | lz4 | lz4hc | lzo | lzo-rle | zstd | deflate | 842) ;;
+         *)
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR: unsupported dynblk compression '$PERCHCOMP'."
+            return
+            ;;
+         esac
+         if [ "$PERCHSIZE_SPECIFIED" = "true" ] && [ "$PERCHSIZE" -gt 524288 ]; then
+            echo "- persistent changes size ${PERCHSIZE}MB exceeds dynblk limit, using 524288MB"
+            PERCHSIZE=524288
+         fi
+         echo "* Creating new dynblk persistent changes for session #$PERCHDIR"
+         if [ "$PERCHSIZE_SPECIFIED" = "true" ] && [ "$PERCHSIZE" -gt 0 ]; then
+            if ! DYNBLK_DEVICE=$(dynblk create "$VOLUME" --size "${PERCHSIZE}MiB" \
+                  --compression "$PERCHCOMP" --execute); then
+               perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+                  "Session #$PERCHDIR: cannot create dynblk device."
+               DYNBLK_DEVICE="none"
+               return
+            fi
+         else
+            if ! DYNBLK_DEVICE=$(dynblk create "$VOLUME" --compression "$PERCHCOMP" --execute); then
+               perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+                  "Session #$PERCHDIR: cannot create dynblk device."
+               DYNBLK_DEVICE="none"
+               return
+            fi
+         fi
+         if ! dynblk_device_ready "$DYNBLK_DEVICE"; then
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR: dynblk returned an invalid block-device path."
+            DYNBLK_DEVICE="none"
+            return
+         fi
+         echo "- creating filesystem"
+         if ! mke2fs -t ext4 -F -E nodiscard "$DYNBLK_DEVICE" >/dev/null 2>&1; then
+            dynblk unload "$DYNBLK_DEVICE" --execute 2>/dev/null || true
+            DYNBLK_DEVICE="none"
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR: cannot create filesystem on dynblk device."
+            return
+         fi
+      else
+         echo "* Resuming dynblk persistent changes for session #$PERCHDIR"
+         if ! DYNBLK_DEVICE=$(dynblk load "$VOLUME" --execute); then
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR: cannot load dynblk device."
+            DYNBLK_DEVICE="none"
+            return
+         fi
+         if ! dynblk_device_ready "$DYNBLK_DEVICE"; then
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR: dynblk returned an invalid block-device path."
+            DYNBLK_DEVICE="none"
+            return
+         fi
+         if command -v e2fsck >/dev/null; then
+            echo "- checking filesystem for errors"
+            e2fsck -p "$DYNBLK_DEVICE" >/dev/null 2>&1
+            if [ "$?" -gt 1 ]; then
+               dynblk unload "$DYNBLK_DEVICE" --execute 2>/dev/null || true
+               DYNBLK_DEVICE="none"
+               perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+                  "Session #$PERCHDIR: filesystem check failed; dynblk persistence was not mounted."
+               return
+            fi
+         fi
+         if [ "$PERCHSIZE_SPECIFIED" = "true" ] && [ "$PERCHSIZE" -gt 0 ]; then
+            [ "$PERCHSIZE" -le 524288 ] || PERCHSIZE=524288
+            echo "- grow if needed"
+            if dynblk grow "$DYNBLK_DEVICE" "${PERCHSIZE}MiB" --execute; then
+               GROWN="true"
+            else
+               boot_warning_notify warning persistence \
+                  "Session #$PERCHDIR: requested dynblk size could not be applied; using the stored capacity."
+            fi
+            if [ "$GROWN" = "true" ] && ! resize2fs -f "$DYNBLK_DEVICE" >/dev/null 2>&1; then
+               boot_warning_notify warning persistence \
+                  "Session #$PERCHDIR: dynblk device grew, but its filesystem remains at the previous size."
+            fi
+         fi
+      fi
+
+      echo "- mounting persistent changes"
+      mount -o errors=remount-ro "$DYNBLK_DEVICE" "$CHANGES" || {
+         dynblk unload "$DYNBLK_DEVICE" --execute 2>/dev/null || true
+         DYNBLK_DEVICE="none"
+         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+            "Session #$PERCHDIR: cannot mount dynblk persistent changes."
+         return
+      }
+      if ! update_session; then
+         umount "$CHANGES" 2>/dev/null || true
+         dynblk unload "$DYNBLK_DEVICE" --execute 2>/dev/null || true
+         DYNBLK_DEVICE="none"
          perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
             "Session #$PERCHDIR: metadata could not be updated; persistence was disabled for this boot."
          return
@@ -2910,7 +3116,7 @@ persistent_changes() {
       return
    fi
 
-   if [ "$PERCHDIR" = "resume" ] || [ "$PERCHDIR" = "new" ] || [ "$PERCHDIR" = "ask" ]; then
+   if [ "$PERCHDIR" = "resume" ] || [ "$PERCHDIR" = "new" ] || [ "$PERCHDIR" = "setup" ] || [ "$PERCHDIR" = "ask" ]; then
       ACTION="$PERCHDIR"
    else
       ACTION="resume"
@@ -2944,6 +3150,29 @@ persistent_changes() {
    : "${PERCHMODE:=$2}"
    NEW_SESSION=$3
 
+   # A dynblk session can be selected implicitly by resume even when the current
+   # initramfs has no dynblk support. Never reinterpret that directory as native:
+   # automatic resume creates a new standard session and preserves the old one.
+   if [ "$PERCHMODE" = "dynblk" ] && ! dynblk_available; then
+      if [ "$AUTO_RESUME" = "true" ]; then
+         boot_warning_notify warning mode \
+            "Session #$PERCHDIR requires dynblk, which is unavailable; creating a new standard persistence session."
+         if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" new new native false); then
+            perch_state_fail_now dynblk "$PERCHDIR" \
+               "dynblk is unavailable and a standard replacement session could not be created."
+            return
+         fi
+         set -- $PERCHSESSION
+         PERCHDIR=$1
+         PERCHMODE=$2
+         NEW_SESSION=$3
+      else
+         perch_state_fail_now dynblk "$PERCHDIR" \
+            "Session #$PERCHDIR requires dynblk, which is unavailable in this initramfs."
+         return
+      fi
+   fi
+
    # Device-qualified stores are mounted by session selection, so measure free
    # space only now rather than accidentally checking the read-only ISO.
    perch_space_warn "$CHANDIR" || true
@@ -2954,6 +3183,7 @@ persistent_changes() {
       case "$PERCHMODE" in
       "native") native_mode ;;
       "dynfilefs") dynfilefs_mode ;;
+      "dynblk") dynblk_mode ;;
       "raw") raw_mode ;;
       "luks") luks_mode ;;
       "squashfs") squashfs_mode ;;

@@ -217,6 +217,14 @@ EOF
         minios-svc enable minios-squashfs-shutdown-save >/dev/null 2>&1
     fi
 
+    # SysV has no equivalent of systemd's final switch back to
+    # /run/initramfs. Stop this service immediately before umountfs so the
+    # preserved dracut shutdown image takes control while its mounts exist.
+    if [ "${INITRAMFS_BUILDER:-}" = "dracut" ] && \
+        [ -x /etc/init.d/minios-dracut-shutdown ]; then
+        minios-svc enable minios-dracut-shutdown >/dev/null 2>&1
+    fi
+
     if [ -f /etc/inittab ]; then
         sed -i \
             -e 's|/etc/init.d/rcS$|/usr/sbin/minios-sysv-rc S|' \

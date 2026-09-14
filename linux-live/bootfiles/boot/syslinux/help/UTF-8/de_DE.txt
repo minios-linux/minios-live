@@ -26,11 +26,14 @@ Eine detaillierte Beschreibung der verschiedenen Startparameter finden Sie unten
   - new: Erstellt immer eine neue Sitzung
   - ask: Interaktive Auswahl der Sitzung
   - #: Verwendet eine bestimmte Sitzungsnummer
-* perchmode=[native/dynfilefs/raw]: Legt den Persistenzmodus fest
+* perchmode=[native/dynfilefs/dynblk/raw/luks/squashfs]: Persistenzmodus festlegen
   - native: Direktes Dateisystem (Standard, beste Leistung, nur POSIX)
-  - dynfilefs: Dynamischer Dateicontainer (funktioniert auf allen Dateisystemen)
-  - raw: Raw-Image mit fester Größe
-* perchsize=[MB]: Legt die Größe des Persistenzcontainers in Megabyte fest
+  - dynfilefs: Erweiterbarer FUSE-Container (Format 400)
+  - dynblk: Dünnes Kernel-Blockgerät (Format 1, 16 GiB Standard, 512 GiB Maximum)
+  - raw: Feste ext4-Abbilddatei
+  - luks: Verschlüsselter LUKS2/ext4-Container; fordert eine Passphrase an
+  - squashfs: Vorhandenen komprimierten Schnappschuss fortsetzen
+* perchsize=[MB]: Größe eines DynFileFS-, dynblk-, raw- oder LUKS-Containers festlegen oder vergrößern
 
 * load=[filter]: Lädt nur übereinstimmende Module (Regex oder Bereich)
   Beispiele: load=00-core oder load=core,kernel,firmware oder load=00,01,02

@@ -38,3 +38,9 @@ image is provided. To inspect a built image instead, set
 `MINIOS_INITRD_IMAGE=/path/to/initrd`; set `MINIOS_EXPECT_CRYPT=1` for a
 `--crypt` image. The test uses `lsinitramfs`, `lsinitrd`, or uncompressed
 `cpio` images, whichever is available.
+
+`dynblk.bats` checks the static native format-1 CLI, BusyBox module-management
+applets, absence of hard codec dependencies and the LiveKit/dracut inclusion
+contracts. It does not load a module or format storage. Real CLI/module tests use
+the dedicated Testo scenarios in `submodules/dynblk/tests/vm/` on disposable
+guest disks.

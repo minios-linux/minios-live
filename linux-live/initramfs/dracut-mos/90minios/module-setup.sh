@@ -112,16 +112,62 @@ install() {
     return 0
 }
 
+normalize_dynblk_module() {
+    local source="" candidate target count=0
+    [ -d "${initdir}/lib/modules" ] || return 0
+    while IFS= read -r candidate; do
+        [ -f "$candidate" ] || continue
+        source="$candidate"
+        count=$((count + 1))
+    done < <(find "${initdir}/lib/modules" -type f \
+        \( -name 'dynblk.ko' -o -name 'dynblk.ko.gz' -o -name 'dynblk.ko.xz' -o -name 'dynblk.ko.zst' \))
+    [ "$count" -eq 0 ] && return 0
+    if [ "$count" -ne 1 ]; then
+        echo "E: Multiple dynblk module files found in initramfs input" >&2
+        return 1
+    fi
+    target="${source%.gz}"
+    target="${target%.xz}"
+    target="${target%.zst}"
+    case "$source" in
+        *.ko) return 0 ;;
+        *.ko.gz) gzip -cd "$source" >"$target.tmp" ;;
+        *.ko.xz) xz -cd "$source" >"$target.tmp" ;;
+        *.ko.zst) zstd -cd "$source" >"$target.tmp" ;;
+        *) return 1 ;;
+    esac
+    mv "$target.tmp" "$target"
+    rm -f "$source"
+    chmod 0644 "$target"
+}
+
 # Explicit kernel module selection - matches livekit approach
 installkernel() {
+    local dynblk_bin=""
+
     # Filesystems
     instmods squashfs overlay loop zram aufs aufs-ng
+    instmods -o dynblk
+    normalize_dynblk_module || return 1
+    if find "${initdir}/lib/modules" -type f -name 'dynblk.ko' -print -quit | grep -q .; then
+        if [ -x /run/initramfs/bin/dynblk ]; then
+            dynblk_bin=/run/initramfs/bin/dynblk
+        elif [ -x /linux-live/initramfs/livekit-mos/bin/dynblk ]; then
+            dynblk_bin=/linux-live/initramfs/livekit-mos/bin/dynblk
+        else
+            echo "E: dynblk.ko is present but the initramfs dynblk binary is missing" >&2
+            return 1
+        fi
+        inst_simple "$dynblk_bin" "/bin/dynblk"
+        touch "${initdir}/etc/minios-initramfs-dynblk"
+    fi
     instmods ext2 ext3 ext4 fat vfat ntfs ntfs3 exfat
     instmods isofs fuse efivarfs btrfs xfs
     instmods nls_cp437 nls_iso8859-1 nls_utf8
 
     # Compression and checksums
     instmods =crypto/lz4 =crypto/zstd
+    instmods -o lz4hc lzo lzo-rle deflate
     instmods -o crc32c-intel
     instmods -o crc32-pclmul
     instmods -o crc32c_generic

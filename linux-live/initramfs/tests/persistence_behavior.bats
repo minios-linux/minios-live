@@ -12,7 +12,11 @@ setup() {
     make_mock resize2fs
     make_mock e2fsck
     make_mock truncate
+    # Never let unit tests issue a host-wide sync; production code still calls
+    # sync, but the test suite must keep I/O scoped to its private fixture.
+    make_mock sync
     make_mock @mount.dynfilefs 'while [ $# -gt 0 ]; do if [ "$1" = "-m" ]; then mkdir -p "$2"; : >"$2/virtual.dat"; fi; shift; done'
+    make_mock dynblk 'case "$1" in create|load) printf "%s\n" /dev/dynblk7 ;; esac'
     make_mock cryptsetup
     make_mock losetup
     make_mock df 'printf "%s\n" "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 10000000 0 9000000 0% /"'
@@ -64,6 +68,7 @@ setup_dispatch() {
         perchdir) printf '%s\n' new ;;
         perchmode) printf '%s\n' "$TEST_MODE" ;;
         perchsize) printf '%s\n' "$TEST_SIZE" ;;
+        perchcomp) printf '%s\n' none ;;
         *) return 0 ;;
         esac
     }
@@ -76,6 +81,7 @@ setup_dispatch() {
     perch_store_is_durable() { return 0; }
     perch_store_is_writable() { return 0; }
     perch_union_is_active() { return 0; }
+    dynblk_device_ready() { dynblk_device_valid "$1"; }
     restore_perch_session() {
         if [ "$TEST_MODE" = luks ] && [ "$5" = native ]; then
             printf 'restore:new:%s\n' "$5" >>"$MINIOS_TEST_LOG"
@@ -84,9 +90,17 @@ setup_dispatch() {
         else
             printf 'restore:%s:%s\n' "$4" "$5" >>"$MINIOS_TEST_LOG"
             mkdir -p "$TEST_CHANDIR/1"
-            printf '%s %s %s\n' 1 "$TEST_MODE" true
+            printf '%s %s %s\n' 1 "$5" true
         fi
     }
+}
+
+@test "perchcomp alone requests persistence handling" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    printf '%s\n' 'quiet perchcomp=zstd' >"$MINIOS_CMDLINE_FILE"
+
+    cmdline_requests_persistence
 }
 
 @test "LiveKit DynFileFS is not limited to 4000MB on FAT32" {
@@ -108,6 +122,105 @@ setup_dispatch() {
     assert_log "truncate -s 64M $TEST_DATA/changes/1/changes.img"
     assert_log "mount -o loop,errors=remount-ro $TEST_DATA/changes/1/changes.img $TEST_CHANGES"
     ! grep -Fq '@mount.dynfilefs' "$LOG"
+}
+
+@test "dynblk creates and mounts a block device without a loop" {
+    setup_dispatch dynblk ext4 64
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --execute"
+    assert_log "mke2fs -t ext4 -F -E nodiscard /dev/dynblk7"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    ! grep -Fq 'mount -o loop' "$LOG"
+    grep -Fqx 'session_mode[1]=dynblk' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'dynblk_device=/dev/dynblk7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+}
+
+@test "unavailable dynblk request follows the standard native persistence route" {
+    setup_dispatch dynblk ext4 64
+    dynblk_available() { return 1; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "restore:new:native"
+    assert_log "mount --bind $TEST_CHANDIR/1 $TEST_CHANGES"
+    ! grep -Fq 'dynblk create ' "$LOG"
+    grep -Fqx 'session_mode[1]=native' "$TEST_CHANDIR/session.conf"
+}
+
+@test "auto-resume preserves an unavailable dynblk session and creates a native replacement" {
+    setup_dispatch native ext4 64
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/volume000.db"
+    dynblk_available() { return 1; }
+    cmdline_value() {
+        case "$1" in
+        perchdir) printf '%s\n' resume ;;
+        perchmode) printf '%s\n' '' ;;
+        perchsize) printf '%s\n' 64 ;;
+        perchcomp) printf '%s\n' none ;;
+        *) return 0 ;;
+        esac
+    }
+    restore_perch_session() {
+        printf 'restore:%s:%s\n' "$4" "$5" >>"$MINIOS_TEST_LOG"
+        if [ "$4" = resume ]; then
+            printf '%s\n' '1 dynblk false'
+        else
+            mkdir -p "$TEST_CHANDIR/2"
+            printf '%s\n' '2 native true'
+        fi
+    }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "restore:resume:"
+    assert_log "restore:new:native"
+    assert_log "mount --bind $TEST_CHANDIR/2 $TEST_CHANGES"
+    [ -f "$TEST_CHANDIR/1/volume000.db" ]
+    grep -Fqx 'session_mode[2]=native' "$TEST_CHANDIR/session.conf"
+}
+
+@test "dynblk uses its 16GiB default unless perchsize is explicit" {
+    setup_dispatch dynblk ext4
+    cmdline_value() {
+        case "$1" in
+        perchdir) printf '%s\n' new ;;
+        perchmode) printf '%s\n' dynblk ;;
+        perchsize) printf '%s\n' '' ;;
+        perchcomp) printf '%s\n' zstd ;;
+        *) return 0 ;;
+        esac
+    }
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --compression zstd --execute"
+    ! grep -F 'dynblk create ' "$LOG" | grep -Fq -- '--size'
+}
+
+@test "dynblk resume loads stored geometry and grows only when explicitly requested" {
+    setup_dispatch dynblk ext4 96
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/volume000.db"
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --execute"
+    assert_log "e2fsck -p /dev/dynblk7"
+    assert_log "dynblk grow /dev/dynblk7 96MiB --execute"
+    assert_log "resize2fs -f /dev/dynblk7"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+}
+
+@test "dynblk activation failure continues in memory and is published as failed" {
+    setup_dispatch dynblk ext4 64
+    make_mock dynblk 'test "$1" != create'
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    ! grep -Fq 'mke2fs ' "$LOG"
+    ! grep -Fq 'mount -o errors=remount-ro /dev/dynblk7' "$LOG"
+    [ ! -f "$TEST_CHANDIR/session.conf" ] || ! grep -q '^default=' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
 }
 
 @test "native metadata failure unwinds activation and removes a new session" {
@@ -745,7 +858,8 @@ EOF
     grep -Fqx "sessions_inode=$(stat -c '%i' "$TEST_CHANDIR")" \
         "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'active_generation=current' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
-    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 9 ]
+    grep -Fqx 'dynblk_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 10 ]
     [ "$(stat -c '%a' "$MINIOS_PERSISTENCE_RUNDIR/boot-state")" = 600 ]
     [ ! -f "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
 }
@@ -1113,7 +1227,8 @@ EOF
     grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'mode=unknown' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'session=unknown' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
-    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 9 ]
+    grep -Fqx 'dynblk_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 10 ]
 }
 
 @test "explicit persistence write failure publishes degraded runtime state" {
@@ -1217,6 +1332,54 @@ EOF
     ! grep -Fq 'mount -o loop' "$LOG"
     [ ! -f "$TEST_CHANDIR/session.conf" ] || ! grep -q '^default=' "$TEST_CHANDIR/session.conf"
     grep -Fq 'fsck' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
+}
+
+@test "ask on an empty store enters setup and creates the selected backend" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    chandir="$WORK/ask-empty/changes"
+    mkdir -p "$chandir"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    select_new_session_mode() { printf '%s\n' dynfilefs; }
+    PERCHSIZE=0
+
+    run restore_perch_session /dev/test "$chandir" ask ask "" false
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "1 dynfilefs true" ]
+    [ -d "$chandir/1" ]
+}
+
+@test "setup creates a new session with the interactively selected backend" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    chandir="$WORK/setup-empty/changes"
+    mkdir -p "$chandir"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    select_new_session_mode() { printf '%s\n' raw; }
+    PERCHSIZE=0
+
+    run restore_perch_session /dev/test "$chandir" setup setup "" false
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "1 raw true" ]
+    [ -d "$chandir/1" ]
+}
+
+@test "new remains automatic and does not invoke setup selection" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    chandir="$WORK/new-automatic/changes"
+    mkdir -p "$chandir"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    select_new_session_mode() { return 1; }
+    PERCHSIZE=0
+
+    run restore_perch_session /dev/test "$chandir" new new "" false
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "1 native true" ]
+    [ -d "$chandir/1" ]
 }
 
 @test "automatic resume creates the first session on an empty writable store" {

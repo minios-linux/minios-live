@@ -27,11 +27,14 @@ paramètres de démarrage est fournie ci-dessous.
   - new : Toujours créer une nouvelle session
   - ask : Sélectionner la session de manière interactive
   - # : Utiliser un numéro de session específico
-* perchmode=[native/dynfilefs/raw] : Définir le mode de persistance
-  - native : Système de fichiers direct (par défaut, meilleures performances, POSIX uniquement)
-  - dynfilefs : Conteneur de fichiers dynamique (fonctionne sur tous les systèmes de fichiers)
-  - raw : Image brute de taille fixe
-* perchsize=[MB] : Définir la taille du conteneur de persistance en mégaoctets
+* perchmode=[native/dynfilefs/dynblk/raw/luks/squashfs] : Définit le mode de persistance
+  - native : Système de fichiers direct (par défaut, meilleures performances, uniquement POSIX)
+  - dynfilefs : Conteneur FUSE extensible (format 400)
+  - dynblk : Périphérique bloc fin du noyau (format 1, 16 GiB par défaut, 512 GiB maximum)
+  - raw : Image ext4 de taille fixe
+  - luks : Conteneur LUKS2/ext4 chiffré ; demande une phrase de passe
+  - squashfs : Reprendre un instantané compressé existant
+* perchsize=[MB] : Définit ou augmente la taille d'un conteneur DynFileFS, dynblk, raw ou LUKS
 
 * load=[filtre] : Charger uniquement les modules correspondants (expression régulière ou plage)
   Exemples : load=00-core ou load=core,kernel,firmware ou load=00,01,02

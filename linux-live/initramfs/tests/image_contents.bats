@@ -58,6 +58,13 @@ list_image() {
     grep -Eq '(^|[[:space:]/])(init|minios-init)$' <<<"$CONTENTS"
     grep -Eq '(^|[[:space:]/])([^/[:space:]]+/)*e2fsck$' <<<"$CONTENTS"
     grep -Eq '(^|[[:space:]/])([^/[:space:]]+/)*resize2fs$' <<<"$CONTENTS"
+    if grep -Eq '(^|[[:space:]/])([^/[:space:]]+/)*dynblk[.]ko$' <<<"$CONTENTS"; then
+        grep -Eq '(^|[[:space:]/])bin/dynblk$' <<<"$CONTENTS"
+        grep -Eq '(^|[[:space:]/])etc/minios-initramfs-dynblk$' <<<"$CONTENTS"
+    else
+        ! grep -Eq '(^|[[:space:]/])bin/dynblk$' <<<"$CONTENTS"
+        ! grep -Eq '(^|[[:space:]/])etc/minios-initramfs-dynblk$' <<<"$CONTENTS"
+    fi
     if [ "$EXPECT_CRYPT" = 1 ]; then
         grep -Eq '(^|[[:space:]/])etc/minios-initramfs-crypt$' <<<"$CONTENTS"
         grep -Eq '(^|[[:space:]/])([^/[:space:]]+/)*cryptsetup$' <<<"$CONTENTS"

@@ -1,0 +1,72 @@
+#!/bin/sh
+# Hand a SysV shutdown over to the MiniOS dracut shutdown initramfs.
+# A successful handoff never returns. Any failure leaves the caller free to
+# continue with the distro's normal halt/reboot path.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+NEWROOT=${MINIOS_INITRAMFS_ROOT:-/run/initramfs}
+
+resolve_action() {
+    case "${1:-auto}" in
+        poweroff|reboot|halt)
+            printf '%s\n' "$1"
+            return 0
+            ;;
+        auto) ;;
+        *) return 2 ;;
+    esac
+
+    level=${runlevel:-${RUNLEVEL:-}}
+    if [ -z "$level" ] && command -v runlevel >/dev/null 2>&1; then
+        runlevel_output=$(runlevel 2>/dev/null || true)
+        level=${runlevel_output#* }
+    fi
+
+    case "$level" in
+        6) printf '%s\n' reboot ;;
+        0)
+            halt_mode=${INIT_HALT:-}
+            if [ -z "$halt_mode" ] && [ -r /etc/default/halt ]; then
+                HALT=
+                # shellcheck source=/dev/null
+                . /etc/default/halt
+                halt_mode=${INIT_HALT:-${HALT:-}}
+            fi
+            case "$halt_mode" in
+                [Hh]*) printf '%s\n' halt ;;
+                *) printf '%s\n' poweroff ;;
+            esac
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+ACTION=$(resolve_action "${1:-auto}") || exit $?
+BUSYBOX="$NEWROOT/bin/busybox"
+
+# MiniOS dracut keeps its hook tree in the preserved initramfs. This marker
+# prevents the helper from intercepting a non-dracut/livekit shutdown image.
+[ -x "$NEWROOT/shutdown" ] || exit 1
+[ -x "$BUSYBOX" ] || exit 1
+[ -d "$NEWROOT/var/lib/dracut/hooks/shutdown" ] || exit 1
+command -v mount >/dev/null 2>&1 || exit 1
+mkdir -p "$NEWROOT/oldroot" "$NEWROOT/dev" "$NEWROOT/proc" \
+    "$NEWROOT/sys" "$NEWROOT/run" || exit 1
+
+# Match systemd's shutdown switch-root preparation: keep the preserved
+# initramfs (including nested MiniOS memory mounts) as one recursive mount,
+# then give it independent views of the kernel API filesystems.
+mount --rbind "$NEWROOT" "$NEWROOT" || exit 1
+mount --make-rprivate / || exit 1
+mount --rbind /dev "$NEWROOT/dev" || exit 1
+mount --rbind /proc "$NEWROOT/proc" || exit 1
+mount --rbind /sys "$NEWROOT/sys" || exit 1
+# /run contains NEWROOT itself, so this must stay a non-recursive bind.
+mount --bind /run "$NEWROOT/run" || exit 1
+
+printf 'Handing %s to MiniOS dracut initramfs...\n' "$ACTION" \
+    >/dev/console 2>/dev/null || true
+
+cd "$NEWROOT" || exit 1
+"$BUSYBOX" pivot_root . oldroot || exit 1
+exec /shutdown "$ACTION"

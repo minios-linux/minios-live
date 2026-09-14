@@ -27,11 +27,14 @@ arranque.
   - new: Cria sempre uma nova sessão.
   - ask: Permite selecionar a sessão de forma interativa.
   - #: Usa um número de sessão específico.
-* perchmode=[native/dynfilefs/raw]: Define o modo de persistência.
-  - native: Sistema de ficheiros nativo (padrão, melhor desempenho, apenas POSIX).
-  - dynfilefs: Contentor de ficheiros dinâmico (funciona em todos os sistemas de ficheiros).
-  - raw: Imagem raw de tamanho fixo.
-* perchsize=[MB]: Define o tamanho do contentor de persistência em megabytes.
+* perchmode=[native/dynfilefs/dynblk/raw/luks/squashfs]: Define o modo de persistência
+  - native: Sistema de ficheiros direto (predefinido, melhor desempenho, apenas POSIX)
+  - dynfilefs: Contentor FUSE expansível (formato 400)
+  - dynblk: Dispositivo de bloco kernel fino (formato 1, 16 GiB por defeito, 512 GiB máximo)
+  - raw: Imagem ext4 de tamanho fixo
+  - luks: Contentor LUKS2/ext4 encriptado; pede uma palavra-passe
+  - squashfs: Retomar um instantâneo comprimido existente
+* perchsize=[MB]: Define ou aumenta o tamanho de um contentor DynFileFS, dynblk, raw ou LUKS
 
 * load=[filtro]: Carrega apenas os módulos correspondentes (regex ou intervalo).
   Exemplos: load=00-core ou load=core,kernel,firmware ou load=00,01,02

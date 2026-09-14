@@ -4,7 +4,6 @@
 #apt-transport-https
 libterm-readline-gnu-perl
 minios-tools
-minios-image-compose
 minios-live-config
 minios-live-config-systemd +is=systemd
 minios-live-config-sysvinit +is=sysvinit
@@ -132,10 +131,15 @@ ipset -pv=minimum
 fuse3 -pv=minimum || fuse -pv=minimum
 libfuse2 -pv=minimum
 dynfilefs -pv=minimum -d=buster -d=beowulf -d=bullseye -d=chimaera
+dynblk -pv=minimum
 parted -pv=minimum
 7zip -pv=minimum
 whois -pv=minimum
 genisoimage -pv=minimum
+minios-image-compose -pv=minimum
+minios-deploy -pv=minimum
+minios-kernel -pv=minimum
+minios-session -pv=minimum
 
 # ========================================
 # == Toolbox Edition (and above)        ==

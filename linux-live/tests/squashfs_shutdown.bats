@@ -5,6 +5,8 @@ setup() {
     UNIT="$ROOT/scripts/00-core/rootcopy-install/usr/lib/systemd/system/minios-squashfs-shutdown-save.service"
     LINK="$ROOT/scripts/00-core/rootcopy-install/etc/systemd/system/multi-user.target.wants/minios-squashfs-shutdown-save.service"
     SYSV="$ROOT/scripts/00-core/rootcopy-install/etc/init.d/minios-squashfs-shutdown-save"
+    DRACUT_SYSV="$ROOT/scripts/00-core/rootcopy-install/etc/init.d/minios-dracut-shutdown"
+    HANDOFF="$ROOT/scripts/00-core/rootcopy-install/usr/sbin/minios-initramfs-shutdown"
     CORE_INSTALL="$ROOT/scripts/00-core/install"
 }
 
@@ -54,4 +56,38 @@ EOF
     [ "$status" -eq 0 ]
     [ "$(cat "$called")" = 1 ]
     rm -rf "$work"
+}
+
+@test "Devuan dracut handoff is ordered before generic filesystem teardown" {
+    [ -x "$DRACUT_SYSV" ]
+    [ -x "$HANDOFF" ]
+    run sh -n "$DRACUT_SYSV"
+    [ "$status" -eq 0 ]
+    grep -Fqx '# Should-Stop:       umountfs' "$DRACUT_SYSV"
+    grep -Fqx '# X-Stop-After:      networking hwclock.sh rpcbind nfs-common umountnfs.sh sendsigs' "$DRACUT_SYSV"
+    grep -Fqx '# Default-Stop:      0 6' "$DRACUT_SYSV"
+    grep -Fq '/usr/sbin/minios-initramfs-shutdown auto || true' "$DRACUT_SYSV"
+    grep -Fq '[ "${INITRAMFS_BUILDER:-}" = "dracut" ]' "$CORE_INSTALL"
+    grep -Fq 'minios-svc enable minios-dracut-shutdown' "$CORE_INSTALL"
+}
+
+@test "Devuan dracut handoff preserves the shutdown initramfs contract" {
+    run sh -n "$HANDOFF"
+    [ "$status" -eq 0 ]
+    grep -Fq 'mount --rbind "$NEWROOT" "$NEWROOT"' "$HANDOFF"
+    grep -Fq 'mount --make-rprivate /' "$HANDOFF"
+    grep -Fq 'mount --rbind /dev "$NEWROOT/dev"' "$HANDOFF"
+    grep -Fq 'mount --rbind /proc "$NEWROOT/proc"' "$HANDOFF"
+    grep -Fq 'mount --rbind /sys "$NEWROOT/sys"' "$HANDOFF"
+    grep -Fq 'mount --bind /run "$NEWROOT/run"' "$HANDOFF"
+    grep -Fq '"$BUSYBOX" pivot_root . oldroot' "$HANDOFF"
+    grep -Fq 'exec /shutdown "$ACTION"' "$HANDOFF"
+}
+
+@test "Devuan dracut handoff falls back when no shutdown initramfs exists" {
+    run env runlevel=2 MINIOS_INITRAMFS_ROOT="$BATS_TEST_TMPDIR/missing" "$HANDOFF" auto
+    [ "$status" -eq 1 ]
+
+    run env MINIOS_INITRAMFS_ROOT="$BATS_TEST_TMPDIR/missing" "$HANDOFF" reboot
+    [ "$status" -eq 1 ]
 }

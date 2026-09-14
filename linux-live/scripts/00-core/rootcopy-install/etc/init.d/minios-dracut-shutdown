@@ -1,0 +1,32 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          minios-dracut-shutdown
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:       umountfs
+# X-Stop-After:      networking hwclock.sh rpcbind nfs-common umountnfs.sh sendsigs
+# Default-Start:
+# Default-Stop:      0 6
+# Short-Description: Hand shutdown to the MiniOS dracut initramfs
+### END INIT INFO
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+case "${1:-}" in
+    start|status)
+        ;;
+    stop)
+        if [ -x /usr/sbin/minios-initramfs-shutdown ]; then
+            /usr/sbin/minios-initramfs-shutdown auto || true
+        fi
+        ;;
+    restart|reload|force-reload)
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status}" >&2
+        exit 3
+        ;;
+esac
+
+exit 0

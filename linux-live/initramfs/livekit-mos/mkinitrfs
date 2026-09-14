@@ -216,6 +216,32 @@ copy_including_deps() {
     fi
 }
 
+normalize_dynblk_module() {
+    local DIR="$INITRAMFS/$LMK/updates/dkms" SOURCE="" CANDIDATE COUNT=0 TARGET
+    [ -d "$DIR" ] || return 0
+    for CANDIDATE in "$DIR/dynblk.ko" "$DIR/dynblk.ko.gz" "$DIR/dynblk.ko.xz" "$DIR/dynblk.ko.zst"; do
+        [ -f "$CANDIDATE" ] || continue
+        SOURCE="$CANDIDATE"
+        COUNT=$((COUNT + 1))
+    done
+    [ "$COUNT" -eq 0 ] && return 0
+    if [ "$COUNT" -ne 1 ]; then
+        echo "E: Multiple dynblk module files found in initramfs input" >&2
+        return 1
+    fi
+    TARGET="$DIR/dynblk.ko"
+    case "$SOURCE" in
+        "$TARGET") return 0 ;;
+        *.gz) gzip -cd "$SOURCE" >"$TARGET.tmp" ;;
+        *.xz) xz -cd "$SOURCE" >"$TARGET.tmp" ;;
+        *.zst) zstd -cd "$SOURCE" >"$TARGET.tmp" ;;
+        *) return 1 ;;
+    esac
+    mv "$TARGET.tmp" "$TARGET"
+    rm -f "$SOURCE"
+    chmod 0644 "$TARGET"
+}
+
 copy_files() {
     local DEST_DIR FILES DIR FILE
     DEST_DIR=$1
@@ -369,6 +395,16 @@ mknod "$INITRAMFS/dev/tty4" c 4 4
 
 copy_including_deps "/$LMK/kernel/fs/aufs"
 copy_including_deps "/$LMK/updates/dkms/aufs-ng."*
+# Optional format-1 dynblk device, distinct from the legacy FUSE binary.
+# Keep dynblk.ko plain so the bundled BusyBox modprobe never needs a module
+# decompressor merely to attach persistence.
+copy_including_deps "/$LMK/updates/dkms/dynblk."*
+normalize_dynblk_module
+if find "$INITRAMFS/$LMK" -type f -name 'dynblk.ko' -print -quit | grep -q .; then
+    copy_files "$INITRAMFS" bin/dynblk
+    chmod a+x "$INITRAMFS/bin/dynblk"
+    touch "$INITRAMFS/etc/minios-initramfs-dynblk"
+fi
 copy_including_deps "/$LMK/kernel/fs/overlayfs"
 copy_including_deps "/$LMK/kernel/fs/ext2"
 copy_including_deps "/$LMK/kernel/fs/ext3"
@@ -387,6 +423,11 @@ copy_including_deps "/$LMK/kernel/fs/efivarfs" # for Clonezilla
 
 copy_including_deps "/$LMK/kernel/crypto/lz4"*.*
 copy_including_deps "/$LMK/kernel/crypto/zstd."*
+# Optional providers used by format-1 dynblk; the driver still rejects a
+# missing provider instead of silently changing the stored codec.
+copy_including_deps "/$LMK/kernel/crypto/lzo."*
+copy_including_deps "/$LMK/kernel/crypto/lzo-rle."*
+copy_including_deps "/$LMK/kernel/crypto/deflate."*
 
 # crc32/crc32c modules are needed for ext4
 find "/$LMK/kernel/" -name '*crc32*' | while read -r LINE; do
@@ -482,13 +523,13 @@ fi
 # Compress kernel modules if the corresponding flag is set.
 if [ "$COMPRESS_MODULES" = "true" ]; then
     if [ "$MODULE_COMPRESS" = "xz" ]; then
-        find "$INITRAMFS" -type f -name "*.ko" -exec xz -z {} \;
+        find "$INITRAMFS" -type f -name "*.ko" ! -path "*/updates/dkms/dynblk.ko" -exec xz -z {} \;
         MODULE_EXT=".ko.xz"
     elif [ "$MODULE_COMPRESS" = "zstd" ]; then
-        find "$INITRAMFS" -type f -name "*.ko" -exec zstd -z --rm {} \;
+        find "$INITRAMFS" -type f -name "*.ko" ! -path "*/updates/dkms/dynblk.ko" -exec zstd -z --rm {} \;
         MODULE_EXT=".ko.zst"
     else
-        find "$INITRAMFS" -type f -name "*.ko" -exec gzip -9 {} \;
+        find "$INITRAMFS" -type f -name "*.ko" ! -path "*/updates/dkms/dynblk.ko" -exec gzip -9 {} \;
         MODULE_EXT=".ko.gz"
     fi
 fi
@@ -520,6 +561,7 @@ depmod -b "$INITRAMFS" "$KERNEL"
 echo "root::0:0::/root:/bin/bash" >"$INITRAMFS/etc/passwd"
 touch "$INITRAMFS/etc/"{m,fs}tab
 cp /etc/minios-release "$INITRAMFS/etc/"
+printf 'NAME=MiniOS\nID=minios\n' >"$INITRAMFS/etc/initrd-release"
 
 FILES=(init shutdown lib/livekitlib)
 copy_files "$INITRAMFS" "${FILES[@]}"

@@ -28,9 +28,26 @@ output/host/opt/ext-toolchain/bin/i686-buildroot-linux-musl-strip \
 ```
 
 The resulting tools are static 32-bit i386/musl executables. Copy the required
-artifacts from `output/target` to `livekit-mos/bin`. The committed payload is
-tracked directly by Git; no separate checksum manifest is maintained for files
-already stored in the repository.
+artifacts from `output/target` to `livekit-mos/bin`. Build the bundled dynblk CLI
+with the same Buildroot target toolchain, then strip it with the matching target
+stripper:
+
+```sh
+output/host/bin/i686-linux-gcc -Os -ffunction-sections -fdata-sections \
+  -std=gnu11 -Wall -Wextra -Werror -DDYNBLK_NO_DYNAMIC_CODECS -static \
+  -Wl,--gc-sections \
+  /path/to/submodules/dynblk/dynblk_cli.c \
+  /path/to/submodules/dynblk/dynblk_common.c \
+  /path/to/submodules/dynblk/dynblk_check.c \
+  /path/to/submodules/dynblk/lzo/decompress.c \
+  -o /path/to/initramfs/livekit-mos/bin/dynblk
+output/host/bin/i686-linux-strip --strip-all \
+  --remove-section=.comment --remove-section=.note \
+  /path/to/initramfs/livekit-mos/bin/dynblk
+```
+
+The committed payload is tracked directly by Git; no separate checksum manifest
+is maintained for files already stored in the repository.
 
 Validate it with `initramfs/tests/run.sh --strict` on a host with Bats,
 ShellCheck, cryptsetup, and root privileges.

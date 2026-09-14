@@ -26,11 +26,20 @@ fi
 # Resolve the active persistence session from the boot-time runtime authority.
 # boot-state survives switch_root explicitly; minios-session-state is only a
 # compatibility fallback because not every shutdown-initramfs keeps that file.
+shutdown_dynblk_device_valid() {
+    local INDEX
+    case "$1" in /dev/dynblk*) ;; *) return 1 ;; esac
+    INDEX=${1#/dev/dynblk}
+    case "$INDEX" in '' | *[!0-9]*) return 1 ;; esac
+    [ "$INDEX" -le 255 ]
+}
+
 resolve_shutdown_persistence() {
     local BOOT_STATE CANDIDATE STATE STATE_CONF STATE_SESSION LEVEL
     SHUTDOWN_SESSION=""
     SHUTDOWN_CONF=""
     SHUTDOWN_MODE=""
+    SHUTDOWN_DYNBLK_DEVICE=""
 
     for BOOT_STATE in \
         /minios-persistence/boot-state \
@@ -44,6 +53,7 @@ resolve_shutdown_persistence() {
         [ "$LEVEL" = ok ] || return 1
         SHUTDOWN_SESSION=$(sed -n 's/^session=//p' "$BOOT_STATE" | tail -n 1)
         SHUTDOWN_MODE=$(sed -n 's/^mode=//p' "$BOOT_STATE" | tail -n 1)
+        SHUTDOWN_DYNBLK_DEVICE=$(sed -n 's/^dynblk_device=//p' "$BOOT_STATE" | tail -n 1)
     else
         for STATE in /minios-session-state /run/initramfs/minios-session-state \
                      /oldroot/run/initramfs/minios-session-state; do
@@ -114,8 +124,61 @@ verify_shutdown_squashfs_save() {
         fi
     fi
 
-    echo "[ FAIL ] SquashFS session #$SHUTDOWN_SESSION was not saved before filesystem teardown." >/dev/console
+    echo -e "${WHITE}[${RED}!${WHITE}]${RESET} SquashFS session #$SHUTDOWN_SESSION was not saved before filesystem teardown." >/dev/console
     return 1
+}
+
+detach_dynblk_device() {
+    local DEVICE ATTEMPT
+    DEVICE="$1"
+    shutdown_dynblk_device_valid "$DEVICE" || return 1
+    command -v dynblk >/dev/null 2>&1 || return 1
+    ATTEMPT=1
+    while [ "$ATTEMPT" -le 3 ]; do
+        if dynblk unload "$DEVICE" --execute >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        ATTEMPT=$((ATTEMPT + 1))
+    done
+    return 1
+}
+
+detach_shutdown_dynblk() {
+    resolve_shutdown_persistence || return 0
+    [ "$SHUTDOWN_MODE" = dynblk ] || return 0
+    [ -d /sys/module/dynblk ] || return 0
+    command -v dynblk >/dev/null 2>&1 || {
+        echo -e "${WHITE}[${RED}!${WHITE}]${RESET} The dynblk persistence backend is active but its control tool is unavailable." >/dev/console
+        return 1
+    }
+    shutdown_dynblk_device_valid "$SHUTDOWN_DYNBLK_DEVICE" || {
+        echo -e "${WHITE}[${RED}!${WHITE}]${RESET} The active dynblk device is missing from the boot persistence state." >/dev/console
+        return 1
+    }
+    if detach_dynblk_device "$SHUTDOWN_DYNBLK_DEVICE"; then
+        return 0
+    fi
+    echo -e "${WHITE}[${RED}!${WHITE}]${RESET} Could not detach dynblk persistence before unmounting its backing store." >/dev/console
+    return 1
+}
+
+drain_remaining_dynblk() {
+    local SYS DEVICE FAILED FOUND
+    [ -d /sys/module/dynblk ] || return 0
+    FAILED=0
+    FOUND=0
+    for SYS in /sys/block/dynblk[0-9]*; do
+        [ -e "$SYS" ] || continue
+        DEVICE="/dev/${SYS##*/}"
+        shutdown_dynblk_device_valid "$DEVICE" || continue
+        FOUND=1
+        if ! detach_dynblk_device "$DEVICE"; then
+            echo -e "${WHITE}[${RED}!${WHITE}]${RESET} Could not detach remaining dynblk device $DEVICE." >/dev/console
+            FAILED=1
+        fi
+    done
+    [ "$FOUND" -eq 0 ] || [ "$FAILED" -eq 0 ]
 }
 
 detach_free_loops() {
@@ -191,6 +254,8 @@ umount_all() {
 
 SQUASHFS_SAVE_FAILED=0
 SQUASHFS_METADATA_FINALIZED=0
+DYNBLK_DETACH_FAILED=0
+DYNBLK_DRAIN_FAILED=0
 verify_shutdown_squashfs_save || SQUASHFS_SAVE_FAILED=1
 
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Detaching loop devices..."
@@ -226,7 +291,16 @@ umount_all /oldroot/run/initramfs/memory/changes
 umount_all /oldsys/run/initramfs/memory/changes
 umount_all /run/initramfs/memory/changes
 umount_all /memory/changes
-if [ "$SQUASHFS_SAVE_FAILED" -eq 0 ] && [ "$SQUASHFS_METADATA_FINALIZED" -eq 0 ]; then
+if resolve_shutdown_persistence && [ "$SHUTDOWN_MODE" = dynblk ] && [ -d /sys/module/dynblk ]; then
+    echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Detaching dynblk persistence..."
+fi
+detach_shutdown_dynblk || DYNBLK_DETACH_FAILED=1
+if [ -d /sys/module/dynblk ]; then
+    echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Draining remaining dynblk devices..."
+fi
+drain_remaining_dynblk || DYNBLK_DRAIN_FAILED=1
+if [ "$SQUASHFS_SAVE_FAILED" -eq 0 ] && [ "$DYNBLK_DETACH_FAILED" -eq 0 ] && \
+        [ "$DYNBLK_DRAIN_FAILED" -eq 0 ] && [ "$SQUASHFS_METADATA_FINALIZED" -eq 0 ]; then
     mark_persistence_session_clean || true
 fi
 umount_all /oldroot/run/initramfs/memory
