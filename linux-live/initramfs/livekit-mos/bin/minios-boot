@@ -18,13 +18,15 @@ LOG_PID=""
 # ======= Functions =======
 
 set_log() {
-    mkdir -p /var/log/minios
-    mkfifo "$LOG_PIPE"
+    mkdir -p /var/log/minios 2>/dev/null || true
+    rm -f "$LOG_PIPE"
+    mkfifo "$LOG_PIPE" || return 0
     exec 3>&1 4>&2
     # Keep the inherited initramfs output path. When SERIAL_CONSOLE is enabled,
     # boot_console_mirror already mirrors it to tty0 and ttyS0; writing directly
     # to /dev/console here would bypass that routing.
-    if [ -w /var/log/minios ] || [ ! -e /var/log/minios/minios-boot.log ]; then
+    if [ -d /var/log/minios ] && [ -w /var/log/minios ] &&
+       { [ ! -e /var/log/minios/minios-boot.log ] || [ -w /var/log/minios/minios-boot.log ]; }; then
         tee <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &
     else
         cat <"$LOG_PIPE" 2>/dev/null &
@@ -45,6 +47,7 @@ stop_log() {
 
     trap - EXIT
     [ -n "$LOG_PID" ] || return "$STATUS"
+    [ "$STATUS" -eq 0 ] || echo "minios-boot failed with status $STATUS"
     exec 1>&3 2>&4
     wait "$LOG_PID" 2>/dev/null || true
     rm -f "$LOG_PIPE"
@@ -236,6 +239,7 @@ set_autologin() {
 
     command -v x11vnc >/dev/null && [ -f "/usr/lib/systemd/system/x11vnc.service" ] &&
         sed -i "s,-auth guess,-auth /home/$LIVE_USERNAME/.Xauthority,g" "/usr/lib/systemd/system/x11vnc.service"
+    return 0
 }
 
 # Main script execution

@@ -40,6 +40,9 @@ resolve_shutdown_persistence() {
     SHUTDOWN_CONF=""
     SHUTDOWN_MODE=""
     SHUTDOWN_DYNBLK_DEVICE=""
+    SHUTDOWN_ENCRYPTION="none"
+    SHUTDOWN_CRYPT_MAPPER="none"
+    SHUTDOWN_LOOP_DEVICE="none"
 
     for BOOT_STATE in \
         /minios-persistence/boot-state \
@@ -54,6 +57,9 @@ resolve_shutdown_persistence() {
         SHUTDOWN_SESSION=$(sed -n 's/^session=//p' "$BOOT_STATE" | tail -n 1)
         SHUTDOWN_MODE=$(sed -n 's/^mode=//p' "$BOOT_STATE" | tail -n 1)
         SHUTDOWN_DYNBLK_DEVICE=$(sed -n 's/^dynblk_device=//p' "$BOOT_STATE" | tail -n 1)
+        SHUTDOWN_ENCRYPTION=$(sed -n 's/^encryption=//p' "$BOOT_STATE" | tail -n 1)
+        SHUTDOWN_CRYPT_MAPPER=$(sed -n 's/^crypt_mapper=//p' "$BOOT_STATE" | tail -n 1)
+        SHUTDOWN_LOOP_DEVICE=$(sed -n 's/^loop_device=//p' "$BOOT_STATE" | tail -n 1)
     else
         for STATE in /minios-session-state /run/initramfs/minios-session-state \
                      /oldroot/run/initramfs/minios-session-state; do
@@ -92,6 +98,38 @@ resolve_shutdown_persistence() {
     [ -n "$SHUTDOWN_MODE" ] || SHUTDOWN_MODE=$(sed -n \
         "s/^session_mode\[$SHUTDOWN_SESSION\]=//p" "$SHUTDOWN_CONF" | tail -n 1)
     return 0
+}
+
+shutdown_loop_device_valid() {
+    local INDEX
+    case "$1" in /dev/loop*) ;; *) return 1 ;; esac
+    INDEX=${1#/dev/loop}
+    case "$INDEX" in '' | *[!0-9]*) return 1 ;; esac
+}
+
+detach_shutdown_encryption() {
+    local ATTEMPT
+    resolve_shutdown_persistence || return 0
+    [ "$SHUTDOWN_ENCRYPTION" = luks ] || return 0
+    [ "$SHUTDOWN_CRYPT_MAPPER" = "minios-perch-$SHUTDOWN_SESSION" ] || return 1
+    command -v cryptsetup >/dev/null 2>&1 || return 1
+    ATTEMPT=1
+    while [ -e "/dev/mapper/$SHUTDOWN_CRYPT_MAPPER" ] && [ "$ATTEMPT" -le 3 ]; do
+        cryptsetup close "$SHUTDOWN_CRYPT_MAPPER" >/dev/null 2>&1 && break
+        sleep 1
+        ATTEMPT=$((ATTEMPT + 1))
+    done
+    [ ! -e "/dev/mapper/$SHUTDOWN_CRYPT_MAPPER" ] || return 1
+    case "$SHUTDOWN_MODE" in
+    raw | dynfilefs)
+        shutdown_loop_device_valid "$SHUTDOWN_LOOP_DEVICE" || return 1
+        if losetup -a 2>/dev/null | grep -q "^$SHUTDOWN_LOOP_DEVICE:"; then
+            losetup -d "$SHUTDOWN_LOOP_DEVICE" >/dev/null 2>&1 || return 1
+        fi
+        ;;
+    dynblk) [ "$SHUTDOWN_LOOP_DEVICE" = none ] || return 1 ;;
+    *) return 1 ;;
+    esac
 }
 
 # Verify that the normal-root shutdown service saved a shutdown-policy
@@ -183,6 +221,11 @@ drain_remaining_dynblk() {
 
 detach_free_loops() {
     losetup -a | cut -d : -f 1 | while read LOOP; do
+        if [ "${SHUTDOWN_ENCRYPTION:-none}" = luks ] && \
+                [ "$LOOP" = "${SHUTDOWN_LOOP_DEVICE:-none}" ] && \
+                [ -e "/dev/mapper/${SHUTDOWN_CRYPT_MAPPER:-none}" ]; then
+            continue
+        fi
         losetup -d "$LOOP" 2>/dev/null
     done
 }
@@ -252,10 +295,21 @@ umount_all() {
     done
 }
 
+umount_changes_top() {
+    local TARGET
+    for TARGET in /oldroot/run/initramfs/memory/changes \
+        /oldsys/run/initramfs/memory/changes /run/initramfs/memory/changes \
+        /memory/changes; do
+        grep -q " $TARGET " /proc/mounts 2>/dev/null || continue
+        umount "$TARGET" 2>/dev/null || return 1
+    done
+}
+
 SQUASHFS_SAVE_FAILED=0
 SQUASHFS_METADATA_FINALIZED=0
 DYNBLK_DETACH_FAILED=0
 DYNBLK_DRAIN_FAILED=0
+ENCRYPTION_DETACH_FAILED=0
 verify_shutdown_squashfs_save || SQUASHFS_SAVE_FAILED=1
 
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Detaching loop devices..."
@@ -287,6 +341,8 @@ for i in 1 2 3 4; do
 done
 
 echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Unmounting memory filesystem..."
+umount_changes_top || ENCRYPTION_DETACH_FAILED=1
+detach_shutdown_encryption || ENCRYPTION_DETACH_FAILED=1
 umount_all /oldroot/run/initramfs/memory/changes
 umount_all /oldsys/run/initramfs/memory/changes
 umount_all /run/initramfs/memory/changes
@@ -299,7 +355,7 @@ if [ -d /sys/module/dynblk ]; then
     echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Draining remaining dynblk devices..."
 fi
 drain_remaining_dynblk || DYNBLK_DRAIN_FAILED=1
-if [ "$SQUASHFS_SAVE_FAILED" -eq 0 ] && [ "$DYNBLK_DETACH_FAILED" -eq 0 ] && \
+if [ "$SQUASHFS_SAVE_FAILED" -eq 0 ] && [ "$ENCRYPTION_DETACH_FAILED" -eq 0 ] && [ "$DYNBLK_DETACH_FAILED" -eq 0 ] && \
         [ "$DYNBLK_DRAIN_FAILED" -eq 0 ] && [ "$SQUASHFS_METADATA_FINALIZED" -eq 0 ]; then
     mark_persistence_session_clean || true
 fi

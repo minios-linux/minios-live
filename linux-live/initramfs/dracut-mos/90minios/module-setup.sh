@@ -64,7 +64,7 @@ install() {
     if [ "$MINIOS_CRYPT" = "true" ]; then
         install_bundled_crypt "${STATIC_BIN%/bin}" ||
             inst_multiple cryptsetup || return 1
-        touch "${initdir}/etc/minios-initramfs-crypt"
+        printf '%s\n' 'luks-layer-v1' >"${initdir}/etc/minios-initramfs-crypt"
     fi
 
     # Install livekitlib

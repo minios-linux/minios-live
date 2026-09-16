@@ -12,6 +12,7 @@ setup() {
     WORKDIR=""
     MOUNTPOINT=""
     MAPPER="minios-perch-test-$$"
+    LOOP=""
 
     if [ -x "$MINIOS_CRYPT_ROOT/lib/libc.so" ] &&
         [ -x "$MINIOS_CRYPT_ROOT/usr/sbin/cryptsetup" ]; then
@@ -25,6 +26,7 @@ teardown() {
         umount "$MOUNTPOINT" 2>/dev/null || true
     fi
     [ ! -b "/dev/mapper/$MAPPER" ] || cryptsetup_cmd close "$MAPPER" 2>/dev/null || true
+    [ -z "$LOOP" ] || losetup -d "$LOOP" 2>/dev/null || true
     [ -z "$WORKDIR" ] || rm -rf "$WORKDIR"
 }
 
@@ -47,7 +49,7 @@ cryptsetup_cmd() {
 
 @test "LUKS persistence container grows and retains data" {
     [ "$(id -u)" -eq 0 ] || { skip_or_fail "root privileges are required"; return; }
-    for tool in mount umount mountpoint truncate; do
+    for tool in mount umount mountpoint truncate losetup; do
         command -v "$tool" >/dev/null 2>&1 || { skip_or_fail "$tool is unavailable"; return; }
     done
     if [ "$USE_BUNDLED_CRYPT" != 1 ]; then
@@ -60,13 +62,14 @@ cryptsetup_cmd() {
     done
 
     WORKDIR=$(mktemp -d)
-    CONTAINER="$WORKDIR/changes.luks"
+    CONTAINER="$WORKDIR/changes.img"
     MOUNTPOINT="$WORKDIR/mount"
     mkdir -p "$MOUNTPOINT"
 
     truncate -s 64M "$CONTAINER"
-    printf '%s' minios-test-passphrase | cryptsetup_cmd luksFormat --type luks2 --batch-mode --key-file - "$CONTAINER"
-    printf '%s' minios-test-passphrase | cryptsetup_cmd open --key-file - "$CONTAINER" "$MAPPER"
+    LOOP=$(losetup --find --show "$CONTAINER")
+    printf '%s' minios-test-passphrase | cryptsetup_cmd luksFormat --type luks2 --batch-mode --key-file - "$LOOP"
+    printf '%s' minios-test-passphrase | cryptsetup_cmd open --key-file - "$LOOP" "$MAPPER"
     "$MINIOS_MKE2FS" -q -t ext4 -F "/dev/mapper/$MAPPER"
     mount "/dev/mapper/$MAPPER" "$MOUNTPOINT"
     printf '%s\n' persistent-data >"$MOUNTPOINT/persistence-test"
@@ -74,12 +77,15 @@ cryptsetup_cmd() {
     umount "$MOUNTPOINT"
     cryptsetup_cmd close "$MAPPER"
 
-    # Match the boot path: authenticate before changing an existing container,
-    # then reopen it so cryptsetup creates a loop with the new size.
-    printf '%s' minios-test-passphrase | cryptsetup_cmd open --key-file - "$CONTAINER" "$MAPPER"
+    # Match Raw+LUKS: authenticate before changing the backing file, then close
+    # and detach every owned layer before growth.
+    printf '%s' minios-test-passphrase | cryptsetup_cmd open --key-file - "$LOOP" "$MAPPER"
     cryptsetup_cmd close "$MAPPER"
+    losetup -d "$LOOP"
+    LOOP=""
     truncate -s 96M "$CONTAINER"
-    printf '%s' minios-test-passphrase | cryptsetup_cmd open --key-file - "$CONTAINER" "$MAPPER"
+    LOOP=$(losetup --find --show "$CONTAINER")
+    printf '%s' minios-test-passphrase | cryptsetup_cmd open --key-file - "$LOOP" "$MAPPER"
     run "$MINIOS_E2FSCK" -f -p "/dev/mapper/$MAPPER"
     [ "$status" -le 1 ]
     "$MINIOS_RESIZE2FS" "/dev/mapper/$MAPPER"

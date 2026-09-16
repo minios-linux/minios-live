@@ -510,7 +510,7 @@ if [ "$CRYPT" = "true" ]; then
     # dm-crypt needs the kernel crypto implementations selected by its dependencies.
     copy_including_deps "/$LMK/kernel/drivers/md/dm-crypt."*
     copy_including_deps "/$LMK/kernel/crypto"
-    touch "$INITRAMFS/etc/minios-initramfs-crypt"
+    printf '%s\n' 'luks-layer-v1' >"$INITRAMFS/etc/minios-initramfs-crypt"
 fi
 
 # Before module unpacking

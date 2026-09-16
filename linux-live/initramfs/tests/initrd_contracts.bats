@@ -43,7 +43,8 @@ contains() {
     contains "$lib" 'if [ "$ACTION" = "ask" ] && [ -z "$LASTSESSION" ]; then'
     contains "$lib" 'ACTION="setup"'
     contains "$lib" "printf '%s\\n' 'DynBlk'"
-    contains "$lib" "printf '%s\\n' 'LUKS'"
+    contains "$lib" "printf '%s\\n' 'LUKS2'"
+    contains "$lib" "ncurses-menu -t 'Encryption:'"
 }
 
 @test "LiveKit and Dracut preserve runtime state at the consumer path" {
@@ -57,16 +58,24 @@ contains() {
     [ "$(grep -Fc 'install_aufs_runtime_inventory .' "$lib")" -eq 3 ]
 }
 
-@test "LiveKit and Dracut mirror boot output only across requested consoles" {
+@test "LiveKit and Dracut preserve initrd output and mirror requested consoles" {
     lib="$ROOT/livekit-mos/lib/livekitlib"
     boot="$ROOT/livekit-mos/bin/minios-boot"
     contains "$lib" 'console=tty0'
     contains "$lib" 'console=ttyS0,'
-    contains "$lib" 'tee "$TTY0" "$TTYS0"'
+    contains "$lib" 'MINIOS_INITRD_LOG:-/var/log/initrd.log'
+    contains "$lib" 'tee "$BOOT_CONSOLE_LOG" "$TTY0" "$TTYS0"'
+    contains "$lib" 'run/initramfs/var/log/initrd.log'
     contains "$lib" 'wait "$BOOT_CONSOLE_MIRROR_PID"'
     contains "$boot" 'executed there in a chroot before switch_root'
     contains "$boot" 'tee <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &'
     contains "$boot" 'cat <"$LOG_PIPE" 2>/dev/null &'
+    contains "$boot" 'rm -f "$LOG_PIPE"'
+    contains "$boot" 'minios-boot failed with status $STATUS'
+    ! contains "$boot" 'minios-boot started at'
+    ! contains "$boot" 'minios-boot finished with status'
+    contains "$boot" 'set_autologin()'
+    contains "$boot" 'return 0'
     contains "$boot" 'wait "$LOG_PID" 2>/dev/null || true'
     contains "$boot" "trap 'stop_log' EXIT"
     contains "$boot" 'stop_log'
@@ -88,17 +97,53 @@ contains() {
         MINIOS_CONSOLE_TTY0=/dev/null \
         MINIOS_CONSOLE_TTYS0=/dev/null \
         MINIOS_CONSOLE_FIFO="$WORK/console.fifo" \
+        MINIOS_INITRD_LOG="$WORK/initrd.log" \
         bash -c '
             source "$1"
             boot_console_mirror_start
+            echo initrd-log-marker
             exec 3<>/dev/null
             exec 3>&-
             boot_console_mirror_stop
             echo mirror-stopped
             test ! -e "$MINIOS_CONSOLE_FIFO"
+            grep -q initrd-log-marker "$MINIOS_INITRD_LOG"
         ' _ "$ROOT/livekit-mos/lib/livekitlib"
     [ "$status" -eq 0 ]
     [[ "$output" == *mirror-stopped* ]]
+}
+
+@test "initrd output is logged without serial console parameters" {
+    run env \
+        MINIOS_BOOT_CMDLINE='quiet splash' \
+        MINIOS_CONSOLE_FIFO="$WORK/console.fifo" \
+        MINIOS_INITRD_LOG="$WORK/initrd.log" \
+        bash -c '
+            source "$1"
+            boot_console_mirror_start
+            echo file-only-initrd-marker
+            boot_console_mirror_stop
+            grep -q file-only-initrd-marker "$MINIOS_INITRD_LOG"
+        ' _ "$ROOT/livekit-mos/lib/livekitlib"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *file-only-initrd-marker* ]]
+}
+
+@test "Dracut finalizes initrd log into the preserved initramfs tree" {
+    run env \
+        MINIOS_BOOT_CMDLINE='quiet splash' \
+        MINIOS_CONSOLE_FIFO="$WORK/console.fifo" \
+        MINIOS_INITRD_LOG="$WORK/initrd.log" \
+        TARGET_ROOT="$WORK/root" \
+        bash -c '
+            source "$1"
+            mkdir -p "$TARGET_ROOT/run/initramfs/var/log"
+            boot_console_mirror_start
+            echo dracut-final-marker
+            boot_console_mirror_stop "$TARGET_ROOT"
+            grep -q dracut-final-marker "$TARGET_ROOT/run/initramfs/var/log/initrd.log"
+        ' _ "$ROOT/livekit-mos/lib/livekitlib"
+    [ "$status" -eq 0 ]
 }
 
 @test "root union failure stops boot while AUFS append failure remains best effort" {
@@ -257,6 +302,19 @@ contains() {
     contains "$livekit" 'session_conf_mark_clean'
     contains "$dracut" 'mark_persistence_session_clean'
     contains "$dracut" 'umount_all /run/initramfs/memory/changes'
+    for shutdown in "$livekit" "$dracut"; do
+        contains "$shutdown" 'detach_shutdown_encryption()'
+        contains "$shutdown" 'cryptsetup close "$SHUTDOWN_CRYPT_MAPPER"'
+        contains "$shutdown" 'losetup -d "$SHUTDOWN_LOOP_DEVICE"'
+        contains "$shutdown" 'losetup -a 2>/dev/null | grep -q "^$SHUTDOWN_LOOP_DEVICE:"'
+        contains "$shutdown" '[ "$LOOP" = "${SHUTDOWN_LOOP_DEVICE:-none}" ]'
+        contains "$shutdown" '[ -e "/dev/mapper/${SHUTDOWN_CRYPT_MAPPER:-none}" ]'
+        top_line=$(grep -nF 'umount_changes_top || ENCRYPTION_DETACH_FAILED=1' "$shutdown" | cut -d: -f1)
+        crypt_line=$(grep -nF 'detach_shutdown_encryption || ENCRYPTION_DETACH_FAILED=1' "$shutdown" | cut -d: -f1)
+        lower_line=$(grep -nF 'umount_all /memory/changes' "$shutdown" | tail -n1 | cut -d: -f1)
+        [ "$top_line" -lt "$crypt_line" ]
+        [ "$crypt_line" -lt "$lower_line" ]
+    done
 }
 
 @test "shutdown detaches boot dynblk and drains secondary devices before the backing store" {
@@ -347,6 +405,18 @@ contains() {
     contains "$builder" 'if [ "$CLOUD" = "true" ]'
 }
 
+@test "dynblk weak-RAM mapping budget follows compact 128-block runtime chunks" {
+    lib="$ROOT/livekit-mos/lib/livekitlib"
+    contains "$lib" 'NORMALIZED_MB=$((((MEM_TOTAL_MB + 63) / 64) * 64))'
+    contains "$lib" 'BUDGET=$((NORMALIZED_MB / 4))'
+    contains "$lib" '[ "$BUDGET" -gt 4096 ] && BUDGET=4096'
+    contains "$lib" 'DYNBLK_FULL_MAP_MB=$((DYNBLK_MAP_MEMORY_MB * 128))'
+    contains "$lib" 'REQUIRED_MAP_MB=$(((PERCHSIZE + 127) / 128))'
+    contains "$lib" 'dynblk_map_budget_mb()'
+    run grep -F 'BACKEND_BUDGET - 192' "$lib"
+    [ "$status" -ne 0 ]
+}
+
 @test "builders keep dynfilefs while coupling dynblk CLI to the kernel module" {
     contains "$ROOT/livekit-mos/mkinitrfs" 'bin/dynfilefs'
     contains "$ROOT/livekit-mos/mkinitrfs" 'copy_files "$INITRAMFS" bin/dynblk'
@@ -361,6 +431,13 @@ contains() {
     run "$ROOT/livekit-mos/bin/dynblk" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *'dynblk create PATH'* ]]
+}
+
+@test "initrd restores SquashFS sessions without carrying mksquashfs" {
+    ! contains "$ROOT/livekit-mos/mkinitrfs" 'bin/mksquashfs'
+    ! contains "$ROOT/dracut-mos/90minios/module-setup.sh" '"/bin/mksquashfs"'
+    contains "$ROOT/livekit-mos/mkinitrfs" 'bin/unsquashfs'
+    contains "$ROOT/dracut-mos/90minios/module-setup.sh" '"/bin/unsquashfs"'
 }
 
 @test "crypto payload copy list is complete and its symlinks are valid" {
@@ -382,13 +459,15 @@ contains() {
     contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'crypt_payload_files.txt'
 }
 
-@test "LUKS contracts retain raw sizing and existing FAT limit" {
+@test "layered LUKS contracts retain Raw sizing and existing FAT limit" {
     LIB="$ROOT/livekit-mos/lib/livekitlib"
-    contains "$LIB" 'PERCHFILE="$PERCHDIR/changes.luks"'
+    contains "$LIB" 'PERCHFILE="$PERCHDIR/changes.img"'
+    contains "$LIB" 'session_encryption[$SESSION]=luks'
+    contains "$LIB" 'luks_attach_loop "$CHANDIR/$PERCHFILE"'
     contains "$LIB" 'TARGET_BYTES=$((PERCHSIZE * 1048576))'
     contains "$LIB" 'truncate -s "${PERCHSIZE}M" "$CHANDIR/$PERCHFILE"'
     contains "$LIB" 'if [ "$FS_TYPE" = "vfat" ] && [ "$PERCHSIZE" -gt 4000 ]; then'
-    contains "$LIB" 'STATE="${1:-/run/initramfs/minios-crypt}"'
+    ! grep -Fq 'PERCHMODE="luks"' "$LIB"
 }
 
 exercise_module_payload() (

@@ -31,6 +31,8 @@ setup() {
     export MINIOS_SYS_FS_AUFS="$WORK/sys/fs/aufs"
     export MINIOS_LIVEKIT_STATE_STAGE="$WORK/livekit-state-stage"
     export MINIOS_VENTOY_DIR="$WORK/ventoy"
+    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+    printf '%s\n' 'MemTotal:       4194304 kB' 'MemAvailable:   3145728 kB' 'SwapFree:       1048576 kB' >"$MINIOS_PROC_MEMINFO"
     printf '%s\n' '11111111-2222-3333-4444-555555555555' >"$MINIOS_BOOT_ID_FILE"
     : >"$MINIOS_PROC_MOUNTS"
     : >"$MINIOS_CMDLINE_FILE"
@@ -56,6 +58,7 @@ setup_dispatch() {
     TEST_MODE=$1
     TEST_FS=$2
     TEST_SIZE=${3:-64}
+    TEST_ENCRYPT=${4:-none}
     TEST_DATA="$WORK/$TEST_MODE-$TEST_FS/data"
     TEST_CHANGES="$WORK/$TEST_MODE-$TEST_FS/changes"
     TEST_CHANDIR="$TEST_DATA/changes"
@@ -68,6 +71,7 @@ setup_dispatch() {
         perchdir) printf '%s\n' new ;;
         perchmode) printf '%s\n' "$TEST_MODE" ;;
         perchsize) printf '%s\n' "$TEST_SIZE" ;;
+        perchencrypt) printf '%s\n' "$TEST_ENCRYPT" ;;
         perchcomp) printf '%s\n' none ;;
         *) return 0 ;;
         esac
@@ -86,11 +90,15 @@ setup_dispatch() {
         if [ "$TEST_MODE" = luks ] && [ "$5" = native ]; then
             printf 'restore:new:%s\n' "$5" >>"$MINIOS_TEST_LOG"
             mkdir -p "$TEST_CHANDIR/2"
-            printf '%s\n' '2 native true'
+            printf '%s\n' '2 native true none'
         else
             printf 'restore:%s:%s\n' "$4" "$5" >>"$MINIOS_TEST_LOG"
             mkdir -p "$TEST_CHANDIR/1"
-            printf '%s %s %s\n' 1 "$5" true
+            if [ -f "$TEST_CHANDIR/session.conf" ]; then
+                printf '%s %s %s %s\n' 1 "$5" false "${7:-none}"
+            else
+                printf '%s %s %s %s\n' 1 "$5" true "${7:-none}"
+            fi
         fi
     }
 }
@@ -100,7 +108,61 @@ setup_dispatch() {
     . "$LIB"
     printf '%s\n' 'quiet perchcomp=zstd' >"$MINIOS_CMDLINE_FILE"
 
-    cmdline_requests_persistence
+    persistence_requested
+}
+
+@test "layered LUKS capability rejects the old empty marker" {
+    . "$LIB"
+    marker="$WORK/crypt-marker"
+    : >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    run luks_layer_available
+    [ "$status" -ne 0 ]
+
+    printf '%s\n' luks-layer-v1 >"$marker"
+    luks_layer_available
+}
+
+@test "existing session encryption comes only from metadata" {
+    . "$LIB"
+    chandir="$WORK/metadata-encryption/changes"
+    mkdir -p "$chandir/1"
+    printf '%s\n' 'default=1' 'session_mode[1]=raw' >"$chandir/session.conf"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    PERCHSIZE=0
+
+    run restore_perch_session /dev/test "$chandir" resume resume raw false luks
+    [ "$status" -eq 0 ]
+    [ "$output" = '1 raw false none' ]
+
+    rm -f "$chandir/session.json"
+    printf '%s\n' 'session_encryption[1]=luks' >>"$chandir/session.conf"
+    run restore_perch_session /dev/test "$chandir" resume resume raw false none
+    [ "$status" -eq 0 ]
+    [ "$output" = '1 raw false luks' ]
+}
+
+@test "unsupported encrypted session metadata fails closed" {
+    . "$LIB"
+    chandir="$WORK/invalid-encryption/changes"
+    mkdir -p "$chandir/1"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    PERCHSIZE=0
+
+    for metadata in \
+        'session_mode[1]=native|session_encryption[1]=luks' \
+        'session_mode[1]=squashfs|session_encryption[1]=luks' \
+        'session_mode[1]=raw|session_encryption[1]=unknown' \
+        'session_mode[1]=luks'; do
+        rm -f "$chandir/session.json"
+        {
+            printf '%s\n' 'default=1'
+            printf '%s\n' "$metadata" | tr '|' '\n'
+        } >"$chandir/session.conf"
+        run restore_perch_session /dev/test "$chandir" resume resume '' false none
+        [ "$status" -ne 0 ]
+        [[ "$output" == *'unsupported persistence metadata'* ]]
+    done
 }
 
 @test "LiveKit DynFileFS is not limited to 4000MB on FAT32" {
@@ -129,7 +191,7 @@ setup_dispatch() {
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     perch_state_commit "$WORK/union"
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --execute"
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --map-memory-mb 1024 --execute"
     assert_log "mke2fs -t ext4 -F -E nodiscard /dev/dynblk7"
     assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
     ! grep -Fq 'mount -o loop' "$LOG"
@@ -195,8 +257,46 @@ setup_dispatch() {
     }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --compression zstd --execute"
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --compression zstd --map-memory-mb 1024 --execute"
     ! grep -F 'dynblk create ' "$LOG" | grep -Fq -- '--size'
+}
+
+@test "dynblk mapping budget makes 16GiB dense use practical on 512MiB-class RAM" {
+    # A 512-MiB VM reports about 463 MiB after kernel-reserved memory.
+    printf '%s\n' 'MemTotal:        474112 kB' >"$WORK/meminfo"
+    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+    setup_dispatch dynblk ext4 16384
+
+    [ "$(dynblk_map_budget_mb)" -eq 128 ]
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression none --map-memory-mb 128 --execute"
+    ! grep -R -Fq 'fully-mappable range' "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null
+}
+
+@test "dynblk mapping budget makes 32GiB dense use practical on 1GiB-class RAM" {
+    # A 1-GiB VM also reports less than its configured memory after reservations.
+    printf '%s\n' 'MemTotal:        999424 kB' >"$WORK/meminfo"
+    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+    setup_dispatch dynblk ext4 32768
+
+    [ "$(dynblk_map_budget_mb)" -eq 256 ]
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --map-memory-mb 256 --execute"
+    ! grep -R -Fq 'fully-mappable range' "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null
+}
+
+@test "dynblk warns when declared capacity exceeds dense mapping coverage" {
+    printf '%s\n' 'MemTotal:        474112 kB' >"$WORK/meminfo"
+    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+    setup_dispatch dynblk ext4 32768
+
+    [ "$(dynblk_map_budget_mb)" -eq 128 ]
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --map-memory-mb 128 --execute"
+    grep -R -Fq 'exceeds the 16384MB fully-mappable range' "$MINIOS_PERSISTENCE_RUNDIR"
 }
 
 @test "dynblk resume loads stored geometry and grows only when explicitly requested" {
@@ -205,7 +305,7 @@ setup_dispatch() {
     : >"$TEST_CHANDIR/1/volume000.db"
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --execute"
+    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --map-memory-mb 1024 --execute"
     assert_log "e2fsck -p /dev/dynblk7"
     assert_log "dynblk grow /dev/dynblk7 96MiB --execute"
     assert_log "resize2fs -f /dev/dynblk7"
@@ -411,7 +511,7 @@ setup_dispatch() {
     ! grep -q '^session_state\[1\]=dirty$' "$conf"
 }
 
-@test "new SquashFS selection does not reserve a numbered directory" {
+@test "new SquashFS selection reserves a numbered metadata directory" {
     # shellcheck source=/dev/null
     . "$LIB"
     chandir="$WORK/new-squashfs/changes"
@@ -420,12 +520,43 @@ setup_dispatch() {
 
     run restore_perch_session /dev/test "$chandir" new new squashfs
 
-    [ "$status" -ne 0 ]
-    run bash -c 'find "$1" -mindepth 1 -maxdepth 1 -type d -name "[0-9]*" -print -quit' _ "$chandir"
     [ "$status" -eq 0 ]
-    [ -z "$output" ]
+    [ "$output" = "1 squashfs true none" ]
+    [ -d "$chandir/1" ]
     [ ! -f "$chandir/session.conf" ]
     [ ! -f "$chandir/session.json" ]
+}
+
+@test "new SquashFS session starts as metadata-only generation zero" {
+    setup_dispatch squashfs ext4
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    [ ! -e "$TEST_CHANDIR/1/changes.sb" ]
+    grep -Fqx 'session_mode[1]=squashfs' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'session_policy[1]=shutdown' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'session_generation[1]=0' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'session_union[1]=overlayfs' "$TEST_CHANDIR/session.conf"
+    ! grep -Fq 'session_digest[1]=' "$TEST_CHANDIR/session.conf"
+    ! grep -Fq 'session_compressed[1]=' "$TEST_CHANDIR/session.conf"
+    ! grep -Fq 'session_footprint[1]=' "$TEST_CHANDIR/session.conf"
+    assert_log "truncate -s 67108864 $WORK/squashfs-ext4/.minios-upper-1.ext4"
+    [ "$MINIOS_SQUASHFS_POLICY" = shutdown ]
+}
+
+@test "SquashFS generation zero rejects an unexpected snapshot artifact" {
+    setup_dispatch squashfs ext4
+    mkdir -p "$TEST_CHANDIR/1"
+    printf '%s\n' 'session_mode[1]=squashfs' 'session_policy[1]=shutdown' \
+        'session_generation[1]=0' 'session_union[1]=overlayfs' \
+        >"$TEST_CHANDIR/session.conf"
+    : >"$TEST_CHANDIR/1/changes.sb"
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fq 'could not be restored; continuing in memory' \
+        "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
 }
 
 @test "LiveKit DynFileFS dispatches to its existing container helper" {
@@ -641,8 +772,8 @@ setup_dispatch() {
     normalize_module_whiteouts /union
 }
 
-@test "LUKS activation failure continues without unencrypted persistence" {
-    setup_dispatch luks vfat
+@test "unavailable Raw LUKS layer continues without unencrypted persistence" {
+    setup_dispatch raw vfat 64 luks
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     ! grep -Fq 'restore:new:native' "$LOG"
     ! grep -Fq '@mount.dynfilefs' "$LOG"
@@ -651,6 +782,242 @@ setup_dispatch() {
     grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     ! grep -Fqx 'boot_level=ok' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fq 'persistence' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
+}
+
+@test "Raw LUKS creates changes.img through an owned loop and publishes ownership" {
+    setup_dispatch raw ext4 64 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n%s\n' secret-pass secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    make_mock stty
+    make_mock losetup 'case "$1" in --find) printf "%s\n" /dev/loop7 ;; esac'
+    luks_mapper_ready() { return 0; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+
+    assert_log "losetup --find --show -- $TEST_CHANDIR/1/changes.img"
+    assert_log 'cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/loop7'
+    assert_log 'cryptsetup open --type luks --key-file - /dev/loop7 minios-perch-1'
+    assert_log "mke2fs -t ext4 -F /dev/mapper/minios-perch-1"
+    grep -Fqx 'session_mode[1]=raw' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'session_encryption[1]=luks' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'encryption=luks' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'crypt_mapper=minios-perch-1' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'loop_device=/dev/loop7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    ! grep -Fq secret-pass "$LOG"
+}
+
+@test "Raw LUKS rejects three wrong passwords without plaintext fallback" {
+    setup_dispatch raw ext4 64 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n%s\n%s\n' wrong-one wrong-two wrong-three >"$MINIOS_PERSISTENCE_TTY"
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/changes.img"
+    printf '%s\n' 'default=1' 'session_mode[1]=raw' \
+        'session_encryption[1]=luks' >"$TEST_CHANDIR/session.conf"
+    make_mock stty
+    make_mock losetup 'case "$1" in --find) printf "%s\n" /dev/loop8 ;; esac'
+    make_mock cryptsetup 'case "$1" in open) exit 1 ;; esac'
+    fatal() { printf 'fatal:%s\n' "$*" >>"$MINIOS_TEST_LOG"; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    [ "$(grep -Fc 'cryptsetup open --type luks --key-file - /dev/loop8 minios-perch-1' "$LOG")" -eq 3 ]
+    assert_log 'losetup --detach /dev/loop8'
+    assert_log 'fatal:Incorrect password for encrypted persistence session #1'
+    ! grep -Fq 'mount -o loop,errors=remount-ro' "$LOG"
+    ! grep -Fq '@mount.dynfilefs' "$LOG"
+    ! grep -Fq wrong- "$LOG"
+}
+
+@test "DynFileFS LUKS stacks FUSE loop mapper and ext4 ownership" {
+    setup_dispatch dynfilefs vfat 8000 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n%s\n' secret-pass secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    make_mock stty
+    make_mock umount
+    make_mock losetup 'case "$1" in --find) printf "%s\n" /dev/loop9 ;; esac'
+    luks_mapper_ready() { return 0; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 8000"
+    assert_log "losetup --find --show -- $TEST_CHANGES/virtual.dat"
+    assert_log 'cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/loop9'
+    assert_log "mount -o errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
+    grep -Fqx 'session_mode[1]=dynfilefs' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'session_encryption[1]=luks' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'loop_device=/dev/loop9' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+}
+
+@test "DynBlk LUKS uses its block device directly and disables compression" {
+    setup_dispatch dynblk ext4 64 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n%s\n' secret-pass secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    make_mock stty
+    luks_mapper_ready() { return 0; }
+    cmdline_value() {
+        case "$1" in
+        perchdir) printf '%s\n' new ;;
+        perchmode) printf '%s\n' dynblk ;;
+        perchsize) printf '%s\n' 64 ;;
+        perchencrypt) printf '%s\n' luks ;;
+        perchcomp) printf '%s\n' zstd ;;
+        *) return 0 ;;
+        esac
+    }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --map-memory-mb 1024 --execute"
+    assert_log 'cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/dynblk7'
+    assert_log 'mke2fs -t ext4 -F -E nodiscard /dev/mapper/minios-perch-1'
+    assert_log "mount -o errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
+    ! grep -Fq 'losetup ' "$LOG"
+    grep -Fqx 'dynblk_device=/dev/dynblk7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'loop_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+}
+
+@test "DynBlk LUKS authenticates before backend growth and reopens the mapper" {
+    setup_dispatch dynblk ext4 128 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n' secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/volume000.db"
+    printf '%s\n' 'default=1' 'session_mode[1]=dynblk' \
+        'session_encryption[1]=luks' >"$TEST_CHANDIR/session.conf"
+    make_mock stty
+    luks_mapper_ready() { return 0; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    open_line=$(grep -Fn 'cryptsetup open --type luks --key-file - /dev/dynblk7 minios-perch-1' "$LOG" | head -n 1 | cut -d: -f1)
+    close_line=$(grep -Fn 'cryptsetup close minios-perch-1' "$LOG" | head -n 1 | cut -d: -f1)
+    grow_line=$(grep -Fn 'dynblk grow /dev/dynblk7 128MiB --execute' "$LOG" | head -n 1 | cut -d: -f1)
+    reopen_line=$(grep -Fn 'cryptsetup open --type luks --key-file - /dev/dynblk7 minios-perch-1' "$LOG" | tail -n 1 | cut -d: -f1)
+    [ "$open_line" -lt "$close_line" ]
+    [ "$close_line" -lt "$grow_line" ]
+    [ "$grow_line" -lt "$reopen_line" ]
+    assert_log 'resize2fs -f /dev/mapper/minios-perch-1'
+}
+
+@test "DynFileFS LUKS authenticates before virtual growth and reopens its loop" {
+    setup_dispatch dynfilefs vfat 128 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n' secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/changes.dat"
+    printf '%s\n' 'default=1' 'session_mode[1]=dynfilefs' \
+        'session_size[1]=64' 'session_encryption[1]=luks' >"$TEST_CHANDIR/session.conf"
+    make_mock stty
+    make_mock umount
+    make_mock losetup 'case "$1" in --find) printf "%s\n" /dev/loop9 ;; esac'
+    make_mock ls 'printf "%s\n" "-rw------- 1 0 0 67108864 Jan 1 00:00 $4"'
+    luks_mapper_ready() { return 0; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000"
+    assert_log 'cryptsetup close minios-perch-1'
+    assert_log 'losetup --detach /dev/loop9'
+    assert_log "umount $TEST_CHANGES"
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 128"
+    [ "$(grep -Fc 'losetup --find --show --' "$LOG")" -eq 2 ]
+    [ "$(grep -Fc 'cryptsetup open --type luks --key-file - /dev/loop9 minios-perch-1' "$LOG")" -eq 2 ]
+    assert_log 'resize2fs -f /dev/mapper/minios-perch-1'
+}
+
+@test "DynFileFS LUKS retries a busy backend while reopening after growth" {
+    setup_dispatch dynfilefs vfat 128 luks
+    marker="$WORK/crypt-marker"
+    retry_state="$WORK/dynfilefs-retry"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n' secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/changes.dat"
+    printf '%s\n' 'default=1' 'session_mode[1]=dynfilefs' \
+        'session_size[1]=64' 'session_encryption[1]=luks' >"$TEST_CHANDIR/session.conf"
+    export retry_state
+    make_mock stty
+    make_mock umount
+    make_mock sleep
+    make_mock losetup 'case "$1" in --find) printf "%s\n" /dev/loop9 ;; esac'
+    make_mock ls 'printf "%s\n" "-rw------- 1 0 0 67108864 Jan 1 00:00 $4"'
+    make_mock @mount.dynfilefs '
+mountpoint= has_size=false
+while [ $# -gt 0 ]; do
+    case "$1" in -m) mountpoint=$2; shift ;; -s) has_size=true; shift ;; esac
+    shift
+done
+if [ "$has_size" = true ] && [ ! -e "$retry_state" ]; then
+    : >"$retry_state"
+    exit 1
+fi
+mkdir -p "$mountpoint"
+: >"$mountpoint/virtual.dat"'
+    luks_mapper_ready() { return 0; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    [ "$(grep -Fc "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 128" "$LOG")" -eq 2 ]
+    assert_log 'sleep 1'
+    assert_log 'resize2fs -f /dev/mapper/minios-perch-1'
+}
+
+@test "Raw LUKS authenticates before backing-file growth and reopens its loop" {
+    setup_dispatch raw ext4 128 luks
+    marker="$WORK/crypt-marker"
+    printf '%s\n' luks-layer-v1 >"$marker"
+    MINIOS_CRYPT_MARKERS="$marker"
+    MINIOS_PERSISTENCE_TTY="$WORK/tty"
+    MINIOS_PERSISTENCE_TTY_OUTPUT=/dev/null
+    printf '%s\n' secret-pass >"$MINIOS_PERSISTENCE_TTY"
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/changes.img"
+    printf '%s\n' 'default=1' 'session_mode[1]=raw' \
+        'session_size[1]=64' 'session_encryption[1]=luks' >"$TEST_CHANDIR/session.conf"
+    make_mock stty
+    make_mock losetup 'case "$1" in --find) printf "%s\n" /dev/loop9 ;; esac'
+    make_mock ls 'printf "%s\n" "-rw------- 1 0 0 67108864 Jan 1 00:00 $4"'
+    luks_mapper_ready() { return 0; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log 'cryptsetup close minios-perch-1'
+    assert_log 'losetup --detach /dev/loop9'
+    assert_log "truncate -s 128M $TEST_CHANDIR/1/changes.img"
+    [ "$(grep -Fc "losetup --find --show -- $TEST_CHANDIR/1/changes.img" "$LOG")" -eq 2 ]
+    [ "$(grep -Fc 'cryptsetup open --type luks --key-file - /dev/loop9 minios-perch-1' "$LOG")" -eq 2 ]
+    assert_log 'resize2fs -f /dev/mapper/minios-perch-1'
 }
 
 @test "close_owned_crypt removes only its explicitly supplied state" {
@@ -757,7 +1124,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume ""
 
     [ "$status" -eq 0 ]
-    [ "$output" = "7 dynfilefs false" ]
+    [ "$output" = "7 dynfilefs false none" ]
     grep -Fqx 'default=7' "$chandir/session.conf"
     grep -Fqx 'session_mode[7]=dynfilefs' "$chandir/session.conf"
     grep -Fqx 'session_size[7]=2048' "$chandir/session.conf"
@@ -781,7 +1148,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume ""
 
     [ "$status" -eq 0 ]
-    [ "$output" = "7 dynfilefs false" ]
+    [ "$output" = "7 dynfilefs false none" ]
     grep -Fqx 'default=7' "$chandir/session.conf"
     grep -Fqx 'session_policy[7]=shutdown' "$chandir/session.conf"
 }
@@ -859,7 +1226,10 @@ EOF
         "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'active_generation=current' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'dynblk_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
-    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 10 ]
+    grep -Fqx 'encryption=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'crypt_mapper=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'loop_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 13 ]
     [ "$(stat -c '%a' "$MINIOS_PERSISTENCE_RUNDIR/boot-state")" = 600 ]
     [ ! -f "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
 }
@@ -1228,7 +1598,7 @@ EOF
     grep -Fqx 'mode=unknown' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'session=unknown' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'dynblk_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
-    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 10 ]
+    [ "$(wc -l <"$MINIOS_PERSISTENCE_RUNDIR/boot-state")" -eq 13 ]
 }
 
 @test "explicit persistence write failure publishes degraded runtime state" {
@@ -1346,7 +1716,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" ask ask "" false
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 dynfilefs true" ]
+    [ "$output" = "1 dynfilefs true none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1362,7 +1732,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" setup setup "" false
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 raw true" ]
+    [ "$output" = "1 raw true none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1378,7 +1748,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" new new "" false
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 native true" ]
+    [ "$output" = "1 native true none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1393,7 +1763,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume "" true
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 native true" ]
+    [ "$output" = "1 native true none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1410,7 +1780,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume "" true
 
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | tail -n 1)" = "2 native true" ]
+    [ "$(printf '%s\n' "$output" | tail -n 1)" = "2 native true none" ]
     [ -d "$chandir/2" ]
 }
 
@@ -1428,7 +1798,7 @@ EOF
 
     result=$(restore_perch_session /dev/test "$chandir" resume resume "" true 2>"$WORK/auto-union-warning.err")
 
-    [ "$result" = "2 native true" ]
+    [ "$result" = "2 native true none" ]
     grep -Fq 'union filesystem mismatch detected' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
     grep -Fq 'Creating a new session' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
     grep -Fq 'union filesystem mismatch detected' "$WORK/auto-union-warning.err"

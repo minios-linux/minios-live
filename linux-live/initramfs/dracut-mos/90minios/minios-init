@@ -108,6 +108,6 @@ if [ "$TIMING_ENABLED" ] && [ -r /proc/uptime ]; then
 fi
 
 prepare_initramfs_dracut "$UNION"
-boot_console_mirror_stop
+boot_console_mirror_stop "$UNION"
 
 # The union is ready - dracut will handle the final switch_root
