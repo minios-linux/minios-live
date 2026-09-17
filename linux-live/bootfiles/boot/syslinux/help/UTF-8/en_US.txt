@@ -27,14 +27,15 @@ customize how MiniOS boots. A detailed description of various boot parameters is
   - setup: Interactively choose the session type and create a new session
   - ask: Interactively select a saved session; if none exist, enter setup
   - #: Use specific session number
-* perchmode=[native/dynfilefs/dynblk/raw/luks/squashfs]: Set persistence mode
+* perchmode=[native/dynfilefs/dynblk/vmdk/raw/squashfs]: Set persistence mode
   - native: Direct filesystem (default, best performance, POSIX only)
   - dynfilefs: Expandable FUSE container (format 400)
-  - dynblk: Thin kernel block device (format 1, 16 GiB default, 512 GiB maximum)
+  - dynblk: Compressed kernel block device (format 1; default 16 GiB)
+  - vmdk: Split sparse VMDK block device, no compression
   - raw: Fixed-size ext4 image
-  - luks: Encrypted LUKS2/ext4 container; prompts for a passphrase
   - squashfs: Resume an existing compressed snapshot
-* perchsize=[MB]: Set or grow a DynFileFS, dynblk, raw, or LUKS container size
+* perchsize=[MB]: Set or grow a DynFileFS, DynBlk, raw, or VMDK container size
+* perchencrypt=luks: Encrypted LUKS2/ext4 container; prompts for a passphrase
 
 * load=[filter]: Load only matching modules (regex or range)
   Examples: load=00-core or load=core,kernel,firmware or load=00,01,02

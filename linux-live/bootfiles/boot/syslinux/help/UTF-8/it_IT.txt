@@ -26,14 +26,15 @@ di avvio per personalizzare l'avvio di MiniOS. Di seguito è fornita una descriz
   - new: Crea sempre una nuova sessione
   - ask: Seleziona la sessione in modo interattivo
   - #: Usa un numero di sessione specifico
-* perchmode=[native/dynfilefs/dynblk/raw/luks/squashfs]: Imposta la modalità di persistenza
+* perchmode=[native/dynfilefs/dynblk/vmdk/raw/squashfs]: Imposta la modalità di persistenza
   - native: Filesystem diretto (predefinito, migliori prestazioni, solo POSIX)
   - dynfilefs: Contenitore FUSE espandibile (formato 400)
-  - dynblk: Dispositivo a blocchi kernel sottile (formato 1, 16 GiB predefiniti, massimo 512 GiB)
+  - dynblk: Dispositivo a blocchi compresso (formato 1; predefinito 16 GiB)
+  - vmdk: Immagine VMDK dinamica suddivisa, senza compressione
   - raw: Immagine ext4 a dimensione fissa
-  - luks: Contenitore LUKS2/ext4 crittografato; richiede una passphrase
   - squashfs: Riprendi uno snapshot compresso esistente
-* perchsize=[MB]: Imposta o aumenta la dimensione di un contenitore DynFileFS, dynblk, raw o LUKS
+* perchsize=[MB]: Imposta o aumenta la dimensione di un contenitore DynFileFS, DynBlk, raw o VMDK
+* perchencrypt=luks: Contenitore LUKS2/ext4 crittografato; richiede una passphrase
 
 * load=[filtro]: Carica solo i moduli corrispondenti (regex o intervallo)
   Esempi: load=00-core o load=core,kernel,firmware o load=00,01,02

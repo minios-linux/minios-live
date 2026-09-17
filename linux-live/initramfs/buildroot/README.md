@@ -34,11 +34,13 @@ stripper:
 
 ```sh
 output/host/bin/i686-linux-gcc -Os -ffunction-sections -fdata-sections \
-  -std=gnu11 -Wall -Wextra -Werror -DDYNBLK_NO_DYNAMIC_CODECS -static \
+  -std=gnu11 -Wall -Wextra -Werror -D_FILE_OFFSET_BITS=64 -DDYNBLK_NO_DYNAMIC_CODECS -static \
   -Wl,--gc-sections \
   /path/to/submodules/dynblk/dynblk_cli.c \
   /path/to/submodules/dynblk/dynblk_common.c \
   /path/to/submodules/dynblk/dynblk_check.c \
+  /path/to/submodules/dynblk/dynblk_engine.c \
+  /path/to/submodules/dynblk/dynblk_host.c \
   /path/to/submodules/dynblk/lzo/decompress.c \
   -o /path/to/initramfs/livekit-mos/bin/dynblk
 output/host/bin/i686-linux-strip --strip-all \

@@ -123,7 +123,7 @@ detach_shutdown_encryption() {
            losetup -d "$SHUTDOWN_LOOP_DEVICE" >/dev/null 2>&1 || return 1
         fi
         ;;
-    dynblk) [ "$SHUTDOWN_LOOP_DEVICE" = none ] || return 1 ;;
+    dynblk | vmdk) [ "$SHUTDOWN_LOOP_DEVICE" = none ] || return 1 ;;
     *) return 1 ;;
     esac
 }
@@ -180,20 +180,20 @@ detach_dynblk_device() {
 
 detach_shutdown_dynblk() {
     resolve_shutdown_persistence || return 0
-    [ "$SHUTDOWN_MODE" = dynblk ] || return 0
+    { [ "$SHUTDOWN_MODE" = dynblk ] || [ "$SHUTDOWN_MODE" = vmdk ]; } || return 0
     [ -d /sys/module/dynblk ] || return 0
     command -v dynblk >/dev/null 2>&1 || {
-       echo "[ FAIL ] The dynblk persistence backend is active but its control tool is unavailable." >/dev/console
+       echo "[ FAIL ] The DynBlk persistence backend is active but its control tool is unavailable." >/dev/console
        return 1
     }
     shutdown_dynblk_device_valid "$SHUTDOWN_DYNBLK_DEVICE" || {
-       echo "[ FAIL ] The active dynblk device is missing from the boot persistence state." >/dev/console
+       echo "[ FAIL ] The active DynBlk device is missing from the boot persistence state." >/dev/console
        return 1
     }
     if detach_dynblk_device "$SHUTDOWN_DYNBLK_DEVICE"; then
        return 0
     fi
-    echo "[ FAIL ] Could not detach dynblk persistence before unmounting its backing store." >/dev/console
+    echo "[ FAIL ] Could not detach DynBlk persistence before unmounting its backing store." >/dev/console
     return 1
 }
 
@@ -208,7 +208,7 @@ drain_remaining_dynblk() {
        shutdown_dynblk_device_valid "$DEVICE" || continue
        FOUND=1
        if ! detach_dynblk_device "$DEVICE"; then
-          echo "[ FAIL ] Could not detach remaining dynblk device $DEVICE." >/dev/console
+          echo "[ FAIL ] Could not detach remaining DynBlk device $DEVICE." >/dev/console
           FAILED=1
        fi
     done
@@ -282,9 +282,9 @@ umount_changes_top || ENCRYPTION_DETACH_FAILED=1
 debug_log "- Detaching encrypted persistence"
 detach_shutdown_encryption || ENCRYPTION_DETACH_FAILED=1
 umount_all /memory/changes
-debug_log "- Detaching dynblk persistence"
+debug_log "- Detaching DynBlk persistence"
 detach_shutdown_dynblk || DYNBLK_DETACH_FAILED=1
-debug_log "- Draining remaining dynblk devices"
+debug_log "- Draining remaining DynBlk devices"
 drain_remaining_dynblk || DYNBLK_DRAIN_FAILED=1
 if [ "$SQUASHFS_SAVE_FAILED" -eq 0 ] && [ "$ENCRYPTION_DETACH_FAILED" -eq 0 ] && [ "$DYNBLK_DETACH_FAILED" -eq 0 ] && \
       [ "$DYNBLK_DRAIN_FAILED" -eq 0 ]; then
@@ -296,9 +296,9 @@ elif [ "$SQUASHFS_SAVE_FAILED" -ne 0 ]; then
 elif [ "$ENCRYPTION_DETACH_FAILED" -ne 0 ]; then
    debug_log "encrypted persistence detach failed; leaving the session marked dirty"
 elif [ "$DYNBLK_DETACH_FAILED" -ne 0 ]; then
-   debug_log "dynblk shutdown detach failed; leaving the session marked dirty"
+   debug_log "DynBlk shutdown detach failed; leaving the session marked dirty"
 else
-   debug_log "remaining dynblk device drain failed; leaving the session marked dirty"
+   debug_log "remaining DynBlk device drain failed; leaving the session marked dirty"
 fi
 umount_all /memory
 close_owned_crypt

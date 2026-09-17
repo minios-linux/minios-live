@@ -405,16 +405,15 @@ contains() {
     contains "$builder" 'if [ "$CLOUD" = "true" ]'
 }
 
-@test "dynblk weak-RAM mapping budget follows compact 128-block runtime chunks" {
+@test "dynblk delegates its mapping-memory budget to the driver" {
     lib="$ROOT/livekit-mos/lib/livekitlib"
-    contains "$lib" 'NORMALIZED_MB=$((((MEM_TOTAL_MB + 63) / 64) * 64))'
-    contains "$lib" 'BUDGET=$((NORMALIZED_MB / 4))'
-    contains "$lib" '[ "$BUDGET" -gt 4096 ] && BUDGET=4096'
-    contains "$lib" 'DYNBLK_FULL_MAP_MB=$((DYNBLK_MAP_MEMORY_MB * 128))'
-    contains "$lib" 'REQUIRED_MAP_MB=$(((PERCHSIZE + 127) / 128))'
-    contains "$lib" 'dynblk_map_budget_mb()'
-    run grep -F 'BACKEND_BUDGET - 192' "$lib"
-    [ "$status" -ne 0 ]
+    contains "$lib" 'dynblk create "$VOLUME" --size "${PERCHSIZE}MiB"'
+    contains "$lib" '--compression "$PERCHCOMP" --format "$PERCHMODE" --execute'
+    contains "$lib" 'dynblk load "$VOLUME" --format "$PERCHMODE" --execute'
+    # The formula and memory admission belong to the driver and its VM tests,
+    # not to a second RAM-budget implementation in the initramfs shell.
+    run grep -E -- 'dynblk_map_budget_mb|DYNBLK_(MAP_MEMORY|FULL_MAP)_MB|REQUIRED_MAP_MB|--map-memory-mb' "$lib"
+    [ "$status" -eq 1 ]
 }
 
 @test "builders keep dynfilefs while coupling dynblk CLI to the kernel module" {

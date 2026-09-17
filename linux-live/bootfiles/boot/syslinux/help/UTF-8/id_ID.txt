@@ -26,14 +26,15 @@ secara manual untuk menyesuaikan cara MiniOS boot. Deskripsi terperinci dari ber
   - new: Selalu buat sesi baru
   - ask: Pilih sesi secara interaktif
   - #: Gunakan nomor sesi tertentu
-* perchmode=[native/dynfilefs/dynblk/raw/luks/squashfs]: Atur mode persistensi
+* perchmode=[native/dynfilefs/dynblk/vmdk/raw/squashfs]: Atur mode persistensi
   - native: Filesystem langsung (default, performa terbaik, hanya POSIX)
   - dynfilefs: Kontainer FUSE yang dapat diperluas (format 400)
-  - dynblk: Perangkat blok kernel tipis (format 1, 16 GiB default, 512 GiB maksimum)
+  - dynblk: Perangkat blok terkompresi (format 1; bawaan 16 GiB)
+  - vmdk: Citra VMDK dinamis terpisah tanpa kompresi
   - raw: Citra ext4 berukuran tetap
-  - luks: Kontainer LUKS2/ext4 terenkripsi; meminta frasa sandi
   - squashfs: Lanjutkan snapshot terkompresi yang sudah ada
-* perchsize=[MB]: Atur atau tambah ukuran kontainer DynFileFS, dynblk, raw, atau LUKS
+* perchsize=[MB]: Atur atau tambah ukuran kontainer DynFileFS, DynBlk, raw, atau VMDK
+* perchencrypt=luks: Kontainer LUKS2/ext4 terenkripsi; meminta frasa sandi
 
 * load=[filter]: Muat hanya modul yang cocok (regex atau rentang)
   Contoh: load=00-core atau load=core,kernel,firmware atau load=00,01,02

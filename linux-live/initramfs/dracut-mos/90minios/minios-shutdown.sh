@@ -127,7 +127,7 @@ detach_shutdown_encryption() {
             losetup -d "$SHUTDOWN_LOOP_DEVICE" >/dev/null 2>&1 || return 1
         fi
         ;;
-    dynblk) [ "$SHUTDOWN_LOOP_DEVICE" = none ] || return 1 ;;
+    dynblk | vmdk) [ "$SHUTDOWN_LOOP_DEVICE" = none ] || return 1 ;;
     *) return 1 ;;
     esac
 }
@@ -184,20 +184,20 @@ detach_dynblk_device() {
 
 detach_shutdown_dynblk() {
     resolve_shutdown_persistence || return 0
-    [ "$SHUTDOWN_MODE" = dynblk ] || return 0
+    { [ "$SHUTDOWN_MODE" = dynblk ] || [ "$SHUTDOWN_MODE" = vmdk ]; } || return 0
     [ -d /sys/module/dynblk ] || return 0
     command -v dynblk >/dev/null 2>&1 || {
-        echo -e "${WHITE}[${RED}!${WHITE}]${RESET} The dynblk persistence backend is active but its control tool is unavailable." >/dev/console
+        echo -e "${WHITE}[${RED}!${WHITE}]${RESET} The DynBlk persistence backend is active but its control tool is unavailable." >/dev/console
         return 1
     }
     shutdown_dynblk_device_valid "$SHUTDOWN_DYNBLK_DEVICE" || {
-        echo -e "${WHITE}[${RED}!${WHITE}]${RESET} The active dynblk device is missing from the boot persistence state." >/dev/console
+        echo -e "${WHITE}[${RED}!${WHITE}]${RESET} The active DynBlk device is missing from the boot persistence state." >/dev/console
         return 1
     }
     if detach_dynblk_device "$SHUTDOWN_DYNBLK_DEVICE"; then
         return 0
     fi
-    echo -e "${WHITE}[${RED}!${WHITE}]${RESET} Could not detach dynblk persistence before unmounting its backing store." >/dev/console
+    echo -e "${WHITE}[${RED}!${WHITE}]${RESET} Could not detach DynBlk persistence before unmounting its backing store." >/dev/console
     return 1
 }
 
@@ -212,7 +212,7 @@ drain_remaining_dynblk() {
         shutdown_dynblk_device_valid "$DEVICE" || continue
         FOUND=1
         if ! detach_dynblk_device "$DEVICE"; then
-            echo -e "${WHITE}[${RED}!${WHITE}]${RESET} Could not detach remaining dynblk device $DEVICE." >/dev/console
+            echo -e "${WHITE}[${RED}!${WHITE}]${RESET} Could not detach remaining DynBlk device $DEVICE." >/dev/console
             FAILED=1
         fi
     done
@@ -347,12 +347,12 @@ umount_all /oldroot/run/initramfs/memory/changes
 umount_all /oldsys/run/initramfs/memory/changes
 umount_all /run/initramfs/memory/changes
 umount_all /memory/changes
-if resolve_shutdown_persistence && [ "$SHUTDOWN_MODE" = dynblk ] && [ -d /sys/module/dynblk ]; then
-    echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Detaching dynblk persistence..."
+if resolve_shutdown_persistence && { [ "$SHUTDOWN_MODE" = dynblk ] || [ "$SHUTDOWN_MODE" = vmdk ]; } && [ -d /sys/module/dynblk ]; then
+    echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Detaching DynBlk persistence..."
 fi
 detach_shutdown_dynblk || DYNBLK_DETACH_FAILED=1
 if [ -d /sys/module/dynblk ]; then
-    echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Draining remaining dynblk devices..."
+    echo -e "${WHITE}[${GREEN}*${WHITE}]${RESET} Draining remaining DynBlk devices..."
 fi
 drain_remaining_dynblk || DYNBLK_DRAIN_FAILED=1
 if [ "$SQUASHFS_SAVE_FAILED" -eq 0 ] && [ "$ENCRYPTION_DETACH_FAILED" -eq 0 ] && [ "$DYNBLK_DETACH_FAILED" -eq 0 ] && \

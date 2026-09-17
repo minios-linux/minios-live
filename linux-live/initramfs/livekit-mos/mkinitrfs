@@ -226,7 +226,7 @@ normalize_dynblk_module() {
     done
     [ "$COUNT" -eq 0 ] && return 0
     if [ "$COUNT" -ne 1 ]; then
-        echo "E: Multiple dynblk module files found in initramfs input" >&2
+        echo "E: Multiple DynBlk module files found in initramfs input" >&2
         return 1
     fi
     TARGET="$DIR/dynblk.ko"
@@ -403,7 +403,11 @@ normalize_dynblk_module
 if find "$INITRAMFS/$LMK" -type f -name 'dynblk.ko' -print -quit | grep -q .; then
     copy_files "$INITRAMFS" bin/dynblk
     chmod a+x "$INITRAMFS/bin/dynblk"
+    ln -sf dynblk "$INITRAMFS/bin/mount.dynblk"
     touch "$INITRAMFS/etc/minios-initramfs-dynblk"
+    if "$INITRAMFS/bin/dynblk" limits --format vmdk >/dev/null 2>&1; then
+        printf '%s\n' 'vmdk-session-v1' >"$INITRAMFS/etc/minios-initramfs-dynblk"
+    fi
 fi
 copy_including_deps "/$LMK/kernel/fs/overlayfs"
 copy_including_deps "/$LMK/kernel/fs/ext2"

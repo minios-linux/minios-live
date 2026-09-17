@@ -16,7 +16,7 @@ setup() {
     # sync, but the test suite must keep I/O scoped to its private fixture.
     make_mock sync
     make_mock @mount.dynfilefs 'while [ $# -gt 0 ]; do if [ "$1" = "-m" ]; then mkdir -p "$2"; : >"$2/virtual.dat"; fi; shift; done'
-    make_mock dynblk 'case "$1" in create|load) printf "%s\n" /dev/dynblk7 ;; esac'
+    make_mock dynblk 'case "$1" in create|load) printf "%s\n" /dev/dynblk7 ;; limits) printf "max_capacity_mib: 67108864\n" ;; esac'
     make_mock cryptsetup
     make_mock losetup
     make_mock df 'printf "%s\n" "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 10000000 0 9000000 0% /"'
@@ -191,7 +191,7 @@ setup_dispatch() {
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     perch_state_commit "$WORK/union"
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --map-memory-mb 1024 --execute"
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
     assert_log "mke2fs -t ext4 -F -E nodiscard /dev/dynblk7"
     assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
     ! grep -Fq 'mount -o loop' "$LOG"
@@ -244,8 +244,9 @@ setup_dispatch() {
     grep -Fqx 'session_mode[2]=native' "$TEST_CHANDIR/session.conf"
 }
 
-@test "dynblk uses its 16GiB default unless perchsize is explicit" {
+@test "dynblk automatic sizing caps at 16GiB when backing space is sufficient" {
     setup_dispatch dynblk ext4
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 33554432 0 33554432 0% /"; }
     cmdline_value() {
         case "$1" in
         perchdir) printf '%s\n' new ;;
@@ -257,46 +258,79 @@ setup_dispatch() {
     }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --compression zstd --map-memory-mb 1024 --execute"
-    ! grep -F 'dynblk create ' "$LOG" | grep -Fq -- '--size'
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression zstd --format dynblk --execute"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
-@test "dynblk mapping budget makes 16GiB dense use practical on 512MiB-class RAM" {
-    # A 512-MiB VM reports about 463 MiB after kernel-reserved memory.
-    printf '%s\n' 'MemTotal:        474112 kB' >"$WORK/meminfo"
-    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+@test "dynblk automatic sizing keeps the reserve free on a small backing store" {
+    setup_dispatch dynblk ext4 0
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 3145728 0 3145728 0% /"; }
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    # 3072 MiB available minus the 256 MiB default reserve.
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 2816MiB --compression none --format dynblk --execute"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+}
+
+@test "dynblk automatic sizing below the free-space reserve falls back to memory" {
+    setup_dispatch dynblk ext4 0
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 1048576 917504 131072 88% /"; }
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    ! grep -Fq 'dynblk create ' "$LOG"
+    ! grep -Fq 'mke2fs ' "$LOG"
+    [ ! -d "$TEST_CHANDIR/1" ]
+    grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fq 'no space is available' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
+}
+
+@test "dynblk create delegates the mapping budget on 512MiB-class RAM" {
+    # These mocked tests check delegation, not actual driver memory usage.
+    # Real low-memory admission is covered by submodules/dynblk/tests/vm/.
+    printf '%s\n' 'MemTotal:        474112 kB' >"$MINIOS_PROC_MEMINFO"
     setup_dispatch dynblk ext4 16384
 
-    [ "$(dynblk_map_budget_mb)" -eq 128 ]
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression none --map-memory-mb 128 --execute"
-    ! grep -R -Fq 'fully-mappable range' "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression none --format dynblk --execute"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
-@test "dynblk mapping budget makes 32GiB dense use practical on 1GiB-class RAM" {
-    # A 1-GiB VM also reports less than its configured memory after reservations.
-    printf '%s\n' 'MemTotal:        999424 kB' >"$WORK/meminfo"
-    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+@test "dynblk create delegates the mapping budget on 1GiB-class RAM" {
+    printf '%s\n' 'MemTotal:        999424 kB' >"$MINIOS_PROC_MEMINFO"
     setup_dispatch dynblk ext4 32768
 
-    [ "$(dynblk_map_budget_mb)" -eq 256 ]
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --map-memory-mb 256 --execute"
-    ! grep -R -Fq 'fully-mappable range' "$MINIOS_PERSISTENCE_RUNDIR" 2>/dev/null
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --format dynblk --execute"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
-@test "dynblk warns when declared capacity exceeds dense mapping coverage" {
-    printf '%s\n' 'MemTotal:        474112 kB' >"$WORK/meminfo"
-    export MINIOS_PROC_MEMINFO="$WORK/meminfo"
+@test "dynblk preserves explicit thin capacity without a shell map-budget warning" {
+    printf '%s\n' 'MemTotal:        474112 kB' >"$MINIOS_PROC_MEMINFO"
     setup_dispatch dynblk ext4 32768
 
-    [ "$(dynblk_map_budget_mb)" -eq 128 ]
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --format dynblk --execute"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    grep -Fqx 'boot_level=ok' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    [ ! -s "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
+}
+
+@test "dynblk resume without perchsize delegates the mapping budget and preserves capacity" {
+    setup_dispatch dynblk ext4
+    TEST_SIZE=""
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/volume000.db"
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --map-memory-mb 128 --execute"
-    grep -R -Fq 'exceeds the 16384MB fully-mappable range' "$MINIOS_PERSISTENCE_RUNDIR"
+    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --format dynblk --execute"
+    assert_log "e2fsck -p /dev/dynblk7"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    ! grep -Eq '^dynblk (create|grow) ' "$LOG"
+    ! grep -Fq 'resize2fs ' "$LOG"
 }
 
 @test "dynblk resume loads stored geometry and grows only when explicitly requested" {
@@ -305,7 +339,7 @@ setup_dispatch() {
     : >"$TEST_CHANDIR/1/volume000.db"
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
-    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --map-memory-mb 1024 --execute"
+    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --format dynblk --execute"
     assert_log "e2fsck -p /dev/dynblk7"
     assert_log "dynblk grow /dev/dynblk7 96MiB --execute"
     assert_log "resize2fs -f /dev/dynblk7"
@@ -887,7 +921,7 @@ setup_dispatch() {
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     perch_state_commit "$WORK/union"
 
-    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --map-memory-mb 1024 --execute"
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
     assert_log 'cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/dynblk7'
     assert_log 'mke2fs -t ext4 -F -E nodiscard /dev/mapper/minios-perch-1'
     assert_log "mount -o errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
@@ -913,6 +947,7 @@ setup_dispatch() {
 
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
+    assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --format dynblk --execute"
     open_line=$(grep -Fn 'cryptsetup open --type luks --key-file - /dev/dynblk7 minios-perch-1' "$LOG" | head -n 1 | cut -d: -f1)
     close_line=$(grep -Fn 'cryptsetup close minios-perch-1' "$LOG" | head -n 1 | cut -d: -f1)
     grow_line=$(grep -Fn 'dynblk grow /dev/dynblk7 128MiB --execute' "$LOG" | head -n 1 | cut -d: -f1)
@@ -1086,15 +1121,16 @@ mkdir -p "$mountpoint"
     setup_dispatch dynfilefs ext4 0
     df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 9216000 0 9216000 0% /"; }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
-    # 9000 MB available minus 256 MB reserve, rounded down to a 1000 MB boundary.
-    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 8000"
+    # 9000 MiB minus 256 MiB reserve, allowing 1/500 of data size for indexes.
+    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 8726"
 }
 
 @test "automatic DynFileFS sizing never grows past a small device" {
     setup_dispatch dynfilefs ext4 0
     df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 3145728 0 3145728 0% /"; }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
-    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 2000"
+    # (3072 MiB - 256 MiB reserve) * 500 / 501, rounded down to whole MiB.
+    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 2810"
 }
 
 @test "new DynFileFS session with no available capacity falls back to memory" {
@@ -1900,4 +1936,53 @@ EOF
     [ "$(jq -r '.sessions["3"].size' "$chandir/session.json")" = "2000" ]
     [ "$(jq -r '.sessions["3"].size_mb' "$chandir/session.json")" = "2000" ]
     [ "$(jq -r '.sessions["3"].policy' "$chandir/session.json")" = "shutdown" ]
+}
+
+@test "dynblk explicit multi-terabyte size follows backend limits" {
+    setup_dispatch dynblk ext4 4194304
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 4194304MiB --compression none --format dynblk --execute"
+}
+
+@test "VMDK creates split storage and publishes its own session mode" {
+    setup_dispatch vmdk exfat 64
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    perch_state_commit "$WORK/union"
+    assert_log "dynblk create $TEST_CHANDIR/1/volume.vmdk --size 64MiB --compression none --format vmdk --execute"
+    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    grep -Fqx 'session_mode[1]=vmdk' "$TEST_CHANDIR/session.conf"
+    grep -Fqx 'mode=vmdk' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'dynblk_device=/dev/dynblk7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    ! grep -Eq '(reclaim|--compact|fstrim)' "$LOG"
+}
+
+@test "VMDK resumes its descriptor without creating a native container" {
+    setup_dispatch vmdk ext4
+    TEST_SIZE=""
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/volume.vmdk"
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    assert_log "dynblk load $TEST_CHANDIR/1/volume.vmdk --format vmdk --execute"
+    ! grep -Eq '^dynblk (create|grow) ' "$LOG"
+    ! grep -Fq 'volume000.db' "$LOG"
+}
+
+@test "VMDK metadata cannot create an image over a native DynBlk session" {
+    setup_dispatch vmdk ext4
+    mkdir -p "$TEST_CHANDIR/1"
+    printf '%s' 'existing native image' >"$TEST_CHANDIR/1/volume000.db"
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    ! grep -Eq '^dynblk (create|load|grow) ' "$LOG"
+    [ "$(cat "$TEST_CHANDIR/1/volume000.db")" = 'existing native image' ]
+    [ ! -e "$TEST_CHANDIR/1/volume.vmdk" ]
+}
+
+@test "VMDK cannot publish successful persistence with a missing block device" {
+    setup_dispatch vmdk ext4 64
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    dynblk_device_ready() { return 1; }
+    run perch_state_commit "$WORK/union"
+    grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+    grep -Fqx 'dynblk_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
 }

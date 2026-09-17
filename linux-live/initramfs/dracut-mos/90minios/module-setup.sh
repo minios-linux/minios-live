@@ -123,7 +123,7 @@ normalize_dynblk_module() {
         \( -name 'dynblk.ko' -o -name 'dynblk.ko.gz' -o -name 'dynblk.ko.xz' -o -name 'dynblk.ko.zst' \))
     [ "$count" -eq 0 ] && return 0
     if [ "$count" -ne 1 ]; then
-        echo "E: Multiple dynblk module files found in initramfs input" >&2
+        echo "E: Multiple DynBlk module files found in initramfs input" >&2
         return 1
     fi
     target="${source%.gz}"
@@ -155,11 +155,16 @@ installkernel() {
         elif [ -x /linux-live/initramfs/livekit-mos/bin/dynblk ]; then
             dynblk_bin=/linux-live/initramfs/livekit-mos/bin/dynblk
         else
-            echo "E: dynblk.ko is present but the initramfs dynblk binary is missing" >&2
+            echo "E: dynblk.ko is present but the initramfs DynBlk binary is missing" >&2
             return 1
         fi
         inst_simple "$dynblk_bin" "/bin/dynblk"
+        inst_dir /sbin
+        ln -sf /bin/dynblk "${initdir}/sbin/mount.dynblk"
         touch "${initdir}/etc/minios-initramfs-dynblk"
+        if "$dynblk_bin" limits --format vmdk >/dev/null 2>&1; then
+            printf '%s\n' 'vmdk-session-v1' >"${initdir}/etc/minios-initramfs-dynblk"
+        fi
     fi
     instmods ext2 ext3 ext4 fat vfat ntfs ntfs3 exfat
     instmods isofs fuse efivarfs btrfs xfs
