@@ -699,11 +699,12 @@ setup_dispatch() {
         '-t aufs -o xino=/.xino,br:/memory/ng=rw aufs /union' ]
 }
 
-@test "runtime union removes only visible OverlayFS whiteout devices" {
+@test "aufs-ng runtime union removes only visible OverlayFS whiteout devices" {
     # shellcheck source=/dev/null
     . "$LIB"
     log="$WORK/removed-whiteouts.log"
     get_union_fs() { printf '%s\n' aufs; }
+    aufs_ng_is_loaded() { return 0; }
     find() {
         printf '%s\n' /union/etc/removed /union/dev/console
     }
@@ -726,11 +727,12 @@ setup_dispatch() {
     [ "$(cat "$log")" = /union/etc/removed ]
 }
 
-@test "runtime union removes an unstatable whiteout shadowing a lower symlink" {
+@test "aufs-ng runtime union removes an unstatable whiteout shadowing a lower symlink" {
     # shellcheck source=/dev/null
     . "$LIB"
     log="$WORK/removed-shadow.log"
     get_union_fs() { printf '%s\n' aufs; }
+    aufs_ng_is_loaded() { return 0; }
     find() { printf '%s\n' /union/etc/rc0.d/K02eudev; }
     stat() { return 1; }
     rm() {
@@ -749,6 +751,7 @@ setup_dispatch() {
     # shellcheck source=/dev/null
     . "$LIB"
     get_union_fs() { printf '%s\n' aufs; }
+    aufs_ng_is_loaded() { return 0; }
     active="/tmp/minios-aufs-active-branches.$$"
     /bin/rm -f "$active"
     find() { return 1; }
@@ -795,6 +798,16 @@ setup_dispatch() {
     [ "$(stat -c %a "$runtime_inventory")" = 644 ]
     [ "$(stat -c %a "$runtime_lock")" = 644 ]
     cmp "$source_inventory" "$runtime_inventory"
+}
+
+@test "classic AUFS keeps module whiteout devices untouched" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    get_union_fs() { printf '%s\n' aufs; }
+    aufs_ng_is_loaded() { return 1; }
+    find() { return 1; }
+
+    normalize_module_whiteouts /union
 }
 
 @test "OverlayFS runtime keeps native module whiteouts untouched" {
@@ -1985,4 +1998,38 @@ EOF
     run perch_state_commit "$WORK/union"
     grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'dynblk_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
+}
+
+@test "external-kernel boot displaces the installed active kernel without changing its marker" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    debug_log() { :; }
+    data="$WORK/mixed-kernel/minios"
+    boot="$data/boot"
+    mkdir -p "$boot"
+    printf '%s\n' installed >"$boot/active-kernel"
+
+    for version in installed external stale; do
+        : >"$data/01-kernel-$version.sb"
+        : >"$boot/vmlinuz-$version"
+        : >"$boot/initrfs-$version.img"
+    done
+    get_running_kernel() { printf '%s\n' external; }
+
+    setup_running_kernel "$data"
+
+    [ ! -e "$data/01-kernel-installed.sb" ]
+    [ ! -e "$boot/vmlinuz-installed" ]
+    [ ! -e "$boot/initrfs-installed.img" ]
+    [ -f "$data/kernels/installed/01-kernel-installed.sb" ]
+    [ -f "$data/kernels/installed/vmlinuz-installed" ]
+    [ -f "$data/kernels/installed/initrfs-installed.img" ]
+    [ -f "$data/01-kernel-external.sb" ]
+    [ -f "$boot/vmlinuz-external" ]
+    [ -f "$boot/initrfs-external.img" ]
+    [ ! -e "$data/01-kernel-stale.sb" ]
+    [ -f "$data/kernels/stale/01-kernel-stale.sb" ]
+    [ -f "$data/kernels/stale/vmlinuz-stale" ]
+    [ -f "$data/kernels/stale/initrfs-stale.img" ]
+    [ "$(cat "$boot/active-kernel")" = installed ]
 }

@@ -1,0 +1,59 @@
+machine bios {
+    cpus: 2
+    ram: 1Gb
+    iso: { source: "${ISO}" }
+    disk scratch: { size: 1Gb }
+    video main: { adapter_type: "qxl" }
+}
+
+[snapshots: "never"]
+test syslinux_menu {
+    bios {
+        start
+        wait "Start MiniOS" timeout 1m
+        press F1
+        wait "MiniOS boot modes" timeout 10s
+        wait "Press any key" timeout 10s
+        screenshot "${EVIDENCE}/help-en.png"
+        press Enter
+        wait "Start MiniOS" timeout 10s
+        sleep 12s
+        wait "Start MiniOS" timeout 2s
+        screenshot "${EVIDENCE}/main-en.png"
+        press F2
+        wait "Choose Language" timeout 10s
+        wait "English" timeout 10s
+        screenshot "${EVIDENCE}/languages-en.png"
+        sleep 12s
+        press Esc
+        wait "Start MiniOS" timeout 10s
+        sleep 12s
+        wait "Start MiniOS" timeout 2s
+        press F2
+        wait "Choose Language" timeout 10s
+        press Down
+        press Enter
+        wait "Запустить MiniOS" timeout 10s
+        screenshot "${EVIDENCE}/main-ru.png"
+        press F1
+        wait "Нажмите любую клавишу" timeout 10s
+        screenshot "${EVIDENCE}/help-ru.png"
+        press Enter
+        wait "Запустить MiniOS" timeout 10s
+        press Tab
+        wait "timezone=Europe/Moscow" timeout 10s
+        screenshot "${EVIDENCE}/parameters-ru.png"
+        press Esc
+        wait "Справка" timeout 10s
+        press F2
+        wait "Russian" timeout 10s
+        screenshot "${EVIDENCE}/languages-ru.png"
+        press Home
+        press Enter
+        wait "Start MiniOS" timeout 10s
+        sleep 12s
+        wait "Start MiniOS" timeout 2s
+        screenshot "${EVIDENCE}/no-restarted-timer.png"
+        stop
+    }
+}

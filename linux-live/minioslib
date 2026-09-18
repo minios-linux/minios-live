@@ -2250,78 +2250,6 @@ fi"
         # Create multilingual SYSLINUX configuration for all SYSLINUX modes
         information "Creating multilingual SYSLINUX configuration..."
 
-        # Create main language selection menu
-        cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
-${SYSLINUX_SERIAL_SETTINGS}
-UI vesamenu.c32
-
-PROMPT 0
-TIMEOUT 100
-
-MENU CLEAR
-MENU BACKGROUND ../bootlogo788.png
-MENU RESOLUTION 800 600
-
-MENU WIDTH 97
-MENU MARGIN 15
-MENU ROWS 9
-MENU TABMSGROW 26
-MENU CMDLINEROW 21
-MENU HSHIFT 0
-MENU VSHIFT 10
-MENU HELPMSGENDROW 27
-MENU TIMEOUTROW 22
-
-MENU COLOR BORDER  30;40      #00000000 #00000000 none
-MENU COLOR SEL     47;30      #FF000000 #40FFFFFF none
-MENU COLOR UNSEL   37;40      #99FFFFFF #00000000 none
-MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
-
-F1 help/en_US.txt zblack.png
-
-MENU AUTOBOOT Press Esc for options, automatic boot in # second{,s} ...
-MENU TABMSG [F1] help                                                        [Tab] cmdline >
-
-MENU TITLE Choose Language
-
-LABEL en_US
-MENU LABEL English
-CONFIG lang/en_US.cfg
-
-LABEL ru_RU
-MENU LABEL Russian
-CONFIG lang/ru_RU.cfg
-
-LABEL de_DE
-MENU LABEL German
-CONFIG lang/de_DE.cfg
-
-LABEL es_ES
-MENU LABEL Spanish
-CONFIG lang/es_ES.cfg
-
-LABEL fr_FR
-MENU LABEL French
-CONFIG lang/fr_FR.cfg
-
-LABEL id_ID
-MENU LABEL Indonesian
-CONFIG lang/id_ID.cfg
-
-LABEL it_IT
-MENU LABEL Italian
-CONFIG lang/it_IT.cfg
-
-LABEL pt_BR
-MENU LABEL Portuguese (Brazil)
-CONFIG lang/pt_BR.cfg
-
-LABEL pt_PT
-MENU LABEL Portuguese (Portugal)
-CONFIG lang/pt_PT.cfg
-
-EOF
-
         # Create fonts and lang directories
         mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/fonts" "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang"
 
@@ -2335,7 +2263,6 @@ EOF
 
         # Generate configurations for each language
         for CURRENT_LANG in en_US ru_RU de_DE es_ES fr_FR id_ID it_IT pt_BR pt_PT; do
-            local MO_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/locale/${CURRENT_LANG}.mo"
             local FONT_FILE=$(get_language_font "$CURRENT_LANG")
             local LOCALE_UTF="${CURRENT_LANG}.UTF-8"
 
@@ -2348,44 +2275,33 @@ EOF
                 local KEYBOARD=$(get_language_keyboard "$CURRENT_LANG")
             fi
 
-            # Extract translations from mo file if it exists
+            # Share menu terminology and mode explanations with GRUB.
             local RESUME="Start MiniOS"
             local START_NEW="Start a new session"
             local CHOOSE_SESSION="Choose a saved session"
             local FRESH_START="Start without saving"
             local COPY_RAM="Run from RAM"
-            local PRESS_ESC="Press Esc for options, automatic boot in # second{,s} ..."
-            local F1_HELP="[F1] help"
-            local TAB_CMDLINE="[Tab] cmdline >"
+            local AUTOBOOT="Starting MiniOS in # second{,s} ..."
+            local MENU_HINT="[Enter] Start  [F1] Help  [F2] Language  [Tab] Edit options"
             local CHOOSE_LANGUAGE="Choose Language"
+            local LANGUAGE_HINT="[Enter] Apply language  [Esc] Back without changes"
 
             # Parse translations from po file
             local PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${CURRENT_LANG}.po"
-            if [ -f "$PO_FILE" ]; then
-                local TEMP_RESUME=$(awk '/^msgid "Start MiniOS"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_START_NEW=$(awk '/^msgid "Start a new session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_CHOOSE_SESSION=$(awk '/^msgid "Choose a saved session"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_FRESH_START=$(awk '/^msgid "Start without saving"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_COPY_RAM=$(awk '/^msgid "Run from RAM"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_PRESS_ESC=$(awk '/^msgid "Press Esc for options, automatic boot in # second/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_F1_HELP=$(awk '/^msgid "\[F1\] help"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_TAB_CMDLINE=$(awk '/^msgid "\[Tab\] cmdline >"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-                local TEMP_CHOOSE_LANGUAGE=$(awk '/^msgid "Choose Language"/{getline; gsub(/^msgstr "|"$/, ""); if($0 != "") print; exit}' "$PO_FILE")
-
-                # Use translations if found
-                [ -n "$TEMP_RESUME" ] && RESUME="$TEMP_RESUME"
-                [ -n "$TEMP_START_NEW" ] && START_NEW="$TEMP_START_NEW"
-                [ -n "$TEMP_CHOOSE_SESSION" ] && CHOOSE_SESSION="$TEMP_CHOOSE_SESSION"
-                [ -n "$TEMP_FRESH_START" ] && FRESH_START="$TEMP_FRESH_START"
-                [ -n "$TEMP_COPY_RAM" ] && COPY_RAM="$TEMP_COPY_RAM"
-                [ -n "$TEMP_PRESS_ESC" ] && PRESS_ESC="$TEMP_PRESS_ESC"
-                [ -n "$TEMP_F1_HELP" ] && F1_HELP="$TEMP_F1_HELP"
-                [ -n "$TEMP_TAB_CMDLINE" ] && TAB_CMDLINE="$TEMP_TAB_CMDLINE"
-                [ -n "$TEMP_CHOOSE_LANGUAGE" ] && CHOOSE_LANGUAGE="$TEMP_CHOOSE_LANGUAGE"
-            fi
+            local TRANSLATIONS_FILE
+            TRANSLATIONS_FILE="$(parse_po_file "$PO_FILE")" || TRANSLATIONS_FILE=""
+            RESUME="$(get_translation "$TRANSLATIONS_FILE" "$RESUME")"
+            START_NEW="$(get_translation "$TRANSLATIONS_FILE" "$START_NEW")"
+            CHOOSE_SESSION="$(get_translation "$TRANSLATIONS_FILE" "$CHOOSE_SESSION")"
+            FRESH_START="$(get_translation "$TRANSLATIONS_FILE" "$FRESH_START")"
+            COPY_RAM="$(get_translation "$TRANSLATIONS_FILE" "$COPY_RAM")"
+            AUTOBOOT="$(get_translation "$TRANSLATIONS_FILE" "$AUTOBOOT")"
+            MENU_HINT="$(get_translation "$TRANSLATIONS_FILE" "$MENU_HINT")"
+            CHOOSE_LANGUAGE="$(get_translation "$TRANSLATIONS_FILE" "$CHOOSE_LANGUAGE")"
+            LANGUAGE_HINT="$(get_translation "$TRANSLATIONS_FILE" "$LANGUAGE_HINT")"
 
             # Create configuration with appropriate encoding based on language
-            local ENCODING=""
+            local ENCODING="UTF-8"
             local OUTPUT_FILE="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang/${CURRENT_LANG}.cfg"
 
             case "$CURRENT_LANG" in
@@ -2400,25 +2316,21 @@ EOF
                 ;;
             esac
 
-            # Determine help file (localized or fallback to English)
-            local HELP_FILE="help/${CURRENT_LANG}.txt"
-            if [ ! -f "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/${HELP_FILE}" ]; then
-                HELP_FILE="help/en_US.txt"
-            fi
+            local HELP_FILE="help/modes_${CURRENT_LANG}.txt"
 
             # Generate configuration
             (
                 cat <<EOF
 ${SYSLINUX_SERIAL_SETTINGS}
 FONT ${FONT_FILE}
-UI vesamenu.c32
+UI minios-menu.c32
 
 PROMPT 0
 TIMEOUT 100
+DEFAULT default
 
 MENU CLEAR
-MENU HIDDEN
-MENU HIDDENKEY Enter default
+MENU HIDDENKEY F2 minios-language
 MENU BACKGROUND ../bootlogo788.png
 MENU RESOLUTION 800 600
 
@@ -2439,8 +2351,8 @@ MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
 
 F1 ${HELP_FILE} zblack.png
 
-MENU AUTOBOOT ${PRESS_ESC}
-MENU TABMSG ${F1_HELP}                                                        ${TAB_CMDLINE}
+MENU AUTOBOOT ${AUTOBOOT}
+MENU TABMSG ${MENU_HINT}
 
 LABEL default
 MENU LABEL ${RESUME}
@@ -2467,13 +2379,23 @@ MENU LABEL ${COPY_RAM}
 KERNEL /${LIVEKITNAME}/boot/${VMLINUZNAME}
 APPEND vga=788 initrd=/${LIVEKITNAME}/boot/${INITRFSNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=${LOCALE_UTF}$([ -n "${TIMEZONE}" ] && echo " timezone=${TIMEZONE}")$([ -n "${KEYBOARD}" ] && echo " keyboard-layouts=${KEYBOARD}")
 
+LABEL minios-language
+MENU HIDE
+CONFIG lang/select_${CURRENT_LANG}.cfg
+
 EOF
-            ) | if [ -n "$ENCODING" ] && command -v iconv >/dev/null 2>&1; then
-                iconv -f UTF-8 -t "$ENCODING" >"$OUTPUT_FILE" 2>/dev/null
-            else
-                cat >"$OUTPUT_FILE"
-            fi
+            ) | iconv -f UTF-8 -t "${ENCODING}//TRANSLIT" >"$OUTPUT_FILE" || return 1
+
+            create_syslinux_navigation "$CURRENT_LANG" "$FONT_FILE" "$ENCODING" \
+                "$CHOOSE_LANGUAGE" "$LANGUAGE_HINT" "$TRANSLATIONS_FILE" || return 1
+            [ -z "$TRANSLATIONS_FILE" ] || rm -f "$TRANSLATIONS_FILE"
         done
+
+        # Start directly with English modes, as in the multilingual GRUB menu.
+        cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang/en_US.cfg" \
+            "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
+        cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg" \
+            "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
 
         information "Created multilingual SYSLINUX configuration with support for all available languages"
 
@@ -2498,9 +2420,11 @@ EOF
 
     # Create multilingual GRUB configuration (always needed for UEFI)
     information "Creating multilingual GRUB configuration..."
-    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg"
-set default=0
-set timeout=10
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/languages.cfg"
+set default="\$lang"
+set timeout=-1
+set minios_interactive=1
+export minios_interactive
 set message="Loading kernel and ramdisk..."
 
 # Initialize GRUB 2.12 graphical output before loading the theme.
@@ -2513,7 +2437,7 @@ set localedir=\$prefix/locale
 # Language selection (title in theme)
 
 # Language selection
-menuentry "English" {
+menuentry "English" --id en_US {
     lang="en_US"
     lang_utf="en_US.UTF-8"
     lang_timezone=""
@@ -2524,7 +2448,7 @@ menuentry "English" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Русский" {
+menuentry "Русский" --id ru_RU {
     lang="ru_RU"
     lang_utf="ru_RU.UTF-8"
     lang_timezone="Europe/Moscow"
@@ -2535,7 +2459,7 @@ menuentry "Русский" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Deutsch" {
+menuentry "Deutsch" --id de_DE {
     lang="de_DE"
     lang_utf="de_DE.UTF-8"
     lang_timezone="Europe/Berlin"
@@ -2546,7 +2470,7 @@ menuentry "Deutsch" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Español" {
+menuentry "Español" --id es_ES {
     lang="es_ES"
     lang_utf="es_ES.UTF-8"
     lang_timezone="Europe/Madrid"
@@ -2557,7 +2481,7 @@ menuentry "Español" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Français" {
+menuentry "Français" --id fr_FR {
     lang="fr_FR"
     lang_utf="fr_FR.UTF-8"
     lang_timezone="Europe/Paris"
@@ -2568,7 +2492,7 @@ menuentry "Français" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Bahasa Indonesia" {
+menuentry "Bahasa Indonesia" --id id_ID {
     lang="id_ID"
     lang_utf="id_ID.UTF-8"
     lang_timezone="Asia/Jakarta"
@@ -2579,7 +2503,7 @@ menuentry "Bahasa Indonesia" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Italiano" {
+menuentry "Italiano" --id it_IT {
     lang="it_IT"
     lang_utf="it_IT.UTF-8"
     lang_timezone="Europe/Rome"
@@ -2590,7 +2514,7 @@ menuentry "Italiano" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Português (Brasil)" {
+menuentry "Português (Brasil)" --id pt_BR {
     lang="pt_BR"
     lang_utf="pt_BR.UTF-8"
     lang_timezone="America/Sao_Paulo"
@@ -2601,7 +2525,7 @@ menuentry "Português (Brasil)" {
     export lang_keyboard
     configfile /${LIVEKITNAME}/boot/grub/main.cfg
 }
-menuentry "Português (Portugal)" {
+menuentry "Português (Portugal)" --id pt_PT {
     lang="pt_PT"
     lang_utf="pt_PT.UTF-8"
     lang_timezone="Europe/Lisbon"
@@ -2644,8 +2568,8 @@ fi
 set color_normal=light-gray/black
 set color_highlight=white/black
 
-if [ -e /minios/boot/bootlogo791.png ]; then
-    set theme=/minios/boot/grub/minios-theme/theme.txt
+if [ -e /${LIVEKITNAME}/boot/bootlogo791.png ]; then
+    set theme=/${LIVEKITNAME}/boot/grub/minios-theme/languages_\$lang.txt
 else
     set color_normal=white/black
     set color_highlight=black/white
@@ -2658,7 +2582,16 @@ EOF
     # Create main menu config
     cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/main.cfg"
 set default=0
-set timeout=10
+if [ "\$minios_interactive" = "1" ]; then
+    set timeout=-1
+else
+    set timeout=10
+fi
+if [ -z "\$lang" ]; then
+    set lang=en_US
+    set lang_utf=en_US.UTF-8
+fi
+export lang lang_utf lang_timezone lang_keyboard
 
 # Initialize GRUB 2.12 graphical output before loading the theme.
 echo -n ""
@@ -2791,6 +2724,8 @@ menuentry "\$copyram" --class ram {
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 
+source /${LIVEKITNAME}/boot/grub/navigation.cfg
+
 EOF
 
     # Create English template GRUB configuration for installer
@@ -2876,11 +2811,234 @@ menuentry "Run from RAM" --class ram {
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 
+source /${LIVEKITNAME}/boot/grub/navigation.cfg
+
+EOF
+
+    create_grub_navigation
+
+    # Multilingual media starts directly with the English boot modes.
+    cat <<EOF >"${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg"
+set lang=en_US
+set lang_utf=en_US.UTF-8
+set lang_timezone=""
+set lang_keyboard=""
+export lang lang_utf lang_timezone lang_keyboard
+source /${LIVEKITNAME}/boot/grub/main.cfg
 EOF
 
     # Create active grub.cfg as copy of multilingual configuration
     cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.multilang.cfg" "${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/grub.cfg"
     information "Created multilingual GRUB configuration"
+}
+
+create_syslinux_navigation() (
+    set -o pipefail
+    local CURRENT_LANG="$1" FONT_FILE="$2" ENCODING="$3"
+    local CHOOSE_LANGUAGE="$4" LANGUAGE_HINT="$5" TRANSLATIONS_FILE="$6"
+    local SYSLINUX_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+    local LANG_CODE LANG_NAME TEXT
+
+    # CONFIG starts a new menu instance. Override its initial countdown when
+    # returning from the language picker or applying a language.
+    cat <<EOF >"${SYSLINUX_DIR}/lang/${CURRENT_LANG}-interactive.cfg"
+${SYSLINUX_SERIAL_SETTINGS}
+INCLUDE lang/${CURRENT_LANG}.cfg
+TIMEOUT 0
+EOF
+
+    {
+        cat <<EOF
+${SYSLINUX_SERIAL_SETTINGS}
+FONT ${FONT_FILE}
+UI minios-menu.c32
+PROMPT 0
+TIMEOUT 0
+DEFAULT ${CURRENT_LANG}
+
+MENU CLEAR
+MENU HIDDENKEY Esc minios-back
+MENU BACKGROUND ../bootlogo788.png
+MENU RESOLUTION 800 600
+MENU WIDTH 97
+MENU MARGIN 15
+MENU ROWS 9
+MENU TABMSGROW 26
+MENU CMDLINEROW 21
+MENU HSHIFT 0
+MENU VSHIFT 10
+MENU HELPMSGENDROW 27
+MENU TIMEOUTROW 22
+MENU COLOR BORDER  30;40      #00000000 #00000000 none
+MENU COLOR SEL     47;30      #FF000000 #40FFFFFF none
+MENU COLOR UNSEL   37;40      #99FFFFFF #00000000 none
+MENU COLOR TABMSG  32;40      #FFA500   #00000000 none
+MENU TITLE ${CHOOSE_LANGUAGE}
+MENU TABMSG ${LANGUAGE_HINT}
+F1 help/modes_${CURRENT_LANG}.txt zblack.png
+
+EOF
+        # The 256-glyph SYSLINUX fonts cannot show all native language names
+        # together. Keep the common ASCII names readable in every code page.
+        while IFS='|' read -r LANG_CODE LANG_NAME; do
+            cat <<EOF
+LABEL ${LANG_CODE}
+MENU LABEL ${LANG_NAME}
+CONFIG lang/${LANG_CODE}-interactive.cfg
+
+EOF
+        done <<'LANGUAGES'
+en_US|English
+ru_RU|Russian
+de_DE|German
+es_ES|Spanish
+fr_FR|French
+id_ID|Indonesian
+it_IT|Italian
+pt_BR|Portuguese (Brazil)
+pt_PT|Portuguese (Portugal)
+LANGUAGES
+        cat <<EOF
+LABEL minios-back
+MENU HIDE
+CONFIG lang/${CURRENT_LANG}-interactive.cfg
+EOF
+    } | iconv -f UTF-8 -t "${ENCODING}//TRANSLIT" >"${SYSLINUX_DIR}/lang/select_${CURRENT_LANG}.cfg" || return 1
+
+    mkdir -p "${SYSLINUX_DIR}/help"
+    # F1 is a single readable page, rather than a long parameter reference
+    # that scrolls its own heading and first paragraphs off the screen.
+    {
+        while IFS= read -r TEXT; do
+            if [ -n "$TEXT" ]; then
+                get_translation "$TRANSLATIONS_FILE" "$TEXT"
+            else
+                printf '\n'
+            fi
+        done <<'HELP'
+MiniOS boot modes
+
+Start MiniOS
+Resume the last saved session, if available. Recommended for normal use.
+
+Start a new session
+Set up a new saved session. Existing sessions are kept.
+
+Choose a saved session
+Choose which saved session to restore during startup.
+
+Start without saving
+Start clean, without restoring a session or saving changes.
+
+Run from RAM
+Copy the system to RAM before starting. Needs extra RAM and startup time.
+
+A saved session keeps your settings and files between restarts.
+Saving requires writable storage.
+F2 changes the menu and system language, keyboard and time zone defaults.
+Tab edits boot parameters for the selected mode.
+
+Press any key to return to the menu.
+HELP
+    } | iconv -f UTF-8 -t "${ENCODING}//TRANSLIT" | LC_ALL=C fmt -s -w 96 \
+        >"${SYSLINUX_DIR}/help/modes_${CURRENT_LANG}.txt" || return 1
+)
+
+# Shared actions for live and installer-generated GRUB menus. Only the hint
+# text is changed in the themes; all geometry, artwork and timeout styling stay
+# identical to the supplied theme files.
+create_grub_navigation() {
+    local GRUB_DIR="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub"
+    local THEME_SOURCE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/minios-theme"
+    local LANG_CODE PO_FILE TRANSLATIONS_FILE HINT THEME MODE
+    local MAIN_HINT='[Enter] Select  [F1] Help  [F2] Language  [E] Edit  [C] Console'
+    local LANGUAGE_HINT='[Enter] Apply language  [Esc] Back without changes'
+
+    mkdir -p "${GRUB_DIR}/minios-theme"
+    for LANG_CODE in en_US ru_RU de_DE es_ES fr_FR id_ID it_IT pt_BR pt_PT; do
+        PO_FILE="${BUILD_SCRIPTS_DIR}/bootfiles/boot/grub/po/${LANG_CODE}.po"
+        TRANSLATIONS_FILE="$(parse_po_file "${PO_FILE}")" || TRANSLATIONS_FILE=""
+        THEME="${THEME_SOURCE}/theme_${LANG_CODE}.txt"
+        [ -f "${THEME}" ] || THEME="${THEME_SOURCE}/theme.txt"
+        for MODE in theme languages; do
+            HINT="${MAIN_HINT}"
+            [ "${MODE}" != languages ] || HINT="${LANGUAGE_HINT}"
+            HINT="$(get_translation "${TRANSLATIONS_FILE}" "${HINT}")"
+            GRUB_HINT="${HINT}" awk '
+                /^[[:space:]]*text = "\[/ {
+                    hint = ENVIRON["GRUB_HINT"]
+                    gsub(/"/, "\\\"", hint)
+                    print "    text = \"" hint "\""
+                    next
+                }
+                { print }
+            ' "${THEME}" >"${GRUB_DIR}/minios-theme/${MODE}_${LANG_CODE}.txt"
+        done
+        [ -z "${TRANSLATIONS_FILE}" ] || rm -f "${TRANSLATIONS_FILE}"
+    done
+    cp "${GRUB_DIR}/minios-theme/theme_en_US.txt" "${GRUB_DIR}/minios-theme/theme.txt"
+
+    cat <<EOF >"${GRUB_DIR}/navigation.cfg"
+insmod gettext
+insmod regexp
+set localedir=/${LIVEKITNAME}/boot/grub/locale
+if [ -z "\$lang" ]; then
+    # Older installers localize the template by selecting a translated theme.
+    set lang=en_US
+    if regexp --set=1:minios_theme_lang '/theme_([a-z][a-z]_[A-Z][A-Z])[.]txt$' "\$theme"; then
+        set lang="\$minios_theme_lang"
+    fi
+fi
+export lang
+set language_label=\$"Choose Language"
+set help_label=\$"Help"
+
+# Stock GRUB has no non-selectable separators; this entry is a no-op.
+menuentry " " --id minios-separator {
+    true
+}
+
+menuentry "\$language_label" --class locale --hotkey=f2 --id minios-language {
+    set minios_interactive=1
+    export minios_interactive
+    set timeout=-1
+    configfile /${LIVEKITNAME}/boot/grub/languages.cfg
+}
+
+menuentry "\$help_label" --class help --hotkey=f1 --id minios-help {
+    set minios_interactive=1
+    export minios_interactive
+    set timeout=-1
+    clear
+    set pager=1
+    echo \$"MiniOS boot modes"
+    echo
+    echo \$"Start MiniOS"
+    echo \$"Resume the last saved session, if available. Recommended for normal use."
+    echo
+    echo \$"Start a new session"
+    echo \$"Set up a new saved session. Existing sessions are kept."
+    echo
+    echo \$"Choose a saved session"
+    echo \$"Choose which saved session to restore during startup."
+    echo
+    echo \$"Start without saving"
+    echo \$"Start clean, without restoring a session or saving changes."
+    echo
+    echo \$"Run from RAM"
+    echo \$"Copy the system to RAM before starting. Needs extra RAM and startup time."
+    echo
+    echo \$"A saved session keeps your settings and files between restarts."
+    echo \$"Saving requires writable storage."
+    echo \$"F2 changes the menu and system language, keyboard and time zone defaults."
+    echo \$"E edits boot parameters; C opens the GRUB command line."
+    echo
+    echo \$"Press Enter to return to the boot menu."
+    read minios_help_input
+    unset minios_help_input
+    set pager=0
+}
+EOF
 }
 
 build_initrd() {
@@ -3306,7 +3464,7 @@ build_efi_images() {
     efi_image_fits "${EFI_IMAGE}" "${EFI_SOURCE}" "${LOW}" || return 1
     # ISO files occupy 2048-byte blocks. Keep the FAT filesystem minimal, then
     # pad its carrier so hybrid partition tables cover the complete image.
-    truncate -s "$(( (LOW + 3) / 4 * 4 * 512 ))" "${EFI_IMAGE}" || return 1
+    truncate -s "$(((LOW + 3) / 4 * 4 * 512))" "${EFI_IMAGE}" || return 1
 
     {
         printf '{\n  "format": 1,\n  "layout": "dual-architecture-esp",\n  "architectures": {'
@@ -3415,7 +3573,7 @@ remove_unused_grub_modules() {
 
         # Utilities used in configs
         "loadenv.mod" "minicmd.mod" "cat.mod" "echo.mod" "ls.mod" "test.mod"
-        "true.mod" "help.mod" "probe.mod" "gettext.mod" "regexp.mod"
+        "true.mod" "help.mod" "probe.mod" "gettext.mod" "regexp.mod" "read.mod"
 
         # Audio
         "play.mod"
@@ -3617,7 +3775,7 @@ generate_localized_grub_config() {
     local LOCALE_UTF="${LANG_CODE}.UTF-8"
     local EXTRA_PARAMS=""
 
-    # Map language codes to timezone and keyboard settings (based on grub.multilang.cfg)
+    # Map language codes to timezone and keyboard settings (based on languages.cfg)
     case "$LANG_CODE" in
     en_US)
         # No extra params for English
@@ -3654,6 +3812,11 @@ generate_localized_grub_config() {
     else
         LOCALIZED_CONTENT=$(echo "$LOCALIZED_CONTENT" | sed -E "s|(linux .*/vmlinuz[^ ]* .*)|\1 locales=${LOCALE_UTF}|g")
     fi
+
+    # Also localize the shared navigation actions and help on installed media.
+    LOCALIZED_CONTENT="set lang=${LANG_CODE}
+export lang
+${LOCALIZED_CONTENT}"
 
     # Write localized config
     echo "$LOCALIZED_CONTENT" >"$OUTPUT_FILE"

@@ -546,6 +546,7 @@ EOF
     cp "${LIVE_ROOT}/bootfiles/boot/grub/i386-pc/boot_hybrid.img" \
         "${WORK_DIR}/image/minios/boot/grub/i386-pc/"
     truncate -s 2048 "${WORK_DIR}/image/minios/boot/grub/i386-pc/eltorito.img"
+    : >"${WORK_DIR}/image/minios/config.conf"
     build_efi_images
 
     CONTAINER=false
