@@ -2935,8 +2935,8 @@ Copy the system to RAM before starting. Needs extra RAM and startup time.
 
 A saved session keeps your settings and files between restarts.
 Saving requires writable storage.
-F2 changes the menu and system language, keyboard and time zone defaults.
-Tab edits boot parameters for the selected mode.
+[F2] changes the menu and system language, keyboard and time zone defaults.
+[Tab] edits boot parameters for the selected mode.
 
 Press any key to return to the menu.
 HELP
@@ -3030,12 +3030,15 @@ menuentry "\$help_label" --class help --hotkey=f1 --id minios-help {
     echo
     echo \$"A saved session keeps your settings and files between restarts."
     echo \$"Saving requires writable storage."
-    echo \$"F2 changes the menu and system language, keyboard and time zone defaults."
-    echo \$"E edits boot parameters; C opens the GRUB command line."
+    echo \$"[F2] changes the menu and system language, keyboard and time zone defaults."
+    echo \$"[E] edits boot parameters; [C] opens the GRUB command line."
     echo
-    echo \$"Press Enter to return to the boot menu."
-    read minios_help_input
-    unset minios_help_input
+    echo \$"Press [Esc] to return to the boot menu."
+    # Signed GRUB embeds sleep, but not read. Loading read.mod is forbidden
+    # under Secure Boot. Keep the help open until Esc, without a boot timeout.
+    while sleep --interruptible 3600; do
+        true
+    done
     set pager=0
 }
 EOF
@@ -3573,7 +3576,7 @@ remove_unused_grub_modules() {
 
         # Utilities used in configs
         "loadenv.mod" "minicmd.mod" "cat.mod" "echo.mod" "ls.mod" "test.mod"
-        "true.mod" "help.mod" "probe.mod" "gettext.mod" "regexp.mod" "read.mod"
+        "true.mod" "help.mod" "probe.mod" "gettext.mod" "regexp.mod"
 
         # Audio
         "play.mod"

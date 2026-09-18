@@ -184,13 +184,19 @@ assert_kernel_lines() {
     grep -Fq '[Esc]' "${themes}/languages_en_US.txt"
 }
 
-@test "GRUB module pruning keeps the help input command" {
+@test "GRUB help uses the Secure Boot compatible wait command" {
+    create_config_files
+    local navigation="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/navigation.cfg"
+    grep -Fq 'while sleep --interruptible 3600; do' "${navigation}"
+    grep -Fq 'Press [Esc] to return to the boot menu.' "${navigation}"
+    ! grep -Eq '^[[:space:]]*read[[:space:]]' "${navigation}"
     GRUB_REMOVE_UNUSED_MODULES=true
     local modules="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub/i386-pc"
     mkdir -p "${modules}"
-    touch "${modules}/read.mod" "${modules}/unused.mod"
+    touch "${modules}/sleep.mod" "${modules}/read.mod" "${modules}/unused.mod"
     remove_unused_grub_modules
-    [ -f "${modules}/read.mod" ]
+    [ -f "${modules}/sleep.mod" ]
+    [ ! -e "${modules}/read.mod" ]
     [ ! -e "${modules}/unused.mod" ]
 }
 
