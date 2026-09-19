@@ -1303,11 +1303,13 @@ mount_perch_drive() {
    echo "$PERCHDIR"
 }
 
-# Interactively choose storage and optional encryption for a new persistence
-# session. The result is printed as two shell words: backend and encryption.
+# Interactively choose storage, optional encryption and DynBlk compression for
+# a new persistence session. The result is printed as three shell words:
+# backend, encryption and compression.
 select_new_session_mode() {
    debug_log "select_new_session_mode" "$*"
-   local OPTIONS SELECTED MODE ENCRYPTION ENCRYPT_OPTIONS
+   local OPTIONS SELECTED MODE ENCRYPTION ENCRYPT_OPTIONS COMPRESSION COMP_OPTIONS CODEC MENU_TTY
+   MENU_TTY="${MINIOS_MENU_TTY:-/dev/tty1}"
    OPTIONS="/tmp/minios-session-modes.$$"
    : >"$OPTIONS" || return 1
 
@@ -1324,7 +1326,7 @@ select_new_session_mode() {
       ;;
    esac
 
-   SELECTED=$(ncurses-menu -t 'Select storage:' -f "$OPTIONS" 2>&1 >/dev/tty1 </dev/tty1)
+   SELECTED=$(ncurses-menu -t 'Select storage:' -f "$OPTIONS" 2>&1 >"$MENU_TTY" <"$MENU_TTY")
    rm -f "$OPTIONS"
    case "$SELECTED" in
    Native) MODE=native ;;
@@ -1344,7 +1346,7 @@ select_new_session_mode() {
       if luks_layer_available && { [ "$MODE" = dynblk ] || [ "$MODE" = vmdk ] || command -v losetup >/dev/null 2>&1; }; then
          printf '%s\n' 'LUKS2' >>"$ENCRYPT_OPTIONS"
       fi
-      SELECTED=$(ncurses-menu -t 'Encryption:' -f "$ENCRYPT_OPTIONS" 2>&1 >/dev/tty1 </dev/tty1)
+      SELECTED=$(ncurses-menu -t 'Encryption:' -f "$ENCRYPT_OPTIONS" 2>&1 >"$MENU_TTY" <"$MENU_TTY")
       rm -f "$ENCRYPT_OPTIONS"
       case "$SELECTED" in
       None) ENCRYPTION=none ;;
@@ -1353,7 +1355,23 @@ select_new_session_mode() {
       esac
       ;;
    esac
-   printf '%s %s\n' "$MODE" "$ENCRYPTION"
+
+   COMPRESSION=none
+   if [ "$MODE" = dynblk ] && [ "$ENCRYPTION" = none ]; then
+      COMP_OPTIONS="/tmp/minios-session-compression.$$"
+      printf '%s\n' 'None' >"$COMP_OPTIONS" || return 1
+      for CODEC in lz4 lz4hc lzo lzo-rle zstd deflate; do
+         dynblk_codec_available "$CODEC" && printf '%s\n' "$CODEC" >>"$COMP_OPTIONS"
+      done
+      SELECTED=$(ncurses-menu -t 'Compression:' -f "$COMP_OPTIONS" 2>&1 >"$MENU_TTY" <"$MENU_TTY")
+      rm -f "$COMP_OPTIONS"
+      case "$SELECTED" in
+      None) COMPRESSION=none ;;
+      lz4 | lz4hc | lzo | lzo-rle | zstd | deflate) COMPRESSION="$SELECTED" ;;
+      *) return 1 ;;
+      esac
+   fi
+   printf '%s %s %s\n' "$MODE" "$ENCRYPTION" "$COMPRESSION"
 }
 
 # Restore persistent changes from previous session.
@@ -1366,10 +1384,11 @@ select_new_session_mode() {
 # $5 = session mode
 # $6 = automatic resume (true = create a new session when resume has nothing usable)
 # $7 = requested encryption for a newly created session
+# $8 = requested compression for a newly created DynBlk session
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTENCRYPTION LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE PERCHENCRYPT SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION AUTO_RESUME COMPAT_TITLE COMPAT_SYSTEM COMPAT_SESSION SESSION_SELECTION
+   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTENCRYPTION LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE PERCHENCRYPT PERCHCOMP SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION AUTO_RESUME COMPAT_TITLE COMPAT_SYSTEM COMPAT_SESSION SESSION_SELECTION
 
    DRIVE="$1"
    CHANDIR="$2"
@@ -1380,6 +1399,8 @@ restore_perch_session() {
    AUTO_RESUME="${6:-false}"
    PERCHENCRYPT="${7:-none}"
    : "${PERCHENCRYPT:=none}"
+   PERCHCOMP="${8:-none}"
+   : "${PERCHCOMP:=none}"
    NEW_SESSION="false"
 
    # Get current system's MiniOS version and edition
@@ -1446,6 +1467,7 @@ restore_perch_session() {
       set -- $SESSION_SELECTION
       PERCHMODE="$1"
       PERCHENCRYPT="${2:-none}"
+      PERCHCOMP="${3:-none}"
       ACTION="new"
    fi
 
@@ -1658,6 +1680,7 @@ restore_perch_session() {
       set -- $SESSION_SELECTION
       PERCHMODE="$1"
       PERCHENCRYPT="${2:-none}"
+      PERCHCOMP="${3:-none}"
       ACTION="new"
    fi
 
@@ -1711,7 +1734,7 @@ restore_perch_session() {
          ;;
       esac
    fi
-   echo "$PERCHDIR" "$PERCHMODE" "$NEW_SESSION" "$PERCHENCRYPT"
+   echo "$PERCHDIR" "$PERCHMODE" "$NEW_SESSION" "$PERCHENCRYPT" "$PERCHCOMP"
 }
 
 # Manage persistence partition
@@ -1825,6 +1848,28 @@ dynblk_available() {
 
 vmdk_available() {
    dynblk_available && dynblk limits --format vmdk >/dev/null 2>&1
+}
+
+dynblk_codec_registered() {
+   local CODEC="$1" PROC_CRYPTO="${MINIOS_PROC_CRYPTO:-/proc/crypto}"
+   [ -r "$PROC_CRYPTO" ] || return 1
+   awk -v wanted="$CODEC" '
+      $1 == "name" && $2 == ":" { name = $3 }
+      $1 == "type" && $2 == ":" && name == wanted && $3 == "compression" { found = 1 }
+      END { exit found ? 0 : 1 }
+   ' "$PROC_CRYPTO"
+}
+
+dynblk_codec_available() {
+   local CODEC="$1"
+   case "$CODEC" in
+   none) return 0 ;;
+   lz4 | lz4hc | lzo | lzo-rle | zstd | deflate | 842) ;;
+   *) return 1 ;;
+   esac
+   dynblk_codec_registered "$CODEC" && return 0
+   modprobe -q "crypto-$CODEC" 2>/dev/null || modprobe -q "$CODEC" 2>/dev/null || return 1
+   dynblk_codec_registered "$CODEC"
 }
 
 block_session_available() {
@@ -3388,6 +3433,11 @@ persistent_changes() {
             return
             ;;
          esac
+         if [ "$PERCHCOMP" != none ] && ! dynblk_codec_available "$PERCHCOMP"; then
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR: DynBlk compression '$PERCHCOMP' is unavailable in this initramfs."
+            return
+         fi
          echo "* Creating new DynBlk persistent changes for session #$PERCHDIR"
          if ! DYNBLK_DEVICE=$(dynblk create "$VOLUME" --size "${PERCHSIZE}MiB" \
                --compression "$PERCHCOMP" --format "$PERCHMODE" --execute); then
@@ -3714,7 +3764,7 @@ persistent_changes() {
       return
    fi
 
-   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE" "$AUTO_RESUME" "$PERCHENCRYPT"); then
+   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE" "$AUTO_RESUME" "$PERCHENCRYPT" "$PERCHCOMP"); then
       boot_warning_notify warning persistence \
          "Persistent changes could not select a usable session; continuing in memory."
       perch_state_publish failed "${PERCHMODE:-unknown}" "${PERCHDIR:-unknown}"
@@ -3726,6 +3776,7 @@ persistent_changes() {
    : "${PERCHMODE:=$2}"
    NEW_SESSION=$3
    PERCHENCRYPT=${4:-none}
+   PERCHCOMP=${5:-none}
 
    # A dynblk session can be selected implicitly by resume even when the current
    # initramfs has no dynblk support. Never reinterpret that directory as native:
@@ -3739,7 +3790,7 @@ persistent_changes() {
             boot_warning_notify warning mode \
                "Session #$PERCHDIR requires DynBlk, which is unavailable; creating a new standard persistence session."
          fi
-         if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" new new native false none); then
+         if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" new new native false none none); then
             perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
                "DynBlk is unavailable and a standard replacement session could not be created."
             return
@@ -3749,6 +3800,7 @@ persistent_changes() {
          PERCHMODE=$2
          NEW_SESSION=$3
          PERCHENCRYPT=${4:-none}
+         PERCHCOMP=${5:-none}
       else
          if secure_boot_enabled && { [ "$PERCHMODE" = dynblk ] || [ "$PERCHMODE" = vmdk ]; }; then
             perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \

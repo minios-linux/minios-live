@@ -101,14 +101,14 @@ setup_dispatch() {
         if [ "$TEST_MODE" = luks ] && [ "$5" = native ]; then
             printf 'restore:new:%s\n' "$5" >>"$MINIOS_TEST_LOG"
             mkdir -p "$TEST_CHANDIR/2"
-            printf '%s\n' '2 native true none'
+            printf '%s\n' '2 native true none none'
         else
             printf 'restore:%s:%s\n' "$4" "$5" >>"$MINIOS_TEST_LOG"
             mkdir -p "$TEST_CHANDIR/1"
             if [ -f "$TEST_CHANDIR/session.conf" ]; then
-                printf '%s %s %s %s\n' 1 "$5" false "${7:-none}"
+                printf '%s %s %s %s %s\n' 1 "$5" false "${7:-none}" "${8:-none}"
             else
-                printf '%s %s %s %s\n' 1 "$5" true "${7:-none}"
+                printf '%s %s %s %s %s\n' 1 "$5" true "${7:-none}" "${8:-none}"
             fi
         fi
     }
@@ -140,6 +140,44 @@ setup_dispatch() {
     vmdk_available
 }
 
+@test "DynBlk codec probe requires registered compression providers" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    export MINIOS_PROC_CRYPTO="$WORK/proc-crypto"
+    cat >"$MINIOS_PROC_CRYPTO" <<'EOF'
+name         : lzo
+type         : compression
+
+name         : deflate
+type         : scomp
+
+name         : zstd
+type         : compression
+EOF
+    modprobe() {
+        [ "$1" != -q ] || shift
+        case "$1" in
+        crypto-lz4)
+            cat >>"$MINIOS_PROC_CRYPTO" <<'EOF'
+name         : lz4
+type         : compression
+EOF
+            return 0
+            ;;
+        *) return 1 ;;
+        esac
+    }
+
+    dynblk_codec_available none
+    dynblk_codec_available lzo
+    dynblk_codec_available zstd
+    dynblk_codec_available lz4
+    run dynblk_codec_available deflate
+    [ "$status" -ne 0 ]
+    run dynblk_codec_available 842
+    [ "$status" -ne 0 ]
+}
+
 @test "layered LUKS capability rejects the old empty marker" {
     . "$LIB"
     marker="$WORK/crypt-marker"
@@ -162,13 +200,13 @@ setup_dispatch() {
 
     run restore_perch_session /dev/test "$chandir" resume resume raw false luks
     [ "$status" -eq 0 ]
-    [ "$output" = '1 raw false none' ]
+    [ "$output" = '1 raw false none none' ]
 
     rm -f "$chandir/session.json"
     printf '%s\n' 'session_encryption[1]=luks' >>"$chandir/session.conf"
     run restore_perch_session /dev/test "$chandir" resume resume raw false none
     [ "$status" -eq 0 ]
-    [ "$output" = '1 raw false luks' ]
+    [ "$output" = '1 raw false luks none' ]
 }
 
 @test "unsupported encrypted session metadata fails closed" {
@@ -297,10 +335,30 @@ setup_dispatch() {
         *) return 0 ;;
         esac
     }
+    dynblk_codec_available() { [ "$1" = zstd ]; }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression zstd --format dynblk --execute"
     assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+}
+
+@test "dynblk unavailable explicit compression fails before create" {
+    setup_dispatch dynblk ext4 64
+    cmdline_value() {
+        case "$1" in
+        perchdir) printf '%s\n' new ;;
+        perchmode) printf '%s\n' dynblk ;;
+        perchsize) printf '%s\n' 64 ;;
+        perchcomp) printf '%s\n' zstd ;;
+        *) return 0 ;;
+        esac
+    }
+    dynblk_codec_available() { return 1; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    ! grep -Fq 'dynblk create ' "$LOG"
+    grep -Fq "compression 'zstd' is unavailable" "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
 }
 
 @test "dynblk automatic sizing keeps the reserve free on a small backing store" {
@@ -596,7 +654,7 @@ setup_dispatch() {
     run restore_perch_session /dev/test "$chandir" new new squashfs
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 squashfs true none" ]
+    [ "$output" = "1 squashfs true none none" ]
     [ -d "$chandir/1" ]
     [ ! -f "$chandir/session.conf" ]
     [ ! -f "$chandir/session.json" ]
@@ -1247,7 +1305,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume ""
 
     [ "$status" -eq 0 ]
-    [ "$output" = "7 dynfilefs false none" ]
+    [ "$output" = "7 dynfilefs false none none" ]
     grep -Fqx 'default=7' "$chandir/session.conf"
     grep -Fqx 'session_mode[7]=dynfilefs' "$chandir/session.conf"
     grep -Fqx 'session_size[7]=2048' "$chandir/session.conf"
@@ -1271,7 +1329,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume ""
 
     [ "$status" -eq 0 ]
-    [ "$output" = "7 dynfilefs false none" ]
+    [ "$output" = "7 dynfilefs false none none" ]
     grep -Fqx 'default=7' "$chandir/session.conf"
     grep -Fqx 'session_policy[7]=shutdown' "$chandir/session.conf"
 }
@@ -1827,6 +1885,99 @@ EOF
     grep -Fq 'fsck' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
 }
 
+@test "DynBlk setup offers only available compression codecs" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    export MINIOS_MENU_TTY=/dev/null
+    dynblk_available() { return 0; }
+    vmdk_available() { return 1; }
+    device_bestfs() { printf '%s\n' vfat; }
+    luks_layer_available() { return 1; }
+    dynblk_codec_available() {
+        case "$1" in
+        lz4 | zstd) return 0 ;;
+        *) return 1 ;;
+        esac
+    }
+    ncurses-menu() {
+        local title="" file=""
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+            -t) shift; title="$1" ;;
+            -f) shift; file="$1" ;;
+            esac
+            shift
+        done
+        case "$title" in
+        'Select storage:') printf '%s\n' DynBlk >&2 ;;
+        'Encryption:') printf '%s\n' None >&2 ;;
+        'Compression:')
+            cp "$file" "$WORK/compression-options"
+            printf '%s\n' zstd >&2
+            ;;
+        *) return 1 ;;
+        esac
+    }
+
+    run select_new_session_mode /dev/test
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "dynblk none zstd" ]
+    [ "$(cat "$WORK/compression-options")" = "$(printf '%s\n' None lz4 zstd)" ]
+    ! grep -Fqx 842 "$WORK/compression-options"
+}
+
+@test "encrypted DynBlk setup skips compression selection" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    export MINIOS_MENU_TTY=/dev/null
+    dynblk_available() { return 0; }
+    vmdk_available() { return 1; }
+    device_bestfs() { printf '%s\n' vfat; }
+    luks_layer_available() { return 0; }
+    dynblk_codec_available() { return 0; }
+    ncurses-menu() {
+        local title=""
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+            -t) shift; title="$1" ;;
+            esac
+            shift
+        done
+        case "$title" in
+        'Select storage:') printf '%s\n' DynBlk >&2 ;;
+        'Encryption:') printf '%s\n' LUKS2 >&2 ;;
+        'Compression:')
+            : >"$WORK/compression-was-called"
+            return 1
+            ;;
+        *) return 1 ;;
+        esac
+    }
+
+    run select_new_session_mode /dev/test
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "dynblk luks none" ]
+    [ ! -e "$WORK/compression-was-called" ]
+}
+
+@test "setup carries selected DynBlk compression to creation state" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    chandir="$WORK/setup-dynblk/changes"
+    mkdir -p "$chandir"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    select_new_session_mode() { printf '%s\n' 'dynblk none zstd'; }
+    PERCHSIZE=0
+
+    run restore_perch_session /dev/test "$chandir" setup setup "" false none none
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "1 dynblk true none zstd" ]
+    [ -d "$chandir/1" ]
+}
+
 @test "ask on an empty store enters setup and creates the selected backend" {
     # shellcheck source=/dev/null
     . "$LIB"
@@ -1839,7 +1990,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" ask ask "" false
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 dynfilefs true none" ]
+    [ "$output" = "1 dynfilefs true none none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1855,7 +2006,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" setup setup "" false
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 raw true none" ]
+    [ "$output" = "1 raw true none none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1871,7 +2022,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" new new "" false
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 native true none" ]
+    [ "$output" = "1 native true none none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1886,7 +2037,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume "" true
 
     [ "$status" -eq 0 ]
-    [ "$output" = "1 native true none" ]
+    [ "$output" = "1 native true none none" ]
     [ -d "$chandir/1" ]
 }
 
@@ -1903,7 +2054,7 @@ EOF
     run restore_perch_session /dev/test "$chandir" resume resume "" true
 
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | tail -n 1)" = "2 native true none" ]
+    [ "$(printf '%s\n' "$output" | tail -n 1)" = "2 native true none none" ]
     [ -d "$chandir/2" ]
 }
 
@@ -1921,7 +2072,7 @@ EOF
 
     result=$(restore_perch_session /dev/test "$chandir" resume resume "" true 2>"$WORK/auto-union-warning.err")
 
-    [ "$result" = "2 native true none" ]
+    [ "$result" = "2 native true none none" ]
     grep -Fq 'union filesystem mismatch detected' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
     grep -Fq 'Creating a new session' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
     grep -Fq 'union filesystem mismatch detected' "$WORK/auto-union-warning.err"
