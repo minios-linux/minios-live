@@ -426,7 +426,7 @@ contains() {
 
     run "$ROOT/livekit-mos/bin/dynfilefs"
     [ "$status" -eq 1 ]
-    [[ "$output" == *'dynfilefs 4.5.1'* ]]
+    [[ "$output" == *'dynfilefs 4.6.0'* ]]
     run "$ROOT/livekit-mos/bin/dynblk" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *'dynblk create PATH'* ]]
