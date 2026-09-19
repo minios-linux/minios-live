@@ -42,8 +42,8 @@ setup() {
     [ ! -e /var/lib/volume000.db ]
 }
 
-@test "bundled BusyBox supplies module management applets" {
-    for applet in modprobe insmod rmmod; do
+@test "bundled BusyBox supplies module and Secure Boot detection applets" {
+    for applet in modprobe insmod rmmod dd od tr mount; do
         run "$BUSYBOX" --list
         [ "$status" -eq 0 ]
         echo "$output" | grep -Fxq "$applet"

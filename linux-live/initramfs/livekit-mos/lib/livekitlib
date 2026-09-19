@@ -446,16 +446,40 @@ init_zram() {
    fi
 }
 
+secure_boot_enabled() {
+   local EFIVARS VAR VALUE
+   EFIVARS="${MINIOS_EFIVARS_DIR:-/sys/firmware/efi/efivars}"
+   VAR="$EFIVARS/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+
+   if [ -z "${MINIOS_EFIVARS_DIR:-}" ] && [ ! -r "$VAR" ] && [ -d /sys/firmware/efi ]; then
+      mkdir -p "$EFIVARS" 2>/dev/null || true
+      modprobe efivarfs 2>/dev/null || true
+      mount -t efivarfs efivarfs "$EFIVARS" 2>/dev/null || true
+   fi
+   [ -r "$VAR" ] || return 1
+   VALUE=$(dd if="$VAR" bs=1 skip=4 count=1 2>/dev/null | od -An -tu1 2>/dev/null | tr -d ' \n')
+   [ "$VALUE" = 1 ]
+}
+
 aufs_is_supported() {
    cat /proc/filesystems | grep aufs >/dev/null 2>&1
 }
 
-load_aufs_module() {
-   modprobe aufs 2>/dev/null || modprobe aufs-ng 2>/dev/null
-}
-
 aufs_ng_is_loaded() {
    [ -d "${MINIOS_SYS_MODULE:-/sys/module}/aufs_ng" ]
+}
+
+aufs_is_usable() {
+   aufs_is_supported || return 1
+   if secure_boot_enabled && aufs_ng_is_loaded; then
+      return 1
+   fi
+   return 0
+}
+
+load_aufs_module() {
+   secure_boot_enabled && return 1
+   modprobe aufs 2>/dev/null || modprobe aufs-ng 2>/dev/null
 }
 
 mount_aufs_union() {
@@ -555,7 +579,7 @@ get_union_fs() {
    if [ -n "$UNION_PARAM" ]; then
       case "$UNION_PARAM" in
       aufs)
-         if aufs_is_supported >/dev/null; then
+         if aufs_is_usable >/dev/null; then
             echo "aufs"
             return
          else
@@ -573,7 +597,7 @@ get_union_fs() {
       esac
    fi
 
-   if aufs_is_supported >/dev/null; then
+   if aufs_is_usable >/dev/null; then
       echo "aufs"
    else
       echo "overlayfs"
@@ -604,15 +628,18 @@ init_union_modules() {
    local UNION_PARAM=$(cmdline_value union)
 
     if [ "$UNION_PARAM" = "aufs" ]; then
-       load_aufs_module
-       if ! aufs_is_supported >/dev/null; then
+       if secure_boot_enabled; then
+          echo "Secure Boot disables the unsigned aufs-ng module; using OverlayFS." >&2
+       fi
+       load_aufs_module || true
+       if ! aufs_is_usable >/dev/null; then
           modprobe overlay 2>/dev/null
        fi
    elif [ "$UNION_PARAM" = "overlayfs" ]; then
       modprobe overlay 2>/dev/null
     else
-       load_aufs_module
-       if ! aufs_is_supported >/dev/null; then
+       load_aufs_module || true
+       if ! aufs_is_usable >/dev/null; then
           modprobe overlay 2>/dev/null
       fi
    fi
@@ -1285,7 +1312,7 @@ select_new_session_mode() {
    : >"$OPTIONS" || return 1
 
    printf '%s\n' 'Native' >>"$OPTIONS"
-   command -v dynblk >/dev/null 2>&1 && printf '%s\n' 'DynBlk' >>"$OPTIONS"
+   dynblk_available && printf '%s\n' 'DynBlk' >>"$OPTIONS"
    vmdk_available && printf '%s\n' 'VMDK' >>"$OPTIONS"
    command -v @mount.dynfilefs >/dev/null 2>&1 && printf '%s\n' 'DynFileFS' >>"$OPTIONS"
    if command -v truncate >/dev/null 2>&1 && command -v mke2fs >/dev/null 2>&1; then
@@ -1792,11 +1819,12 @@ persistence_requested() {
 }
 
 dynblk_available() {
+   secure_boot_enabled && return 1
    command -v dynblk >/dev/null 2>&1
 }
 
 vmdk_available() {
-   command -v dynblk >/dev/null 2>&1 && dynblk limits --format vmdk >/dev/null 2>&1
+   dynblk_available && dynblk limits --format vmdk >/dev/null 2>&1
 }
 
 block_session_available() {
@@ -2685,8 +2713,13 @@ persistent_changes() {
    PERCHENCRYPT="$(cmdline_value perchencrypt)"
    : "${PERCHENCRYPT:=none}"
    if ! block_session_available "$PERCHMODE"; then
-      boot_warning_notify warning mode \
-         "DynBlk is unavailable in this initramfs; using the standard persistence mode."
+      if secure_boot_enabled && { [ "$PERCHMODE" = dynblk ] || [ "$PERCHMODE" = vmdk ]; }; then
+         boot_warning_notify warning mode \
+            "$PERCHMODE persistence is unavailable while Secure Boot is enabled; using the standard persistence mode."
+      else
+         boot_warning_notify warning mode \
+            "DynBlk is unavailable in this initramfs; using the standard persistence mode."
+      fi
       PERCHMODE="native"
    fi
    PERCHSIZE="$(cmdline_value perchsize)"
@@ -3699,8 +3732,13 @@ persistent_changes() {
    # automatic resume creates a new standard session and preserves the old one.
    if ! block_session_available "$PERCHMODE"; then
       if [ "$AUTO_RESUME" = "true" ]; then
-         boot_warning_notify warning mode \
-            "Session #$PERCHDIR requires DynBlk, which is unavailable; creating a new standard persistence session."
+         if secure_boot_enabled && { [ "$PERCHMODE" = dynblk ] || [ "$PERCHMODE" = vmdk ]; }; then
+            boot_warning_notify warning mode \
+               "Session #$PERCHDIR requires $PERCHMODE, which is unavailable while Secure Boot is enabled; creating a new standard persistence session."
+         else
+            boot_warning_notify warning mode \
+               "Session #$PERCHDIR requires DynBlk, which is unavailable; creating a new standard persistence session."
+         fi
          if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" new new native false none); then
             perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
                "DynBlk is unavailable and a standard replacement session could not be created."
@@ -3712,8 +3750,13 @@ persistent_changes() {
          NEW_SESSION=$3
          PERCHENCRYPT=${4:-none}
       else
-         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
-            "Session #$PERCHDIR requires DynBlk, which is unavailable in this initramfs."
+         if secure_boot_enabled && { [ "$PERCHMODE" = dynblk ] || [ "$PERCHMODE" = vmdk ]; }; then
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR requires $PERCHMODE, which is unavailable while Secure Boot is enabled."
+         else
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
+               "Session #$PERCHDIR requires DynBlk, which is unavailable in this initramfs."
+         fi
          return
       fi
    fi

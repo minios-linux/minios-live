@@ -29,6 +29,7 @@ setup() {
     export MINIOS_SYS_CLASS_BLOCK="$WORK/sys/class/block"
     export MINIOS_DEV_ROOT="$WORK/dev"
     export MINIOS_SYS_FS_AUFS="$WORK/sys/fs/aufs"
+    export MINIOS_EFIVARS_DIR="$WORK/efivars"
     export MINIOS_LIVEKIT_STATE_STAGE="$WORK/livekit-state-stage"
     export MINIOS_VENTOY_DIR="$WORK/ventoy"
     export MINIOS_PROC_MEMINFO="$WORK/meminfo"
@@ -36,7 +37,17 @@ setup() {
     printf '%s\n' '11111111-2222-3333-4444-555555555555' >"$MINIOS_BOOT_ID_FILE"
     : >"$MINIOS_PROC_MOUNTS"
     : >"$MINIOS_CMDLINE_FILE"
-    mkdir -p "$MINIOS_SYS_CLASS_BLOCK" "$MINIOS_DEV_ROOT" "$MINIOS_SYS_FS_AUFS"
+    mkdir -p "$MINIOS_SYS_CLASS_BLOCK" "$MINIOS_DEV_ROOT" "$MINIOS_SYS_FS_AUFS" "$MINIOS_EFIVARS_DIR"
+}
+
+set_secure_boot() {
+    local value=${1:-1}
+    printf '\007\000\000\000' >"$MINIOS_EFIVARS_DIR/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+    if [ "$value" = 1 ]; then
+        printf '\001' >>"$MINIOS_EFIVARS_DIR/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+    else
+        printf '\000' >>"$MINIOS_EFIVARS_DIR/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+    fi
 }
 
 teardown() {
@@ -109,6 +120,24 @@ setup_dispatch() {
     printf '%s\n' 'quiet perchcomp=zstd' >"$MINIOS_CMDLINE_FILE"
 
     persistence_requested
+}
+
+@test "Secure Boot efivar disables DynBlk and VMDK" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    set_secure_boot 1
+
+    secure_boot_enabled
+    run dynblk_available
+    [ "$status" -ne 0 ]
+    run vmdk_available
+    [ "$status" -ne 0 ]
+
+    set_secure_boot 0
+    run secure_boot_enabled
+    [ "$status" -ne 0 ]
+    dynblk_available
+    vmdk_available
 }
 
 @test "layered LUKS capability rejects the old empty marker" {
@@ -202,6 +231,18 @@ setup_dispatch() {
 @test "unavailable dynblk request follows the standard native persistence route" {
     setup_dispatch dynblk ext4 64
     dynblk_available() { return 1; }
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "restore:new:native"
+    assert_log "mount --bind $TEST_CHANDIR/1 $TEST_CHANGES"
+    ! grep -Fq 'dynblk create ' "$LOG"
+    grep -Fqx 'session_mode[1]=native' "$TEST_CHANDIR/session.conf"
+}
+
+@test "Secure Boot dynblk request falls back before modprobe or create" {
+    setup_dispatch dynblk ext4 64
+    set_secure_boot 1
 
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
@@ -679,6 +720,39 @@ setup_dispatch() {
     [ "$(sed -n '2p' "$log")" = aufs-ng ]
     [ "$(wc -l <"$log")" -eq 2 ]
     [ "$(get_union_fs)" = aufs ]
+}
+
+@test "Secure Boot never probes aufs-ng and falls back to OverlayFS" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    set_secure_boot 1
+    log="$WORK/secure-aufs-modprobe.log"
+    debug_log() { :; }
+    cmdline_value() { :; }
+    refresh_devs() { :; }
+    aufs_is_supported() { return 1; }
+    modprobe() {
+        printf '%s\n' "$1" >>"$log"
+        [ "$1" = overlay ]
+    }
+
+    init_union_modules
+
+    grep -Fqx overlay "$log"
+    ! grep -Fqx aufs "$log"
+    ! grep -Fqx aufs-ng "$log"
+}
+
+@test "Secure Boot refuses an already loaded aufs-ng union" {
+    # shellcheck source=/dev/null
+    . "$LIB"
+    set_secure_boot 1
+    export MINIOS_SYS_MODULE="$WORK/sys/module"
+    mkdir -p "$MINIOS_SYS_MODULE/aufs_ng"
+    aufs_is_supported() { return 0; }
+    cmdline_value() { [ "$1" = union ] && printf '%s\n' aufs; }
+
+    [ "$(get_union_fs)" = overlayfs ]
 }
 
 @test "AUFS mount options distinguish classic AUFS from aufs-ng" {
