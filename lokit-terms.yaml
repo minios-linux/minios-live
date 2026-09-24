@@ -724,6 +724,13 @@ exact:
       pt-BR: 'Desmontar {} da sessão MiniOS em execução? O próximo boot não será alterado.'
       ru: 'Размонтировать {} из текущей сессии MiniOS? Следующая загрузка не изменится.'
 
+  - id: session-manager.unmount-error
+    source: 'Failed to unmount session {}: {}'
+    when:
+      target: minios-session-manager
+    translations:
+      de: 'Sitzung {} konnte nicht ausgehängt werden: {}'
+
 terms:
   - id: app-term.minios-store
     source: MiniOS Store
@@ -1029,3 +1036,166 @@ terms:
     match: substring
     preserve: true
     case_sensitive: true
+
+  # CLI command signatures and metavariables in the Session Manager man page.
+  - id: session-manager-cli.list
+    source: B<list>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.active
+    source: B<active>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.running
+    source: B<running>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.info
+    source: B<info>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.activate
+    source: 'B<activate '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.save
+    source: 'B<save '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.mount
+    source: 'B<mount '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.change-passphrase
+    source: 'B<change-passphrase '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.create
+    source: 'B<create ['
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.settings
+    source: 'B<settings '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.delete
+    source: 'B<delete '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.reclaim
+    source: 'B<reclaim '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.resize
+    source: 'B<resize '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.export
+    source: 'B<export '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.import
+    source: 'B<import '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.copy
+    source: 'B<copy '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.clone
+    source: 'B<clone '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.convert
+    source: 'B<convert '
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.cleanup
+    source: 'B<cleanup ['
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.status
+    source: B<status>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.session-id
+    source: I<session_id>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.mode-metavar
+    source: I<mode>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.size-metavar
+    source: I<size>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.minutes-metavar
+    source: MINUTES
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.output-path
+    source: I<output_path>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.archive-path
+    source: I<archive_path>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }
+  - id: session-manager-cli.target-mode
+    source: I<target_mode>
+    match: substring
+    preserve: true
+    case_sensitive: true
+    when: { target: minios-session-manager-manpages }

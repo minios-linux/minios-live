@@ -75,6 +75,13 @@ targets:
     template: po/messages.pot
     to: po/{lang}.po
 
+  - name: minios-installer-manpages
+    format: po4a
+    root: submodules/minios-installer/manpages
+    from:
+      - po4a.cfg
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
+
   # --- submodule: minios-configurator ---
 
   - name: minios-configurator
@@ -82,6 +89,13 @@ targets:
     root: submodules/minios-configurator
     template: po/messages.pot
     to: po/{lang}.po
+
+  - name: minios-configurator-manpages
+    format: po4a
+    root: submodules/minios-configurator/manpages
+    from:
+      - po4a.cfg
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
 
   # --- submodule: minios-kernel-manager ---
 
@@ -91,6 +105,13 @@ targets:
     template: po/messages.pot
     to: po/{lang}.po
 
+  - name: minios-kernel-manager-manpages
+    format: po4a
+    root: submodules/minios-kernel-manager/manpages
+    from:
+      - po4a.cfg
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
+
   # --- submodule: minios-session-manager ---
 
   - name: minios-session-manager
@@ -98,6 +119,17 @@ targets:
     root: submodules/minios-session-manager
     template: po/messages.pot
     to: po/{lang}.po
+
+  - name: minios-session-manager-manpages
+    format: po4a
+    root: submodules/minios-session-manager/manpages
+    from:
+      - po4a.cfg
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
+    prompt: |
+      Translate MiniOS man pages while preserving all groff markup, command names, options, paths, placeholders, and technical identifiers exactly.
+      Use ordinary ASCII spaces only. Never insert non-breaking spaces or escaped representations of non-breaking spaces.
+      Preserve every backslash escape byte-for-byte with exactly the same number of backslashes.
 
   # --- submodule: minios-module-manager ---
 
@@ -239,6 +271,13 @@ targets:
       - html/i18n/en.json
     to: html/i18n/{lang}.json
     languages: [de, es, fr, id, it, pt, pt-BR, ru]
+
+  - name: minios-welcome-manpages
+    format: po4a
+    root: submodules/minios-welcome/manpages
+    from:
+      - po4a.cfg
+    languages: [de, es, fr, id, it, pt, pt_BR, ru]
 
   # --- submodule: website (i18next) ---
 
