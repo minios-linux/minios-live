@@ -497,7 +497,6 @@ normalize_module_whiteouts() {
    local LIST="/tmp/minios-whiteouts.$$"
 
    [ "$(get_union_fs)" = aufs ] || return 0
-   aufs_ng_is_loaded || return 0
 
    find "$ROOT" -xdev -type c -print >"$LIST" 2>/dev/null || {
       rm -f "$LIST"
