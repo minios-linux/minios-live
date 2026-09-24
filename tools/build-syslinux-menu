@@ -1,0 +1,27 @@
+#!/bin/bash
+# Build the MiniOS BIOS menu against the libraries shipped in bootfiles.
+set -euo pipefail
+
+ROOT="$(dirname "$(dirname "$(readlink -f "$0")")")"
+OUTPUT="${1:-${ROOT}/linux-live/bootfiles/boot/syslinux/minios-menu.c32}"
+SOURCE_URL=https://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.xz
+SOURCE_SHA256=26d3986d2bea109d5dc0e4f8c4822a459276cf021125e8c9f23c3cca5d8c850e
+WORK="$(mktemp -d)"
+trap 'rm -rf -- "$WORK"' EXIT
+
+curl --fail --location --retry 2 "$SOURCE_URL" -o "$WORK/source.tar.xz"
+printf '%s  %s\n' "$SOURCE_SHA256" "$WORK/source.tar.xz" | sha256sum --check -
+tar -xJf "$WORK/source.tar.xz" -C "$WORK"
+SOURCE="$WORK/syslinux-6.03"
+patch --batch --fuzz=0 -d "$SOURCE" -p1 <"$ROOT/tools/syslinux-visible-keys.patch"
+
+# The archive includes prebuilt libraries. Link against our existing 6.03
+# libraries instead; this is an isolated menu update, not a loader ABI change.
+cp "$ROOT/linux-live/bootfiles/boot/syslinux/libcom32.c32" "$SOURCE/bios/com32/lib/"
+cp "$ROOT/linux-live/bootfiles/boot/syslinux/libutil.c32" "$SOURCE/bios/com32/libutil/"
+make -C "$SOURCE/bios/com32/menu" -f "$SOURCE/com32/menu/Makefile" \
+    SRC="$SOURCE/com32/menu" MAKEDIR="$SOURCE/mk" \
+    topdir="$SOURCE" objdir="$SOURCE/bios" ARCH=i386 FIRMWARE=BIOS \
+    LDLINUX=ldlinux.c32 NOGPL=1 vesamenu.c32
+install -m 644 "$SOURCE/bios/com32/menu/vesamenu.c32" "$OUTPUT"
+sha256sum "$OUTPUT"

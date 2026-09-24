@@ -1,0 +1,28 @@
+--- a/com32/menu/menumain.c
++++ b/com32/menu/menumain.c
+@@ -861,7 +861,7 @@
+ 	    key = mygetkey(this_timeout);
+ 
+ 	    if (key != KEY_NONE) {
+-		timeout_left = key_timeout;
++		timeout_left = key_timeout = 0;
+ 		if (to_clear)
+ 		    printf("\033[%d;1H\1#0\033[K", TIMEOUT_ROW);
+ 	    }
+@@ -869,6 +869,16 @@
+ 
+ 	hotkey = false;
+ 
++	/* MiniOS: allow configured keys to open another configuration while
++	 * the menu is visible, too. The parser already resolves hidden labels
++	 * to commands, so F2 and Esc need no visible dummy menu entries. */
++	if (key > KEY_NONE && key < KEY_MAX && hide_key[key]) {
++	    key_timeout = 0;
++	    cmdline = hide_key[key];
++	    done = 1;
++	    continue;
++	}
++
+ 	switch (key) {
+ 	case KEY_NONE:		/* Timeout */
+ 	    /* This is somewhat hacky, but this at least lets the user
