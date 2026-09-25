@@ -3170,10 +3170,16 @@ persistent_changes() {
       FS="$(device_bestfs "$DRIVE")"
       if [ "$FS" = "ntfs3" ] || [ "$FS" = "ntfs-3g" ] || [ "$FS" = "vfat" ] || [ "$FS" = "exfat" ]; then
          echo_yellow_star
-         echo "Native mode not supported on $FS filesystem, using DynFileFS"
          # This is expected documented behaviour on non-POSIX media; no warning
          # record is written since it is not an unplanned event.
-         dynfilefs_mode
+         if dynblk_available; then
+            echo "Native mode not supported on $FS filesystem, using DynBlk"
+            PERCHMODE=dynblk
+            dynblk_mode
+         else
+            echo "Native mode not supported on $FS filesystem, using DynFileFS"
+            dynfilefs_mode
+         fi
          return
       fi
 
@@ -3196,9 +3202,16 @@ persistent_changes() {
             boot_warning_notify error persistence "Session #$PERCHDIR: cannot bind native persistent changes."
          fi
       else
-         boot_warning_notify warning mode \
-            "Native mode failed, falling back to DynFileFS."
-         dynfilefs_mode
+         if dynblk_available; then
+            boot_warning_notify warning mode \
+               "Native mode failed, falling back to DynBlk."
+            PERCHMODE=dynblk
+            dynblk_mode
+         else
+            boot_warning_notify warning mode \
+               "Native mode failed, falling back to DynFileFS."
+            dynfilefs_mode
+         fi
       fi
    }
 
