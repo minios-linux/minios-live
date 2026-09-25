@@ -700,8 +700,71 @@ EOF
 
 @test "unknown persistence mode retains native to DynFileFS compatibility on FAT" {
     setup_dispatch legacy-fat vfat
+    dynblk_available() { return 1; }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 64"
+}
+
+@test "native fallback prefers DynBlk on non-POSIX filesystems" {
+    for fs in vfat exfat ntfs3 ntfs-3g; do
+        setup_dispatch native "$fs"
+        persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+        assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
+        assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+        grep -Fqx 'session_mode[1]=dynblk' "$TEST_CHANDIR/session.conf"
+        ! grep -Fq '@mount.dynfilefs ' "$LOG"
+        [ ! -e "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
+    done
+}
+
+@test "native fallback uses DynFileFS when DynBlk is unavailable" {
+    for fs in vfat exfat ntfs3 ntfs-3g; do
+        setup_dispatch native "$fs"
+        dynblk_available() { return 1; }
+        persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+        assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 64"
+        grep -Fqx 'session_mode[1]=dynfilefs' "$TEST_CHANDIR/session.conf"
+        ! grep -Fq 'dynblk create ' "$LOG"
+        [ ! -e "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
+    done
+}
+
+@test "native fallback uses DynFileFS under Secure Boot" {
+    set_secure_boot 1
+    for fs in vfat exfat ntfs3 ntfs-3g; do
+        setup_dispatch native "$fs"
+        persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+        assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 64"
+        grep -Fqx 'session_mode[1]=dynfilefs' "$TEST_CHANDIR/session.conf"
+        ! grep -Fq 'dynblk create ' "$LOG"
+        [ ! -e "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
+    done
+}
+
+@test "failed POSIX probe falls back to DynBlk when available" {
+    setup_dispatch native ext4
+    make_mock ln 'exit 1'
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
+    grep -Fqx 'session_mode[1]=dynblk' "$TEST_CHANDIR/session.conf"
+    grep -Fq 'Native mode failed, falling back to DynBlk.' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
+    ! grep -Fq '@mount.dynfilefs ' "$LOG"
+}
+
+@test "failed POSIX probe falls back to DynFileFS when DynBlk is unavailable" {
+    setup_dispatch native ext4
+    dynblk_available() { return 1; }
+    make_mock ln 'exit 1'
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 64"
+    grep -Fqx 'session_mode[1]=dynfilefs' "$TEST_CHANDIR/session.conf"
+    grep -Fq 'Native mode failed, falling back to DynFileFS.' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
+    ! grep -Fq 'dynblk create ' "$LOG"
 }
 
 @test "legacy ntfs and near matches do not masquerade as ntfs3" {
@@ -2026,6 +2089,40 @@ EOF
     [ -d "$chandir/1" ]
 }
 
+@test "automatic new sessions keep native when DynBlk is unavailable" {
+    . "$LIB"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    dynblk_available() { return 1; }
+    select_new_session_mode() { return 1; }
+    PERCHSIZE=0
+
+    for action in new resume; do
+        chandir="$WORK/unavailable-$action/changes"
+        mkdir -p "$chandir"
+        run restore_perch_session /dev/test "$chandir" "$action" "$action" "" true
+        [ "$status" -eq 0 ]
+        [ "$output" = "1 native true none none" ]
+        [ -d "$chandir/1" ]
+    done
+}
+
+@test "automatic new sessions keep native under Secure Boot" {
+    . "$LIB"
+    set_secure_boot 1
+    get_union_fs() { printf '%s\n' overlayfs; }
+    select_new_session_mode() { return 1; }
+    PERCHSIZE=0
+
+    for action in new resume; do
+        chandir="$WORK/secure-boot-$action/changes"
+        mkdir -p "$chandir"
+        run restore_perch_session /dev/test "$chandir" "$action" "$action" "" true
+        [ "$status" -eq 0 ]
+        [ "$output" = "1 native true none none" ]
+        [ -d "$chandir/1" ]
+    done
+}
+
 @test "automatic resume creates the first session on an empty writable store" {
     # shellcheck source=/dev/null
     . "$LIB"
@@ -2039,6 +2136,44 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "1 native true none none" ]
     [ -d "$chandir/1" ]
+}
+
+@test "automatic default does not override an explicitly selected backend" {
+    . "$LIB"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    dynblk_available() { echo 'Unexpected automatic backend probe' >&2; return 1; }
+    PERCHSIZE=0
+
+    for mode in native raw dynfilefs dynblk vmdk squashfs; do
+        chandir="$WORK/explicit-$mode/changes"
+        mkdir -p "$chandir"
+        run restore_perch_session /dev/test "$chandir" new new "$mode" false
+        [ "$status" -eq 0 ]
+        [ "$output" = "1 $mode true none none" ]
+    done
+}
+
+@test "automatic resume preserves existing backend and legacy native sessions" {
+    . "$LIB"
+    get_union_fs() { printf '%s\n' overlayfs; }
+    dynblk_available() { echo 'Unexpected automatic backend probe' >&2; return 1; }
+    PERCHSIZE=0
+
+    for mode in native raw dynfilefs dynblk vmdk squashfs legacy; do
+        chandir="$WORK/resume-$mode/changes"
+        mkdir -p "$chandir/1"
+        printf '%s\n' 'default=1' >"$chandir/session.conf"
+        expected=$mode
+        if [ "$mode" = legacy ]; then
+            expected=native
+        else
+            printf 'session_mode[1]=%s\n' "$mode" >>"$chandir/session.conf"
+        fi
+        run restore_perch_session /dev/test "$chandir" resume resume "" true
+        [ "$status" -eq 0 ]
+        [ "$output" = "1 $expected false none none" ]
+        [ ! -d "$chandir/2" ]
+    done
 }
 
 @test "automatic resume creates a new session on union mismatch" {
