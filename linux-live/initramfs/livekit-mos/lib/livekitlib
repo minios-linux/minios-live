@@ -772,7 +772,7 @@ fs_options() {
       echo -n "-t $1 "
    fi
 
-   echo -n "-o $ACCESS"
+   echo -n "-o $ACCESS,noatime"
 
    if [ "$1" = "vfat" ]; then
       echo ",umask=000,check=s,shortname=mixed,iocharset=utf8"
@@ -2872,7 +2872,7 @@ persistent_changes() {
       echo "- mounting persistent changes"
       # errors=remount-ro turns a full backing device into a read-only inner
       # filesystem instead of corruption when writes start failing.
-      mount -o loop,errors=remount-ro "$1" "$CHANGES" || {
+       mount -o loop,noatime,errors=remount-ro "$1" "$CHANGES" || {
          boot_warning_notify error persistence "Session #$PERCHDIR: cannot mount persistent changes."
          return 1
       }
@@ -3337,7 +3337,7 @@ persistent_changes() {
             fi
          fi
          unset LUKS_PASSWORD
-         mount -o errors=remount-ro "/dev/mapper/$CRYPT_MAPPER" "$CHANGES" || {
+          mount -o noatime,errors=remount-ro "/dev/mapper/$CRYPT_MAPPER" "$CHANGES" || {
             luks_unwind || true
             umount "$CHANGES" 2>/dev/null || true
             perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
@@ -3565,7 +3565,7 @@ persistent_changes() {
       : "${TARGET_DEVICE:=$DYNBLK_DEVICE}"
       unset LUKS_PASSWORD
       echo "- mounting persistent changes"
-      mount -o errors=remount-ro "$TARGET_DEVICE" "$CHANGES" || {
+       mount -o noatime,errors=remount-ro "$TARGET_DEVICE" "$CHANGES" || {
          luks_close || true
          dynblk unload "$DYNBLK_DEVICE" --execute 2>/dev/null || true
          DYNBLK_DEVICE="none"
@@ -3664,7 +3664,7 @@ persistent_changes() {
             fi
          fi
          unset LUKS_PASSWORD
-         mount -o errors=remount-ro "/dev/mapper/$CRYPT_MAPPER" "$CHANGES" || {
+          mount -o noatime,errors=remount-ro "/dev/mapper/$CRYPT_MAPPER" "$CHANGES" || {
             luks_unwind || true
             perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
                "Session #$PERCHDIR: encrypted Raw persistence could not be mounted."
@@ -4251,7 +4251,7 @@ fstab_create() {
 #
 minios_boot() {
    debug_log "minios_boot" "$*"
-   local WRITABLE SRC DST
+   local WRITABLE SRC DST LOG_ROOT LOG_NAME
 
    # Copy the boot binary to the target mount directory.
    cp /bin/minios-boot "$2/" || {
@@ -4299,6 +4299,34 @@ minios_boot() {
       echo "Failed to mount tmpfs" >&2 >/dev/tty1
       return 1
    }
+
+   # /run is temporarily replaced for the chroot. Publish the validated boot
+   # authority there as well; the installed runtime copy is staged later.
+   if [ -f "$MINIOS_PERSISTENCE_RUNDIR/boot-state" ]; then
+      mkdir -p "$2/run/initramfs/minios-persistence" &&
+         cp -a "$MINIOS_PERSISTENCE_RUNDIR/boot-state" \
+            "$2/run/initramfs/minios-persistence/boot-state" ||
+         echo "Cannot pass persistence state to minios-boot" >&2
+   fi
+
+    # A SquashFS upper is RAM-backed even with healthy persistence. Keep the
+    # two boot diagnostics outside the snapshot so a manual save policy or a
+    # failed shutdown save cannot discard the evidence of a boot failure.
+    if [ -n "${MINIOS_SQUASHFS_SESSION_DIR:-}" ] &&
+       [ -f "$MINIOS_PERSISTENCE_RUNDIR/boot-state" ] &&
+       grep -qx 'boot_level=ok' "$MINIOS_PERSISTENCE_RUNDIR/boot-state" &&
+       grep -qx 'durable=1' "$MINIOS_PERSISTENCE_RUNDIR/boot-state" &&
+       grep -qx 'mode=squashfs' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"; then
+       LOG_ROOT="$MINIOS_SQUASHFS_SESSION_DIR/boot-logs"
+       for LOG_NAME in minios live; do
+          mkdir -p "$LOG_ROOT/$LOG_NAME" "$2/var/log/$LOG_NAME" || {
+             echo "Cannot create persistent $LOG_NAME boot log directory" >&2
+             continue
+          }
+          mount --bind "$LOG_ROOT/$LOG_NAME" "$2/var/log/$LOG_NAME" ||
+             echo "Cannot persist $LOG_NAME boot logs for this SquashFS session" >&2
+       done
+    fi
 
    # Check if the data directory is writable.
    if touch "$1/.empty" 2>/dev/null && rm -f "$1/.empty" 2>/dev/null; then

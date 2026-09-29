@@ -10,8 +10,8 @@
 # Author: crims0n <https://minios.dev>
 #
 
-CONFIG="/etc/live/config.conf"
-CMDLINE="$(cat /proc/cmdline)"
+CONFIG="${MINIOS_BOOT_CONFIG:-/etc/live/config.conf}"
+CMDLINE="$(cat "${MINIOS_BOOT_CMDLINE_FILE:-/proc/cmdline}")"
 LOG_PIPE="/tmp/minios-boot.pipe"
 LOG_PID=""
 
@@ -19,6 +19,13 @@ LOG_PID=""
 
 set_log() {
     mkdir -p /var/log/minios 2>/dev/null || true
+    # Keep failed boot output from previous sessions; fall back to appending if
+    # rotation is impossible (e.g. full or read-only persistence).
+    if [ -f /var/log/minios/minios-boot.log ]; then
+        mv -f /var/log/minios/minios-boot.log.2 /var/log/minios/minios-boot.log.3 2>/dev/null || true
+        mv -f /var/log/minios/minios-boot.log.1 /var/log/minios/minios-boot.log.2 2>/dev/null || true
+        mv -f /var/log/minios/minios-boot.log /var/log/minios/minios-boot.log.1 2>/dev/null || true
+    fi
     rm -f "$LOG_PIPE"
     mkfifo "$LOG_PIPE" || return 0
     exec 3>&1 4>&2
@@ -27,7 +34,8 @@ set_log() {
     # to /dev/console here would bypass that routing.
     if [ -d /var/log/minios ] && [ -w /var/log/minios ] &&
        { [ ! -e /var/log/minios/minios-boot.log ] || [ -w /var/log/minios/minios-boot.log ]; }; then
-        tee <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &
+        printf '=== MiniOS boot %s ===\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>/var/log/minios/minios-boot.log 2>/dev/null || true
+        tee -a <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &
     else
         cat <"$LOG_PIPE" 2>/dev/null &
     fi
@@ -55,6 +63,11 @@ stop_log() {
     LOG_PID=""
 
     return "$STATUS"
+}
+
+log_storage_status() {
+    # Routine policy notices belong in the boot log, not the mirrored console.
+    printf '%s\n' "$*" 2>/dev/null >>"${MINIOS_BOOT_LOG_FILE:-/var/log/minios/minios-boot.log}" || true
 }
 
 echo_green_star() {
@@ -242,12 +255,137 @@ set_autologin() {
     return 0
 }
 
+load_storage_policy() {
+    local FILE TOKEN KEY VALUE
+    LIVE_LOG_STORAGE=""
+    LIVE_APT_CACHE=""
+    LIVE_BROWSER_CACHE=""
+    for FILE in "$CONFIG" "${MINIOS_BOOT_CONFIG_DIR:-/etc/live/config.conf.d}"/*.conf; do
+        [ -f "$FILE" ] && read_config "$FILE" LIVE_LOG_STORAGE LIVE_APT_CACHE LIVE_BROWSER_CACHE LIVE_CONFIG_CMDLINE
+    done
+    # Parse the config's parameter blob first, then the real kernel command
+    # line. The latter takes precedence regardless of the source filename.
+    for TOKEN in ${LIVE_CONFIG_CMDLINE:-} $CMDLINE; do
+        case "$TOKEN" in
+            live-config.log-storage=*|log-storage=*) LIVE_LOG_STORAGE="${TOKEN#*=}" ;;
+            live-config.apt-cache=*|apt-cache=*) LIVE_APT_CACHE="${TOKEN#*=}" ;;
+            live-config.browser-cache=*|browser-cache=*) LIVE_BROWSER_CACHE="${TOKEN#*=}" ;;
+        esac
+    done
+    for KEY in LIVE_LOG_STORAGE LIVE_APT_CACHE LIVE_BROWSER_CACHE; do
+        VALUE=${!KEY:-persistent}
+        case "$VALUE" in
+            persistent|volatile) ;;
+            *) echo "Invalid $KEY: $VALUE (using persistent)" >&2; VALUE=persistent ;;
+        esac
+        printf -v "$KEY" %s "$VALUE"
+    done
+    local STATE=${MINIOS_BOOT_STATE:-/run/initramfs/minios-persistence/boot-state}
+    if ! [ -f "$STATE" ] || ! grep -qx 'boot_level=ok' "$STATE" ||
+       ! grep -qx 'durable=1' "$STATE"; then
+        LIVE_LOG_STORAGE=persistent
+        LIVE_APT_CACHE=persistent
+        LIVE_BROWSER_CACHE=persistent
+    fi
+}
+
+set_log_storage() {
+    local VALUE=${LIVE_LOG_STORAGE:-persistent}
+    local DROPIN=${MINIOS_JOURNAL_DROPIN:-/etc/systemd/journald.conf.d/90-minios-live-storage.conf}
+    if [ "$VALUE" = volatile ] &&
+       { [ -x /lib/systemd/systemd-journald ] || [ -x /usr/lib/systemd/systemd-journald ]; }; then
+        mkdir -p "${DROPIN%/*}" || return 1
+        if [ "$(cat "$DROPIN" 2>/dev/null)" != "$(printf '[Journal]\nStorage=volatile\nRuntimeMaxUse=32M')" ]; then
+            printf '[Journal]\nStorage=volatile\nRuntimeMaxUse=32M\n' >"$DROPIN.tmp.$$" || return 1
+            mv -f "$DROPIN.tmp.$$" "$DROPIN" || return 1
+        fi
+        log_storage_status 'Journald: bounded volatile storage (boot diagnostics remain persistent)'
+    elif [ -f "$DROPIN" ]; then
+        rm -f "$DROPIN" || return 1
+    fi
+    [ "$VALUE" = volatile ] || return 0
+
+    # Keep both boot diagnostics on the original upper before mounting a
+    # volatile /var/log. A directory-level tmpfs lets syslog and logrotate
+    # create/rename their files normally (file bind mounts would break rename).
+    local LOG_ROOT=${MINIOS_VOLATILE_LOG_ROOT:-/var/log}
+    local BACKING=${MINIOS_PERSISTENT_LOG_BIND:-/var/.minios-boot-log-store}
+    mkdir -p "$LOG_ROOT/minios" "$LOG_ROOT/live" "$BACKING" || return 1
+    mount --bind "$LOG_ROOT" "$BACKING" || return 1
+    if ! mount -t tmpfs -o size=32m,mode=0755 tmpfs "$LOG_ROOT"; then
+        umount "$BACKING" || true
+        return 1
+    fi
+    mkdir -p "$LOG_ROOT/minios" "$LOG_ROOT/live" || {
+        umount "$LOG_ROOT" || true
+        umount "$BACKING" || true
+        return 1
+    }
+    if ! mount --bind "$BACKING/minios" "$LOG_ROOT/minios"; then
+        umount "$LOG_ROOT" || true
+        umount "$BACKING" || true
+        return 1
+    fi
+    if ! mount --bind "$BACKING/live" "$LOG_ROOT/live"; then
+        umount "$LOG_ROOT/minios" || true
+        umount "$LOG_ROOT" || true
+        umount "$BACKING" || true
+        return 1
+    fi
+    log_storage_status 'Text system logs: bounded volatile storage; MiniOS boot logs stay persistent'
+}
+
+set_apt_cache() {
+    local AVAILABLE SIZE APT_UID
+    [ "${LIVE_APT_CACHE:-persistent}" = volatile ] || return 0
+    # APT cannot recover an install interrupted by ENOSPC in its archive
+    # directory. Leave it on disk on low-memory or disk-swap machines.
+    if awk 'NR > 1 && $1 !~ /\/dev\/zram[0-9]+$/ { found=1 } END { exit !found }' "${MINIOS_PROC_SWAPS:-/proc/swaps}"; then
+        log_storage_status 'APT RAM cache skipped: non-zRAM swap is active'
+        return 0
+    fi
+    AVAILABLE=$(awk '$1 == "MemAvailable:" { print $2 }' "${MINIOS_PROC_MEMINFO:-/proc/meminfo}")
+    [ "${AVAILABLE:-0}" -ge 1048576 ] || {
+        log_storage_status 'APT RAM cache skipped: less than 1 GiB available'
+        return 0
+    }
+    SIZE=256m
+    [ "$AVAILABLE" -lt 2097152 ] || SIZE=512m
+    local ARCHIVES=${MINIOS_APT_ARCHIVES:-/var/cache/apt/archives}
+    mkdir -p "$ARCHIVES" || return 1
+    mount -t tmpfs -o "size=$SIZE,mode=0755" tmpfs "$ARCHIVES" || return 1
+    mkdir -p "$ARCHIVES/partial" || return 1
+    APT_UID=$(id -u _apt 2>/dev/null) && chown "$APT_UID" "$ARCHIVES/partial"
+    chmod 700 "$ARCHIVES/partial"
+    log_storage_status "APT archives: volatile $SIZE (large downloads may exhaust this cache)"
+}
+
+prepare_browser_cache() {
+    local POLICY=${MINIOS_BROWSER_POLICY_FILE:-/etc/live/minios-browser-cache.policy}
+    if [ "${LIVE_BROWSER_CACHE:-persistent}" = volatile ]; then
+        if awk 'NR > 1 && $1 !~ /\/dev\/zram[0-9]+$/ { found=1 } END { exit !found }' "${MINIOS_PROC_SWAPS:-/proc/swaps}"; then
+            log_storage_status 'Browser RAM cache skipped: non-zRAM swap is active'
+            rm -f "$POLICY"
+            return 0
+        fi
+        printf 'volatile\n' >"$POLICY"
+    else
+        rm -f "$POLICY"
+    fi
+}
+
 # Main script execution
-set_log
-trap 'stop_log' EXIT
-read_cmdline
-set_default_target
-manage_services enable
-manage_services disable
-set_autologin
-stop_log
+if [ "${MINIOS_BOOT_SOURCE_ONLY:-}" != true ]; then
+    set_log
+    trap 'stop_log' EXIT
+    read_cmdline
+    load_storage_policy
+    set_log_storage
+    set_apt_cache
+    prepare_browser_cache
+    set_default_target
+    manage_services enable
+    manage_services disable
+    set_autologin
+    stop_log
+fi

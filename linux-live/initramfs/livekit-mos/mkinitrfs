@@ -517,6 +517,10 @@ if [ "$CRYPT" = "true" ]; then
     printf '%s\n' 'luks-layer-v1' >"$INITRAMFS/etc/minios-initramfs-crypt"
 fi
 
+# Storage policy lives in minios-boot and must be advertised by the initrd,
+# rather than guessed from the version of the userspace Configurator package.
+printf '%s\n' 'perch-storage-v1' >"$INITRAMFS/etc/minios-initramfs-storage"
+
 # Before module unpacking
 if [ "$DECOMPRESS_MODULES" = "true" ] || [ "$COMPRESS_MODULES" = "true" ]; then
     find "$INITRAMFS" -name "*.ko.gz" -exec gunzip {} \;

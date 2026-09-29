@@ -151,6 +151,32 @@ assert_kernel_lines() {
     fi
 }
 
+@test "default boot uses saved locale and explicit language selection overrides it" {
+    create_config_files
+    local syslinux="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
+    local grub="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub"
+
+    ! grep -q 'locales=' "${syslinux}/syslinux.cfg"
+    ! grep -Eq '(^APPEND .*|[[:space:]])(timezone|keyboard-layouts)=' "${syslinux}/syslinux.cfg"
+    grep -Fq 'locales=en_US.UTF-8' "${syslinux}/lang/en_US.cfg"
+    grep -Fq 'locales=ru_RU.UTF-8' "${syslinux}/lang/ru_RU.cfg"
+    grep -Fq 'timezone=Europe/Moscow' "${syslinux}/lang/ru_RU.cfg"
+    grep -Fq 'keyboard-layouts=us,ru' "${syslinux}/lang/ru_RU.cfg"
+    grep -Fxq 'set locale_param=""' "${grub}/main.cfg"
+    grep -Fxq 'if [ "$lang_selected" = "1" ]; then' "${grub}/main.cfg"
+    grep -Fxq '    set locale_param="locales=$lang_utf"' "${grub}/main.cfg"
+    grep -Fxq 'set lang_timezone=""' "${grub}/grub.cfg"
+    grep -Fxq 'set lang_keyboard=""' "${grub}/grub.cfg"
+    grep -Fxq 'set extra_params=""' "${grub}/main.cfg"
+    grep -Fxq 'if [ -n "$lang_timezone" ]; then' "${grub}/main.cfg"
+    grep -Fxq 'if [ -n "$lang_keyboard" ]; then' "${grub}/main.cfg"
+    [ "$(grep -c '\$locale_param \$extra_params' "${grub}/main.cfg")" -eq 5 ]
+    [ "$(grep -c 'lang_selected=1' "${grub}/languages.cfg")" -eq 9 ]
+    ! grep -q 'lang_selected=1' "${grub}/grub.cfg"
+    ! grep -Eq '^[[:space:]]*linux .* (locales|timezone|keyboard-layouts)=' "${grub}/main.cfg"
+    ! grep -q 'locales=' "${grub}/grub.template.cfg"
+}
+
 @test "GRUB language selection is untimed and highlights the active locale" {
     create_config_files
     local grub="${WORK_DIR}/image/${LIVEKITNAME}/boot/grub"
@@ -204,7 +230,8 @@ assert_kernel_lines() {
     create_config_files
     local syslinux="${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux"
     cmp "${syslinux}/syslinux.cfg" "${syslinux}/syslinux.multilang.cfg"
-    cmp "${syslinux}/syslinux.multilang.cfg" "${syslinux}/lang/en_US.cfg"
+    diff -u <(sed 's/ locales=en_US.UTF-8//g' "${syslinux}/lang/en_US.cfg") \
+        "${syslinux}/syslinux.multilang.cfg"
     grep -Fxq 'UI minios-menu.c32' "${syslinux}/syslinux.cfg"
     grep -Fxq 'TIMEOUT 100' "${syslinux}/syslinux.cfg"
     grep -Fxq 'DEFAULT default' "${syslinux}/syslinux.cfg"

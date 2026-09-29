@@ -251,11 +251,7 @@ common_variables() {
         KERNEL_FLAVOUR="cloud"
     fi
 
-    if [ "${PACKAGE_VARIANT}" = "puzzle" ] || [ "${PACKAGE_VARIANT}" = "standard" ] || [ "${DESKTOP_ENVIRONMENT}" = "flux" ]; then
-        LIVE_MODULE_MODE="merged"
-    else
-        LIVE_MODULE_MODE="simple"
-    fi
+    : "${LIVE_MODULE_MODE:=merged}"
 
     case "${DISTRIBUTION}" in
     stretch | buster | bullseye | bookworm | trixie | forky | testing | kali-rolling | sid | orel)
@@ -2391,8 +2387,12 @@ EOF
             [ -z "$TRANSLATIONS_FILE" ] || rm -f "$TRANSLATIONS_FILE"
         done
 
-        # Start directly with English modes, as in the multilingual GRUB menu.
+        # The initial menu must leave locale selection to config.conf. A language
+        # explicitly chosen with F2 still uses lang/en_US.cfg (or another
+        # language file), where locales= overrides the saved preference.
         cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/lang/en_US.cfg" \
+            "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
+        sed -i 's/ locales=en_US.UTF-8//g' \
             "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg"
         cp "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.multilang.cfg" \
             "${WORK_DIR}/image/${LIVEKITNAME}/boot/syslinux/syslinux.cfg"
@@ -2439,10 +2439,12 @@ set localedir=\$prefix/locale
 # Language selection
 menuentry "English" --id en_US {
     lang="en_US"
+    lang_selected=1
     lang_utf="en_US.UTF-8"
     lang_timezone=""
     lang_keyboard=""
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2450,10 +2452,12 @@ menuentry "English" --id en_US {
 }
 menuentry "Русский" --id ru_RU {
     lang="ru_RU"
+    lang_selected=1
     lang_utf="ru_RU.UTF-8"
     lang_timezone="Europe/Moscow"
     lang_keyboard="us,ru"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2461,10 +2465,12 @@ menuentry "Русский" --id ru_RU {
 }
 menuentry "Deutsch" --id de_DE {
     lang="de_DE"
+    lang_selected=1
     lang_utf="de_DE.UTF-8"
     lang_timezone="Europe/Berlin"
     lang_keyboard="us,de"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2472,10 +2478,12 @@ menuentry "Deutsch" --id de_DE {
 }
 menuentry "Español" --id es_ES {
     lang="es_ES"
+    lang_selected=1
     lang_utf="es_ES.UTF-8"
     lang_timezone="Europe/Madrid"
     lang_keyboard="us,es"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2483,10 +2491,12 @@ menuentry "Español" --id es_ES {
 }
 menuentry "Français" --id fr_FR {
     lang="fr_FR"
+    lang_selected=1
     lang_utf="fr_FR.UTF-8"
     lang_timezone="Europe/Paris"
     lang_keyboard="us,fr"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2494,10 +2504,12 @@ menuentry "Français" --id fr_FR {
 }
 menuentry "Bahasa Indonesia" --id id_ID {
     lang="id_ID"
+    lang_selected=1
     lang_utf="id_ID.UTF-8"
     lang_timezone="Asia/Jakarta"
     lang_keyboard="id"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2505,10 +2517,12 @@ menuentry "Bahasa Indonesia" --id id_ID {
 }
 menuentry "Italiano" --id it_IT {
     lang="it_IT"
+    lang_selected=1
     lang_utf="it_IT.UTF-8"
     lang_timezone="Europe/Rome"
     lang_keyboard="us,it"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2516,10 +2530,12 @@ menuentry "Italiano" --id it_IT {
 }
 menuentry "Português (Brasil)" --id pt_BR {
     lang="pt_BR"
+    lang_selected=1
     lang_utf="pt_BR.UTF-8"
     lang_timezone="America/Sao_Paulo"
     lang_keyboard="us,br"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2527,10 +2543,12 @@ menuentry "Português (Brasil)" --id pt_BR {
 }
 menuentry "Português (Portugal)" --id pt_PT {
     lang="pt_PT"
+    lang_selected=1
     lang_utf="pt_PT.UTF-8"
     lang_timezone="Europe/Lisbon"
     lang_keyboard="us,pt"
     export lang
+    export lang_selected
     export lang_utf
     export lang_timezone
     export lang_keyboard
@@ -2603,6 +2621,10 @@ set localedir=\$prefix/locale
 
 # Build extra boot parameters (timezone and keyboard) only if set
 set extra_params=""
+set locale_param=""
+if [ "\$lang_selected" = "1" ]; then
+    set locale_param="locales=\$lang_utf"
+fi
 if [ -n "\$lang_timezone" ]; then
     set extra_params="timezone=\$lang_timezone"
 fi
@@ -2692,35 +2714,35 @@ menuentry "\$resume" --class resume {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume locales=\$lang_utf \$extra_params
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=resume \$locale_param \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$newsession" --class new {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=setup locales=\$lang_utf \$extra_params
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=setup \$locale_param \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$choosesession" --class switch {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask locales=\$lang_utf \$extra_params
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} perchdir=ask \$locale_param \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$freshstart" --class live {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} locales=\$lang_utf \$extra_params
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} \$locale_param \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 menuentry "\$copyram" --class ram {
     echo \$loading
     search --set -f /${LIVEKITNAME}/boot/${VMLINUZNAME}
     set gfxpayload=\$gfxpayload
-    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram locales=\$lang_utf \$extra_params
+    linux /${LIVEKITNAME}/boot/${VMLINUZNAME} ${DEFAULT_SETTINGS} ${BOOT_SETTINGS} toram \$locale_param \$extra_params
     initrd /${LIVEKITNAME}/boot/${INITRFSNAME}
 }
 

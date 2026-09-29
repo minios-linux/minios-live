@@ -68,7 +68,7 @@ contains() {
     contains "$lib" 'run/initramfs/var/log/initrd.log'
     contains "$lib" 'wait "$BOOT_CONSOLE_MIRROR_PID"'
     contains "$boot" 'executed there in a chroot before switch_root'
-    contains "$boot" 'tee <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &'
+    contains "$boot" 'tee -a <"$LOG_PIPE" /var/log/minios/minios-boot.log 2>/dev/null &'
     contains "$boot" 'cat <"$LOG_PIPE" 2>/dev/null &'
     contains "$boot" 'rm -f "$LOG_PIPE"'
     contains "$boot" 'minios-boot failed with status $STATUS'
@@ -196,8 +196,8 @@ contains() {
     lib="$ROOT/livekit-mos/lib/livekitlib"
     source "$lib"
 
-    [ "$(fs_options ext4 ro)" = '-t ext4 -o ro' ]
-    [ "$(fs_options ext4)" = '-t ext4 -o rw' ]
+    [ "$(fs_options ext4 ro)" = '-t ext4 -o ro,noatime' ]
+    [ "$(fs_options ext4)" = '-t ext4 -o rw,noatime' ]
 
     body=$(awk '/^find_data_try\(\)/,/^}/' "$lib")
     [[ "$body" == *'OPTIONS="$(fs_options "$FS" ro)"'* ]]
@@ -221,7 +221,7 @@ contains() {
 
     contains "$log" 'mount -o remount,rw'
     contains "$log" "umount $WORK/data"
-    contains "$log" "mount /dev/test $WORK/data -t ext4 -o rw"
+    contains "$log" "mount /dev/test $WORK/data -t ext4 -o rw,noatime"
 }
 
 @test "read-only selected data source is restored if writable mounting is impossible" {
@@ -240,7 +240,7 @@ contains() {
     run data_mount_make_writable /dev/test "$WORK/data" ext4
 
     [ "$status" -ne 0 ]
-    contains "$log" "mount /dev/test $WORK/data -t ext4 -o rw"
+    contains "$log" "mount /dev/test $WORK/data -t ext4 -o rw,noatime"
     contains "$log" "mount /dev/test $WORK/data -t ext4 -o ro"
 }
 
@@ -365,12 +365,14 @@ contains() {
         contains "$builder" 'dm-crypt support'
     done
     contains "$ROOT/livekit-mos/mkinitrfs" minios-initramfs-crypt
+    contains "$ROOT/livekit-mos/mkinitrfs" 'perch-storage-v1'
     ! contains "$ROOT/livekit-mos/mkinitrfs" 'bin/jq'
     contains "$ROOT/livekit-mos/mkinitrfs" 'bin/unsquashfs'
     module="$ROOT/dracut-mos/90minios/module-setup.sh"
     contains "$module" install_bundled_crypt
     contains "$module" 'inst_multiple cryptsetup'
     contains "$module" minios-initramfs-crypt
+    contains "$module" 'perch-storage-v1'
     ! contains "$module" 'inst_simple "$STATIC_BIN/jq" "/bin/jq"'
     contains "$module" 'inst_simple "$STATIC_BIN/unsquashfs" "/bin/unsquashfs"'
     [ -x "$ROOT/livekit-mos/usr/sbin/cryptsetup" ]

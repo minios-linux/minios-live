@@ -120,9 +120,15 @@ if ! shopt -oq posix; then
 fi
 
 # Function to update and get packages using apt-get
+apt_lists_fresh() {
+    [ -n "$(find /var/lib/apt/lists -maxdepth 1 -type f \
+        \( -name '*InRelease' -o -name '*Release' \) \
+        -mmin -1440 -print -quit 2>/dev/null)" ]
+}
 apt-get() {
-    # Check if package cache is older than 24 hours
-    if [ ! -e /var/cache/apt/pkgcache.bin ] || (($(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin) >= 24 * 60 * 60)); then
+    # pkgcache.bin is optional on modern APT and may be kept in RAM. Use the
+    # repository indexes rather than repeating apt update on every command.
+    if ! apt_lists_fresh; then
         # Update package list
         /usr/bin/apt-get update
     fi
@@ -133,7 +139,7 @@ apt-get() {
 # Function to update and get packages using apt
 apt() {
     # Check if package cache is older than 24 hours
-    if [ ! -e /var/cache/apt/pkgcache.bin ] || (($(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin) >= 24 * 60 * 60)); then
+    if ! apt_lists_fresh; then
         # Update package list
         /usr/bin/apt update
     fi
@@ -150,7 +156,7 @@ check_package_cache() {
     # Check if package cache has been checked
     if [ "$PACKAGE_CACHE_CHECKED" != "true" ]; then
         # Check if package cache is older than 24 hours
-        if [ ! -e /var/cache/apt/pkgcache.bin ] || (($(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin) >= 24 * 60 * 60)); then
+        if ! apt_lists_fresh; then
             local CMD_UPDATE
             # Check if user is root
             if [ "$(id -u)" != "0" ]; then

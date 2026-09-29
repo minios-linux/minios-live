@@ -60,6 +60,7 @@ install() {
     inst_simple "$STATIC_BIN/dynfilefs" "/bin/dynfilefs"
     ln -sf dynfilefs "${initdir}/bin/@mount.dynfilefs"
     inst_simple "$STATIC_BIN/minios-boot" "/bin/minios-boot"
+    printf '%s\n' 'perch-storage-v1' >"${initdir}/etc/minios-initramfs-storage"
 
     if [ "$MINIOS_CRYPT" = "true" ]; then
         install_bundled_crypt "${STATIC_BIN%/bin}" ||

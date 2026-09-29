@@ -249,7 +249,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     perch_state_commit "$WORK/union"
     assert_log "truncate -s 64M $TEST_DATA/changes/1/changes.img"
-    assert_log "mount -o loop,errors=remount-ro $TEST_DATA/changes/1/changes.img $TEST_CHANGES"
+    assert_log "mount -o loop,noatime,errors=remount-ro $TEST_DATA/changes/1/changes.img $TEST_CHANGES"
     ! grep -Fq '@mount.dynfilefs' "$LOG"
 }
 
@@ -260,7 +260,7 @@ EOF
 
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
     assert_log "mke2fs -t ext4 -F -E nodiscard /dev/dynblk7"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
     ! grep -Fq 'mount -o loop' "$LOG"
     grep -Fqx 'session_mode[1]=dynblk' "$TEST_CHANDIR/session.conf"
     grep -Fqx 'dynblk_device=/dev/dynblk7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
@@ -339,7 +339,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression zstd --format dynblk --execute"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
 @test "dynblk unavailable explicit compression fails before create" {
@@ -368,7 +368,7 @@ EOF
 
     # 3072 MiB available minus the 256 MiB default reserve.
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 2816MiB --compression none --format dynblk --execute"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
 @test "dynblk automatic sizing below the free-space reserve falls back to memory" {
@@ -392,7 +392,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 16384MiB --compression none --format dynblk --execute"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
 @test "dynblk create delegates the mapping budget on 1GiB-class RAM" {
@@ -402,7 +402,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --format dynblk --execute"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
 @test "dynblk preserves explicit thin capacity without a shell map-budget warning" {
@@ -413,7 +413,7 @@ EOF
     perch_state_commit "$WORK/union"
 
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 32768MiB --compression none --format dynblk --execute"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
     grep -Fqx 'boot_level=ok' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     [ ! -s "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
 }
@@ -427,7 +427,7 @@ EOF
 
     assert_log "dynblk load $TEST_CHANDIR/1/volume000.db --format dynblk --execute"
     assert_log "e2fsck -p /dev/dynblk7"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
     ! grep -Eq '^dynblk (create|grow) ' "$LOG"
     ! grep -Fq 'resize2fs ' "$LOG"
 }
@@ -442,7 +442,7 @@ EOF
     assert_log "e2fsck -p /dev/dynblk7"
     assert_log "dynblk grow /dev/dynblk7 96MiB --execute"
     assert_log "resize2fs -f /dev/dynblk7"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
 }
 
 @test "dynblk activation failure continues in memory and is published as failed" {
@@ -451,7 +451,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
     ! grep -Fq 'mke2fs ' "$LOG"
-    ! grep -Fq 'mount -o errors=remount-ro /dev/dynblk7' "$LOG"
+    ! grep -Fq 'mount -o noatime,errors=remount-ro /dev/dynblk7' "$LOG"
     [ ! -f "$TEST_CHANDIR/session.conf" ] || ! grep -q '^default=' "$TEST_CHANDIR/session.conf"
     grep -Fqx 'boot_level=failed' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
 }
@@ -711,7 +711,7 @@ EOF
         persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
 
         assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
-        assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+        assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
         grep -Fqx 'session_mode[1]=dynblk' "$TEST_CHANDIR/session.conf"
         ! grep -Fq '@mount.dynfilefs ' "$LOG"
         [ ! -e "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings" ]
@@ -995,14 +995,19 @@ EOF
     cmp "$source_inventory" "$runtime_inventory"
 }
 
-@test "classic AUFS keeps module whiteout devices untouched" {
+@test "classic AUFS normalizes module whiteout devices too" {
     # shellcheck source=/dev/null
     . "$LIB"
     get_union_fs() { printf '%s\n' aufs; }
     aufs_ng_is_loaded() { return 1; }
-    find() { return 1; }
+    find() { printf '%s\n' /union/deleted; }
+    stat() { printf '0:0\n'; }
+    rm() {
+        case "$*" in *'/union/deleted') printf '%s\n' "$*" >"$WORK/removed" ;; esac
+    }
 
     normalize_module_whiteouts /union
+    grep -Fq /union/deleted "$WORK/removed"
 }
 
 @test "OverlayFS runtime keeps native module whiteouts untouched" {
@@ -1075,7 +1080,7 @@ EOF
     [ "$(grep -Fc 'cryptsetup open --type luks --key-file - /dev/loop8 minios-perch-1' "$LOG")" -eq 3 ]
     assert_log 'losetup --detach /dev/loop8'
     assert_log 'fatal:Incorrect password for encrypted persistence session #1'
-    ! grep -Fq 'mount -o loop,errors=remount-ro' "$LOG"
+    ! grep -Fq 'mount -o loop,noatime,errors=remount-ro' "$LOG"
     ! grep -Fq '@mount.dynfilefs' "$LOG"
     ! grep -Fq wrong- "$LOG"
 }
@@ -1099,7 +1104,7 @@ EOF
     assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 8000"
     assert_log "losetup --find --show -- $TEST_CHANGES/virtual.dat"
     assert_log 'cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/loop9'
-    assert_log "mount -o errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
     grep -Fqx 'session_mode[1]=dynfilefs' "$TEST_CHANDIR/session.conf"
     grep -Fqx 'session_encryption[1]=luks' "$TEST_CHANDIR/session.conf"
     grep -Fqx 'loop_device=/dev/loop9' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
@@ -1132,7 +1137,7 @@ EOF
     assert_log "dynblk create $TEST_CHANDIR/1/volume000.db --size 64MiB --compression none --format dynblk --execute"
     assert_log 'cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/dynblk7'
     assert_log 'mke2fs -t ext4 -F -E nodiscard /dev/mapper/minios-perch-1'
-    assert_log "mount -o errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/mapper/minios-perch-1 $TEST_CHANGES"
     ! grep -Fq 'losetup ' "$LOG"
     grep -Fqx 'dynblk_device=/dev/dynblk7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'loop_device=none' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
@@ -2264,7 +2269,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     # The session IS published (activation continued despite resize2fs failure).
     grep -Fqx 'default=1' "$TEST_CHANDIR/session.conf"
-    assert_log "mount -o loop,errors=remount-ro $TEST_CHANDIR/1/changes.img $TEST_CHANGES"
+    assert_log "mount -o loop,noatime,errors=remount-ro $TEST_CHANDIR/1/changes.img $TEST_CHANGES"
     # A warning is recorded for the resize failure.
     grep -Fq 'resize' "$MINIOS_PERSISTENCE_RUNDIR/boot-warnings"
 }
@@ -2323,7 +2328,7 @@ EOF
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
     perch_state_commit "$WORK/union"
     assert_log "dynblk create $TEST_CHANDIR/1/volume.vmdk --size 64MiB --compression none --format vmdk --execute"
-    assert_log "mount -o errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
+    assert_log "mount -o noatime,errors=remount-ro /dev/dynblk7 $TEST_CHANGES"
     grep -Fqx 'session_mode[1]=vmdk' "$TEST_CHANDIR/session.conf"
     grep -Fqx 'mode=vmdk' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"
     grep -Fqx 'dynblk_device=/dev/dynblk7' "$MINIOS_PERSISTENCE_RUNDIR/boot-state"

@@ -39,7 +39,7 @@ if ([ "$PACKAGE_VARIANT" = "toolbox" ] || [ "$PACKAGE_VARIANT" = "ultra" ]) && [
     chmod 0644 /usr/share/keyrings/vscodium.asc
 
     cat >/etc/apt/sources.list.d/vscodium.list <<'EOF'
-deb [arch=amd64 signed-by=/usr/share/keyrings/vscodium.asc] https://download.vscodium.com/debs vscodium main
+deb [arch=amd64 signed-by=/usr/share/keyrings/vscodium.asc] https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/debs vscodium main
 EOF
 
     if [ "$VERBOSITY_LEVEL" -ge 1 ]; then
