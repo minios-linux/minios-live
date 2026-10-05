@@ -132,16 +132,16 @@ fi
 XML_XSETTINGS=/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 XML_XFWM4=/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 
-# Set FontName to "Inter 10"
+# Set FontName to "Inter 9"
 xmlstarlet ed -L \
     -u "//property[@name='FontName']/@type" -v "string" \
-    -i "//property[@name='FontName']" -t attr -n "value" -v "Inter 10" \
+    -i "//property[@name='FontName']" -t attr -n "value" -v "Inter 9" \
     "$XML_XSETTINGS"
 
-# Set MonospaceFontName to "JetBrains Mono 10"
+# Set MonospaceFontName to "JetBrains Mono 9"
 xmlstarlet ed -L \
     -u "//property[@name='MonospaceFontName']/@type" -v "string" \
-    -i "//property[@name='MonospaceFontName']" -t attr -n "value" -v "JetBrains Mono 10" \
+    -i "//property[@name='MonospaceFontName']" -t attr -n "value" -v "JetBrains Mono 9" \
     "$XML_XSETTINGS"
 
 # Enable antialiasing
@@ -155,9 +155,9 @@ xmlstarlet ed -L \
     -u "//property[@name='HintStyle']/@value" -v "hintfull" \
     "$XML_XSETTINGS"
 
-# Replace "Sans Bold 10" with "Inter Bold 10" in xfwm4.xml
+# Replace "Sans Bold 10" with "Inter Bold 9" in xfwm4.xml
 xmlstarlet ed -L \
-    -u "//property[contains(@value,'Sans Bold 10')]/@value" -v "Inter Bold 10" \
+    -u "//property[contains(@value,'Sans Bold 10')]/@value" -v "Inter Bold 9" \
     "$XML_XFWM4"
 
 if pkg_is_installed "xfce4-terminal"; then
@@ -726,11 +726,11 @@ write_xfce4_desktop_xml_legacy() {
 if [ "$PACKAGE_VARIANT" = "ultra" ]; then
     xmlstarlet ed -L \
         -u "//property[@name='ThemeName']/@value" \
-        -v "Greybird-dark" \
+        -v "Greybird-MiniOS-dark" \
         /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
     xmlstarlet ed -L \
         -u "//property[@name='theme']/@value" \
-        -v "Greybird-dark" \
+        -v "Greybird-MiniOS-dark" \
         /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 fi
 
