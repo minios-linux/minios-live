@@ -1,0 +1,70 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test save_ram_container {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "test -f /usr/lib/minios-tools/minios_ram_save.py && test -f /usr/lib/minios-session-manager/minios_ram_store.py && printf 'WRITEBACK %s SUCCESS\\n' PACKAGES || printf 'WRITEBACK %s FAILED\\n' PACKAGES"
+        press Enter
+        wait "WRITEBACK PACKAGES SUCCESS" || "WRITEBACK PACKAGES FAILED" timeout 2m
+        if (check "WRITEBACK PACKAGES FAILED") { abort "Writeback helpers missing from image"; }
+        type "sudo minios-session status --json | python3 -c 'import json,sys; s=json.load(sys.stdin); assert s[\"ram_save\"][\"save_available\"]; print(\"WRITEBACK\",\"READY SUCCESS\")'"
+        press Enter
+        wait "WRITEBACK READY SUCCESS" timeout 30s
+        type "sudo sh -c 'echo 1 > /sys/class/block/sda/device/delete' && sudo minios-session status --json | python3 -c 'import json,sys; s=json.load(sys.stdin); assert s[\"ram_save\"][\"state\"]==\"missing\"; print(\"WRITEBACK\",\"MISSING SUCCESS\")'"
+        press Enter
+        wait "WRITEBACK MISSING SUCCESS" timeout 30s
+        type "sudo sh -c 'for host in /sys/class/scsi_host/host*; do echo \"- - -\" > $host/scan; done'"
+        press Enter
+        sleep 3s
+        type "sudo minios-session status --json | python3 -c 'import json,sys; s=json.load(sys.stdin); assert s[\"ram_save\"][\"save_available\"]; print(\"WRITEBACK\",\"RECONNECTED SUCCESS\")'"
+        press Enter
+        wait "WRITEBACK RECONNECTED SUCCESS" timeout 30s
+        type "sudo sh -c 'echo first > /etc/ram-writeback; minios-session save 1 --json --progress > /run/save-first.log 2>&1' && printf 'WRITEBACK %s SUCCESS\\n' FIRST || { sudo cat /run/save-first.log; printf 'WRITEBACK %s FAILED\\n' FIRST; }"
+        press Enter
+        wait "WRITEBACK FIRST SUCCESS" || "WRITEBACK FIRST FAILED" timeout 3m
+        if (check "WRITEBACK FIRST FAILED") { abort "First RAM save failed"; }
+        type "sudo sh -c 'echo second > /etc/ram-writeback; minios-session save 1 --json --progress > /run/save-second.log 2>&1' && printf 'WRITEBACK %s SUCCESS\\n' SECOND || { sudo cat /run/save-second.log; printf 'WRITEBACK %s FAILED\\n' SECOND; }"
+        press Enter
+        wait "WRITEBACK SECOND SUCCESS" || "WRITEBACK SECOND FAILED" timeout 3m
+        if (check "WRITEBACK SECOND FAILED") { abort "Repeated RAM save failed"; }
+        type "sudo sh -c 'echo unsaved > /etc/not-saved-after-writeback; sync -f /etc/not-saved-after-writeback' && sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test boot_saved_container: save_ram_container {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "sudo sh -c 'grep -qx second /etc/ram-writeback && test ! -e /etc/not-saved-after-writeback && grep -qx durable=1 /run/initramfs/minios-persistence/boot-state && test -f /run/initramfs/memory/data/minios/changes/2/changes.img' && printf 'WRITEBACK %s SUCCESS\\n' REBOOT"
+        press Enter
+        wait "WRITEBACK REBOOT SUCCESS" timeout 30s
+    }
+}

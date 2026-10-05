@@ -1,0 +1,52 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test ram_session {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs ${SYSTEM} perchtoram=${MODE}"
+        press Enter
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; grep -qx boot_level=ok $S/boot-state && if test ${MODE} = off; then grep -qx durable=1 $S/boot-state && test ! -f $S/ram-origin; else grep -qx durable=0 $S/boot-state && test -f $S/ram-origin; fi && test -f /etc/perchtoram-session && test -f /run/initramfs/memory/data/minios/changes/1/changes.img' && printf 'PERCH %s SUCCESS\\n' RAM"
+        press Enter
+        wait "PERCH RAM SUCCESS" timeout 30s
+        type "sudo sh -c 'D=/run/initramfs/memory/data/minios/changes; if test ${MODE} = trim; then test ! -e $D/2; else test -f $D/2/changes.img; fi' && printf 'PERCH %s SUCCESS\\n' SCOPE"
+        press Enter
+        wait "PERCH SCOPE SUCCESS" timeout 30s
+    }
+}
+
+test native_replacement {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram"
+        press Enter
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; grep -qx boot_level=ok $S/boot-state && grep -qx mode=dynblk $S/boot-state && grep -qx session=3 $S/boot-state && grep -qx durable=0 $S/boot-state && test ! -f /etc/perchtoram-session && test -f $S/ram-origin' && printf 'PERCH %s SUCCESS\\n' NATIVE"
+        press Enter
+        wait "PERCH NATIVE SUCCESS" timeout 30s
+        type "sudo sh -c 'mkdir -p /run/origin-check; mount -o ro $(blkid -L persistence) /run/origin-check && test -f /run/origin-check/minios/changes/1/changes/etc/perchtoram-session && test ! -e /run/origin-check/minios/changes/3 && grep -qx default=1 /run/origin-check/minios/changes/session.conf && umount /run/origin-check' && printf 'PERCH %s SUCCESS\\n' ORIGINAL"
+        press Enter
+        wait "PERCH ORIGINAL SUCCESS" timeout 30s
+    }
+}

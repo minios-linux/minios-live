@@ -1,0 +1,35 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test remaster {
+    minios {
+        start
+        wait "Start without saving" timeout 30s
+        press Down
+        press Down
+        press Down
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "python3 -c 'import sys; sys.path.insert(0,\"/usr/lib/minios-image-builder\"); import image_project as p; s=p.discover_running_source(); m=next(m for m in s.modules if m.basename==\"05-firefox-amd64.sb\"); assert m.active and m.source_category==\"runtime-replacement\"; print(\"REMASTER\",\"SOURCE SUCCESS\")'"
+        press Enter
+        wait "REMASTER SOURCE SUCCESS" timeout 30s
+        type "sudo mount -o remount,rw /run/initramfs/memory/perch && sudo minios-image-compose --source /run/initramfs/memory/data/minios --config /etc/live/config.conf --name /run/initramfs/memory/perch/rebuilt.iso --default-boot fresh > /tmp/remaster.log 2>&1 && printf 'REMASTER %s SUCCESS\\n' ISO"
+        press Enter
+        wait "REMASTER ISO SUCCESS" timeout 5m
+        type "sudo xorriso -osirrox on -indev /run/initramfs/memory/perch/rebuilt.iso -extract /minios/05-firefox-amd64.sb /tmp/rebuilt.sb > /tmp/extract.log 2>&1 && cmp /tmp/rebuilt.sb /run/initramfs/memory/perch/minios/05-firefox-amd64.sb && printf 'REMASTER %s SUCCESS\\n' VERIFIED"
+        press Enter
+        wait "REMASTER VERIFIED SUCCESS" timeout 30s
+        type "sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}

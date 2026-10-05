@@ -1,0 +1,26 @@
+machine minios {
+    cpus: 2
+    ram: 1Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test ram_copy_fallback {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs perchtoram=${MODE}"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; grep -qx boot_level=ok $S/boot-state && grep -qx mode=raw $S/boot-state && grep -qx durable=1 $S/boot-state && test ! -e $S/ram-origin && test ! -e /run/initramfs/memory/perch-ram && grep -q \"Cannot copy session\" $S/boot-warnings && test -f /etc/perchtoram-session && echo writable > /etc/fallback-write && sync -f /etc/fallback-write' && printf 'FALLBACK %s SUCCESS\\n' DISK"
+        press Enter
+        wait "FALLBACK DISK SUCCESS" timeout 30s
+    }
+}

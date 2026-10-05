@@ -1,0 +1,55 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test save_ram_tray: show_ram_tray {
+    minios {
+        mouse move 990 775
+        wait "Session #1 is running in RAM" timeout 30s
+        wait "Original storage is connected" timeout 30s
+        screenshot "${SHARE}/tray-tooltip.png"
+        mouse rclick 990 775
+        mouse move 0 0
+        wait "Save Now" timeout 10s
+        mouse click "Save Now"
+        wait "Authentication" || "Session saved" || "Saving Session" timeout 30s
+        if (check "Authentication") {
+            type "evil"
+            press Enter
+        }
+        mouse move 990 775
+        wait "Last saved" timeout 3m
+        screenshot "${SHARE}/tray-saved.png"
+        press LeftCtrl+LeftAlt+F2
+        wait "login:" timeout 30s
+        type "live"
+        press Enter
+        wait "Password:" timeout 30s
+        type "evil"
+        press Enter
+        wait "live@" timeout 30s
+        type "sudo python3 -c 'import json; assert json.load(open(\"/run/initramfs/minios-persistence/ram-save-operation.json\"))[\"status\"] == \"done\"; print(\"TRAY\",\"SAVE SUCCESS\")'"
+        press Enter
+        wait "TRAY SAVE SUCCESS" timeout 30s
+    }
+}
+
+test show_ram_tray {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        wait "Dismiss" timeout 30s
+        mouse click "Dismiss"
+        mouse move 1240 780
+        sleep 3s
+        screenshot "${SHARE}/tray-initial.png"
+    }
+}

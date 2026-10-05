@@ -1,0 +1,58 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    loader: "/usr/share/ovmf/OVMF.fd"
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test save_ram_uefi {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press c
+        wait "grub>" timeout 10s
+        type "search --set=root -f /minios/boot/vmlinuz-6.12.111+deb13-amd64"
+        press Enter
+        type "linux /minios/boot/vmlinuz-6.12.111+deb13-amd64 boot=live perchdir=1 union=overlayfs toram perchtoram=trim quiet"
+        press Enter
+        type "initrd /minios/boot/initrfs-6.12.111+deb13-amd64.img"
+        press Enter
+        type "boot"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'test -d /sys/firmware/efi && grep -qx durable=0 /run/initramfs/minios-persistence/boot-state && echo uefi-saved > /etc/writeback-uefi && minios-session save 1 --json > /run/uefi-save.log 2>&1' && printf 'UEFI %s SUCCESS\\n' SAVE || { sudo cat /run/uefi-save.log; printf 'UEFI %s FAILED\\n' SAVE; }" interval 100ms
+        press Enter
+        wait "UEFI SAVE SUCCESS" || "UEFI SAVE FAILED" timeout 3m
+        if (check "UEFI SAVE FAILED") { abort "UEFI RAM writeback failed"; }
+        type "sudo sh -c 'echo unsaved > /etc/uefi-unsaved' && sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test boot_saved_uefi: save_ram_uefi {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press c
+        wait "grub>" timeout 10s
+        type "search --set=root -f /minios/boot/vmlinuz-6.12.111+deb13-amd64"
+        press Enter
+        type "linux /minios/boot/vmlinuz-6.12.111+deb13-amd64 boot=live perchdir=1 union=overlayfs quiet"
+        press Enter
+        type "initrd /minios/boot/initrfs-6.12.111+deb13-amd64.img"
+        press Enter
+        type "boot"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "test -d /sys/firmware/efi && grep -qx uefi-saved /etc/writeback-uefi && test ! -e /etc/uefi-unsaved && printf 'UEFI %s SUCCESS\\n' REBOOT"
+        press Enter
+        wait "UEFI REBOOT SUCCESS" timeout 30s
+    }
+}

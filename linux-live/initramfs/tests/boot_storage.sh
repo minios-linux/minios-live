@@ -82,7 +82,18 @@ grep -Fq 'APT RAM cache skipped: non-zRAM swap is active' "$MINIOS_BOOT_LOG_FILE
 grep -Fq 'Browser RAM cache skipped: non-zRAM swap is active' "$MINIOS_BOOT_LOG_FILE"
 [ ! -e "$MINIOS_BROWSER_POLICY_FILE" ]
 
-# A requested policy must not apply if persistence was not durable.
+# A RAM session keeps its policies without claiming durable storage.
+CMDLINE='log-storage=volatile apt-cache=volatile browser-cache=volatile'
+printf 'boot_level=ok\ndurable=0\nwritable=1\n' >"$MINIOS_BOOT_STATE"
+load_storage_policy
+[ "$LIVE_APT_CACHE" = persistent ]
+printf 'mode=trim\n' >"$WORK/ram-origin"
+load_storage_policy
+[ "$LIVE_LOG_STORAGE" = volatile ]
+[ "$LIVE_APT_CACHE" = volatile ]
+[ "$LIVE_BROWSER_CACHE" = volatile ]
+
+# A failed activation must not apply policies, even with a RAM-origin record.
 printf 'boot_level=failed\ndurable=0\n' >"$MINIOS_BOOT_STATE"
 load_storage_policy
 [ "$LIVE_LOG_STORAGE" = persistent ]

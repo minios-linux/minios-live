@@ -1,0 +1,22 @@
+machine minios {
+    cpus: 2
+    ram: 2Gb
+    iso: { source: "${ISO}" }
+    disk blank: { size: 1Gb }
+    video main: { adapter_type: "qxl" }
+}
+
+test remastered_iso_boot {
+    minios {
+        start
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "test -f /etc/minios-external-module && test ! -b /dev/sda1 && test ! -e /run/initramfs/memory/perch/minios/05-firefox-amd64.sb && printf 'REMASTER %s SUCCESS\\n' BOOT"
+        press Enter
+        wait "REMASTER BOOT SUCCESS" timeout 30s
+    }
+}

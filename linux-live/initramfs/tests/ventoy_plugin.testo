@@ -1,0 +1,31 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    loader: "/usr/share/ovmf/OVMF.fd"
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test plugin_ram_session {
+    minios {
+        start
+        wait "MiniOS.iso" timeout 30s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; grep -qx boot_level=ok $S/boot-state && grep -qx durable=0 $S/boot-state && grep -qx uuid=${STORE_UUID} $S/ram-origin && test -f /etc/perchtoram-session && test -f /etc/minios-external-module && test ! -e /run/initramfs/memory/data/minios/changes/2 && ! mountpoint -q /run/initramfs/memory/perch' && printf 'PLUGIN %s SUCCESS\\n' RAM"
+        press Enter
+        wait "PLUGIN RAM SUCCESS" timeout 30s
+        type "sudo sh -c 'echo 1 > /sys/class/block/sda/device/delete && test ! -e /sys/class/block/sda && touch /root/plugin-detached && sync -f /root/plugin-detached' && printf 'PLUGIN %s SUCCESS\\n' DETACHED"
+        press Enter
+        wait "PLUGIN DETACHED SUCCESS" timeout 30s
+    }
+}

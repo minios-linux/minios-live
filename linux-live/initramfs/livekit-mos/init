@@ -45,14 +45,16 @@ init_blkid_cache
 # find data dir with filesystem bundles
 DATA="$(find_data 45 "$DATAMNT")"
 check_data_found "$DATA"
+find_perch_data "$DATA"
 debug_shell
 
 # copy to RAM if needed
-DATA="$(copy_to_ram "$DATA" "$CHANGES")"
+DATA="$(copy_to_ram "$DATA" "$CHANGES")" || fatal "Cannot copy system data to RAM"
 debug_shell
 
 # setup persistent changes, if possible
 persistent_changes "$DATA" "$CHANGES"
+[ -n "$(toram_mode)" ] || find_perch_data "$DATA"
 debug_shell
 
 # setup running kernel files
@@ -60,7 +62,8 @@ setup_running_kernel "$DATA"
 debug_shell
 
 # mount bundles
-mount_bundles "$DATA" "$BUNDLES"
+bind_perch_bundles "$DATA" || fatal "Cannot prepare external bundles"
+mount_bundles "$DATA" "$BUNDLES" || fatal "Cannot mount system bundles"
 debug_shell
 
 # init aufs union, or setup overlayfs union

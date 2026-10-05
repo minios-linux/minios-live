@@ -1,0 +1,109 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test create_disk_session {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs perchdir=new perchmode=${BACKEND} perchsize=256 perchencrypt=${ENCRYPTION}"
+        press Enter
+        wait "Create encryption password" || "Standard" timeout 5m
+        if (check "Create encryption password") {
+            type "perchtoram-test-password"
+            press Enter
+            wait "Confirm encryption password" timeout 30s
+            type "perchtoram-test-password"
+            press Enter
+        }
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "(test ${BACKEND} != squashfs || sudo minios-session settings 1 --shutdown off --autosave 0 --json) && printf 'BACKEND %s SUCCESS\\n' MANUAL"
+        press Enter
+        wait "BACKEND MANUAL SUCCESS" timeout 30s
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence/boot-state; grep -qx boot_level=ok $S && grep -qx mode=${BACKEND} $S && grep -qx encryption=${ENCRYPTION} $S && grep -qx durable=1 $S && echo persisted > /etc/perchtoram-backend && sync -f /etc/perchtoram-backend && if test ${BACKEND} = squashfs; then minios-session save 1 --json > /tmp/session-save.json; fi' && printf 'BACKEND %s SUCCESS\\n' CREATED"
+        press Enter
+        wait "BACKEND CREATED SUCCESS" timeout 2m
+        type "sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test resume_ram_session: create_disk_session {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Unlock encrypted" || "Standard" timeout 5m
+        if (check "Unlock encrypted") {
+            type "perchtoram-test-password"
+            press Enter
+        }
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        press LeftCtrl+LeftShift+Equalsign
+        press LeftCtrl+LeftShift+Equalsign
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence/boot-state; grep -qx boot_level=ok $S && grep -qx mode=${BACKEND} $S && grep -qx encryption=${ENCRYPTION} $S && grep -qx durable=0 $S && grep -qx persisted /etc/perchtoram-backend && test -f /run/initramfs/minios-persistence/ram-origin && test $(findmnt -n -T /run/initramfs/memory/data/minios/changes -o FSTYPE) = tmpfs' && printf 'BACKEND %s SUCCESS\\n' RESTORED || { sudo cat /run/initramfs/minios-persistence/boot-state; printf 'BACKEND %s FAILED\\n' RESTORED; }"
+        press Enter
+        wait "BACKEND RESTORED SUCCESS" || "BACKEND RESTORED FAILED" timeout 30s
+        if (check "BACKEND RESTORED FAILED") { abort "RAM backend activation failed"; }
+        type "sudo minios-session status --json | python3 -c 'import json,sys; s=json.load(sys.stdin); assert s[\"ram_backed\"] and s[\"writable\"]; print(\"RAM\",\"STATUS SUCCESS\")'" interval 100ms
+        press Enter
+        wait "RAM STATUS SUCCESS" timeout 30s
+        type "sudo sh -c 'test -f /sys/class/block/sda/device/delete && echo 1 > /sys/class/block/sda/device/delete && test ! -e /sys/class/block/sda && echo detached > /etc/perchtoram-backend && sync -f /etc/perchtoram-backend && grep -qx detached /etc/perchtoram-backend' && printf 'BACKEND %s SUCCESS\\n' DETACHED"
+        press Enter
+        wait "BACKEND DETACHED SUCCESS" timeout 30s
+        type "sudo sh -c 'for host in /sys/class/scsi_host/host*; do echo \"- - -\" > $host/scan; done'"
+        press Enter
+        sleep 3s
+        type "sudo sh -c 'minios-session save 1 --json --progress > /run/backend-save.log 2>&1' && printf 'BACKEND %s SUCCESS\\n' SAVED || { sudo cat /run/backend-save.log; printf 'BACKEND %s FAILED\\n' SAVED; }"
+        press Enter
+        wait "BACKEND SAVED SUCCESS" || "BACKEND SAVED FAILED" timeout 3m
+        if (check "BACKEND SAVED FAILED") { abort "RAM backend save failed"; }
+        type "sudo sh -c 'echo second > /etc/perchtoram-backend; minios-session save 1 --json --progress > /run/backend-save.log 2>&1' && printf 'BACKEND %s SUCCESS\\n' REPEATED || { sudo cat /run/backend-save.log; printf 'BACKEND %s FAILED\\n' REPEATED; }"
+        press Enter
+        wait "BACKEND REPEATED SUCCESS" || "BACKEND REPEATED FAILED" timeout 3m
+        if (check "BACKEND REPEATED FAILED") { abort "Repeated RAM backend save failed"; }
+        type "sudo sh -c 'echo unsaved > /etc/backend-unsaved; sync -f /etc/backend-unsaved' && sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test resume_saved_backend: resume_ram_session {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs"
+        press Enter
+        wait "Unlock encrypted" || "Standard" timeout 5m
+        if (check "Unlock encrypted") {
+            type "perchtoram-test-password"
+            press Enter
+        }
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'grep -qx second /etc/perchtoram-backend && test ! -e /etc/backend-unsaved && grep -qx durable=1 /run/initramfs/minios-persistence/boot-state' && printf 'BACKEND %s SUCCESS\\n' REBOOT" interval 100ms
+        press Enter
+        wait "BACKEND REBOOT SUCCESS" timeout 30s
+    }
+}

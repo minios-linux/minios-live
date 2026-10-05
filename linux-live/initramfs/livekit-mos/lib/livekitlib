@@ -220,7 +220,7 @@ fatal() {
 # $1 = parameter to search for
 #
 cmdline_value() {
-   cat /proc/cmdline | egrep -o "(^|[[:space:]])$1=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
+   cat "${MINIOS_CMDLINE_FILE:-/proc/cmdline}" | egrep -o "(^|[[:space:]])$1=[^[:space:]]+" | tr -d " " | cut -d "=" -f 2- | tail -n 1
 }
 
 boot_console_mirror_start() {
@@ -1027,7 +1027,11 @@ find_data_try() {
 
    mkdir -p "$1"
 
-   blkid /dev/sd* /dev/hd* /dev/vd* /dev/xvd* /dev/nvme* /dev/mmcblk* /dev/sr* /dev/mapper/* /dev/dm-* /dev/nbd* /dev/md* /dev/rbd* 2>/dev/null | sort | cut -d: -f 1 | while read DRIVE; do
+   (
+      # The Ventoy data partition may contain replacements, not a full system.
+      [ ! -b /dev/mapper/ventoy ] || echo /dev/mapper/ventoy
+      blkid /dev/sd* /dev/hd* /dev/vd* /dev/xvd* /dev/nvme* /dev/mmcblk* /dev/sr* /dev/mapper/* /dev/dm-* /dev/nbd* /dev/md* /dev/rbd* 2>/dev/null | sort | cut -d: -f 1
+   ) | awk '!seen[$0]++' | while read DRIVE; do
       FROM="$2"
 
       # supported syntax is even like from=/dev/sr0/livekitname. It is not so much
@@ -1212,6 +1216,9 @@ check_write_access() {
       MOUNT="$(mount_command $FS)"
 
       refresh_devs
+      if mountpoint -q "${MINIOS_PERCH_ROOT:-/memory/perch}"; then
+         umount "${MINIOS_PERCH_ROOT:-/memory/perch}" || return 1
+      fi
       $MOUNT "$DRIVE" "$CHANDIR" $OPTIONS 2>/dev/null || return 1
       if [ $? -eq 0 ]; then
          # check if changes directory exists and is writable
@@ -1246,11 +1253,12 @@ check_write_access() {
 #
 mount_perch_drive() {
    debug_log "mount_perch_drive" "$*"
-   local TIMEOUT DRIVE FS OPTIONS MOUNT CHANDIR PERCHDIR LABEL
+   local TIMEOUT DRIVE FS OPTIONS MOUNT CHANDIR PERCHDIR LABEL PERCHROOT
 
    DRIVE="$1"
    CHANDIR="$2"
    PERCHDIR="$3"
+   PERCHROOT="${MINIOS_PERCH_ROOT:-/memory/perch}"
 
    case "$PERCHDIR" in
    /dev/disk/by-label/*)
@@ -1278,28 +1286,31 @@ mount_perch_drive() {
    FS="$(device_bestfs "$DRIVE")"
    OPTIONS="$(fs_options $FS)"
    MOUNT="$(mount_command $FS)"
+   mkdir -p "$PERCHROOT" "$CHANDIR" || return 1
+   # Discovery mounted this path read-only before session selection.
+   if mountpoint -q "$PERCHROOT"; then
+      umount "$PERCHROOT" || return 1
+   fi
 
    echo -n "* Waiting for persistent changes on $DRIVE .." >&2
    for TIMEOUT in $(seq 1 20); do
       echo -n "." >&2
       refresh_devs
-      if $MOUNT "$DRIVE" "$CHANDIR" $OPTIONS 2>/dev/null; then
-         # Save the writable partition root path for later use (e.g., loading modules)
-         echo "$CHANDIR" >/run/perch_root
-         if [ -n "$PERCHDIR" ] && [ "$PERCHDIR" != "/" ]; then
-            mkdir -p "$CHANDIR/$PERCHDIR"
-            if $MOUNT --bind "$CHANDIR/$PERCHDIR" "$CHANDIR"; then
-               echo -e "\n" >&2
-               break
-            fi
-         else
+      if $MOUNT "$DRIVE" "$PERCHROOT" $OPTIONS 2>/dev/null; then
+         # Keep the partition root separate from the numbered-session store.
+         echo "$PERCHROOT" >"${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}"
+         [ -n "$PERCHDIR" ] && [ "$PERCHDIR" != / ] || PERCHDIR="$LIVEKITNAME/changes"
+         mkdir -p "$PERCHROOT/$PERCHDIR"
+         if $MOUNT --bind "$PERCHROOT/$PERCHDIR" "$CHANDIR"; then
             echo -e "\n" >&2
-            break
+            echo "$PERCHDIR"
+            return 0
          fi
+         umount "$PERCHROOT" 2>/dev/null
       fi
       sleep 1
    done
-   echo "$PERCHDIR"
+   return 1
 }
 
 # Interactively choose storage, optional encryption and DynBlk compression for
@@ -1384,6 +1395,7 @@ select_new_session_mode() {
 # $6 = automatic resume (true = create a new session when resume has nothing usable)
 # $7 = requested encryption for a newly created session
 # $8 = requested compression for a newly created DynBlk session
+# $9 = original session selector, before resolving the store (optional)
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
@@ -1392,7 +1404,7 @@ restore_perch_session() {
    DRIVE="$1"
    CHANDIR="$2"
    PERCHDIR="$3"
-   REQUESTED_SESSION="$3"
+   REQUESTED_SESSION="${9:-$3}"
    ACTION="$4"
    PERCHMODE="$5"
    AUTO_RESUME="${6:-false}"
@@ -1417,12 +1429,16 @@ restore_perch_session() {
    # Supported syntax allows perchdir=/dev/sda1/changes
    # In this case, perchdir is mounted on $CHANDIR and action is prompted
    if echo "$PERCHDIR" | grep -q '^/dev/'; then
-      PERCHDIR=$(mount_perch_drive "$DRIVE" "$CHANDIR" "$PERCHDIR" 2>/dev/null)
+      PERCHDIR=$(mount_perch_drive "$DRIVE" "$CHANDIR" "$PERCHDIR" 2>/dev/null) || return 1
       if [ "$PERCHDIR" = "resume" ] || [ "$PERCHDIR" = "new" ] || [ "$PERCHDIR" = "setup" ] || [ "$PERCHDIR" = "ask" ]; then
          ACTION="$PERCHDIR"
       fi
    fi
 
+   recover_perch_save "$CHANDIR" || {
+      echo "Cannot recover an interrupted session save" >&2
+      return 1
+   }
    SESSIONS=$(session_metadata_select "$CHANDIR") || {
       echo "Cannot read persistence session metadata" >&2
       return 1
@@ -1765,6 +1781,7 @@ manage_perch_partition() {
          fi
          # Handle existing partitions
          if [ "$LABEL" = "resizeme" ]; then
+            [ "${3:-}" = ro ] && continue
             echo "* Found resizeme partition, resizing..." >&2
             if ! parted --fix -a optimal -s "$DEVICE" resizepart $(lsblk -no partn "$PART" 2>/dev/null) 100% >/dev/null 2>&1; then
                echo "$PERCHDIR"
@@ -1776,7 +1793,7 @@ manage_perch_partition() {
                return
             fi
          fi
-         PERCHPART="$PART"
+         PERCHPART="$PART/$LIVEKITNAME/changes"
          break
       fi
    done
@@ -1792,7 +1809,7 @@ manage_perch_partition() {
                VTOY_PARENT=$(lsblk -no pkname "$VTOY_PERST_DEV" 2>/dev/null | head -n 1)
                if [ -z "$VTOY_PARENT" ]; then
                   debug_log "manage_perch_partition" "Found Ventoy persistence plugin device: $VTOY_PERST_DEV"
-                  PERCHPART="$VTOY_PERST_DEV"
+                  PERCHPART="$VTOY_PERST_DEV/$LIVEKITNAME/changes"
                   break
                fi
             fi
@@ -1838,6 +1855,279 @@ persistence_requested() {
       esac
    done
    return 1
+}
+
+# Recover a directory replacement interrupted before its metadata commit.
+# $1 = numbered-session store
+#
+recover_perch_save() {
+   local CHANDIR="$1" DIR NAME SESSION HAD TARGET OWNER FILE TMP
+   for DIR in "$CHANDIR"/.ram-save-*; do
+      [ -d "$DIR" ] && [ ! -L "$DIR" ] || continue
+      NAME="${DIR##*/}"
+      printf '%s\n' "$NAME" | grep -Eq '^\.ram-save-[A-Za-z0-9_-]+$' || return 1
+      if [ ! -f "$DIR/ready" ]; then
+         if [ -f "$DIR/prepared" ] && [ ! -e "$DIR/old" ]; then
+            [ ! -L "$DIR/session" ] || return 1
+            SESSION=$(cat "$DIR/session") || return 1
+            case "$SESSION" in '' | *[!0-9]*) return 1 ;; esac
+            rm -rf "$DIR" || return 1
+            sync
+         fi
+         continue
+      fi
+      if [ -f "$DIR/committed" ]; then
+         rm -rf "$DIR" || return 1
+         sync
+         continue
+      fi
+      [ ! -L "$DIR/session" ] && [ ! -L "$DIR/had-session" ] || return 1
+      SESSION=$(cat "$DIR/session") || return 1
+      HAD=$(cat "$DIR/had-session") || return 1
+      case "$SESSION" in '' | *[!0-9]*) return 1 ;; esac
+      case "$HAD" in 0 | 1) ;; *) return 1 ;; esac
+      TARGET="$CHANDIR/$SESSION"
+      [ ! -L "$TARGET" ] && [ ! -L "$DIR/old" ] || return 1
+      [ ! -e "$DIR/old" ] || [ -d "$DIR/old" ] || return 1
+      if [ -d "$TARGET" ]; then
+         [ ! -L "$TARGET/.ram-save-owner" ] || return 1
+         OWNER=$(cat "$TARGET/.ram-save-owner" 2>/dev/null) || OWNER=""
+         if [ "$OWNER" = "$NAME" ]; then
+            [ ! -e "$DIR/rejected" ] || return 1
+            mv "$TARGET" "$DIR/rejected" || return 1
+            sync
+         elif [ -d "$DIR/old" ] || [ "$HAD" = 0 ]; then
+            return 1
+         fi
+      elif [ -e "$TARGET" ]; then
+         return 1
+      fi
+      if [ -d "$DIR/old" ]; then
+         mv "$DIR/old" "$TARGET" || return 1
+         sync
+      elif [ "$HAD" = 1 ] && [ ! -d "$TARGET" ]; then
+         return 1
+      fi
+      for NAME in new rejected; do
+         [ ! -L "$DIR/$NAME" ] || return 1
+         [ ! -e "$DIR/$NAME" ] || [ -d "$DIR/$NAME" ] || return 1
+         [ ! -e "$DIR/$NAME" ] || rm -rf "$DIR/$NAME" || return 1
+      done
+      for FILE in session.conf session.json; do
+         [ ! -L "$DIR/$FILE.before" ] || return 1
+         if [ -f "$DIR/$FILE.before" ]; then
+            TMP=$(mktemp "$DIR/.restore.XXXXXX") || return 1
+            cp "$DIR/$FILE.before" "$TMP" || return 1
+            sync
+            mv -f "$TMP" "$CHANDIR/$FILE" || return 1
+         elif [ -f "$DIR/$FILE.absent" ]; then
+            rm -f "$CHANDIR/$FILE" || return 1
+         else
+            return 1
+         fi
+         sync
+      done
+      rm -rf "$DIR" || return 1
+      sync
+      boot_warning_notify warning persistence "Recovered session #$SESSION after an interrupted save."
+   done
+}
+
+# Find external MiniOS data without activating a session.
+# $1 = system data directory
+#
+find_perch_data() {
+   local DATA DRIVE PERCHDIR PERCHROOT FS MOUNT OPTIONS
+   DATA="$1"
+   PERCHROOT="${MINIOS_PERCH_ROOT:-/memory/perch}"
+   mountpoint -q "$PERCHROOT" && return 0
+   DRIVE="$(mounted_device "$DATA")"
+   PERCHDIR="$(cmdline_value perchdir)"
+   if [ -f "${MINIOS_PERCH_STORE_FILE:-/run/perch_store}" ]; then
+      PERCHDIR=$(cat "${MINIOS_PERCH_STORE_FILE:-/run/perch_store}")
+   fi
+   case "$PERCHDIR" in
+   /dev/*) ;;
+   *) PERCHDIR=$(manage_perch_partition "$DRIVE" "" ro) ;;
+   esac
+   if [ -z "$PERCHDIR" ] && persistence_requested; then
+      case "$(device_bestfs "$DRIVE")" in
+      ext2 | ext3 | ext4 | btrfs | xfs | f2fs | vfat | exfat | ntfs3 | ntfs-3g)
+         PERCHDIR="$DRIVE/${DATA#"$(mounted_dir "$DATA")"/}/changes"
+         ;;
+      esac
+   fi
+   case "$PERCHDIR" in
+   /dev/disk/by-label/*)
+      DRIVE=$(blkid -t LABEL="$(printf '%s\n' "$PERCHDIR" | cut -d / -f 5)" -o device -c /dev/null 2>/dev/null)
+      ;;
+   /dev/mapper/*) DRIVE=$(printf '%s\n' "$PERCHDIR" | cut -d / -f 1-4) ;;
+   /dev/*) DRIVE=$(printf '%s\n' "$PERCHDIR" | cut -d / -f 1-3) ;;
+   *) return 0 ;;
+   esac
+   [ -n "$DRIVE" ] || return 0
+   FS="$(device_bestfs "$DRIVE")"
+   MOUNT="$(mount_command "$FS")"
+   OPTIONS="$(fs_options "$FS" ro)"
+   mkdir -p "$PERCHROOT" || return 1
+   if $MOUNT "$DRIVE" "$PERCHROOT" $OPTIONS 2>/dev/null; then
+      echo "$PERCHROOT" >"${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}"
+      echo "$PERCHDIR" >"${MINIOS_PERCH_STORE_FILE:-/run/perch_store}"
+   fi
+   return 0
+}
+
+# Expose replacements at their system paths for image composition tools.
+# $1 = system data directory
+#
+bind_perch_bundles() {
+   local DATA PERCHDATA FILE
+   [ -z "$(toram_mode)" ] || return 0
+   DATA="$1"
+   [ -f "${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}" ] || return 0
+   PERCHDATA="$(cat "${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}")/$LIVEKITNAME"
+   [ -d "$PERCHDATA" ] || return 0
+   find_bundles "$DATA" "$PERCHDATA" | while IFS= read -r FILE; do
+      [ -f "$DATA/$FILE" ] && [ -f "$PERCHDATA/$FILE" ] || continue
+      [ ! "$DATA/$FILE" -ef "$PERCHDATA/$FILE" ] || continue
+      mount --bind "$PERCHDATA/$FILE" "$DATA/$FILE" || exit 1
+   done
+}
+
+# Return the requested system RAM mode, never matching perchtoram.
+#
+toram_mode() {
+   local TOKEN MODE
+   for TOKEN in $(cat "${MINIOS_CMDLINE_FILE:-/proc/cmdline}"); do
+      case "$TOKEN" in
+      toram | toram=full) MODE=full ;;
+      toram=trim) MODE=trim ;;
+      esac
+   done
+   echo "$MODE"
+}
+
+# Persistence copying is independent of system copying.
+#
+perchtoram_mode() {
+   local MODE DEFAULT TOKEN
+   persistence_requested || { echo off; return; }
+   DEFAULT=off
+   [ -z "$(toram_mode)" ] || DEFAULT=trim
+   MODE="$DEFAULT"
+   for TOKEN in $(cat "${MINIOS_CMDLINE_FILE:-/proc/cmdline}"); do
+      case "$TOKEN" in perchtoram=*) MODE="${TOKEN#*=}" ;; esac
+   done
+   case "$MODE" in
+   trim | full | off) ;;
+   *)
+      boot_warning_notify warning persistence "Invalid perchtoram value '$MODE'; using $DEFAULT."
+      MODE="$DEFAULT"
+      ;;
+   esac
+   echo "$MODE"
+}
+
+# Copy unopened session containers and a matching metadata subset.
+# $1 = source store  $2 = RAM directory  $3 = selected session
+# $4 = copying mode  $5 = selected backend
+#
+copy_perch_to_ram() {
+   local CHANDIR RAM SESSION MODE BACKEND DIR ID TYPE LIST CONF SIZE FREE AVAILABLE IDS
+   CHANDIR="$1"
+   RAM="$2"
+   SESSION="$3"
+   MODE="$4"
+   BACKEND="$5"
+   [ ! -e "$RAM" ] || return 1
+   mkdir -m 700 -p "$RAM" || return 1
+   LIST="$RAM.sessions"
+   : >"$LIST" || return 1
+   CONF="$CHANDIR/session.conf"
+   for DIR in "$CHANDIR"/*; do
+      [ -d "$DIR" ] && [ ! -L "$DIR" ] || continue
+      ID="${DIR##*/}"
+      case "$ID" in '' | *[!0-9]*) continue ;; esac
+      [ "$MODE" = full ] || [ "$ID" = "$SESSION" ] || continue
+      TYPE=$(sed -n "s/^session_mode\[$ID\]=//p" "$CONF" 2>/dev/null)
+      [ "$ID" != "$SESSION" ] || TYPE="$BACKEND"
+      case "$TYPE" in raw | dynfilefs | dynblk | vmdk | squashfs) ;; *) continue ;; esac
+      printf '%s\n' "$ID" >>"$LIST" || return 1
+   done
+   # cp may materialize sparse files, so reserve their logical size.
+   SIZE=$(
+      while IFS= read -r ID; do
+         find "$CHANDIR/$ID" -type f -exec ls -ln {} \;
+      done <"$LIST" | awk '{ bytes += $5 } END { printf "%.0f\n", bytes / 1024 + 65536 }'
+   ) || return 1
+   FREE=$(df -Pk "$RAM" | awk 'END { print $4 }')
+   AVAILABLE=$(awk '$1 == "MemAvailable:" { print $2 }' "${MINIOS_PROC_MEMINFO:-/proc/meminfo}")
+   [ "${FREE:-0}" -ge "$SIZE" ] && [ "${AVAILABLE:-0}" -ge "$SIZE" ] || return 1
+   [ "$FREE" -le "$AVAILABLE" ] || FREE="$AVAILABLE"
+   prepare_perch_ram "$RAM" "$((FREE - 65536))" || return 1
+   while IFS= read -r ID; do
+      [ -z "$(find "$CHANDIR/$ID" -type l -print)" ] || return 1
+      cp -a "$CHANDIR/$ID" "$RAM/$ID" || return 1
+   done <"$LIST"
+   IDS=$(tr '\n' ',' <"$LIST")
+   if [ -f "$CONF" ]; then
+      awk -v ids=",$IDS" '
+         /^default=/ || /^running=/ { next }
+         /^session_[A-Za-z_]+\[[0-9]+\]=/ {
+            id = $0; sub(/^[^[]*\[/, "", id); sub(/\].*$/, "", id)
+            if (index(ids, "," id ",") == 0) next
+         }
+         { print }
+      ' "$CONF" >"$RAM/session.conf" || return 1
+   else
+      : >"$RAM/session.conf" || return 1
+   fi
+   [ "$BACKEND" = native ] || printf 'default=%s\n' "$SESSION" >>"$RAM/session.conf"
+   chmod 600 "$RAM/session.conf" || return 1
+   rm -f "$LIST"
+}
+
+# Bound the session store separately from the system RAM copy.
+# $1 = RAM store mountpoint  $2 = size in KiB
+#
+prepare_perch_ram() {
+   local RAM="$1" SIZE="$2"
+   [ "$SIZE" -ge 65536 ] || return 1
+   mount -t tmpfs -o "size=${SIZE}k,mode=0700" tmpfs "$RAM"
+}
+
+remove_perch_ram() {
+   if mountpoint -q "$1"; then
+      umount "$1" || return 1
+   fi
+   rm -rf "$1"
+   rm -f "$1.sessions"
+}
+
+# List relative bundle paths, keeping the system and modules groups in order.
+# $1 = system data directory
+# $2 = external data directory (optional)
+#
+find_bundles() {
+   local DATA PERCHDATA FILE KERNEL
+   DATA="$1"
+   PERCHDATA="$2"
+   KERNEL="$(get_running_kernel)"
+   (
+      { ls -1 "$DATA"; [ ! -d "$PERCHDATA" ] || ls -1 "$PERCHDATA"; } |
+         grep '[.]'$BEXT'$' | sort -u | sort -n
+      {
+         (cd "$DATA" && find modules/ \( -type f -o -type l \) 2>/dev/null)
+         [ ! -d "$PERCHDATA" ] || (cd "$PERCHDATA" && find modules/ \( -type f -o -type l \) 2>/dev/null)
+      } | grep '[.]'$BEXT'$' | sort -u | sortmod
+   ) | filter | while IFS= read -r FILE; do
+      case "${FILE##*/}" in
+      01-kernel-*".$BEXT")
+         [ "${FILE##*/}" = "01-kernel-$KERNEL.$BEXT" ] || continue
+         ;;
+      esac
+      printf '%s\n' "$FILE"
+   done
 }
 
 dynblk_available() {
@@ -2740,6 +3030,7 @@ squashfs_generation_restore() {
 persistent_changes() {
    debug_log "persistent_changes" "$*"
    local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHSIZE_SPECIFIED PERCHCOMP PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE PERCHENCRYPT ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE NEW_SESSION AUTO_RESUME DYNBLK_DEVICE CRYPT_MAPPER LOOP_DEVICE LUKS_PASSWORD LUKS_SECRET LUKS_CONFIRM LUKS_TRACE_WAS_ENABLED LUKS_TTY_OPEN
+   local PERCHTORAM PERCHRAM PERCHSOURCE PERCHDEVICE PERCHNEXT PERCHSELECT PERCHMEDIA PERCHREL PERCHSTAGED=false
 
    DATA="$1"
    CHANGES="$2"
@@ -2751,6 +3042,7 @@ persistent_changes() {
    MINIOS_SQUASHFS_SESSION=""
    rm -f "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
    PERCHDIR="$(cmdline_value perchdir)"
+   PERCHSELECT="$PERCHDIR"
    AUTO_RESUME="false"
    [ "$PERCHDIR" = "resume" ] && AUTO_RESUME="true"
    PERCHMODE="$(cmdline_value perchmode)"
@@ -2772,6 +3064,7 @@ persistent_changes() {
    : "${PERCHSIZE:=0}"
    PERCHCOMP="$(cmdline_value perchcomp)"
    : "${PERCHCOMP:=none}"
+   PERCHTORAM="$(perchtoram_mode)"
 
    # Parse size with units (MB, GB, TB) and convert to MB
    parse_size() {
@@ -3761,7 +4054,11 @@ persistent_changes() {
    fi
 
    PERCHDIR=$(ask_disk "$PERCHDIR" perchdir)
-   PERCHDIR=$(manage_perch_partition "$DRIVE" "$PERCHDIR")
+   if [ -f "${MINIOS_PERCH_STORE_FILE:-/run/perch_store}" ]; then
+      PERCHDIR=$(cat "${MINIOS_PERCH_STORE_FILE:-/run/perch_store}")
+   else
+      PERCHDIR=$(manage_perch_partition "$DRIVE" "$PERCHDIR")
+   fi
 
    # Check if changes directory exists and is writable. Resume is best-effort:
    # when no writable persistence store is available, continue in memory.
@@ -3776,7 +4073,7 @@ persistent_changes() {
       return
    fi
 
-   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE" "$AUTO_RESUME" "$PERCHENCRYPT" "$PERCHCOMP"); then
+   if ! PERCHSESSION=$(restore_perch_session "$DRIVE" "$CHANDIR" "$PERCHDIR" "$ACTION" "$PERCHMODE" "$AUTO_RESUME" "$PERCHENCRYPT" "$PERCHCOMP" "$PERCHSELECT"); then
       boot_warning_notify warning persistence \
          "Persistent changes could not select a usable session; continuing in memory."
       perch_state_publish failed "${PERCHMODE:-unknown}" "${PERCHDIR:-unknown}"
@@ -3829,6 +4126,88 @@ persistent_changes() {
    # space only now rather than accidentally checking the read-only ISO.
    perch_space_warn "$CHANDIR" || true
 
+   if [ "$PERCHTORAM" != off ]; then
+      PERCHRAM="$(dirname "$CHANGES")/perch-ram"
+      PERCHSOURCE="$(dirname "$CHANGES")/perch-source"
+      PERCHDEVICE="$(mounted_device "$CHANDIR")"
+      PERCHMEDIA=$(awk '/linear/ {print $4; exit}' "${MINIOS_VENTOY_DIR:-/ventoy}/ventoy_dm_table" 2>/dev/null)
+      PERCHREL=$(cat "${MINIOS_PERCH_STORE_FILE:-/run/perch_store}" 2>/dev/null)
+      case "$PERCHREL" in
+      /dev/disk/by-label/*) PERCHREL=$(printf '%s\n' "$PERCHREL" | cut -d / -f 6-) ;;
+      /dev/mapper/*) PERCHREL=$(printf '%s\n' "$PERCHREL" | cut -d / -f 5-) ;;
+      /dev/*) PERCHREL=$(printf '%s\n' "$PERCHREL" | cut -d / -f 4-) ;;
+      *) PERCHREL="$LIVEKITNAME/changes" ;;
+      esac
+      PERCHNEXT=$(ls -1 "$CHANDIR" | grep -E '^[0-9]+$' | sort -n | tail -n 1)
+      PERCHNEXT=$((${PERCHNEXT:-0} + 1))
+      if copy_perch_to_ram "$CHANDIR" "$PERCHRAM" "$PERCHDIR" "$PERCHTORAM" "$PERCHMODE"; then
+         mkdir -p "$MINIOS_PERSISTENCE_RUNDIR"
+         # Keep origin data outside the mutable RAM session metadata.
+         (
+             umask 077
+            if [ -f "$CHANDIR/session.conf" ]; then
+               cp "$CHANDIR/session.conf" "$MINIOS_PERSISTENCE_RUNDIR/origin-session.conf" || exit 1
+            fi
+            if [ "$PERCHMODE" != native ] && [ "$NEW_SESSION" != true ]; then
+               (
+                  cd "$PERCHRAM/$PERCHDIR" || exit 1
+                  find . -type f | while IFS= read -r FILE; do
+                     sha256sum "$FILE" || exit 1
+                  done
+               ) >"$MINIOS_PERSISTENCE_RUNDIR/origin-files.sha256" || exit 1
+            fi
+            {
+               echo "mode=$PERCHTORAM"
+               echo "session=$PERCHDIR"
+               echo "new_session=$NEW_SESSION"
+               echo "backend=$PERCHMODE"
+               echo "device=$PERCHDEVICE"
+               echo "uuid=$(blkid -s UUID -o value "$PERCHDEVICE" 2>/dev/null)"
+               echo "partuuid=$(blkid -s PARTUUID -o value "$PERCHDEVICE" 2>/dev/null)"
+               [ -z "$PERCHMEDIA" ] || echo "media_uuid=$(blkid -s UUID -o value "$PERCHMEDIA" 2>/dev/null)"
+               echo "relative=$PERCHREL"
+               echo "store=$(cat "${MINIOS_PERCH_STORE_FILE:-/run/perch_store}" 2>/dev/null)"
+            } >"$MINIOS_PERSISTENCE_RUNDIR/ram-origin"
+         ) || {
+            perch_state_fail_now "$PERCHMODE" "$PERCHDIR" "Cannot record the RAM session origin."
+            return
+         }
+         # Retain the source until the new alias is mounted successfully.
+         mkdir -p "$PERCHSOURCE" || return 1
+         mount --bind "$CHANDIR" "$PERCHSOURCE" || return 1
+         if mountpoint -q "$CHANDIR"; then
+            umount "$CHANDIR" || return 1
+         fi
+         if mount --bind "$PERCHRAM" "$CHANDIR"; then
+            PERCHSTAGED=true
+            [ "$NEW_SESSION" != true ] || rmdir "$PERCHSOURCE/$PERCHDIR" 2>/dev/null || true
+            if [ "$PERCHMODE" = native ]; then
+               boot_warning_notify warning persistence \
+                  "Native session #$PERCHDIR cannot be copied to RAM; creating a new container session."
+               PERCHDIR="$PERCHNEXT"
+               mkdir "$CHANDIR/$PERCHDIR" || return 1
+               PERCHMODE=dynfilefs
+               dynblk_available && PERCHMODE=dynblk
+               PERCHENCRYPT=none
+               PERCHCOMP=none
+               NEW_SESSION=true
+            fi
+            boot_warning_notify warning persistence \
+               "Session #$PERCHDIR is running in RAM. Unsaved changes will be lost at shutdown."
+         else
+            mount --bind "$PERCHSOURCE" "$CHANDIR" || return 1
+         fi
+         umount "$PERCHSOURCE" || return 1
+         rmdir "$PERCHSOURCE"
+      fi
+      if [ "$PERCHSTAGED" != true ]; then
+         remove_perch_ram "$PERCHRAM" || return 1
+         rm -f "$MINIOS_PERSISTENCE_RUNDIR/ram-origin" "$MINIOS_PERSISTENCE_RUNDIR/origin-session.conf" "$MINIOS_PERSISTENCE_RUNDIR/origin-files.sha256"
+         boot_warning_notify warning persistence \
+            "Cannot copy session #$PERCHDIR to RAM; continuing with the session on storage."
+      fi
+   fi
+
    if [ -z "$PERCHMODE" ]; then
       native_mode
    else
@@ -3847,6 +4226,11 @@ persistent_changes() {
    fi
 
    rmdir "$CHANGES/lost+found" 2>/dev/null
+   if [ "$PERCHSTAGED" = true ] && [ -n "$(toram_mode)" ]; then
+      if umount "${MINIOS_PERCH_ROOT:-/memory/perch}" 2>/dev/null; then
+         ventoy_release_mappings
+      fi
+   fi
 }
 
 # Copy content of rootcopy directory to union
@@ -3914,22 +4298,38 @@ ventoy_release_mappings() {
    "$DM" remove ventoy >/dev/null 2>&1 || true
 }
 
+# Copy the system tree; persistence has its own copying stage.
+# $1 = source data directory  $2 = destination
+#
+copy_data() {
+   local FILE
+   for FILE in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+      [ -e "$FILE" ] || [ -L "$FILE" ] || continue
+      [ "${FILE##*/}" != changes ] || continue
+      cp -a "$FILE" "$2/" || return 1
+   done
+}
+
 # Copy data to RAM if requested
 # $1 = live data directory
 # $2 = changes directory
 #
 copy_to_ram() {
    debug_log "copy_to_ram" "$*"
-   local MDIR MDEV RAM DATA CHANGES LOAD NOLOAD FILE DIR TORAM_PATH DETACHED
+   local MDIR MDEV RAM DATA CHANGES LOAD NOLOAD FILE DIR TORAM_PATH DETACHED PERCHDATA
    DATA="$1"
    CHANGES="$2"
 
    RAM="$(dirname "$CHANGES")"/toram
    CMDLINE=$(cat "$MINIOS_CMDLINE_FILE")
+   PERCHDATA=""
+   if [ -f "${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}" ]; then
+      PERCHDATA="$(cat "${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}")/$LIVEKITNAME"
+   fi
 
    # Function to copy filtered MiniOS data to RAM
    copy_filtered_bundles() {
-      local FILE
+      local FILE SOURCE
       cp -a "$DATA/config.conf" "$RAM/config.conf" || {
          echo_red_star
          echo "Failed to copy config.conf to RAM" >&2 >/dev/tty1
@@ -3941,13 +4341,11 @@ copy_to_ram() {
             echo "Failed to copy authorized_keys to RAM" >&2 >/dev/tty1
          }
       fi
-      (
-         ls -1 "$DATA" | sort -n
-         cd "$DATA"
-         find modules/ 2>/dev/null | sortmod
-      ) | grep '[.]'$BEXT'$' | filter | while read FILE; do
+      find_bundles "$DATA" "$PERCHDATA" | while IFS= read -r FILE; do
+         SOURCE="$DATA/$FILE"
+         [ -z "$PERCHDATA" ] || [ ! -f "$PERCHDATA/$FILE" ] || SOURCE="$PERCHDATA/$FILE"
          mkdir -p "$RAM/$(dirname "$FILE")"
-         cp -a "$DATA/$FILE" "$RAM/$FILE" || {
+         cp -a "$SOURCE" "$RAM/$FILE" || {
             echo_red_star
             echo "Failed to copy $FILE to RAM" >&2 >/dev/tty1
             exit 1
@@ -3955,35 +4353,24 @@ copy_to_ram() {
       done
    }
 
-   case "$CMDLINE" in
-   *toram=trim*)
+   case "$(toram_mode)" in
+   trim)
       mkdir -p "$RAM"
       echo "* Copying filtered MiniOS data to RAM..." >&2 >/dev/tty1
-      copy_filtered_bundles
-      if persistence_requested; then
-         echo "* Copying changes to RAM..." >&2 >/dev/tty1
-         cp -a "$DATA/changes" "$RAM/changes" || {
-            echo_red_star
-            echo "Failed to copy data to RAM" >&2 >/dev/tty1
-            exit 1
-         }
-      fi
+      copy_filtered_bundles || return 1
+      mkdir -p "$RAM/changes"
       ;;
-   *toram* | *toram=full*)
+   full)
       mkdir -p "$RAM"
       echo "* Copying all MiniOS data to RAM..." >&2 >/dev/tty1
-      if persistence_requested; then
-         cp -a "$DATA"/* "$RAM" || {
+      copy_data "$DATA" "$RAM" || {
             echo_red_star
             echo "Failed to copy data to RAM" >&2 >/dev/tty1
             exit 1
          }
-      else
-         find "$DATA" -mindepth 1 -maxdepth 1 ! -name changes -exec cp -a {} "$RAM" \; || {
-            echo_red_star
-            echo "Failed to copy data to RAM" >&2 >/dev/tty1
-            exit 1
-         }
+      mkdir -p "$RAM/changes"
+      if [ -d "$PERCHDATA" ]; then
+         copy_data "$PERCHDATA" "$RAM" || return 1
       fi
       ;;
    *)
@@ -3991,6 +4378,10 @@ copy_to_ram() {
       return
       ;;
    esac
+
+   if ! persistence_requested && [ -n "$PERCHDATA" ]; then
+      umount "$(dirname "$PERCHDATA")" 2>/dev/null || true
+   fi
 
    # Get mounted directory and device for $DATA
    MDIR="$(mounted_dir "$DATA")"
@@ -4133,35 +4524,21 @@ setup_running_kernel() {
 #
 mount_bundles() {
    debug_log "mount_bundles"
-   local PERCH_ROOT
+   local PERCHDATA SOURCE
+   PERCHDATA=""
+   if [ -z "$(toram_mode)" ] && [ -f "${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}" ]; then
+      PERCHDATA="$(cat "${MINIOS_PERCH_ROOT_FILE:-/run/perch_root}")/$LIVEKITNAME"
+   fi
    echo_white_star
    echo "Mounting bundles"
-   (
-      ls -1 "$1" | sort -n
-      cd "$1"
-      find modules/ 2>/dev/null | sortmod
-   ) | grep '[.]'$BEXT'$' | filter | while read BUNDLE; do
+   find_bundles "$1" "$PERCHDATA" | while IFS= read -r BUNDLE; do
       echo "* $BUNDLE"
       BUN="$(basename "$BUNDLE")"
       mkdir -p "$2/$BUN"
-      mount -o loop,ro -t squashfs "$1/$BUNDLE" "$2/$BUN"
+      SOURCE="$1/$BUNDLE"
+      [ -z "$PERCHDATA" ] || [ ! -f "$PERCHDATA/$BUNDLE" ] || SOURCE="$PERCHDATA/$BUNDLE"
+      mount -o loop,ro -t squashfs "$SOURCE" "$2/$BUN" || exit 1
    done
-
-   # Also mount modules from writable partition (/minios/modules)
-   # This allows users to add modules even when booting from read-only media (ISO)
-   if [ -f /run/perch_root ]; then
-      PERCH_ROOT=$(cat /run/perch_root)
-      if [ -d "$PERCH_ROOT/$LIVEKITNAME/modules" ]; then
-         echo_white_star
-         echo "Mounting bundles from writable partition"
-         find "$PERCH_ROOT/$LIVEKITNAME/modules" 2>/dev/null | sortmod | grep '[.]'$BEXT'$' | filter | while read BUNDLE; do
-            echo "* $BUNDLE"
-            BUN="$(basename "$BUNDLE")"
-            mkdir -p "$2/$BUN"
-            mount -o loop,ro -t squashfs "$BUNDLE" "$2/$BUN"
-         done
-      fi
-   fi
 }
 
 # Add mounted bundles to aufs union
@@ -4307,6 +4684,9 @@ minios_boot() {
          cp -a "$MINIOS_PERSISTENCE_RUNDIR/boot-state" \
             "$2/run/initramfs/minios-persistence/boot-state" ||
          echo "Cannot pass persistence state to minios-boot" >&2
+      if [ -f "$MINIOS_PERSISTENCE_RUNDIR/ram-origin" ]; then
+         cp -a "$MINIOS_PERSISTENCE_RUNDIR/ram-origin" "$2/run/initramfs/minios-persistence/ram-origin" || return 1
+      fi
    fi
 
     # A SquashFS upper is RAM-backed even with healthy persistence. Keep the

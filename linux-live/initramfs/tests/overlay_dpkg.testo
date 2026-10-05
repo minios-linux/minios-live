@@ -1,0 +1,50 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test overlay_dpkg_second_boot: overlay_dpkg_probe {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type "${BOOTARGS}"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'mkdir -p /run/overlay-diag-media /run/overlay-dpkg-tools; mount $(blkid -L persistence) /run/overlay-diag-media && cp /run/overlay-diag-media/tests/* /run/overlay-dpkg-tools/ && cp /run/overlay-diag-media/packages/*.deb /run/overlay-dpkg-tools/ && umount /run/overlay-diag-media && flock -x /run/minios-persistence/ram-save/.mount.lock python3 -B /run/overlay-dpkg-tools/probe.py ${TAG}-second ${VERIFY}'" interval 100ms
+        press Enter
+        wait "OVERLAY ${TAG}-second DIAGNOSTICS COMPLETE" timeout 3m
+        screenshot "${SHARE}/${TAG}-second-result.png"
+        type "sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test overlay_dpkg_probe {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type "${BOOTARGS}"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'mkdir -p /run/overlay-diag-media /run/overlay-dpkg-tools; mount $(blkid -L persistence) /run/overlay-diag-media && cp /run/overlay-diag-media/tests/* /run/overlay-dpkg-tools/ && cp /run/overlay-diag-media/packages/*.deb /run/overlay-dpkg-tools/ && umount /run/overlay-diag-media && flock -x /run/minios-persistence/ram-save/.mount.lock python3 -B /run/overlay-dpkg-tools/probe.py ${TAG} ${VERIFY}'" interval 100ms
+        press Enter
+        wait "OVERLAY ${TAG} DIAGNOSTICS COMPLETE" timeout 3m
+        screenshot "${SHARE}/${TAG}-result.png"
+        type "sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}

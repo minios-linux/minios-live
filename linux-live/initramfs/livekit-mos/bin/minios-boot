@@ -282,7 +282,8 @@ load_storage_policy() {
     done
     local STATE=${MINIOS_BOOT_STATE:-/run/initramfs/minios-persistence/boot-state}
     if ! [ -f "$STATE" ] || ! grep -qx 'boot_level=ok' "$STATE" ||
-       ! grep -qx 'durable=1' "$STATE"; then
+       { ! grep -qx 'durable=1' "$STATE" &&
+         ! { [ -f "${STATE%/*}/ram-origin" ] && grep -qx 'writable=1' "$STATE"; }; }; then
         LIVE_LOG_STORAGE=persistent
         LIVE_APT_CACHE=persistent
         LIVE_BROWSER_CACHE=persistent

@@ -1,0 +1,45 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test leave_interrupted_save {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'mkdir -p /run/test-media; mount $(blkid -L persistence) /run/test-media && cp /run/test-media/tests/faults.py /run/faults.py && umount /run/test-media && python3 -B /run/faults.py crash > /run/faults.log 2>&1' && printf 'RECOVERY %s SUCCESS\\n' PREPARED || { sudo cat /run/faults.log /run/writeback-cancel.log /run/writeback-kill.log; printf 'RECOVERY %s FAILED\\n' PREPARED; }" interval 100ms
+        press Enter
+        wait "RECOVERY PREPARED SUCCESS" || "RECOVERY PREPARED FAILED" timeout 3m
+        if (check "RECOVERY PREPARED FAILED") { abort "Interrupted save preparation failed"; }
+        type "sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test recover_interrupted_save: leave_interrupted_save {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo sh -c 'grep -qx \"original session\" /etc/perchtoram-session && test ! -e /etc/writeback-thaw && test -z \"$(find /run/initramfs/memory/data/minios/changes -maxdepth 1 -name .ram-save-\\*)\"' && printf 'RECOVERY %s SUCCESS\\n' BOOT"
+        press Enter
+        wait "RECOVERY BOOT SUCCESS" timeout 30s
+    }
+}

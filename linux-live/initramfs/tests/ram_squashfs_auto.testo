@@ -1,0 +1,102 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test ram_shutdown_missing: create_automatic_squashfs {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo sh -c 'echo missing > /etc/squash-missing-store; echo 1 > /sys/class/block/sda/device/delete' && sudo poweroff"
+        press Enter
+        sleep 20s
+    }
+}
+
+test boot_after_missing_shutdown: ram_shutdown_missing {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "test ! -e /etc/squash-missing-store && printf 'SQUASH %s SUCCESS\\n' MISSING_REBOOT"
+        press Enter
+        wait "SQUASH MISSING_REBOOT SUCCESS" timeout 30s
+    }
+}
+
+test create_automatic_squashfs {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs perchdir=new perchmode=squashfs perchsize=256"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo minios-session settings 1 --shutdown on --autosave 30 --json && sudo poweroff"
+        press Enter
+        sleep 20s
+    }
+}
+
+test ram_automatic_squashfs: create_automatic_squashfs {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'mkdir -p /run/test-media; mount $(blkid -L persistence) /run/test-media && cp /run/test-media/tests/squashfs_auto.py /run/squashfs_auto.py && umount /run/test-media && python3 -B /run/squashfs_auto.py > /run/auto.log 2>&1' && printf 'SQUASH %s SUCCESS\\n' AUTO || { sudo cat /run/auto.log; printf 'SQUASH %s FAILED\\n' AUTO; }" interval 100ms
+        press Enter
+        wait "SQUASH AUTO SUCCESS" || "SQUASH AUTO FAILED" timeout 3m
+        if (check "SQUASH AUTO FAILED") { abort "Periodic RAM save failed"; }
+        type "sudo sh -c 'echo 1 > /sys/class/block/sda/device/delete && minios-session autosave --json && minios-squashfs-shutdown-save && test ! -e /run/initramfs/minios-persistence/shutdown-save-complete' && printf 'SQUASH %s SUCCESS\\n' MISSING"
+        press Enter
+        wait "SQUASH MISSING SUCCESS" timeout 30s
+        type "sudo sh -c 'for host in /sys/class/scsi_host/host*; do echo \"- - -\" > $host/scan; done'"
+        press Enter
+        sleep 3s
+        type "sudo sh -c 'echo shutdown-contents > /etc/squash-shutdown' && sudo poweroff"
+        press Enter
+        sleep 20s
+    }
+}
+
+test boot_automatic_squashfs: ram_automatic_squashfs {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "grep -qx 'periodic contents' /etc/squash-autosave && grep -qx shutdown-contents /etc/squash-shutdown && printf 'SQUASH %s SUCCESS\\n' REBOOT"
+        press Enter
+        wait "SQUASH REBOOT SUCCESS" timeout 30s
+    }
+}

@@ -1,0 +1,23 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    loader: "/usr/share/ovmf/OVMF.fd"
+    disk main: {
+        source: "${DISK}"
+    }
+    video main: {
+        adapter_type: "qxl"
+    }
+}
+
+test external_module_resume_uefi {
+    minios {
+        start
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "test -d /sys/firmware/efi && test -f /etc/minios-external-module && test -f /run/initramfs/memory/data/minios/changes/session.conf && test /run/initramfs/memory/data/minios/06-firefox-amd64.sb -ef /run/initramfs/memory/perch/minios/06-firefox-amd64.sb && printf 'EXTERNAL_%s_OK\\n' UEFI"
+        press Enter
+        wait "EXTERNAL_UEFI_OK" timeout 30s
+    }
+}

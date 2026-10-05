@@ -1,0 +1,58 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test cancel_ram_gui: save_ram_gui {
+    minios {
+        mouse click "Session #1".from_bottom(0)
+        press LeftShift+F10
+        wait "Save Now" timeout 10s
+        mouse click "Save Now"
+        wait "Cancel" timeout 30s
+        mouse click "Cancel"
+        sleep 3s
+        screenshot "${SHARE}/gui-cancelled.png"
+        press LeftCtrl+LeftAlt+F2
+        wait "login:" timeout 30s
+        type "live"
+        press Enter
+        wait "Password:" timeout 30s
+        type "evil"
+        press Enter
+        wait "live@" timeout 30s
+        type "sudo cat /run/initramfs/minios-persistence/ram-save-operation.json"
+        press Enter
+        wait "cancelled" timeout 30s
+        type "sudo touch /etc/gui-thawed && printf 'GUI %s SUCCESS\\n' CANCEL"
+        press Enter
+        wait "GUI CANCEL SUCCESS" timeout 30s
+    }
+}
+
+test save_ram_gui {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        wait "Dismiss" timeout 30s
+        mouse click "Dismiss"
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo minios-session-manager > /run/session-gui.log 2>&1"
+        press Enter
+        wait "Session is running in RAM" timeout 1m
+        mouse click "Session #1".from_bottom(0)
+        press LeftShift+F10
+        wait "Save Now" timeout 10s
+        mouse click "Save Now"
+        wait "Saved on storage as session #1" timeout 3m
+        screenshot "${SHARE}/gui-saved.png"
+    }
+}

@@ -26,6 +26,9 @@ setup() {
     export MINIOS_BOOT_ID_FILE="$WORK/boot-id"
     export MINIOS_PROC_MOUNTS="$WORK/mounts"
     export MINIOS_CMDLINE_FILE="$WORK/cmdline"
+    export MINIOS_PERCH_ROOT="$WORK/perch"
+    export MINIOS_PERCH_ROOT_FILE="$WORK/perch_root"
+    export MINIOS_PERCH_STORE_FILE="$WORK/perch_store"
     export MINIOS_SYS_CLASS_BLOCK="$WORK/sys/class/block"
     export MINIOS_DEV_ROOT="$WORK/dev"
     export MINIOS_SYS_FS_AUFS="$WORK/sys/fs/aufs"
@@ -1715,7 +1718,7 @@ EOF
     persistence_requested
 }
 
-@test "toram copies changes only when explicit perch is present" {
+@test "system toram leaves persistence copying to its separate stage" {
     # shellcheck source=/dev/null
     . "$LIB"
     data="$WORK/media/minios"
@@ -1737,7 +1740,8 @@ EOF
     printf '%s\n' 'boot=live toram=full perch' >"$MINIOS_CMDLINE_FILE"
     second_ram=$(copy_to_ram "$data" "$changes")
     [ -f "$second_ram/01-core.sb" ]
-    [ -f "$second_ram/changes/user-file" ]
+    [ ! -f "$second_ram/changes/user-file" ]
+    [ -d "$second_ram/changes" ]
 }
 
 @test "Ventoy cleanup removes the ISO, raw partition, and unused persistence mappings" {

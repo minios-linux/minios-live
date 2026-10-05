@@ -1,0 +1,45 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test writeback_faults {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs toram perchtoram=trim"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'mkdir -p /run/test-media; mount $(blkid -L persistence) /run/test-media && cp /run/test-media/tests/faults.py /run/faults.py && umount /run/test-media && python3 -B /run/faults.py > /run/faults.log 2>&1' && printf 'WRITEBACK %s SUCCESS\\n' FAULTS || { sudo cat /run/faults.log /run/writeback-cancel.log /run/writeback-kill.log; printf 'WRITEBACK %s FAILED\\n' FAULTS; }" interval 100ms
+        press Enter
+        wait "WRITEBACK FAULTS SUCCESS" || "WRITEBACK FAULTS FAILED" timeout 5m
+        if (check "WRITEBACK FAULTS FAILED") { abort "Fault checks failed"; }
+        type "sudo poweroff"
+        press Enter
+        sleep 15s
+    }
+}
+
+test boot_after_faults: writeback_faults {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Tab
+        press End
+        type " union=overlayfs perchdir=3"
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "grep -qx 'saved after faults' /etc/writeback-fault-result && printf 'WRITEBACK %s SUCCESS\\n' RECOVERED"
+        press Enter
+        wait "WRITEBACK RECOVERED SUCCESS" timeout 30s
+    }
+}

@@ -1,0 +1,80 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    disk main: {
+        source: "${DISK}"
+    }
+    video main: {
+        adapter_type: "qxl"
+    }
+}
+
+test external_module_resume {
+    minios {
+        start
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "test -f /etc/minios-external-module && test -f /run/initramfs/memory/data/minios/changes/session.conf && test -d /run/initramfs/memory/perch/minios/changes && printf 'EXTERNAL_%s_OK\\n' MODULE"
+        press Enter
+        wait "EXTERNAL_MODULE_OK" timeout 30s
+    }
+}
+
+test external_module_without_persistence {
+    minios {
+        start
+        wait "Start without saving" timeout 30s
+        press Down
+        press Down
+        press Down
+        press Enter
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "test -f /etc/minios-external-module && test ! -f /run/initramfs/minios-persistence/boot-state && test /run/initramfs/memory/data/minios/06-firefox-amd64.sb -ef /run/initramfs/memory/perch/minios/06-firefox-amd64.sb && printf 'EXTERNAL_%s_OK\\n' FRESH"
+        press Enter
+        wait "EXTERNAL_FRESH_OK" timeout 30s
+    }
+}
+
+test external_module_toram {
+    minios {
+        start
+        wait "Run from RAM" timeout 30s
+        press Down
+        press Down
+        press Down
+        press Down
+        press Enter
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "test -f /etc/minios-external-module && test ! -f /run/initramfs/minios-persistence/boot-state && ! mountpoint -q /run/initramfs/memory/perch && printf 'EXTERNAL_%s_OK\\n' RAM"
+        press Enter
+        wait "EXTERNAL_RAM_OK" timeout 30s
+    }
+}
+
+test compose_external_replacement {
+    minios {
+        start
+        wait "Start without saving" timeout 30s
+        press Down
+        press Down
+        press Down
+        press Enter
+        wait "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "python3 -c 'import sys; sys.path.insert(0,\"/usr/lib/minios-image-builder\"); import image_project as p; s=p.discover_running_source(); m=next(m for m in s.modules if m.basename==\"06-firefox-amd64.sb\"); assert m.active and m.source_category==\"runtime-replacement\"; print(\"BUILDER\",\"SOURCE SUCCESS\")'"
+        press Enter
+        wait "BUILDER SOURCE SUCCESS" timeout 30s
+        type "sudo mount -o remount,rw /run/initramfs/memory/perch && sudo minios-image-compose --source /run/initramfs/memory/data/minios --config /etc/live/config.conf --name /run/initramfs/memory/perch/rebuilt.iso > /tmp/compose.log 2>&1 && printf 'BUILDER %s SUCCESS\\n' ISO"
+        press Enter
+        wait "BUILDER ISO SUCCESS" timeout 5m
+        type "sudo xorriso -osirrox on -indev /run/initramfs/memory/perch/rebuilt.iso -extract /minios/06-firefox-amd64.sb /tmp/rebuilt.sb > /tmp/extract.log 2>&1 && cmp /tmp/rebuilt.sb /run/initramfs/memory/perch/minios/06-firefox-amd64.sb && printf 'BUILDER %s SUCCESS\\n' CONTENT"
+        press Enter
+        wait "BUILDER CONTENT SUCCESS" timeout 30s
+    }
+}
