@@ -1399,7 +1399,7 @@ select_new_session_mode() {
 #
 restore_perch_session() {
    debug_log "restore_perch_session" "$*"
-   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTENCRYPTION LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE PERCHENCRYPT PERCHCOMP SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION AUTO_RESUME COMPAT_TITLE COMPAT_SYSTEM COMPAT_SESSION SESSION_SELECTION
+   local DRIVE CHANDIR PERCHDIR REQUESTED_SESSION ACTION LASTSESSION LASTMODE LASTENCRYPTION LASTVERSION LASTEDITION LASTSIZE NEW DIR USAGE LASTMOD DAYS PERCHMODE PERCHENCRYPT PERCHCOMP SESSIONS SELECTED VERSION EDITION SYSTEM_VERSION SYSTEM_EDITION UNION SYSTEM_UNION LASTUNION NEW_SESSION AUTO_RESUME COMPAT_TITLE COMPAT_SYSTEM COMPAT_SESSION SESSION_SELECTION RESET_MODE
 
    DRIVE="$1"
    CHANDIR="$2"
@@ -1413,6 +1413,7 @@ restore_perch_session() {
    PERCHCOMP="${8:-none}"
    : "${PERCHCOMP:=none}"
    NEW_SESSION="false"
+   RESET_MODE=""
 
    # Get current system's MiniOS version and edition
    if [ -f /etc/minios-release ]; then
@@ -1545,7 +1546,7 @@ restore_perch_session() {
 
             done | sort -r | cut -d " " -f 3- >/tmp/sessions.txt
 
-            SELECTED=$(ncurses-menu -t 'Select session:' -o '+ New session' -f /tmp/sessions.txt 2>&1 >/dev/tty1 </dev/tty1)
+             SELECTED=$(ncurses-menu -t 'Select session:' -o '+ New session' -f /tmp/sessions.txt 2>&1 >"${MINIOS_MENU_TTY:-/dev/tty1}" <"${MINIOS_MENU_TTY:-/dev/tty1}")
 
             if [ -z "$SELECTED" ]; then
                continue
@@ -1585,15 +1586,22 @@ restore_perch_session() {
                fi
 
                if [ -n "$WARNING_TITLE" ]; then
-                  WARNING_TITLE="${WARNING_TITLE}\nUsing this session may cause system instability.\nProceed anyway?"
+                   WARNING_TITLE="${WARNING_TITLE}\nContinuing may be unstable.\nReset removes system programs.\n/home and /root are kept."
 
-                  WARNING_CHOICE=$(ncurses-menu \
-                     -t "${WARNING_TITLE}" \
-                     -o "Yes, proceed at my own risk" \
-                     -o "No, return to session list" \
-                     2>&1 >/dev/tty1 </dev/tty1)
+                   WARNING_CHOICE=$(ncurses-menu \
+                      -t "${WARNING_TITLE}" \
+                      -o "No, return to session list" \
+                      -o "Yes, proceed at my own risk" \
+                      -o "Reset, keep settings" \
+                      -o "Reset, keep data" \
+                      2>&1 >"${MINIOS_MENU_TTY:-/dev/tty1}" <"${MINIOS_MENU_TTY:-/dev/tty1}")
 
-                  if echo "$WARNING_CHOICE" | grep -q "Yes"; then
+                   RESET_MODE=""
+                   case "$WARNING_CHOICE" in
+                   'Reset, keep settings') RESET_MODE=settings ;;
+                   'Reset, keep data') RESET_MODE=data ;;
+                   esac
+                   if [ "$WARNING_CHOICE" = 'Yes, proceed at my own risk' ] || [ -n "$RESET_MODE" ]; then
                      VERSION="$SELECTED_VERSION"
                      EDITION="$SELECTED_EDITION"
                      UNION="$SELECTED_UNION"
@@ -1749,7 +1757,251 @@ restore_perch_session() {
          ;;
       esac
    fi
-   echo "$PERCHDIR" "$PERCHMODE" "$NEW_SESSION" "$PERCHENCRYPT" "$PERCHCOMP"
+   if [ -n "$RESET_MODE" ]; then
+      echo "$PERCHDIR" "$PERCHMODE" "$NEW_SESSION" "$PERCHENCRYPT" "$PERCHCOMP" "$RESET_MODE"
+   else
+      echo "$PERCHDIR" "$PERCHMODE" "$NEW_SESSION" "$PERCHENCRYPT" "$PERCHCOMP"
+   fi
+}
+
+# Reset a mounted session before attaching it to the system union. Never follow
+# session symlinks. A fresh tree drops AUFS whiteouts and OverlayFS attributes;
+# a rollback journal stays on the same filesystem as the original payload.
+session_reset_recover() {
+   local ROOT="$1" TX="$1/.minios-session-reset" CONF="${2:-}" ENTRY NAME METADATA=false
+   [ ! -L "$TX" ] || return 1
+   [ -d "$TX" ] || return 0
+   awk -v root="$ROOT/" 'index($2, root) == 1 { found=1 }
+      END { exit found }' "${MINIOS_PROC_MOUNTS:-/proc/mounts}" || return 1
+   [ -f "$TX/journal" ] && [ ! -L "$TX/journal" ] || return 1
+   for ENTRY in "$TX/old" "$TX/new" "$TX/installed"; do
+      [ -d "$ENTRY" ] && [ ! -L "$ENTRY" ] || return 1
+   done
+   [ ! -L "$TX/committed" ] || return 1
+   if [ ! -f "$TX/committed" ]; then
+      if [ -f "$TX/session.conf.before" ]; then
+         [ -n "$CONF" ] && [ ! -L "$TX/session.conf.before" ] || return 1
+         cp "$TX/session.conf.before" "$CONF.reset-recover" || return 1
+         session_conf_replace "$CONF" "$CONF.reset-recover" || return 1
+         rm -f "$(dirname "$CONF")/session.json" || return 1
+         METADATA=true
+      elif [ -f "$TX/session.conf.missing" ]; then
+         [ -n "$CONF" ] || return 1
+         rm -f "$CONF" "$(dirname "$CONF")/session.json" || return 1
+         METADATA=true
+      fi
+      for ENTRY in "$TX/installed"/* "$TX/installed"/.[!.]* "$TX/installed"/..?*; do
+         [ -e "$ENTRY" ] || [ -L "$ENTRY" ] || continue
+         [ -d "$ENTRY" ] && [ ! -L "$ENTRY" ] || return 1
+         rm -rf -- "$ROOT/${ENTRY##*/}" || return 1
+         rmdir -- "$ENTRY" || return 1
+      done
+      # Clear candidate markers durably before restoring originals. Recovery
+      # itself may be interrupted; it must not remove already-restored data.
+      sync
+      for ENTRY in "$TX/old"/* "$TX/old"/.[!.]* "$TX/old"/..?*; do
+         [ -e "$ENTRY" ] || [ -L "$ENTRY" ] || continue
+         NAME=${ENTRY##*/}
+         rm -rf -- "$ROOT/$NAME" || return 1
+         mv -- "$ENTRY" "$ROOT/$NAME" || return 1
+      done
+   fi
+   rm -rf -- "$TX" || return 1
+   # Metadata was selected before mounting the backend. Stop this activation
+   # after recovery so the next selection uses the restored compatibility data.
+   [ "$METADATA" = false ]
+}
+
+# The initrd BusyBox does not provide stat. Read numeric owners and permissions
+# with ls; do not copy directory xattrs, which may contain union opaque flags.
+session_reset_directory() {
+   local SOURCE="$1" TARGET="$2" ATTR
+   ATTR=$(LC_ALL=C ls -nd -- "$SOURCE" | awk '
+      { mode=0; for (i=2; i<=10; i++) {
+          c=substr($1,i,1); bit=(i-2)%3;
+          if (c != "-" && c != "S" && c != "T")
+             mode += (bit == 0 ? 4 : (bit == 1 ? 2 : 1)) * (i<=4 ? 64 : (i<=7 ? 8 : 1));
+        }
+        if (substr($1,4,1) ~ /[sS]/) mode+=2048;
+        if (substr($1,7,1) ~ /[sS]/) mode+=1024;
+        if (substr($1,10,1) ~ /[tT]/) mode+=512;
+        printf "%o %s %s\n", mode, $3, $4;
+      }') || return 1
+   set -- $ATTR
+   [ "$#" = 3 ] || return 1
+   chown "$2:$3" "$TARGET" && chmod "$1" "$TARGET" &&
+      touch -r "$SOURCE" "$TARGET"
+}
+
+session_reset_keep() {
+   local PATHNAME="$1" MODE="$2" INDEX="$3" BASE=${1##*/}
+   case "$BASE" in .wh.*) return 1 ;; esac
+   # Home trees are retained in their entirety in both modes, including hidden
+   # settings, caches and user-installed programs. Never classify them by dpkg.
+   case "$PATHNAME" in home | home/* | root | root/*) return 0 ;; esac
+   case "$PATHNAME" in
+   bin | bin/* | sbin | sbin/* | lib | lib/* | lib32 | lib32/* | lib64 | lib64/* | \
+   libx32 | libx32/* | usr/bin | usr/bin/* | usr/sbin | usr/sbin/* | \
+   usr/lib | usr/lib/* | usr/lib32 | usr/lib32/* | usr/lib64 | usr/lib64/* | \
+   usr/libexec | usr/libexec/* | usr/libx32 | usr/libx32/* | \
+   usr/local/bin | usr/local/bin/* | usr/local/sbin | usr/local/sbin/* | \
+   usr/local/lib | usr/local/lib/* | usr/local/libexec | usr/local/libexec/* | \
+   var/lib/dpkg | var/lib/dpkg/* | var/lib/apt | var/lib/apt/* | \
+   var/lib/debconf | var/lib/debconf/* | var/lib/flatpak | var/lib/flatpak/* | \
+   var/lib/snapd | var/lib/snapd/* | snap | snap/* | \
+   var/cache | var/cache/* | tmp | tmp/* | run | run/* | proc | proc/* | \
+   sys | sys/* | dev | dev/* | lost+found | workdir | workdir/* | \
+   etc/alternatives | etc/alternatives/* | etc/init.d | etc/init.d/* | \
+   etc/os-release | etc/minios-release | etc/debian_version | etc/lsb-release | \
+   etc/issue | etc/issue.net | etc/ld.so.cache)
+      return 1 ;;
+   esac
+   # Account identities belong to retained data: resetting UID/GID or passwords
+   # would make that data inaccessible and cause live-config to recreate users.
+   case "$PATHNAME" in
+   etc/passwd | etc/shadow | etc/group | etc/gshadow | etc/subuid | etc/subgid)
+      return 0 ;;
+   etc/ssh/ssh_host_* | etc/ssl/private/*)
+      return 0 ;;
+   var/lib/live/config/*)
+      case "$BASE" in
+       user-setup | root-setup | live-debconfig_passwd | last-authkeys-sync-time) return 0 ;;
+       gnome-panel-data | gnome-power-manager | gnome-screensaver | kaboom | \
+       kde-services | xfce4-panel | xscreensaver) return 0 ;;
+      debconf | dpkg | apt | hooks | locales) return 1 ;;
+      *) [ "$MODE" = settings ]; return ;;
+      esac ;;
+   esac
+   if [ "$MODE" = data ]; then
+      case "$PATHNAME" in
+      etc/ssh | etc/ssl | etc/ssl/private) return 0 ;;
+      etc | etc/*)
+         return 1 ;;
+      esac
+   fi
+   if [ -f "$INDEX.conffiles" ] && grep -Fqx -- "/$PATHNAME" "$INDEX.conffiles"; then
+      [ "$MODE" = settings ]; return
+   fi
+   case "$PATHNAME" in
+   etc/* | srv/* | var/lib/* | var/spool/* | var/www/*) return 0 ;;
+   esac
+   # Package-owned leaves outside /etc are software, not user-created data.
+   # Directories are traversed even when listed by dpkg: they can hold user data.
+   grep -Fqx -- "/$PATHNAME" "$INDEX" && return 1
+   return 0
+}
+
+session_reset_copy() {
+   local SOURCE="$1" TARGET="$2" PREFIX="$3" MODE="$4" INDEX="$5" ENTRY NAME REL
+   for ENTRY in "$SOURCE"/* "$SOURCE"/.[!.]* "$SOURCE"/..?*; do
+      [ -e "$ENTRY" ] || [ -L "$ENTRY" ] || continue
+      NAME=${ENTRY##*/}
+      [ "$NAME" != .minios-session-reset ] || [ -n "$PREFIX" ] || continue
+      REL="${PREFIX:+$PREFIX/}$NAME"
+      if [ -d "$ENTRY" ] && [ ! -L "$ENTRY" ]; then
+         # Identity files and live-config markers must be reachable even when
+         # /etc is otherwise excluded in the data-only mode.
+         if [ "$REL" != etc ] && [ "$REL" != var/lib/live/config ]; then
+            session_reset_keep "$REL" "$MODE" /dev/null || continue
+         fi
+         mkdir -- "$TARGET/$NAME" || return 1
+         session_reset_copy "$ENTRY" "$TARGET/$NAME" "$REL" "$MODE" "$INDEX" || return 1
+         session_reset_directory "$ENTRY" "$TARGET/$NAME" || return 1
+      elif [ -f "$ENTRY" ] || [ -L "$ENTRY" ]; then
+         session_reset_keep "$REL" "$MODE" "$INDEX" || continue
+         cp -pP -- "$ENTRY" "$TARGET/$NAME" || return 1
+      fi
+      # Device nodes (including OverlayFS whiteouts), sockets and FIFOs are not
+      # carried into a new union layer.
+   done
+}
+
+session_reset_prepare() {
+   local ROOT="$1" MODE="$2" UNION="$3" TX="$1/.minios-session-reset"
+   local SOURCE="$ROOT" DEST ENTRY NAME LIST INFO BASE CONF="${4:-}"
+   case "$MODE:$UNION" in settings:aufs | data:aufs | settings:overlayfs | data:overlayfs) ;; *) return 1 ;; esac
+   case "$ROOT" in /*) ;; *) return 1 ;; esac
+   case "$(readlink -f "$ROOT")" in
+   '' | / | /memory/union | /run/initramfs/memory/union) return 1 ;;
+   esac
+   [ -d "$ROOT" ] && [ ! -L "$ROOT" ] || return 1
+   session_reset_recover "$ROOT" "$CONF" || return 1
+   # Reject nested mounts: a reset must never traverse another mounted device.
+   awk -v root="$ROOT/" 'index($2, root) == 1 { found=1 }
+      END { exit found }' "${MINIOS_PROC_MOUNTS:-/proc/mounts}" || return 1
+   if [ -d "$ROOT/changes" ] && [ -d "$ROOT/workdir" ]; then
+      [ ! -L "$ROOT/changes" ] && [ ! -L "$ROOT/workdir" ] || return 1
+      SOURCE="$ROOT/changes"
+   fi
+   mkdir -m 700 "$TX" || return 1
+   mkdir "$TX/new" "$TX/old" "$TX/installed" || return 1
+   : >"$TX/journal" || return 1
+   if [ -n "$CONF" ]; then
+      [ ! -L "$CONF" ] || return 1
+      if [ -f "$CONF" ]; then
+         cp "$CONF" "$TX/session.conf.before" || return 1
+      elif [ ! -e "$CONF" ]; then
+         : >"$TX/session.conf.missing" || return 1
+      else
+         return 1
+      fi
+   fi
+   : >"$TX/packages" || return 1
+   : >"$TX/packages.conffiles" || return 1
+   # Do not follow an untrusted dpkg/info symlink into the running initrd.
+   for BASE in "$SOURCE" "${MINIOS_RESET_BUNDLES:-/memory/bundles}"/*; do
+      INFO="$BASE/var/lib/dpkg/info"
+      [ -d "$INFO" ] && [ ! -L "$BASE" ] &&
+         [ ! -L "$BASE/var" ] && [ ! -L "$BASE/var/lib" ] &&
+         [ ! -L "$BASE/var/lib/dpkg" ] && [ ! -L "$INFO" ] || continue
+      for LIST in "$INFO"/*.list; do
+         [ -f "$LIST" ] && [ ! -L "$LIST" ] || continue
+         cat "$LIST" >>"$TX/packages" || return 1
+      done
+      for LIST in "$INFO"/*.conffiles; do
+         [ -f "$LIST" ] && [ ! -L "$LIST" ] || continue
+         awk '{ sub(/^(remove-on-upgrade|obsolete) /, "");
+                sub(/ (remove-on-upgrade|obsolete)$/, "");
+                if (substr($0,1,1) == "/") print }' "$LIST" >>"$TX/packages.conffiles" || return 1
+      done
+   done
+   DEST="$TX/new"
+   if [ "$UNION" = overlayfs ]; then
+      mkdir "$DEST/changes" "$DEST/workdir" || return 1
+      DEST="$DEST/changes"
+   fi
+   if ! session_reset_copy "$SOURCE" "$DEST" "" "$MODE" "$TX/packages"; then
+      session_reset_recover "$ROOT" "$CONF" || true
+      return 1
+   fi
+   if ! session_reset_directory "$SOURCE" "$DEST"; then
+      session_reset_recover "$ROOT" "$CONF" || true
+      return 1
+   fi
+   # Persist the complete candidate before moving any original data.
+   sync
+   for ENTRY in "$ROOT"/* "$ROOT"/.[!.]* "$ROOT"/..?*; do
+      [ -e "$ENTRY" ] || [ -L "$ENTRY" ] || continue
+      NAME=${ENTRY##*/}
+      [ "$NAME" != .minios-session-reset ] || continue
+      mv -- "$ENTRY" "$TX/old/$NAME" || { session_reset_recover "$ROOT" "$CONF"; return 1; }
+   done
+   sync
+   for ENTRY in "$TX/new"/* "$TX/new"/.[!.]* "$TX/new"/..?*; do
+      [ -e "$ENTRY" ] || [ -L "$ENTRY" ] || continue
+      mkdir "$TX/installed/${ENTRY##*/}" || { session_reset_recover "$ROOT" "$CONF"; return 1; }
+      sync
+      mv -- "$ENTRY" "$ROOT/" || { session_reset_recover "$ROOT" "$CONF"; return 1; }
+   done
+   sync
+}
+
+session_reset_finish() {
+   local TX="$1/.minios-session-reset"
+   [ -d "$TX" ] && [ ! -L "$TX" ] || return 1
+   : >"$TX/committed" || return 1
+   sync
+   rm -rf -- "$TX"
 }
 
 # Manage persistence partition
@@ -2893,6 +3145,29 @@ squashfs_decimal() {
    esac
 }
 
+# A reset of a SquashFS session changes its RAM upper, not changes.sb. Keep the
+# snapshot's compatibility metadata until the runtime saver publishes a new
+# generation. Bind the requested new metadata to this boot only.
+squashfs_reset_pending() {
+   local CONF="$1" SESSION="$2" TMP="$1.reset.$$" BOOT VERSION EDITION
+   BOOT=$(cat "$MINIOS_BOOT_ID_FILE") || return 1
+   VERSION=$(config_value /etc/minios-release VERSION)
+   EDITION=$(config_value /etc/minios-release EDITION)
+   awk -v id="$SESSION" '
+      index($0,"session_reset_boot_id[" id "]=") == 1 ||
+      index($0,"session_reset_version[" id "]=") == 1 ||
+      index($0,"session_reset_edition[" id "]=") == 1 { next }
+      { print }
+   ' "$CONF" >"$TMP" || return 1
+   {
+      echo "session_reset_boot_id[$SESSION]=$BOOT"
+      echo "session_reset_version[$SESSION]=$VERSION"
+      echo "session_reset_edition[$SESSION]=$EDITION"
+   } >>"$TMP" || return 1
+   rm -f "$(dirname "$CONF")/session.json" || return 1
+   session_conf_replace "$CONF" "$TMP" || { rm -f "$TMP"; return 1; }
+}
+
 squashfs_upper_unwind() {
    local CHANGES="$1" STATUS=0 IMAGE
    IMAGE="$(dirname "$CHANGES")/.minios-upper-$MINIOS_SQUASHFS_SESSION.ext4"
@@ -2943,7 +3218,7 @@ squashfs_generation_restore() {
    GENERATION=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" generation) || return 1
    squashfs_decimal "$GENERATION" || return 1
    UNION=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$MINIOS_SQUASHFS_SESSION" union) || return 1
-   [ "$UNION" = "$(get_union_fs)" ] || return 1
+   [ "$UNION" = "$(get_union_fs)" ] || [ -n "${PERCHRESET:-}" ] || return 1
    if [ "$GENERATION" = 0 ]; then
       [ ! -e "$ARTIFACT" ] && [ ! -L "$ARTIFACT" ] || return 1
       if awk -v id="$MINIOS_SQUASHFS_SESSION" '
@@ -3029,7 +3304,7 @@ squashfs_generation_restore() {
 #
 persistent_changes() {
    debug_log "persistent_changes" "$*"
-   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHSIZE_SPECIFIED PERCHCOMP PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE PERCHENCRYPT ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE NEW_SESSION AUTO_RESUME DYNBLK_DEVICE CRYPT_MAPPER LOOP_DEVICE LUKS_PASSWORD LUKS_SECRET LUKS_CONFIRM LUKS_TRACE_WAS_ENABLED LUKS_TTY_OPEN
+   local DATA CHANGES DRIVE CHANDIR PERCHDIR PERCHSIZE PERCHSIZE_SPECIFIED PERCHCOMP PERCHFILE FS_TYPE PERCHFILE_EXISTS SPECIFIED AVAILABLE_SPACE MAX_SIZE MOUNT_OPTS PERCHMODE PERCHENCRYPT ACTION PERCHSESSION CURRENT_SIZE CURRENT_USAGE NEW_SESSION AUTO_RESUME DYNBLK_DEVICE CRYPT_MAPPER LOOP_DEVICE LUKS_PASSWORD LUKS_SECRET LUKS_CONFIRM LUKS_TRACE_WAS_ENABLED LUKS_TTY_OPEN PERCHRESET
    local PERCHTORAM PERCHRAM PERCHSOURCE PERCHDEVICE PERCHNEXT PERCHSELECT PERCHMEDIA PERCHREL PERCHSTAGED=false
 
    DATA="$1"
@@ -3305,7 +3580,19 @@ persistent_changes() {
          ;;
       esac
 
-      session_conf_commit "$SESSIONS" "$PERCHDIR" "$PERCHMODE" "$VERSION" "$EDITION" "$UNION" "$PERCHSIZE" "$PERCHENCRYPT" || return 1
+      session_reset_recover "$CHANGES" "$SESSIONS" || return 1
+      if [ -n "$PERCHRESET" ]; then
+         mountpoint -q "$CHANGES" || return 1
+         session_reset_prepare "$CHANGES" "$PERCHRESET" "$UNION" "$SESSIONS" || return 1
+      fi
+      if ! session_conf_commit "$SESSIONS" "$PERCHDIR" "$PERCHMODE" "$VERSION" "$EDITION" "$UNION" "$PERCHSIZE" "$PERCHENCRYPT"; then
+         session_reset_recover "$CHANGES" "$SESSIONS" || true
+         return 1
+      fi
+      if [ -n "$PERCHRESET" ]; then
+         session_reset_finish "$CHANGES" || return 1
+         PERCHRESET=""
+      fi
       perch_state_prepare "$PERCHMODE" "$PERCHDIR" "$CHANDIR" current "$CHANGES" "" "$DYNBLK_DEVICE" "$PERCHENCRYPT" "$CRYPT_MAPPER" "$LOOP_DEVICE"
       touch "$CHANDIR/$PERCHDIR" 2>/dev/null || true
    }
@@ -4027,12 +4314,30 @@ persistent_changes() {
          boot_warning_notify warning persistence \
             "SquashFS session #$PERCHDIR did not finish cleanly; restoring the last successfully saved snapshot."
       fi
-      if ! squashfs_generation_restore "$CHANGES"; then
+       if ! squashfs_generation_restore "$CHANGES"; then
          squashfs_upper_unwind "$CHANGES" || return
          perch_state_fail_now squashfs "$PERCHDIR" \
             "SquashFS session #$PERCHDIR could not be restored; continuing in memory."
-         return
-      fi
+          return
+       fi
+       if [ -n "$PERCHRESET" ]; then
+          if ! mountpoint -q "$CHANGES" ||
+             ! session_reset_prepare "$CHANGES" "$PERCHRESET" "$(get_union_fs)" ||
+             ! session_reset_finish "$CHANGES"; then
+             squashfs_upper_unwind "$CHANGES" || return
+             perch_state_fail_now squashfs "$PERCHDIR" "SquashFS session reset failed; continuing in memory."
+             return
+          fi
+          if ! squashfs_reset_pending "$MINIOS_SQUASHFS_CONF" "$PERCHDIR"; then
+             squashfs_upper_unwind "$CHANGES" || return
+             perch_state_fail_now squashfs "$PERCHDIR" "SquashFS reset metadata could not be recorded; continuing in memory."
+             return
+          fi
+          MINIOS_SQUASHFS_SYSTEM_UNION=$(squashfs_metadata_value "$MINIOS_SQUASHFS_CONF" "$PERCHDIR" union)
+          boot_warning_notify warning persistence \
+             "Session #$PERCHDIR was reset in RAM. Save the SquashFS session to retain the reset and data."
+          PERCHRESET=""
+       fi
       perch_state_prepare squashfs "$PERCHDIR" "$CHANDIR" \
          "$SQUASHFS_ACTIVE_GENERATION" "$CHANGES" "$MINIOS_SQUASHFS_CONF"
       touch "$CHANDIR/$PERCHDIR" 2>/dev/null || true
@@ -4086,6 +4391,14 @@ persistent_changes() {
    NEW_SESSION=$3
    PERCHENCRYPT=${4:-none}
    PERCHCOMP=${5:-none}
+   PERCHRESET=${6:-}
+   if [ -n "$PERCHRESET" ] && [ "$PERCHTORAM" != off ] && [ "$PERCHMODE" = native ]; then
+      # The native perchtoram path creates an empty container rather than
+      # copying the selected native upper. A reset must not silently lose data.
+      boot_warning_notify warning persistence \
+         "Resetting a native session requires its stored data; perchtoram is disabled for this boot."
+      PERCHTORAM=off
+   fi
 
    # A dynblk session can be selected implicitly by resume even when the current
    # initramfs has no dynblk support. Never reinterpret that directory as native:

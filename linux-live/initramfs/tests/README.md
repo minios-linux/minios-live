@@ -33,6 +33,13 @@ payload by default and falls back to system tools if that payload is absent; it
 skips unless root and loop support are available. Set
 `MINIOS_REQUIRE_CRYPT_TEST=1` or use `run.sh --strict` to require it.
 
+`session_reset.bats` exercises both incompatible-session reset modes using the
+actual bundled BusyBox applets. It checks program removal, retained settings and
+data, live-config markers, cross-union layout rebuilding, rollback, symlinks,
+metadata recovery, and isolation from the root union, base modules, and sibling
+sessions. Reset policy and SquashFS save requirements are described in
+`../session-reset.md`.
+
 `image_contents.bats` generates a minimal uncompressed `cpio` fixture when no
 image is provided. To inspect a built image instead, set
 `MINIOS_INITRD_IMAGE=/path/to/initrd`; set `MINIOS_EXPECT_CRYPT=1` for a

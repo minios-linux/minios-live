@@ -191,6 +191,7 @@ installkernel() {
     instmods =drivers/usb/common =drivers/usb/core
     instmods =drivers/hid/usbhid
     instmods hid hid-generic uhid
+    instmods -o hid-apple # Apple USB keyboards
 
     # Storage controllers
     instmods =drivers/cdrom

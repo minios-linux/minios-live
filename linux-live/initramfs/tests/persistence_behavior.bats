@@ -125,6 +125,42 @@ setup_dispatch() {
     persistence_requested
 }
 
+@test "both reset modes run inside each mounted writable backend before metadata publication" {
+    for mode in native raw dynfilefs dynblk vmdk; do
+        for reset in settings data; do
+            setup_dispatch "$mode" ext4
+            export TEST_CHANGES
+            PAYLOAD="$WORK/payload-$mode-$reset"
+            export PAYLOAD
+            mkdir -p "$PAYLOAD/etc" "$PAYLOAD/home/live" "$PAYLOAD/usr/bin" "$PAYLOAD/srv"
+            printf 'identity\n' >"$PAYLOAD/etc/passwd"
+            printf 'setting\n' >"$PAYLOAD/etc/custom.conf"
+            printf 'document\n' >"$PAYLOAD/home/live/document"
+            printf 'data\n' >"$PAYLOAD/srv/data"
+            printf 'program\n' >"$PAYLOAD/usr/bin/program"
+            printf 'default=1\nsession_mode[1]=%s\nsession_version[1]=old\n' "$mode" >"$TEST_CHANDIR/session.conf"
+            restore_perch_session() { printf '1 %s false none none %s\n' "$TEST_MODE" "$reset"; }
+            mountpoint() { [ "$2" = "$TEST_CHANGES" ]; }
+            make_mock mount 'for target do :; done; if [ "$target" = "$TEST_CHANGES" ]; then mkdir -p "$target"; cp -a "$PAYLOAD/." "$target/"; fi'
+            persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+            [ -f "$TEST_CHANGES/changes/etc/passwd" ]
+            [ -f "$TEST_CHANGES/changes/home/live/document" ]
+            [ -f "$TEST_CHANGES/changes/srv/data" ]
+            [ ! -e "$TEST_CHANGES/changes/usr/bin" ]
+            if [ "$reset" = settings ]; then
+                [ -f "$TEST_CHANGES/changes/etc/custom.conf" ]
+            else
+                [ ! -e "$TEST_CHANGES/changes/etc/custom.conf" ]
+            fi
+            [ ! -e "$TEST_CHANGES/.minios-session-reset" ]
+            grep -Fqx 'session_union[1]=overlayfs' "$TEST_CHANDIR/session.conf"
+            # Read-only source fixture stands in for the common root/module.
+            [ -f "$PAYLOAD/usr/bin/program" ]
+            rm -rf "$TEST_CHANGES"
+        done
+    done
+}
+
 @test "Secure Boot efivar disables DynBlk and VMDK" {
     # shellcheck source=/dev/null
     . "$LIB"
