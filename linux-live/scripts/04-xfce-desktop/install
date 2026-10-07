@@ -327,13 +327,19 @@ else
     <property name="plugin-6" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
     </property>
-    <property name="plugin-7" type="string" value="tasklist">
+    <property name="plugin-7" type="string" value="minios-tasklist">
       <property name="show-handle" type="bool" value="false"/>
       <property name="flat-buttons" type="bool" value="true"/>
       <property name="show-labels" type="bool" value="false"/>
       <property name="grouping" type="uint" value="1"/>
       <property name="include-all-workspaces" type="bool" value="true"/>
       <property name="show-wireframes" type="bool" value="false"/>
+      <property name="sort-order" type="uint" value="4"/>
+      <property name="pinned-apps" type="array">
+        <value type="string" value="firefox-esr.desktop"/>
+        <value type="string" value="thunar.desktop"/>
+        <value type="string" value="xfce4-terminal.desktop"/>
+      </property>
     </property>
     <property name="plugin-8" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
@@ -364,7 +370,11 @@ else
       <property name="digital-time-font" type="string" value="Inter 10"/>
       <property name="digital-date-font" type="string" value="Inter 8"/>
     </property>
-    <property name="plugin-14" type="string" value="showdesktop"/>
+    <property name="plugin-14" type="string" value="minios-showdesktop">
+      <property name="show-icon" type="bool" value="false"/>
+      <property name="show-on-hover" type="bool" value="false"/>
+      <property name="strip-style" type="uint" value="0"/>
+    </property>
   </property>
 </channel>
 
