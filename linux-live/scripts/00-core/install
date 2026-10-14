@@ -156,6 +156,14 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Enable time synchronization in the image without starting services in chroot.
+# Use the configured init system: /run does not identify the target init in chroot.
+if [ "${INIT_SYSTEM}" = "systemd" ]; then
+    systemctl enable systemd-timesyncd.service
+elif [ "${INIT_SYSTEM}" = "sysvinit" ]; then
+    update-rc.d chrony enable
+fi
+
 if [ "${DISTRIBUTION_PROFILE}" = "ubuntu" ]; then
     apt-get -y autoremove linux-modules-extra-* linux-firmware
 fi
