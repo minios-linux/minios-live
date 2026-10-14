@@ -1,0 +1,84 @@
+# Install the shell, not gnome/gnome-core/task-gnome-desktop/ubuntu-desktop.
+# Recommends are disabled during this module's installation.
+at-spi2-core
+dbus-x11
+dbus-user-session +is=systemd
+libpam-systemd +is=systemd
+libpam-elogind +is=sysvinit
+!gnome-session
+gnome-session-xsession +d=trixie +d=excalibur
+!gnome-shell
+!gnome-settings-daemon
+gnome-control-center
+gnome-keyring
+libpam-gnome-keyring
+!dconf-cli
+gsettings-desktop-schemas
+gvfs-backends
+!nautilus
+!gnome-terminal
+mousepad
+eog +pv=minimum
+xarchiver +pv=minimum
+xdg-user-dirs
+xdg-user-dirs-gtk
+xdg-desktop-portal-gtk
+xdg-desktop-portal-gnome +d=bookworm +d=daedalus +d=trixie +d=excalibur +d=jammy +d=noble +d=resolute
+greybird-minios-gtk-theme || greybird-gtk-theme
+elementary-minios-icon-theme
+minios6-artwork
+minios6-wallpapers-minimum +pv=minimum
+minios6-wallpapers-standard +pv=standard
+minios6-wallpapers-toolbox +pv=toolbox
+minios6-wallpapers-ultra +pv=ultra
+
+# GDM provides native GNOME locking and Wayland. Non-systemd uses LightDM/X11.
+!gdm3 +is=systemd
+!lightdm +is=sysvinit
+lightdm-gtk-greeter +is=sysvinit
+light-locker +is=sysvinit
+network-manager-gnome +is=sysvinit
+
+# GNOME's shell needs a PulseAudio-compatible server even in Minimum.
+pulseaudio -d=trixie -d=excalibur -d=noble -d=resolute
+pulseaudio-module-bluetooth -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire +d=trixie +d=excalibur +d=noble +d=resolute
+pipewire-pulse +d=trixie +d=excalibur +d=noble +d=resolute
+wireplumber +d=trixie +d=excalibur +d=noble +d=resolute
+libspa-0.2-bluetooth +d=trixie +d=excalibur +d=noble +d=resolute
+
+# Standard and above: MiniOS tools replace Software/PackageKit and vendor tools.
+avahi-daemon -pv=minimum
+file-roller -pv=minimum
+gnome-system-monitor -pv=minimum
+eog -pv=minimum
+minios-configurator -pv=minimum
+minios-installer -pv=minimum
+minios-session-manager -pv=minimum
+minios-kernel-manager -pv=minimum
+minios-store -pv=minimum
+minios-store-gui -pv=minimum
+minios-image-builder -pv=minimum
+minios-module-manager -pv=minimum
+minios-help -pv=minimum
+driveutility -pv=minimum && python3-zstandard -pv=minimum -d=bionic
+samba-common -pv=minimum
+
+# Integration for Toolbox and Ultra.
+menulibre +pv=toolbox +pv=ultra
+open-vm-tools-desktop +pv=toolbox +pv=ultra
+virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=excalibur +d=sid
+qt5-gtk-platformtheme +pv=toolbox +pv=ultra
+qt6-gtk-platformtheme +pv=toolbox +pv=ultra +d=bookworm +d=daedalus +d=trixie +d=excalibur +d=jammy +d=noble +d=resolute
+pulseaudio-module-xrdp +pv=toolbox +pv=ultra -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire-module-xrdp +pv=toolbox +pv=ultra +d=trixie +d=excalibur
+
+# Ubuntu translations follow the same LOCALE/MULTILINGUAL/KEEP_LOCALES policy.
+language-pack-gnome-en-base +dp=ubuntu +{lo=C|lo=en_US|ml=true|kl=true}
+language-pack-gnome-ru-base +dp=ubuntu +{lo=ru_RU|ml=true|kl=true}
+language-pack-gnome-de-base +dp=ubuntu +{lo=de_DE|ml=true|kl=true}
+language-pack-gnome-es-base +dp=ubuntu +{lo=es_ES|ml=true|kl=true}
+language-pack-gnome-pt-base +dp=ubuntu +{lo=pt_BR|lo=pt_PT|ml=true|kl=true}
+language-pack-gnome-fr-base +dp=ubuntu +{lo=fr_FR|ml=true|kl=true}
+language-pack-gnome-it-base +dp=ubuntu +{lo=it_IT|ml=true|kl=true}
+language-pack-gnome-id-base +dp=ubuntu +{lo=id_ID|ml=true|kl=true}

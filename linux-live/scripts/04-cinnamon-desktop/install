@@ -1,0 +1,150 @@
+#!/bin/bash
+set -euo pipefail
+
+. /minioslib
+console_colors
+. /minios_build.conf
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+minios_desktop_install_packages "$SCRIPT_DIR"
+minios_desktop_remove_optional cinnamon-doc gnome-software gnome-software-plugin-flatpak \
+    gnome-software-plugin-snap gnome-user-docs gnome-getting-started-docs \
+    gnome-remote-desktop gnome-browser-connector
+minios_desktop_defaults cinnamon /usr/bin/gnome-terminal.wrapper nemo.desktop mousepad.desktop
+
+test -x /usr/bin/cinnamon-session
+update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/bin/minios-cinnamon-session 90
+update-alternatives --set x-session-manager /usr/bin/minios-cinnamon-session
+
+minios_desktop_dconf_profile
+cat >/etc/dconf/db/minios.d/00-desktop <<EOF
+[org/cinnamon/desktop/interface]
+gtk-theme='$MINIOS_THEME'
+icon-theme='$MINIOS_ICON_THEME'
+cursor-theme='Breeze_Light'
+cursor-size=24
+font-name='Inter 9'
+enable-animations=$([ "$PACKAGE_VARIANT" = minimum ] && echo false || echo true)
+
+[org/gnome/desktop/interface]
+document-font-name='Inter 9'
+monospace-font-name='JetBrains Mono 9'
+
+[org/cinnamon/desktop/wm/preferences]
+titlebar-font='Inter Bold 9'
+titlebar-uses-system-font=false
+button-layout=':minimize,maximize,close'
+num-workspaces=1
+
+[org/cinnamon/theme]
+name='MiniOS-Cinnamon'
+
+[org/cinnamon/desktop/background]
+picture-uri='file://$MINIOS_WALLPAPER'
+picture-options='zoom'
+
+[org/cinnamon/desktop/screensaver]
+use-custom-format=false
+font-date='Inter 24'
+font-time='Inter 64'
+font-message='Inter 14'
+
+[org/cinnamon/desktop/privacy]
+remember-recent-files=false
+
+[org/cinnamon/desktop/media-handling]
+autorun-never=true
+
+[org/cinnamon]
+panels-enabled=['1:0:bottom']
+panels-height=['1:48']
+panels-autohide=['1:false']
+desktop-effects=$([ "$PACKAGE_VARIANT" = minimum ] && echo false || echo true)
+enabled-search-providers=@as []
+enable-app-monitoring=false
+favorite-apps=['nemo.desktop', 'org.gnome.Terminal.desktop']
+next-applet-id=10
+
+[org/nemo/desktop]
+home-icon-visible=true
+computer-icon-visible=false
+trash-icon-visible=true
+volumes-visible=false
+
+[org/cinnamon/desktop/applications/terminal]
+exec='gnome-terminal'
+exec-arg='--'
+
+[org/cinnamon/desktop/keybindings/media-keys]
+terminal=['<Primary><Alt>t']
+
+[org/gnome/terminal/legacy/profiles:]
+list=['39f09e54-2456-4b2e-86e7-86d1230b51c2']
+default='39f09e54-2456-4b2e-86e7-86d1230b51c2'
+
+[org/gnome/terminal/legacy/profiles:/:39f09e54-2456-4b2e-86e7-86d1230b51c2]
+visible-name='MiniOS'
+use-system-font=false
+font='JetBrains Mono 10'
+use-theme-colors=false
+background-color='rgb(31,33,36)'
+foreground-color='rgb(238,238,238)'
+EOF
+
+# Choose native applets that exist in this Cinnamon version, without extra spices.
+TASKLIST=grouped-window-list
+[ -d /usr/share/cinnamon/applets/grouped-window-list@cinnamon.org ] || TASKLIST=window-list
+TRAY=xapp-status
+[ -d /usr/share/cinnamon/applets/xapp-status@cinnamon.org ] || TRAY=systray
+cat >/etc/dconf/db/minios.d/05-panel <<EOF
+[org/cinnamon]
+enabled-applets=['panel1:left:0:menu@cinnamon.org:0', 'panel1:left:1:show-desktop@cinnamon.org:1', 'panel1:left:2:$TASKLIST@cinnamon.org:2', 'panel1:right:0:$TRAY@cinnamon.org:3', 'panel1:right:1:network@cinnamon.org:4', 'panel1:right:2:sound@cinnamon.org:5', 'panel1:right:3:power@cinnamon.org:6', 'panel1:right:4:keyboard@cinnamon.org:7', 'panel1:right:5:calendar@cinnamon.org:8', 'panel1:right:6:notifications@cinnamon.org:9']
+EOF
+
+LAYOUTS="[('xkb', 'us')]"
+XKB_LAYOUTS="['us']"
+if [ "$LOCALE" != en_US ] && [ "$LOCALE" != C ] && [ -n "$LAYOUTID" ] && [ "$LAYOUTID" != us ]; then
+    LAYOUTS="[('xkb', 'us'), ('xkb', '$LAYOUTID')]"
+    XKB_LAYOUTS="['us', '$LAYOUTID']"
+fi
+cat >/etc/dconf/db/minios.d/10-keyboard <<EOF
+[org/cinnamon/desktop/input-sources]
+sources=$LAYOUTS
+xkb-options=['grp:alt_shift_toggle']
+
+[org/gnome/libgnomekbd/keyboard]
+layouts=$XKB_LAYOUTS
+options=['grp\tgrp:alt_shift_toggle']
+EOF
+
+# Seed applet settings from this release's schema, preserving its version metadata.
+mkdir -p /etc/skel/.config/cinnamon/spices/menu@cinnamon.org
+python3 - /usr/share/cinnamon/applets/menu@cinnamon.org/settings-schema.json \
+    /etc/skel/.config/cinnamon/spices/menu@cinnamon.org/0.json <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+template = Path(sys.argv[1]).read_text()
+settings = json.loads(template)
+for definition in settings.values():
+    if isinstance(definition, dict) and "default" in definition:
+        definition["value"] = definition["default"]
+for key, value in {"menu-custom": True, "menu-icon": "/usr/share/pixmaps/MiniOS-white.svg",
+                   "menu-label": "", "show-recents": False, "search-filesystem": False}.items():
+    if key in settings:
+        settings[key]["value"] = value
+settings["__md5__"] = hashlib.md5(template.encode()).hexdigest()
+Path(sys.argv[2]).write_text(json.dumps(settings, indent=2) + "\n")
+PY
+mkdir -p /etc/skel/.cinnamon
+ln -sfn ../.config/cinnamon/spices /etc/skel/.cinnamon/configs
+
+mkdir -p /etc/xdg/menus/cinnamon-applications-merged
+# Some distributions alias the desktop's merge directory to applications-merged.
+if [ ! /etc/xdg/menus/applications-merged/minios.menu -ef /etc/xdg/menus/cinnamon-applications-merged/minios.menu ]; then
+    cp /etc/xdg/menus/applications-merged/minios.menu /etc/xdg/menus/cinnamon-applications-merged/minios.menu
+fi
+dconf update
+chmod +x /usr/bin/minios-cinnamon-session /usr/bin/minios-desktop-pipewire-start \
+    /etc/skel/.xsession /etc/skel/.xinitrc

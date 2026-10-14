@@ -1,130 +1,88 @@
 #!/bin/bash
-
-set -e          # exit on error
-set -o pipefail # exit on pipeline error
-set -u          # treat unset variable as error
+set -euo pipefail
 
 . /minioslib
 console_colors
+. /minios_build.conf
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+minios_desktop_install_packages "$SCRIPT_DIR"
+minios_desktop_remove_optional lxqt-admin lxqt-about
+minios_desktop_defaults lxqt /usr/bin/qterminal pcmanfm-qt.desktop featherpad.desktop
+minios_desktop_openbox_defaults lxqt qterminal pcmanfm-qt lxqt-runner lxqt-leave
 
-LNG="$(echo $LOCALE | cut -d_ -f1)"
+test -x /usr/bin/startlxqt
+update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/bin/minios-lxqt-session 90
+update-alternatives --set x-session-manager /usr/bin/minios-lxqt-session
 
-echo "nodm nodm/enabled boolean true" | debconf-set-selections
-echo "samba-common samba-common/dhcp boolean false" | debconf-set-selections
+mkdir -p /etc/skel/.config/lxqt /etc/skel/.config/pcmanfm-qt/lxqt /etc/skel/.config/qterminal.org
+cat >/etc/skel/.config/lxqt/lxqt.conf <<EOF
+[General]
+theme=MiniOS
+icon_theme=$MINIOS_ICON_THEME
+single_click_activate=false
+palette_override=true
 
-/install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
+[Qt]
+font="Inter,9,-1,5,50,0,0,0,0,0"
+style=Fusion
 
-if [ $LOCALE != "en_US" ]; then
-    /install_packages -l "$SCRIPT_DIR/$PACKAGE_VARIANT-l10n.list" -c "${SCRIPT_DIR}/minios_build.conf" -m "${SCRIPT_DIR}/condinapt.map"
-fi
-
-if [ -f /usr/share/applications/yad-icon-browser.desktop ]; then
-    rm -f /usr/share/applications/yad-icon-browser.desktop
-fi
-
-rm -f /usr/share/applications/minios-installer.desktop
-
-if grep -q slim $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#slim" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-    sed -i 's,# hidecursor          false,hidecursor            false,g' /etc/slim.conf
-    sed -i 's,screenshot_cmd      scrot /root/slim.png,# screenshot_cmd      scrot /root/slim.png,g' /etc/slim.conf
-    sed -i 's,#auto_login          no,auto_login          yes,g' /etc/slim.conf
-    sed -i 's,current_theme       debian-softwaves,current_theme       minios,g' /etc/slim.conf
-    sed -i "s/#default_user        simone/default_user        $LIVE_USERNAME/g" /etc/slim.conf
-fi
-
-if grep -q nodm $SCRIPT_DIR/$PACKAGE_VARIANT.list && ! grep -q "#nodm" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-    cat <<EOF >/etc/default/nodm
-# nodm configuration
-
-# Set NODM_ENABLED to something different than 'false' to enable nodm
-NODM_ENABLED=true
-
-# User to autologin for
-NODM_USER=live
-
-# First vt to try when looking for free VTs
-NODM_FIRST_VT=7
-
-# X session
-NODM_XSESSION=/etc/X11/Xsession
-
-# Options for nodm itself
-NODM_OPTIONS=
-
-# Options for the X server.
-#
-# Format: [/usr/bin/<Xserver>] [:<disp>] <Xserver-options>
-#
-# The Xserver executable and the display name can be omitted, but should
-# be placed in front, if nodm's defaults shall be overridden.
-NODM_X_OPTIONS='-nolisten tcp'
-
-# If an X session will run for less than this time in seconds, nodm will wait an
-# increasing bit of time before restarting the session.
-NODM_MIN_SESSION_TIME=60
-
-# Timeout (in seconds) to wait for X to be ready to accept connections. If X is
-# not ready before this timeout, it is killed and restarted.
-NODM_X_TIMEOUT=300
-
+[Palette]
+window_color=$([ "$PACKAGE_VARIANT" = ultra ] && echo '#303235' || echo '#eeeeee')
+window_text_color=$([ "$PACKAGE_VARIANT" = ultra ] && echo '#eeeeee' || echo '#2e3436')
+base_color=$([ "$PACKAGE_VARIANT" = ultra ] && echo '#1f2124' || echo '#ffffff')
+text_color=$([ "$PACKAGE_VARIANT" = ultra ] && echo '#eeeeee' || echo '#2e3436')
+button_color=$([ "$PACKAGE_VARIANT" = ultra ] && echo '#303235' || echo '#eeeeee')
+button_text_color=$([ "$PACKAGE_VARIANT" = ultra ] && echo '#eeeeee' || echo '#2e3436')
+highlight_color=#4a90d9
+highlighted_text_color=#ffffff
+link_color=#4a90d9
 EOF
-fi
+cat >/etc/skel/.config/lxqt/session.conf <<'EOF'
+[General]
+window_manager=openbox
 
-if ! grep -q pulseaudio $SCRIPT_DIR/$PACKAGE_VARIANT.list || grep -q "#slim" $SCRIPT_DIR/$PACKAGE_VARIANT.list; then
-    cat <<EOF >/usr/bin/audio-allowuser.sh
-#!/bin/bash
-if ! grep audio /etc/group | grep \$(id -nu 1000) >/dev/null; then
-    usermod -a -G audio \$(id -nu 1000)
-fi
+[Mouse]
+cursor_theme=Breeze_Light
+cursor_size=24
 EOF
-    chmod +x /usr/bin/audio-allowuser.sh
-    if [ "${INIT_SYSTEM}" = "systemd" ]; then
-        mkdir -p /usr/lib/systemd/system
-        cat <<EOF >/usr/lib/systemd/system/audio-allowuser.service
-[Unit]
-Description=Allow user to use ALSA
-#After=network.target
+cat >/etc/skel/.config/pcmanfm-qt/lxqt/settings.conf <<EOF
+[Behavior]
+SingleClick=false
+RecentFilesNumber=0
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/audio-allowuser.sh
-RemainAfterExit=true
-ExecStop=
-StandardOutput=journal
+[Desktop]
+Wallpaper=$MINIOS_WALLPAPER
+WallpaperMode=zoom
+PerScreenWallpaper=false
+Font="Inter,9,-1,5,50,0,0,0,0,0"
+DesktopIconSize=48
+DesktopShortcuts=Home, Trash
 
-[Install]
-WantedBy=multi-user.target
+[System]
+Terminal=qterminal
+Archiver=$([ "$PACKAGE_VARIANT" = minimum ] && echo xarchiver || echo lxqt-archiver)
+SuCommand=lxqt-sudo %s
+FallbackIconThemeName=$MINIOS_ICON_THEME
+
+[Volume]
+AutoRun=false
+MountOnStartup=true
+MountRemovable=true
 EOF
-        minios-svc enable audio-allowuser.service
-    else
-        cat <<EOF >/etc/init.d/audio-allowuser
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          audio-allowuser
-# Required-Start:    \$remote_fs
-# Required-Stop:
-# Default-Start:     2 3 4 5
-# Default-Stop:
-# Short-Description: Allow user to use ALSA
-### END INIT INFO
-
-case "\$1" in
-start)
-    /usr/bin/audio-allowuser.sh
-    ;;
-stop)
-    ;;
-*)
-    echo "Usage: \$0 {start|stop}" >&2
-    exit 2
-    ;;
-esac
-
-exit 0
+cat >/etc/skel/.config/qterminal.org/qterminal.ini <<'EOF'
+[General]
+fontFamily=JetBrains Mono
+fontSize=10
+colorScheme=Linux
+MenuVisible=false
+HistoryLimited=true
+HistoryLimitedTo=10000
+TerminalTransparency=0
 EOF
-        chmod +x /etc/init.d/audio-allowuser
-        minios-svc enable audio-allowuser
-    fi
+# lxqt-session requires lxqt-themes, but its distribution wallpapers are not used.
+if [ -d /usr/share/lxqt/wallpapers ]; then
+    rm -rf /usr/share/lxqt/wallpapers
 fi
+chmod +x /usr/bin/minios-lxqt-session /usr/bin/minios-desktop-pipewire-start \
+    /etc/skel/.xsession /etc/skel/.xinitrc

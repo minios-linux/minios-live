@@ -27,7 +27,7 @@ _minios_cmd() {
         COMPREPLY=($(compgen -W "${architectures}" -- ${cur}))
         ;;
     --desktop-environment | -de)
-        local desktop_environments="xfce lxqt flux"
+        local desktop_environments="core xfce lxqt flux gnome cinnamon"
         COMPREPLY=($(compgen -W "${desktop_environments}" -- ${cur}))
         ;;
     --package-variant | -pv)

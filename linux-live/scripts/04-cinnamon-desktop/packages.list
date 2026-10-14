@@ -1,0 +1,82 @@
+# Individual desktop packages, without cinnamon-core/cinnamon-desktop-environment.
+# APT Recommends/Suggests are disabled by the shared desktop installer.
+at-spi2-core
+dbus-x11
+libpam-systemd +is=systemd
+dbus-user-session +is=systemd
+libpam-elogind +is=sysvinit
+!cinnamon
+!cinnamon-session
+!cinnamon-settings-daemon
+cinnamon-control-center
+cinnamon-screensaver
+!nemo
+nemo-fileroller -pv=minimum
+!gnome-terminal
+mousepad
+eog
+gnome-keyring
+libpam-gnome-keyring
+!dconf-cli
+gvfs-backends
+xdg-user-dirs
+xdg-user-dirs-gtk
+xdg-desktop-portal-gtk
+xdg-desktop-portal-xapp +d=trixie +d=excalibur +d=noble +d=resolute
+xapp-sn-watcher +d=bookworm +d=daedalus +d=trixie +d=excalibur +d=jammy +d=noble +d=resolute
+!lightdm
+lightdm-gtk-greeter
+greybird-minios-gtk-theme || greybird-gtk-theme
+elementary-minios-icon-theme
+minios6-artwork
+minios6-wallpapers-minimum +pv=minimum
+minios6-wallpapers-standard +pv=standard
+minios6-wallpapers-toolbox +pv=toolbox
+minios6-wallpapers-ultra +pv=ultra
+xarchiver +pv=minimum
+
+# Pulse-compatible session audio is required by Cinnamon's sound applet.
+pulseaudio -d=trixie -d=excalibur -d=noble -d=resolute
+pulseaudio-module-bluetooth -pv=minimum -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire +d=trixie +d=excalibur +d=noble +d=resolute
+pipewire-pulse +d=trixie +d=excalibur +d=noble +d=resolute
+wireplumber +d=trixie +d=excalibur +d=noble +d=resolute
+libspa-0.2-bluetooth -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+
+# Standard and above.
+avahi-daemon -pv=minimum
+blueman -pv=minimum
+file-roller -pv=minimum
+gnome-screenshot -pv=minimum
+gnome-system-monitor -pv=minimum
+minios-configurator -pv=minimum
+minios-installer -pv=minimum
+minios-session-manager -pv=minimum
+minios-kernel-manager -pv=minimum
+minios-store -pv=minimum
+minios-store-gui -pv=minimum
+minios-image-builder -pv=minimum
+minios-module-manager -pv=minimum
+minios-help -pv=minimum
+driveutility -pv=minimum && python3-zstandard -pv=minimum -d=bionic
+samba-common -pv=minimum
+
+# Toolbox and Ultra integration.
+menulibre +pv=toolbox +pv=ultra
+open-vm-tools-desktop +pv=toolbox +pv=ultra
+virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=excalibur +d=sid
+qt5-gtk-platformtheme +pv=toolbox +pv=ultra
+qt6-gtk-platformtheme +pv=toolbox +pv=ultra +d=bookworm +d=daedalus +d=trixie +d=excalibur +d=jammy +d=noble +d=resolute
+pulseaudio-module-xrdp +pv=toolbox +pv=ultra -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire-module-xrdp +pv=toolbox +pv=ultra +d=trixie +d=excalibur
+
+# Cinnamon translations are supplied by cinnamon-l10n (a desktop dependency).
+# These language packs cover the additional GNOME applications on Ubuntu.
+language-pack-gnome-en-base +dp=ubuntu +{lo=C|lo=en_US|ml=true|kl=true}
+language-pack-gnome-ru-base +dp=ubuntu +{lo=ru_RU|ml=true|kl=true}
+language-pack-gnome-de-base +dp=ubuntu +{lo=de_DE|ml=true|kl=true}
+language-pack-gnome-es-base +dp=ubuntu +{lo=es_ES|ml=true|kl=true}
+language-pack-gnome-pt-base +dp=ubuntu +{lo=pt_BR|lo=pt_PT|ml=true|kl=true}
+language-pack-gnome-fr-base +dp=ubuntu +{lo=fr_FR|ml=true|kl=true}
+language-pack-gnome-it-base +dp=ubuntu +{lo=it_IT|ml=true|kl=true}
+language-pack-gnome-id-base +dp=ubuntu +{lo=id_ID|ml=true|kl=true}

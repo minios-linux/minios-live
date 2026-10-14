@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+config="${XDG_CONFIG_HOME:-$HOME/.config}/minios/keyboard.conf"
+[ -r "$config" ] || exit 0
+# This is an editable per-user session configuration, never run as a service.
+# shellcheck disable=SC1090
+. "$config"
+exec setxkbmap -layout "$MINIOS_XKB_LAYOUTS" -option '' -option grp:alt_shift_toggle

@@ -1,0 +1,176 @@
+#!/bin/bash
+set -euo pipefail
+
+. /minioslib
+console_colors
+. /minios_build.conf
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+minios_desktop_install_packages "$SCRIPT_DIR"
+minios_desktop_remove_optional gnome-software gnome-software-plugin-flatpak \
+    gnome-software-plugin-snap gnome-remote-desktop gnome-browser-connector \
+    gnome-user-docs gnome-getting-started-docs evolution evolution-data-server
+minios_desktop_defaults gnome /usr/bin/gnome-terminal.wrapper org.gnome.Nautilus.desktop mousepad.desktop
+
+minios_desktop_dconf_profile
+cat >/etc/dconf/db/minios.d/00-desktop <<EOF
+[org/gnome/desktop/interface]
+gtk-theme='$MINIOS_THEME'
+icon-theme='$MINIOS_ICON_THEME'
+cursor-theme='Breeze_Light'
+cursor-size=24
+font-name='Inter 9'
+document-font-name='Inter 9'
+monospace-font-name='JetBrains Mono 9'
+font-antialiasing='rgba'
+font-hinting='full'
+enable-animations=$([ "$PACKAGE_VARIANT" = minimum ] && echo false || echo true)
+color-scheme='$([ "$PACKAGE_VARIANT" = ultra ] && echo prefer-dark || echo default)'
+
+[org/gnome/desktop/wm/preferences]
+titlebar-font='Inter Bold 9'
+titlebar-uses-system-font=false
+button-layout=':minimize,maximize,close'
+num-workspaces=1
+
+[org/gnome/mutter]
+dynamic-workspaces=false
+
+[org/gnome/desktop/background]
+picture-uri='file://$MINIOS_WALLPAPER'
+picture-uri-dark='file://$MINIOS_WALLPAPER'
+picture-options='zoom'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file://$MINIOS_WALLPAPER'
+
+[org/gnome/shell]
+favorite-apps=['org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop']
+
+[org/gnome/desktop/search-providers]
+disable-external=true
+
+[org/gnome/desktop/privacy]
+remember-recent-files=false
+report-technical-problems=false
+send-software-usage-stats=false
+
+[org/gnome/system/location]
+enabled=false
+
+[org/gnome/desktop/media-handling]
+autorun-never=true
+
+[org/gnome/desktop/app-folders]
+folder-children=['MiniOS']
+
+[org/gnome/desktop/app-folders/folders/MiniOS]
+name='MiniOS'
+categories=['X-MiniOS']
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/terminal/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/terminal]
+name='Terminal'
+command='gnome-terminal'
+binding='<Primary><Alt>t'
+
+[org/gnome/terminal/legacy/profiles:]
+list=['39f09e54-2456-4b2e-86e7-86d1230b51c2']
+default='39f09e54-2456-4b2e-86e7-86d1230b51c2'
+
+[org/gnome/terminal/legacy/profiles:/:39f09e54-2456-4b2e-86e7-86d1230b51c2]
+visible-name='MiniOS'
+use-system-font=false
+font='JetBrains Mono 10'
+use-theme-colors=false
+background-color='rgb(31,33,36)'
+foreground-color='rgb(238,238,238)'
+EOF
+
+LAYOUTS="[('xkb', 'us')]"
+if [ "$LOCALE" != en_US ] && [ "$LOCALE" != C ] && [ -n "$LAYOUTID" ] && [ "$LAYOUTID" != us ]; then
+    LAYOUTS="[('xkb', 'us'), ('xkb', '$LAYOUTID')]"
+fi
+cat >/etc/dconf/db/minios.d/10-keyboard <<EOF
+[org/gnome/desktop/input-sources]
+sources=$LAYOUTS
+xkb-options=['grp:alt_shift_toggle']
+EOF
+mkdir -p /usr/share/gnome-background-properties
+{
+    printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<wallpapers>'
+    for WALLPAPER in /usr/share/backgrounds/minios6-*.jpg; do
+        [ -f "$WALLPAPER" ] || continue
+        printf '  <wallpaper deleted="false"><name>MiniOS %s</name><filename>%s</filename><options>zoom</options></wallpaper>\n' \
+            "$(basename "$WALLPAPER" .jpg | cut -d- -f2-)" "$WALLPAPER"
+    done
+    printf '%s\n' '</wallpapers>'
+} >/usr/share/gnome-background-properties/minios.xml
+
+if [ "$INIT_SYSTEM" = systemd ]; then
+    # Ubuntu stores this in custom.conf; live-config's GDM component uses daemon.conf.
+    if [ -f /etc/gdm3/custom.conf ] && [ ! -e /etc/gdm3/daemon.conf ]; then
+        ln -s custom.conf /etc/gdm3/daemon.conf
+    fi
+    test -f /etc/gdm3/daemon.conf
+    mkdir -p /etc/dconf/db/gdm.d
+    cat >/etc/dconf/profile/gdm <<'EOF'
+user-db:user
+system-db:gdm
+file-db:/usr/share/gdm/greeter-dconf-defaults
+EOF
+    cat >/etc/dconf/db/gdm.d/00-minios <<EOF
+[org/gnome/desktop/interface]
+icon-theme='$MINIOS_ICON_THEME'
+cursor-theme='Breeze_Light'
+cursor-size=24
+font-name='Inter 9'
+
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/MiniOS-white.svg'
+disable-user-list=false
+EOF
+    # GDM starts the native GNOME session (Wayland when supported).
+    update-alternatives --set x-session-manager /usr/bin/gnome-session
+else
+    # GNOME's built-in session manager is needed when systemd user units are absent.
+    update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/bin/minios-gnome-session 90
+    update-alternatives --set x-session-manager /usr/bin/minios-gnome-session
+    # GNOME's native locker needs GDM. LightDM sessions use Light Locker instead.
+    cat >/etc/dconf/db/minios.d/20-non-systemd <<'EOF'
+[org/gnome/desktop/lockdown]
+disable-lock-screen=true
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/terminal/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/lock/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/lock]
+name='Lock screen'
+command='light-locker-command -l'
+binding='<Primary><Alt>l'
+EOF
+fi
+dconf update
+
+chmod +x /usr/bin/minios-gnome-session /usr/bin/minios-desktop-pipewire-start \
+    /etc/skel/.xsession /etc/skel/.xinitrc
+
+# Disable optional content indexing, including both Tracker 3 and LocalSearch names.
+mkdir -p /etc/skel/.config/autostart /etc/skel/.config/systemd/user
+for SERVICE in tracker-miner-fs tracker-miner-fs-3 tracker-extract tracker-extract-3 localsearch-3; do
+    cat >"/etc/skel/.config/autostart/$SERVICE.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=File indexing
+Hidden=true
+EOF
+    ln -sfn /dev/null "/etc/skel/.config/systemd/user/$SERVICE.service"
+done
+
+# Qt applications in Toolbox use GTK styling instead of importing another desktop.
+if [ "$PACKAGE_VARIANT" = toolbox ] || [ "$PACKAGE_VARIANT" = ultra ]; then
+    mkdir -p /etc/environment.d
+    printf '%s\n' 'QT_QPA_PLATFORMTHEME=gtk3' >/etc/environment.d/60-minios-gnome.conf
+fi

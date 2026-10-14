@@ -1,0 +1,88 @@
+# Individual LXQt components, without lxqt/lxqt-core/lubuntu-desktop.
+at-spi2-core
+dbus-x11
+dbus-user-session +is=systemd
+libpam-systemd +is=systemd
+libpam-elogind +is=sysvinit
+!lxqt-session
+!lxqt-panel
+lxqt-config
+lxqt-globalkeys
+lxqt-notificationd
+lxqt-policykit
+lxqt-powermanagement
+lxqt-qtplugin
+lxqt-runner
+lxqt-sudo
+!openbox
+!pcmanfm-qt
+!qterminal
+featherpad
+lximage-qt
+qt6-svg-plugins +d=trixie +d=excalibur +d=resolute
+libqt5svg5 -d=trixie -d=excalibur -d=resolute
+nm-tray
+gvfs-backends
+xdg-user-dirs
+xdg-desktop-portal-gtk
+xdg-desktop-portal-lxqt +d=bookworm +d=daedalus +d=trixie +d=excalibur +d=noble +d=resolute
+!lightdm
+lightdm-gtk-greeter
+light-locker
+xmlstarlet
+greybird-minios-gtk-theme || greybird-gtk-theme
+elementary-minios-icon-theme
+minios6-artwork
+minios6-wallpapers-minimum +pv=minimum
+minios6-wallpapers-standard +pv=standard
+minios6-wallpapers-toolbox +pv=toolbox
+minios6-wallpapers-ultra +pv=ultra
+xarchiver +pv=minimum
+
+# The volume applet uses a PulseAudio-compatible server in every edition.
+pulseaudio -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire +d=trixie +d=excalibur +d=noble +d=resolute
+pipewire-pulse +d=trixie +d=excalibur +d=noble +d=resolute
+wireplumber +d=trixie +d=excalibur +d=noble +d=resolute
+libspa-0.2-bluetooth -pv=minimum +d=trixie +d=excalibur +d=noble +d=resolute
+pulseaudio-module-bluetooth -pv=minimum -d=trixie -d=excalibur -d=noble -d=resolute
+
+# Standard and above.
+avahi-daemon -pv=minimum
+blueman -pv=minimum
+lxqt-archiver -pv=minimum
+qlipper -pv=minimum
+qps -pv=minimum
+screengrab -pv=minimum
+pavucontrol-qt -pv=minimum
+minios-configurator -pv=minimum
+minios-installer -pv=minimum
+minios-session-manager -pv=minimum
+minios-kernel-manager -pv=minimum
+minios-store -pv=minimum
+minios-store-gui -pv=minimum
+minios-image-builder -pv=minimum
+minios-module-manager -pv=minimum
+minios-help -pv=minimum
+driveutility -pv=minimum && python3-zstandard -pv=minimum -d=bionic
+samba-common -pv=minimum
+
+# Toolbox and Ultra.
+open-vm-tools-desktop +pv=toolbox +pv=ultra
+virtualbox-guest-x11 +pv=toolbox +pv=ultra +d=trixie +d=excalibur +d=sid
+pulseaudio-module-xrdp +pv=toolbox +pv=ultra -d=trixie -d=excalibur -d=noble -d=resolute
+pipewire-module-xrdp +pv=toolbox +pv=ultra +d=trixie +d=excalibur
+
+# Debian LXQt component translations are separate packages.
+lxqt-session-l10n
+lxqt-panel-l10n
+lxqt-config-l10n
+lxqt-globalkeys-l10n
+lxqt-notificationd-l10n
+lxqt-policykit-l10n
+lxqt-powermanagement-l10n
+lxqt-runner-l10n
+lxqt-sudo-l10n
+pcmanfm-qt-l10n
+qterminal-l10n
+lximage-qt-l10n

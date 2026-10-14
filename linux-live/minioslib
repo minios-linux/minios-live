@@ -4357,6 +4357,268 @@ remove_broken_links() {
     find "${1}" -type l -exec test ! -e {} \; -exec rm -f -- {} +
 }
 
+# Shared desktop build functions. /minioslib is staged fresh by the builder
+# and removed during cleanup; these functions are not runtime session helpers.
+minios_desktop_dconf_profile() {
+    mkdir -p /etc/dconf/profile /etc/dconf/db/minios.d
+    # Factory defaults are an image snapshot, not a live system policy database.
+    # system-db subscribes to the system bus and blocks early gsettings writes
+    # before basic.target. file-db keeps the same defaults without that watch.
+    # User overrides remain writable and notify through the private session bus.
+    cat >/etc/dconf/profile/user <<'EOF'
+user-db:user
+file-db:/etc/dconf/db/minios
+EOF
+}
+
+minios_desktop_install_packages() {
+    local script_dir=$1
+    # Scope the policy to this installation; later modules keep their own policy.
+    local policy=/etc/apt/apt.conf.d/99minios-desktop-build
+    printf '%s\n' 'APT::Install-Recommends "false";' 'APT::Install-Suggests "false";' >"$policy"
+    trap 'rm -f /etc/apt/apt.conf.d/99minios-desktop-build' EXIT
+    printf '%s\n' 'samba-common samba-common/dhcp boolean false' | debconf-set-selections
+    /condinapt -l "$script_dir/packages.list" -c "$script_dir/minios_build.conf" -m "$script_dir/condinapt.map"
+    rm -f "$policy"
+    trap - EXIT
+}
+
+minios_desktop_openbox_bind() {
+    local xml=$1 key=$2 command=$3
+    local keyboard='//*[local-name()="keyboard"]'
+    local binding="$keyboard/*[local-name()='keybind'][last()]"
+    xmlstarlet ed -L \
+        -d "$keyboard/*[local-name()='keybind'][@key='$key']" \
+        -s "$keyboard" -t elem -n keybind -v '' \
+        -i "$binding" -t attr -n key -v "$key" \
+        -s "$binding" -t elem -n action -v '' \
+        -i "$binding/*[local-name()='action']" -t attr -n name -v Execute \
+        -s "$binding/*[local-name()='action']" -t elem -n command -v "$command" "$xml"
+}
+
+minios_desktop_openbox_defaults() {
+    local desktop=$1 terminal=$2 file_manager=$3 runner=$4 logout=$5
+    local xml="/etc/skel/.config/openbox/${desktop}-rc.xml"
+    local resources="/usr/share/themes/$MINIOS_THEME/openbox-3"
+    mkdir -p /etc/skel/.config/openbox "$resources"
+    # Reuse the MiniOS Greybird Openbox artwork previously carried by LXQt.
+    if [ ! /usr/share/themes/Greybird/openbox-3/themerc -ef "$resources/themerc" ]; then
+        cp -a /usr/share/themes/Greybird/openbox-3/. "$resources/"
+    fi
+    if [ "$PACKAGE_VARIANT" = ultra ]; then
+        sed -i -e 's/#DEDEDE/#303235/g' -e 's/#404040/#EEEEEE/g' \
+            -e 's/#2F2F2F/#EEEEEE/g' -e 's/#3E84CE/#4A90D9/g' "$resources/themerc"
+    fi
+    # Keep native mouse/window-management bindings, then set MiniOS defaults.
+    cp /etc/xdg/openbox/rc.xml "$xml"
+    xmlstarlet ed -L -N ob=http://openbox.org/3.4/rc \
+        -u '/ob:openbox_config/ob:theme/ob:name' -v "$MINIOS_THEME" \
+        -u '//ob:font/ob:name' -v Inter -u '//ob:font/ob:size' -v 9 \
+        -u '/ob:openbox_config/ob:desktops/ob:number' -v 1 \
+        -u '/ob:openbox_config/ob:theme/ob:titleLayout' -v LIMC \
+        -u '/ob:openbox_config/ob:theme/ob:animateIconify' -v no "$xml"
+    minios_desktop_openbox_bind "$xml" C-A-t "$terminal"
+    minios_desktop_openbox_bind "$xml" W-e "$file_manager"
+    minios_desktop_openbox_bind "$xml" A-F2 "$runner"
+    minios_desktop_openbox_bind "$xml" C-A-l 'light-locker-command -l'
+    minios_desktop_openbox_bind "$xml" C-A-Delete "$logout"
+    cat >/etc/skel/.gtkrc-2.0 <<EOF
+gtk-theme-name="$MINIOS_THEME"
+gtk-icon-theme-name="$MINIOS_ICON_THEME"
+gtk-font-name="Inter 9"
+gtk-cursor-theme-name="Breeze_Light"
+gtk-cursor-theme-size=24
+EOF
+    mkdir -p /etc/skel/.config/minios /etc/skel/.config/autostart
+    local layouts=us
+    if [ "$LOCALE" != en_US ] && [ "$LOCALE" != C ] && [ -n "$LAYOUTID" ] && [ "$LAYOUTID" != us ]; then
+        layouts="us,$LAYOUTID"
+    fi
+    printf 'MINIOS_XKB_LAYOUTS=%s\n' "$layouts" >/etc/skel/.config/minios/keyboard.conf
+    cat >/etc/skel/.config/autostart/minios-keyboard.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Keyboard Layout
+Exec=/usr/bin/minios-desktop-keyboard
+TryExec=/usr/bin/setxkbmap
+OnlyShowIn=LXQt;
+NoDisplay=true
+StartupNotify=false
+EOF
+    chmod +x /usr/bin/minios-desktop-keyboard
+}
+
+minios_desktop_remove_optional() {
+    local package line removed
+    local -a installed=()
+    for package in "$@"; do
+        if pkg_is_installed "$package"; then
+            installed+=("$package")
+        fi
+    done
+    [ "${#installed[@]}" -gt 0 ] || return 0
+
+    # Do not remove a desktop dependency when a distribution changes its packaging.
+    local simulation
+    simulation=$(LC_ALL=C apt-get -s purge "${installed[@]}")
+    while IFS= read -r line; do
+        case "$line" in
+        'Remv '* | 'Purg '*)
+            read -r _ removed _ <<<"$line"
+            removed=${removed%%:*}
+            for package in "${installed[@]}"; do
+                [ "$removed" != "$package" ] || break
+            done
+            if [ "$removed" != "$package" ]; then
+                printf 'Refusing to remove desktop dependency: %s\n' "$removed" >&2
+                return 1
+            fi
+            ;;
+        esac
+    done <<<"$simulation"
+    apt-get -y purge "${installed[@]}"
+}
+
+minios_desktop_defaults() {
+    local desktop=$1 terminal=$2 file_manager=$3 editor=$4
+    case "$PACKAGE_VARIANT" in
+    minimum | standard | toolbox | ultra) ;;
+    *) printf 'Unsupported desktop edition: %s\n' "$PACKAGE_VARIANT" >&2; return 1 ;;
+    esac
+    MINIOS_WALLPAPER="/usr/share/backgrounds/minios6-${PACKAGE_VARIANT}.jpg"
+    MINIOS_THEME=Greybird-MiniOS
+    MINIOS_ICON_THEME=elementary-minios-dark
+    if [ "$PACKAGE_VARIANT" = ultra ]; then
+        MINIOS_THEME=Greybird-MiniOS-dark
+    fi
+    # Artwork packages own these files. Do not seed another copy of the collection.
+    test -f "$MINIOS_WALLPAPER"
+    test -f /usr/share/minios/minios6-background.png
+    if [ ! -d "/usr/share/themes/$MINIOS_THEME" ]; then
+        MINIOS_THEME=Greybird
+    fi
+    test -d "/usr/share/icons/$MINIOS_ICON_THEME"
+
+    local directory wallpaper owner
+    for directory in /usr/share/backgrounds /usr/share/wallpapers /usr/share/gnome-background-properties; do
+        [ -d "$directory" ] || continue
+        while IFS= read -r -d '' wallpaper; do
+            owner=$(dpkg-query -S "$wallpaper" 2>/dev/null || true)
+            case "$owner" in
+            '' | minios*) continue ;;
+            esac
+            rm -f -- "$wallpaper"
+        done < <(find "$directory" -mindepth 1 \( -type f -o -type l \) -print0)
+    done
+
+    mkdir -p /etc/skel/.config/gtk-3.0 /etc/skel/.config/gtk-4.0 /etc/skel/.config/doublecmd
+    cat >/etc/skel/.config/gtk-3.0/settings.ini <<EOF
+[Settings]
+gtk-theme-name=$MINIOS_THEME
+gtk-icon-theme-name=$MINIOS_ICON_THEME
+gtk-font-name=Inter 9
+gtk-cursor-theme-name=Breeze_Light
+gtk-cursor-theme-size=24
+gtk-application-prefer-dark-theme=$([ "$PACKAGE_VARIANT" = ultra ] && echo 1 || echo 0)
+EOF
+    # GTK 4/libadwaita keeps its native widget theme; fonts/icons/cursors are shared.
+    cat >/etc/skel/.config/gtk-4.0/settings.ini <<EOF
+[Settings]
+gtk-icon-theme-name=$MINIOS_ICON_THEME
+gtk-font-name=Inter 9
+gtk-cursor-theme-name=Breeze_Light
+gtk-cursor-theme-size=24
+EOF
+    cat >/etc/skel/.config/doublecmd/doublecmd.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<doublecmd ConfigVersion="10">
+  <Language><POFileName>doublecmd.en.po</POFileName></Language>
+</doublecmd>
+EOF
+    cat >/etc/skel/.config/user-dirs.dirs <<'EOF'
+XDG_DESKTOP_DIR="$HOME/Desktop"
+XDG_DOCUMENTS_DIR="$HOME/Documents"
+XDG_DOWNLOAD_DIR="$HOME/Downloads"
+XDG_MUSIC_DIR="$HOME/Music"
+XDG_PICTURES_DIR="$HOME/Pictures"
+XDG_PUBLICSHARE_DIR="$HOME/Public"
+XDG_TEMPLATES_DIR="$HOME/Templates"
+XDG_VIDEOS_DIR="$HOME/Videos"
+EOF
+    mkdir -p /etc/skel/.config/uGet
+    cat >/etc/skel/.config/uGet/Setting.json <<'EOF'
+{"Window":{"Banner":false},"UserInterface":{"CloseToTray":true}}
+EOF
+    cat >/etc/skel/.config/mimeapps.list <<EOF
+[Default Applications]
+inode/directory=$file_manager;
+text/plain=$editor;
+x-scheme-handler/http=firefox-esr.desktop;
+x-scheme-handler/https=firefox-esr.desktop;
+text/html=firefox-esr.desktop;
+x-scheme-handler/rdp=org.remmina.Remmina.desktop;
+x-scheme-handler/spice=org.remmina.Remmina.desktop;
+x-scheme-handler/vnc=org.remmina.Remmina.desktop;
+x-scheme-handler/remmina=org.remmina.Remmina.desktop;
+application/x-remmina=org.remmina.Remmina.desktop;
+EOF
+    if [ "$DISTRIBUTION" = bionic ]; then
+        sed -i 's/firefox-esr.desktop/firefox.desktop/g' /etc/skel/.config/mimeapps.list
+    fi
+    update-alternatives --set x-terminal-emulator "$terminal"
+    rm -f /usr/share/applications/yad-icon-browser.desktop
+
+    mkdir -p /etc/xdg/menus/applications-merged /usr/share/desktop-directories
+    cat >/usr/share/desktop-directories/minios.directory <<'EOF'
+[Desktop Entry]
+Type=Directory
+Name=MiniOS
+Icon=/usr/share/pixmaps/MiniOS-white.svg
+EOF
+    cat >/etc/xdg/menus/applications-merged/minios.menu <<'EOF'
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN" "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+<Menu>
+  <Name>Applications</Name>
+  <Menu>
+    <Name>MiniOS</Name>
+    <Directory>minios.directory</Directory>
+    <Include><Category>X-MiniOS</Category></Include>
+  </Menu>
+</Menu>
+EOF
+
+    if pkg_is_installed lightdm; then
+        mkdir -p /etc/lightdm/lightdm.conf.d
+        cat >/etc/lightdm/lightdm.conf.d/60-minios-desktop.conf <<EOF
+[Seat:*]
+user-session=minios-$desktop
+autologin-session=minios-$desktop
+greeter-session=lightdm-gtk-greeter
+EOF
+        cat >/etc/lightdm/lightdm-gtk-greeter.conf <<EOF
+[greeter]
+background=/usr/share/minios/minios6-background.png
+theme-name=$MINIOS_THEME
+icon-theme-name=elementary-minios
+font-name=Inter 9
+default-user-image=/usr/share/icons/elementary-minios/status/128/avatar-default.svg
+indicators=~host;~spacer;~clock;~spacer;~session;~a11y;~power
+EOF
+    fi
+
+    # Match XFCE's Ubuntu language-pack pruning without cutting English support.
+    if [ "$DISTRIBUTION_PROFILE" = ubuntu ] && [ "$MULTILINGUAL" = false ] && [ "$KEEP_LOCALES" = false ]; then
+        if [ -d /var/lib/locales/supported.d ]; then
+            local locale_file locale_code=${LOCALE%%.*}
+            for locale_file in /var/lib/locales/supported.d/*; do
+                [ -f "$locale_file" ] || continue
+                sed -i -E "/^(${locale_code}|en_US)\.UTF-8/!d" "$locale_file"
+            done
+            locale-gen
+        fi
+    fi
+}
+
 get_base_path() {
     local BASE_PATH=""
     if [ "${1}" == "core" ]; then

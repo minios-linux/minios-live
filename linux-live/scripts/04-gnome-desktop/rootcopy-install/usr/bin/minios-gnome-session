@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+export XDG_CURRENT_DESKTOP=GNOME
+export XDG_SESSION_DESKTOP=gnome
+export DESKTOP_SESSION=gnome
+export QT_QPA_PLATFORMTHEME=gtk3
+if [ -d /run/systemd/system ]; then
+    exec gnome-session "$@"
+fi
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    exec dbus-run-session -- gnome-session --builtin "$@"
+fi
+exec gnome-session --builtin "$@"
