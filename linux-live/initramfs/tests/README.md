@@ -51,3 +51,25 @@ applets, absence of hard codec dependencies and the LiveKit/dracut inclusion
 contracts. It does not load a module or format storage. Real CLI/module tests use
 the dedicated Testo scenarios in `submodules/dynblk/tests/vm/` on disposable
 guest disks.
+
+`ventoy_persistence.bats` checks selected-backend discovery, direct upper layout,
+RAM fallback, and runtime state. Run `sudo bash ventoy_persistence_mount.sh` for
+real device-mapper and OverlayFS coverage with two temporary ext4 images. It
+checks A/B/A isolation, deleted files, permissions, and loading without a backend.
+The integration script refuses to run if `vtoy_persistent` already exists.
+
+The image holds `changes/` and, for OverlayFS, the standard MiniOS `workdir/`. A `.minios-union` record
+prevents an AUFS upper from being reused as OverlayFS or vice versa. No numbered
+sessions or nested containers are created. The image stays attached even when
+the system modules are copied to RAM.
+
+Only a selected plugin backend (`ventoy_persistent_map`) uses this model. Ordinary
+Ventoy boots keep MiniOS partition/folder discovery, numbered sessions and RAM
+staging. A selected plugin backend that fails never falls back to those stores.
+Without a selected backend, the MiniOS "Start without saving" entry stays volatile.
+
+`ventoy_plugin.testo` and `ventoy_plugin_bios.testo` check direct persistence and
+restoration after reboot with UEFI and BIOS. To exercise edited runtime Python
+sources without rebuilding desktop modules, pass the absolute `submodules/`
+path as the sixth argument to `prepare_ventoy_disk.sh`. It seeds those files in
+the ready image's upper. This is source-level acceptance, not package validation.

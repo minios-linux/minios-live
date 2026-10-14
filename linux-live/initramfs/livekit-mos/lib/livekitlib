@@ -655,6 +655,7 @@ init_union() {
    mkdir -p "$1"
    mkdir -p "$2"
 
+   local RESULT=0
    local UNION_TYPE=$(get_union_fs)
    local UNION_PARAM=$(cmdline_value union)
 
@@ -662,14 +663,48 @@ init_union() {
        echo_white_star
        echo "Setting up empty union using aufs"
        [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "aufs" ] && echo "(forced by union=$UNION_PARAM parameter)"
-      mount_aufs_union "$1" "$2"
+       mount_aufs_union "$1" "$2" || RESULT=$?
    else
       echo_white_star
       echo "Setting up union using overlayfs"
       [ -n "$UNION_PARAM" ] && [ "$UNION_PARAM" = "overlayfs" ] && echo "(forced by union=$UNION_PARAM parameter)"
       mkdir -p "$1/changes"
-      mkdir -p "$1/workdir"
-      mount -t overlay overlay -o lowerdir=$(find "$3" -mindepth 1 -maxdepth 1 | sortmod | tac | tr '\n' ':' | sed -r 's/:$//'),upperdir=$1/changes,workdir=$1/workdir $2
+       mkdir -p "$1/workdir"
+       mount -t overlay overlay -o lowerdir=$(find "$3" -mindepth 1 -maxdepth 1 | sortmod | tac | tr '\n' ':' | sed -r 's/:$//'),upperdir=$1/changes,workdir=$1/workdir $2 || RESULT=$?
+   fi
+   [ "$RESULT" = 0 ] && return 0
+   [ "${MINIOS_VENTOY_PERSISTENCE:-}" = true ] || return "$RESULT"
+   ventoy_perch_unwind "$1" "Cannot use the Ventoy persistent upper; continuing in memory." || return 1
+   init_union "$MINIOS_VENTOY_RAM_CHANGES" "$2" "$3"
+}
+
+# Finish the union before publishing persistence authority.
+# $1 = changes directory  $2 = union directory  $3 = bundles directory
+complete_union() {
+   local CHANGES="$1" UNION_ROOT="$2" BUNDLES="$3" RETRY=false
+   if ! union_append_bundles "$BUNDLES" "$UNION_ROOT"; then
+      if [ "${MINIOS_VENTOY_PERSISTENCE:-}" = true ]; then
+         RETRY=true
+      else
+         perch_state_abort "Cannot complete the root union; continuing with available bundles."
+      fi
+   fi
+   if [ "$RETRY" != true ]; then
+      if ! publish_union_branch_inventory "$CHANGES" "$BUNDLES" ||
+         ! normalize_module_whiteouts "$UNION_ROOT"; then
+         [ "${MINIOS_VENTOY_PERSISTENCE:-}" = true ] || return 1
+         RETRY=true
+      elif ! perch_state_commit "$UNION_ROOT" && [ "${MINIOS_VENTOY_PERSISTENCE:-}" = true ]; then
+         RETRY=true
+      fi
+   fi
+   if [ "$RETRY" = true ]; then
+      umount "$UNION_ROOT" 2>/dev/null || umount -l "$UNION_ROOT" || return 1
+      ventoy_perch_unwind "$CHANGES" "Cannot complete Ventoy persistence activation; continuing in memory." || return 1
+      init_union "$MINIOS_VENTOY_RAM_CHANGES" "$UNION_ROOT" "$BUNDLES" || return 1
+      union_append_bundles "$BUNDLES" "$UNION_ROOT" || return 1
+      publish_union_branch_inventory "$MINIOS_VENTOY_RAM_CHANGES" "$BUNDLES" || return 1
+      normalize_module_whiteouts "$UNION_ROOT" || return 1
    fi
 }
 
@@ -2004,29 +2039,149 @@ session_reset_finish() {
    rm -rf -- "$TX"
 }
 
+# A normal Ventoy boot still uses the standard MiniOS session workflow.
+ventoy_perch_requested() {
+   [ -f "${MINIOS_VENTOY_DIR:-/ventoy}/ventoy_persistent_map" ]
+}
+
+# Resolve only the backend selected by Ventoy, never a filesystem label.
+ventoy_perch_device() {
+   local VENTOYDIR="${MINIOS_VENTOY_DIR:-/ventoy}" TIMEOUT DM_NAME DM_BLOCK DRIVE
+   [ -f "$VENTOYDIR/ventoy_persistent_map" ] || return 1
+   for TIMEOUT in 1 2 3 4 5; do
+      refresh_devs
+      for DM_NAME in "${MINIOS_SYS_CLASS_BLOCK:-/sys/class/block}"/dm-*/dm/name; do
+         [ -f "$DM_NAME" ] || continue
+         [ "$(cat "$DM_NAME" 2>/dev/null)" = vtoy_persistent ] || continue
+         DM_BLOCK="$(basename "$(dirname "$(dirname "$DM_NAME")")")"
+         DRIVE="${MINIOS_DEV_ROOT:-/dev}/$DM_BLOCK"
+         [ -b "$DRIVE" ] || continue
+         echo "$DRIVE"
+         return 0
+      done
+      [ "$TIMEOUT" = 5 ] || sleep 1
+   done
+   return 1
+}
+
+# Select a fresh RAM upper even if the failed image cannot be detached.
+# $1 = previous changes directory  $2 = warning
+ventoy_perch_unwind() {
+   local CHANGES="$1" PERCHROOT="${MINIOS_VENTOY_PERCH_ROOT:-/memory/ventoy-persistence}" PERCHRAM
+   umount "$CHANGES" 2>/dev/null || true
+   umount "$PERCHROOT" 2>/dev/null || true
+   PERCHRAM=$(mktemp -d "$(dirname "$CHANGES")/changes-ram.XXXXXX") || return 1
+   chmod 755 "$PERCHRAM" || return 1
+   # Keep the runtime changes path even if a busy image bind remains underneath.
+   mount --bind "$PERCHRAM" "$CHANGES" || return 1
+   MINIOS_VENTOY_RAM_CHANGES="$CHANGES"
+   MINIOS_VENTOY_PERSISTENCE=false
+   rm -f "$MINIOS_PERSISTENCE_RUNDIR/store-type" 2>/dev/null || true
+   perch_state_clear_pending
+   boot_warning_notify warning persistence "$2"
+   perch_state_publish failed ventoy unknown || true
+}
+
+# The selected image contains one upper, without MiniOS session metadata.
+# $1 = target changes directory
+ventoy_persistent_changes() {
+   local CHANGES="$1" DRIVE PERCHROOT="${MINIOS_VENTOY_PERCH_ROOT:-/memory/ventoy-persistence}" TARGET FS UNION_TYPE
+   persistence_requested || return 0
+   if ! DRIVE=$(ventoy_perch_device); then
+      if [ -f "${MINIOS_VENTOY_DIR:-/ventoy}/ventoy_persistent_map" ]; then
+         boot_warning_notify warning persistence "The selected Ventoy persistence image is unavailable; continuing in memory."
+      fi
+      return 0
+   fi
+   FS=$(device_bestfs "$DRIVE")
+   if [ "$FS" != ext4 ]; then
+      boot_warning_notify warning persistence "Ventoy persistence requires an ext4 image; continuing in memory."
+      return 0
+   fi
+   if ! mkdir -p "$PERCHROOT"; then
+      boot_warning_notify warning persistence "Cannot prepare the Ventoy persistence mountpoint; continuing in memory."
+      return 0
+   fi
+   if ! mount -t ext4 -o rw,noatime,errors=remount-ro "$DRIVE" "$PERCHROOT"; then
+      boot_warning_notify warning persistence "Cannot mount the selected Ventoy persistence image; continuing in memory."
+      return 0
+   fi
+   if [ -L "$PERCHROOT/changes" ] || [ -L "$PERCHROOT/workdir" ] ||
+      ! mkdir -p "$PERCHROOT/changes" ||
+      ! { mkdir "$PERCHROOT/.minios-write-test.$$" && rmdir "$PERCHROOT/.minios-write-test.$$"; }; then
+      ventoy_perch_unwind "$CHANGES" "The selected Ventoy persistence image is not writable; continuing in memory."
+      return
+   fi
+   UNION_TYPE=$(get_union_fs)
+   if [ -e "$PERCHROOT/.minios-union" ] || [ -L "$PERCHROOT/.minios-union" ]; then
+      if [ -L "$PERCHROOT/.minios-union" ] || [ ! -f "$PERCHROOT/.minios-union" ] ||
+         [ "$(cat "$PERCHROOT/.minios-union")" != "$UNION_TYPE" ]; then
+         ventoy_perch_unwind "$CHANGES" "The Ventoy image uses another union format; continuing in memory."
+         return
+      fi
+   elif ! printf '%s\n' "$UNION_TYPE" >"$PERCHROOT/.minios-union"; then
+      ventoy_perch_unwind "$CHANGES" "Cannot record the Ventoy upper format; continuing in memory."
+      return
+   fi
+   TARGET="$PERCHROOT"
+   if [ "$UNION_TYPE" = aufs ]; then
+      TARGET="$PERCHROOT/changes"
+   elif ! mkdir -p "$PERCHROOT/workdir"; then
+      ventoy_perch_unwind "$CHANGES" "Cannot prepare the Ventoy OverlayFS work directory; continuing in memory."
+      return
+   fi
+   if ! mount --bind "$TARGET" "$CHANGES"; then
+      ventoy_perch_unwind "$CHANGES" "Cannot activate Ventoy persistent changes; continuing in memory."
+      return
+   fi
+   if ! { mkdir -p "$MINIOS_PERSISTENCE_RUNDIR" &&
+      chmod 755 "$MINIOS_PERSISTENCE_RUNDIR" &&
+      printf '%s\n' ventoy-plugin >"$MINIOS_PERSISTENCE_RUNDIR/store-type" &&
+      chmod 644 "$MINIOS_PERSISTENCE_RUNDIR/store-type"; }; then
+      ventoy_perch_unwind "$CHANGES" "Cannot publish Ventoy persistence state; continuing in memory."
+      return
+   fi
+   MINIOS_VENTOY_PERSISTENCE=true
+   perch_state_prepare ventoy unknown "$PERCHROOT" current "$CHANGES"
+   echo "* Using the selected Ventoy persistence image"
+   case "$(cmdline_value perchdir)" in
+   '' | resume) ;;
+   *) boot_warning_notify warning persistence "Ventoy uses one persistent upper; perchdir session selection is ignored." ;;
+   esac
+   case "$(cmdline_value perchtoram)" in
+   '' | off) ;;
+   *) boot_warning_notify warning persistence "Ventoy persistent changes stay on storage; perchtoram is ignored." ;;
+   esac
+}
+
 # Manage persistence partition
 # $1 = partition on which changes will be stored
 # $2 = changes directory
 #
 manage_perch_partition() {
    debug_log "manage_perch_partition" "$*"
-   local PERCHPART RESIZEMEPART PERCHDEVICE DEVICE DRIVE PERCHDIR LABELS PART ALTPART FREE_SPACE_MB VTOY_PERST_DEV VTOY_PARENT VENTOYDIR MAPPER_NAME MAPPER_DEVICE DM_NAME DM_BLOCK
+   local PERCHPART RESIZEMEPART PERCHDEVICE DEVICE DRIVE PERCHDIR LABELS PART ALTPART FREE_SPACE_MB
+   local VENTOYDIR VENTOYDRIVE MAPPER_NAME MAPPER_DEVICE DM_NAME DM_BLOCK
 
    DRIVE="$1"
    PERCHDIR="$2"
 
-   # Determine the primary device and check for Ventoy environment
+   ventoy_perch_requested && return 0
    VENTOYDIR="${MINIOS_VENTOY_DIR:-/ventoy}"
    VENTOYDRIVE=$(awk '/linear/ {print $4; exit}' "$VENTOYDIR/ventoy_dm_table" 2>/dev/null)
-   if [ ! "$VENTOYDRIVE" ]; then
-      DEVICE="/dev/$(lsblk -no pkname "$DRIVE" 2>/dev/null | head -n 1)"
+   if [ "$VENTOYDRIVE" ]; then
+      DEVICE=$(lsblk -no pkname "$VENTOYDRIVE" 2>/dev/null | head -n 1)
+      if [ -n "$DEVICE" ]; then
+         DEVICE="/dev/$DEVICE"
+      else
+         DEVICE="$VENTOYDRIVE"
+      fi
    else
-      DEVICE="/dev/$(lsblk -no pkname "$VENTOYDRIVE" 2>/dev/null | head -n 1)"
+      DEVICE="/dev/$(lsblk -no pkname "$DRIVE" 2>/dev/null | head -n 1)"
    fi
 
    for LABEL in persistence resizeme; do
-      PART=$(blkid -t LABEL="$LABEL" -o device -c /dev/null 2>/dev/null)
-      if [ "$PART" ]; then
+      for PART in $(blkid -t LABEL="$LABEL" -o device -c /dev/null 2>/dev/null); do
          PERCHDEVICE="/dev/$(lsblk -no pkname "$PART" 2>/dev/null | head -n 1)"
          if [ "$PERCHDEVICE" != "$DEVICE" ]; then
             continue
@@ -2047,48 +2202,32 @@ manage_perch_partition() {
          fi
          PERCHPART="$PART/$LIVEKITNAME/changes"
          break
-      fi
+      done
+      [ -z "$PERCHPART" ] || break
    done
 
-   if [ ! "$PERCHPART" ]; then
-      # Check for Ventoy-specific persistence
-      if [ "$VENTOYDRIVE" ]; then
-         # Ventoy persistence plugin: Ventoy mounts the backend .dat file
-         # (configured in /ventoy/ventoy.json) as a loop device with label "persistence".
-         # This device has no parent disk (pkname is empty).
-         for VTOY_PERST_DEV in $(blkid -t LABEL="persistence" -o device -c /dev/null 2>/dev/null); do
-            if [ -b "$VTOY_PERST_DEV" ]; then
-               VTOY_PARENT=$(lsblk -no pkname "$VTOY_PERST_DEV" 2>/dev/null | head -n 1)
-               if [ -z "$VTOY_PARENT" ]; then
-                  debug_log "manage_perch_partition" "Found Ventoy persistence plugin device: $VTOY_PERST_DEV"
-                  PERCHPART="$VTOY_PERST_DEV/$LIVEKITNAME/changes"
-                  break
-               fi
+   if [ ! "$PERCHPART" ] && [ "$VENTOYDRIVE" ]; then
+      # Ventoy 1.1.18 uses VentoyPart; older releases use the partition name.
+      for MAPPER_NAME in VentoyPart "$(lsblk -no name "$VENTOYDRIVE" 2>/dev/null | head -n 1)"; do
+         [ -n "$MAPPER_NAME" ] || continue
+         MAPPER_DEVICE="${MINIOS_DEV_ROOT:-/dev}/mapper/$MAPPER_NAME"
+         # Ventoy may create a named block node, rather than a mapper symlink.
+         # Use dm-N so runtime checks can follow its actual sysfs dependencies.
+         for DM_NAME in "${MINIOS_SYS_CLASS_BLOCK:-/sys/class/block}"/dm-*/dm/name; do
+            [ -f "$DM_NAME" ] || continue
+            [ "$(cat "$DM_NAME" 2>/dev/null)" = "$MAPPER_NAME" ] || continue
+            DM_BLOCK="$(basename "$(dirname "$(dirname "$DM_NAME")")")"
+            if [ -e "${MINIOS_DEV_ROOT:-/dev}/$DM_BLOCK" ]; then
+               MAPPER_DEVICE="${MINIOS_DEV_ROOT:-/dev}/$DM_BLOCK"
+               break
             fi
          done
-         # Fallback: directory-based persistence on Ventoy partition
-         if [ ! "$PERCHPART" ]; then
-            # In Ventoy version 1.1.01 and higher, a device link to /dev/mapper is used
-            # instead of the VENTOY_LINUX_REMOUNT variable in the configuration file.
-            MAPPER_NAME="$(lsblk -no name "$VENTOYDRIVE" 2>/dev/null | head -n 1)"
-            MAPPER_DEVICE="/dev/mapper/$MAPPER_NAME"
-            if [ ! -e "$MAPPER_DEVICE" ] && [ -n "$MAPPER_NAME" ]; then
-               for DM_NAME in "${MINIOS_SYS_CLASS_BLOCK:-/sys/class/block}"/dm-*/dm/name; do
-                  [ -f "$DM_NAME" ] || continue
-                  [ "$(cat "$DM_NAME" 2>/dev/null)" = "$MAPPER_NAME" ] || continue
-                  DM_BLOCK="$(basename "$(dirname "$(dirname "$DM_NAME")")")"
-                  MAPPER_DEVICE="${MINIOS_DEV_ROOT:-/dev}/$DM_BLOCK"
-                  break
-               done
-            fi
-            if [ -e "$MAPPER_DEVICE" ]; then
-               PERCHPART="$MAPPER_DEVICE/minios/changes"
-            # If there is no device link in /dev/mapper, then an older version of Ventoy is used.
-            else
-               PERCHPART="$VENTOYDRIVE/minios/changes"
-            fi
+         if [ -e "$MAPPER_DEVICE" ]; then
+            PERCHPART="$MAPPER_DEVICE/$LIVEKITNAME/changes"
+            break
          fi
-      fi
+      done
+      [ -n "$PERCHPART" ] || PERCHPART="$VENTOYDRIVE/$LIVEKITNAME/changes"
    fi
 
    if [ ! "$PERCHPART" ]; then
@@ -2190,6 +2329,7 @@ recover_perch_save() {
 #
 find_perch_data() {
    local DATA DRIVE PERCHDIR PERCHROOT FS MOUNT OPTIONS
+   ventoy_perch_requested && return 0
    DATA="$1"
    PERCHROOT="${MINIOS_PERCH_ROOT:-/memory/perch}"
    mountpoint -q "$PERCHROOT" && return 0
@@ -2667,7 +2807,7 @@ perch_state_publish() {
    '' | *[!0-9]*) SESSION="unknown" ;;
    esac
    case "$MODE" in
-   native | dynfilefs | dynblk | vmdk | raw | squashfs) ;;
+   native | dynfilefs | dynblk | vmdk | raw | squashfs | ventoy) ;;
    *) MODE="unknown" ;;
    esac
    { [ "$MODE" = dynblk ] || [ "$MODE" = vmdk ]; } || DYNBLK_DEVICE="none"
@@ -2690,7 +2830,7 @@ perch_state_publish() {
    fi
    case "$LEVEL" in
    ok)
-      if ! echo "$SESSION" | grep -q '^[0-9][0-9]*$' ||
+      if { [ "$MODE" != ventoy ] && ! echo "$SESSION" | grep -q '^[0-9][0-9]*$'; } ||
          { [ "$GENERATION" != "current" ] &&
            { [ "$GENERATION" != "old" ] || [ "$MODE" != "squashfs" ]; }; } ||
          [ "$BOOTID" = "unknown" ] || [ -z "$BOOTID" ] ||
@@ -2890,7 +3030,11 @@ perch_state_preserve() {
    local NEW_ROOT="$1" DESTINATION="$1/run/initramfs/minios-persistence"
    [ -d "$MINIOS_PERSISTENCE_RUNDIR" ] || return 0
    mkdir -p "$DESTINATION" || return 1
-   chmod 700 "$DESTINATION" || return 1
+   if [ -f "$MINIOS_PERSISTENCE_RUNDIR/store-type" ]; then
+      chmod 755 "$DESTINATION" || return 1
+   else
+      chmod 700 "$DESTINATION" || return 1
+   fi
    cp -a "$MINIOS_PERSISTENCE_RUNDIR"/. "$DESTINATION"/ || return 1
    if [ -f "$DESTINATION/boot-state" ]; then
       chmod 600 "$DESTINATION/boot-state" || return 1
@@ -2902,7 +3046,11 @@ perch_state_stage_livekit() {
    [ -d "$MINIOS_PERSISTENCE_RUNDIR" ] || return 0
    rm -rf "$DESTINATION" || return 1
    mkdir -p "$DESTINATION" || return 1
-   chmod 700 "$DESTINATION" || return 1
+   if [ -f "$MINIOS_PERSISTENCE_RUNDIR/store-type" ]; then
+      chmod 755 "$DESTINATION" || return 1
+   else
+      chmod 700 "$DESTINATION" || return 1
+   fi
    cp -a "$MINIOS_PERSISTENCE_RUNDIR"/. "$DESTINATION"/ || return 1
    [ ! -f "$DESTINATION/boot-state" ] || chmod 600 "$DESTINATION/boot-state"
 }
@@ -3316,6 +3464,12 @@ persistent_changes() {
    perch_state_clear_pending
    MINIOS_SQUASHFS_SESSION=""
    rm -f "$MINIOS_PERSISTENCE_RUNDIR/boot-state" 2>/dev/null
+   MINIOS_VENTOY_PERSISTENCE=false
+   if ventoy_perch_requested; then
+      mkdir -p "$CHANGES" || return 1
+      ventoy_persistent_changes "$CHANGES" || fatal "Cannot prepare Ventoy persistent changes"
+      return
+   fi
    PERCHDIR="$(cmdline_value perchdir)"
    PERCHSELECT="$PERCHDIR"
    AUTO_RESUME="false"
@@ -4582,7 +4736,7 @@ user_preinit() {
 # successfully detached from its boot media. This is intentionally best-effort:
 # an in-use mapping must stay in place rather than making boot fail.
 ventoy_release_mappings() {
-   local VDIR DM RAWMAP
+   local VDIR DM RAWMAP RAWFILE
    VDIR="${MINIOS_VENTOY_DIR:-/ventoy}"
 
    [ -f "$VDIR/ventoy_dm_table" ] || return 0
@@ -4595,8 +4749,10 @@ ventoy_release_mappings() {
    [ -n "$DM" ] || return 0
 
    RAWMAP=""
-   if [ -f "$VDIR/ventoy_iso_part_dm_cmd" ]; then
-      RAWMAP=$(awk '$2 == "create" {print $3; exit}' "$VDIR/ventoy_iso_part_dm_cmd" 2>/dev/null)
+   RAWFILE="$VDIR/ventoy_iso_part_dm_cmd"
+   [ -f "$RAWFILE" ] || RAWFILE="$VDIR/ventoy_iso_part_dm_cmd_bk"
+   if [ -f "$RAWFILE" ]; then
+      RAWMAP=$(awk '$2 == "create" {print $3; exit}' "$RAWFILE" 2>/dev/null)
       case "$RAWMAP" in
       '' | *[!A-Za-z0-9_.+-]*) RAWMAP="" ;;
       esac

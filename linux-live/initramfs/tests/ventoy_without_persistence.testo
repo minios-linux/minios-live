@@ -1,0 +1,46 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    loader: "/usr/share/ovmf/OVMF.fd"
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test plugin_without_backend {
+    minios {
+        start
+        wait "MiniOS.iso" timeout 30s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press Down
+        press Down
+        press Down
+        press Enter
+        wait "Standard" || "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; test ! -e $S/store-type && test ! -e $S/boot-state && ! mountpoint -q /run/initramfs/memory/ventoy-persistence && echo temporary > /root/ventoy-volatile-check' && printf 'VOLATILE %s SUCCESS\\n' FIRST"
+        press Enter
+        wait "VOLATILE FIRST SUCCESS" timeout 30s
+        type "sudo reboot"
+        press Enter
+        wait "MiniOS.iso" timeout 90s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press Down
+        press Down
+        press Down
+        press Enter
+        wait "Standard" || "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo test ! -e /root/ventoy-volatile-check && printf 'VOLATILE %s SUCCESS\\n' REBOOT"
+        press Enter
+        wait "VOLATILE REBOOT SUCCESS" timeout 30s
+    }
+}

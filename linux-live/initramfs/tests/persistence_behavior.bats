@@ -1796,9 +1796,10 @@ EOF
     assert_log "dmsetup remove ventoy"
 }
 
-@test "Ventoy persistence resolves dm device when mapper symlink is absent" {
+@test "ordinary Ventoy resolves its data partition when mapper symlink is absent" {
     # shellcheck source=/dev/null
     . "$LIB"
+    LIVEKITNAME=minios
     mkdir -p "$MINIOS_VENTOY_DIR" "$MINIOS_SYS_CLASS_BLOCK/dm-1/dm" "$MINIOS_DEV_ROOT"
     printf '%s\n' '0 100 linear /dev/sda1 0' >"$MINIOS_VENTOY_DIR/ventoy_dm_table"
     printf '%s\n' sda1 >"$MINIOS_SYS_CLASS_BLOCK/dm-1/dm/name"
@@ -1814,6 +1815,20 @@ EOF
     result=$(manage_perch_partition /dev/mapper/ventoy resume)
 
     [ "$result" = "$MINIOS_DEV_ROOT/dm-1/minios/changes" ]
+}
+
+@test "ordinary Ventoy still creates a standard numbered session" {
+    setup_dispatch native ext4
+    mkdir -p "$MINIOS_VENTOY_DIR"
+    : >"$MINIOS_VENTOY_DIR/ventoy_os_param"
+    printf '0 100 linear /dev/sda1 2048\n' >"$MINIOS_VENTOY_DIR/ventoy_dm_table"
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    [ -f "$TEST_CHANDIR/session.conf" ]
+    grep -qx 'session_mode\[1\]=native' "$TEST_CHANDIR/session.conf"
+    [ "$MINIOS_PENDING_PERSISTENCE_MODE" = native ]
+    [ "$MINIOS_PENDING_PERSISTENCE_SESSION" = 1 ]
+    [ ! -e "$MINIOS_PERSISTENCE_RUNDIR/store-type" ]
+    assert_log "mount --bind $TEST_CHANDIR/1 $TEST_CHANGES"
 }
 
 @test "toram releases Ventoy mappings only after a successful RAM detach" {

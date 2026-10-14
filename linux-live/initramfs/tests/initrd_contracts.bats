@@ -18,19 +18,21 @@ contains() {
         contains "$init" '. /lib/livekitlib'
         contains "$init" 'persistent_changes "$DATA" "$CHANGES"'
         contains "$init" 'init_union "$CHANGES" "$UNION" "$BUNDLES"'
-        contains "$init" 'perch_state_commit "$UNION"'
+        contains "$init" 'complete_union "${MINIOS_VENTOY_RAM_CHANGES:-$CHANGES}" "$UNION" "$BUNDLES"'
         persistence_line=$(grep -nF 'persistent_changes "$DATA" "$CHANGES"' "$init" | cut -d: -f1)
         union_line=$(grep -nF 'init_union "$CHANGES" "$UNION" "$BUNDLES"' "$init" | cut -d: -f1)
-        append_line=$(grep -nF 'union_append_bundles "$BUNDLES" "$UNION"' "$init" | cut -d: -f1)
-        inventory_line=$(grep -nF 'publish_union_branch_inventory "$CHANGES" "$BUNDLES"' "$init" | cut -d: -f1)
-        normalize_line=$(grep -nF 'normalize_module_whiteouts "$UNION"' "$init" | cut -d: -f1)
-        commit_line=$(grep -nF 'perch_state_commit "$UNION"' "$init" | cut -d: -f1)
+        complete_line=$(grep -nF 'complete_union "${MINIOS_VENTOY_RAM_CHANGES:-$CHANGES}"' "$init" | cut -d: -f1)
         [ "$persistence_line" -lt "$union_line" ]
-        [ "$union_line" -lt "$append_line" ]
-        [ "$append_line" -lt "$inventory_line" ]
-        [ "$inventory_line" -lt "$normalize_line" ]
-        [ "$normalize_line" -lt "$commit_line" ]
+        [ "$union_line" -lt "$complete_line" ]
     done
+    lib="$ROOT/livekit-mos/lib/livekitlib"
+    append_line=$(grep -nFm1 'union_append_bundles "$BUNDLES" "$UNION_ROOT"' "$lib" | cut -d: -f1)
+    inventory_line=$(grep -nFm1 'publish_union_branch_inventory "$CHANGES" "$BUNDLES"' "$lib" | cut -d: -f1)
+    normalize_line=$(grep -nFm1 'normalize_module_whiteouts "$UNION_ROOT"' "$lib" | cut -d: -f1)
+    commit_line=$(grep -nFm1 'perch_state_commit "$UNION_ROOT"' "$lib" | cut -d: -f1)
+    [ "$append_line" -lt "$inventory_line" ]
+    [ "$inventory_line" -lt "$normalize_line" ]
+    [ "$normalize_line" -lt "$commit_line" ]
 }
 
 @test "boot menus route interactive session creation through setup" {
@@ -151,9 +153,9 @@ contains() {
         contains "$init" 'persistent_changes "$DATA" "$CHANGES"'
         ! grep -Fq 'persistent_changes "$DATA" "$CHANGES" ||' "$init"
         contains "$init" 'fatal "Cannot construct the root union"'
-        ! contains "$init" 'fatal "Cannot complete the root union"'
-        contains "$init" 'perch_state_abort "Cannot complete the root union; continuing with available bundles."'
+        contains "$init" 'fatal "Cannot complete the root union"'
     done
+    contains "$ROOT/livekit-mos/lib/livekitlib" 'perch_state_abort "Cannot complete the root union; continuing with available bundles."'
     ! contains "$ROOT/livekit-mos/lib/livekitlib" 'fatal_stop()'
     contains "$ROOT/livekit-mos/lib/livekitlib" \
         'mount -t aufs -o "xino=/.xino,br:$1=rw" aufs "$2"'

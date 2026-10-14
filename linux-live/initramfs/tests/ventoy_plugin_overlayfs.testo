@@ -1,0 +1,72 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    loader: "/usr/share/ovmf/OVMF.fd"
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test plugin_overlayfs_toram {
+    minios {
+        start
+        wait "MiniOS.iso" timeout 30s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press c
+        wait "grub>" timeout 10s
+        type "search --set=root -f /minios/boot/vmlinuz"
+        press Enter
+        type "linux /minios/boot/vmlinuz boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0 perchdir=resume union=overlayfs toram perchtoram=full quiet"
+        press Enter
+        type "initrd /minios/boot/initrfs.img"
+        press Enter
+        type "boot"
+        press Enter
+        wait "Standard" || "Log In" timeout 5m
+        if (check "Log In") {
+            type "live"
+            press Tab
+            type "live"
+            press Enter
+            wait "Standard" timeout 2m
+        }
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'P=/run/initramfs/memory/ventoy-persistence; grep -qx overlayfs $P/.minios-union && test -d $P/changes && test -d $P/workdir && test ! -e $P/work && grep -qx durable=1 /run/initramfs/minios-persistence/boot-state && test ! -e /run/initramfs/minios-persistence/ram-origin && test $(findmnt -n -o FSTYPE /) = overlay && echo overlay-saved > /etc/ventoy-overlay-check && sync -f /etc/ventoy-overlay-check' && printf 'OVERLAY %s SUCCESS\\n' DIRECT"
+        press Enter
+        wait "OVERLAY DIRECT SUCCESS" timeout 30s
+        type "sudo reboot"
+        press Enter
+        wait "MiniOS.iso" timeout 90s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press c
+        wait "grub>" timeout 10s
+        type "search --set=root -f /minios/boot/vmlinuz"
+        press Enter
+        type "linux /minios/boot/vmlinuz boot=live load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 net.ifnames=0 biosdevname=0 perchdir=resume union=overlayfs toram perchtoram=full quiet"
+        press Enter
+        type "initrd /minios/boot/initrfs.img"
+        press Enter
+        type "boot"
+        press Enter
+        wait "Standard" || "Log In" timeout 5m
+        if (check "Log In") {
+            type "live"
+            press Tab
+            type "live"
+            press Enter
+            wait "Standard" timeout 2m
+        }
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "grep -qx overlay-saved /etc/ventoy-overlay-check && printf 'OVERLAY %s SUCCESS\\n' RESTORED"
+        press Enter
+        wait "OVERLAY RESTORED SUCCESS" timeout 30s
+    }
+}

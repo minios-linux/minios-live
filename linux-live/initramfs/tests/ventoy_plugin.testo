@@ -6,7 +6,7 @@ machine minios {
     video main: { adapter_type: "qxl" }
 }
 
-test plugin_ram_session {
+test plugin_direct_persistence {
     minios {
         start
         wait "MiniOS.iso" timeout 30s
@@ -15,17 +15,36 @@ test plugin_ram_session {
         press Enter
         wait "Start MiniOS" timeout 60s
         press Enter
-        wait "Standard" timeout 5m
+        wait "Standard" || "Toolbox" timeout 5m
         press LeftCtrl+LeftAlt+t
         wait "live@" timeout 30s
         press F11
         press LeftCtrl+LeftShift+Equalsign
         press LeftCtrl+LeftShift+Equalsign
-        type "sudo sh -c 'S=/run/initramfs/minios-persistence; grep -qx boot_level=ok $S/boot-state && grep -qx durable=0 $S/boot-state && grep -qx uuid=${STORE_UUID} $S/ram-origin && test -f /etc/perchtoram-session && test -f /etc/minios-external-module && test ! -e /run/initramfs/memory/data/minios/changes/2 && ! mountpoint -q /run/initramfs/memory/perch' && printf 'PLUGIN %s SUCCESS\\n' RAM"
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; P=/run/initramfs/memory/ventoy-persistence; grep -qx boot_level=ok $S/boot-state && grep -qx durable=1 $S/boot-state && grep -qx mode=ventoy $S/boot-state && grep -qx ventoy-plugin $S/store-type && test ! -e $S/ram-origin && mountpoint -q $P && test -d $P/changes && test ! -e $P/minios && test ! -e $P/session.conf && printf saved > /root/ventoy-check && sync -f /root/ventoy-check' && printf 'PLUGIN %s SUCCESS\\n' DIRECT || sudo sh -c 'cat /run/initramfs/minios-persistence/boot-state; cat /run/initramfs/minios-persistence/boot-warnings; lsblk -o NAME,TYPE,RO,MOUNTPOINTS'"
         press Enter
-        wait "PLUGIN RAM SUCCESS" timeout 30s
-        type "sudo sh -c 'echo 1 > /sys/class/block/sda/device/delete && test ! -e /sys/class/block/sda && touch /root/plugin-detached && sync -f /root/plugin-detached' && printf 'PLUGIN %s SUCCESS\\n' DETACHED"
+        wait "PLUGIN DIRECT SUCCESS" timeout 30s
+        type "sudo minios-session status --json --sessions-dir /tmp > /tmp/session-check; RC=$?; test $RC -ne 0 && grep -q 'Ventoy Persistence Plugin' /tmp/session-check && printf 'PLUGIN %s SUCCESS\\n' CLI"
         press Enter
-        wait "PLUGIN DETACHED SUCCESS" timeout 30s
+        wait "PLUGIN CLI SUCCESS" timeout 30s
+        type "minios-session-manager"
+        press Enter
+        wait "Session Manager is unavailable" timeout 30s
+        press Enter
+        wait "live@" timeout 30s
+        type "sudo reboot"
+        press Enter
+        wait "MiniOS.iso" timeout 90s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press Enter
+        wait "Standard" || "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo sh -c 'test $(cat /root/ventoy-check) = saved && grep -qx mode=ventoy /run/initramfs/minios-persistence/boot-state' && printf 'PLUGIN %s SUCCESS\\n' RESTORED"
+        press Enter
+        wait "PLUGIN RESTORED SUCCESS" timeout 30s
     }
 }

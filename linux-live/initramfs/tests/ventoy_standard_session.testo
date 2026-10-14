@@ -1,0 +1,47 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    loader: "/usr/share/ovmf/OVMF.fd"
+    disk main: { source: "${DISK}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test ordinary_ventoy_new_session {
+    minios {
+        start
+        wait "MiniOS.iso" timeout 30s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press Down
+        press Enter
+        wait "Select storage" timeout 90s
+        press Enter
+        wait "Standard" || "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo sh -c 'S=/run/initramfs/minios-persistence; D=/run/initramfs/memory/data/minios/changes; grep -qx boot_level=ok $S/boot-state && grep -qx durable=1 $S/boot-state && grep -qx session=1 $S/boot-state && ! grep -qx mode=ventoy $S/boot-state && test ! -e $S/store-type && test -f $D/session.conf && test -d $D/1 && printf ordinary-saved > /root/ordinary-ventoy-check && sync -f /root/ordinary-ventoy-check' && printf 'STANDARD %s SUCCESS\\n' CREATE || { sudo sh -c 'cat /run/initramfs/minios-persistence/boot-state; cat /run/initramfs/minios-persistence/boot-warnings; ls -l /run/initramfs/memory/data/minios/changes'; printf 'STANDARD %s FAILED\\n' CREATE; }"
+        press Enter
+        wait "STANDARD CREATE SUCCESS" || "STANDARD CREATE FAILED" timeout 30s
+        if (check "STANDARD CREATE FAILED") { abort "Ordinary Ventoy persistence was not activated"; }
+        type "sudo minios-session status --json > /tmp/session-status && python3 -c 'import json; s=json.load(open(\"/tmp/session-status\")); assert s[\"success\"] and s[\"writable\"]' && printf 'STANDARD %s SUCCESS\\n' MANAGER"
+        press Enter
+        wait "STANDARD MANAGER SUCCESS" timeout 30s
+        type "sudo reboot"
+        press Enter
+        wait "MiniOS.iso" timeout 90s
+        press Enter
+        wait "Boot in normal mode" timeout 30s
+        press Enter
+        wait "Start MiniOS" timeout 60s
+        press Enter
+        wait "Standard" || "Toolbox" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo sh -c 'test $(cat /root/ordinary-ventoy-check) = ordinary-saved && grep -qx session=1 /run/initramfs/minios-persistence/boot-state && test ! -e /run/initramfs/minios-persistence/store-type' && printf 'STANDARD %s SUCCESS\\n' RESTORED"
+        press Enter
+        wait "STANDARD RESTORED SUCCESS" timeout 30s
+    }
+}
