@@ -1,0 +1,47 @@
+# Run with --param ISO <local Flux ISO> --param ARTIFACTS <screenshot directory>.
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    iso: { source: "${ISO}" }
+    disk main: { size: 8Gb }
+    video main: { adapter_type: "qxl" }
+}
+
+test xlunch_applications {
+    minios {
+        start
+        wait "Start MiniOS" timeout 1m
+        press Enter
+        wait "Flux" timeout 3m
+        mouse click 25 742
+        wait "Calculator" timeout 30s
+        mouse click "Calculator"
+        wait "galculator" timeout 30s
+        type "7*8"
+        press Enter
+        wait "56" timeout 10s
+        screenshot "${ARTIFACTS}/calculator.png"
+        press LeftAlt+F4
+
+        mouse click 25 742
+        wait "Text Editor" timeout 30s
+        mouse click "Text Editor"
+        wait "Mousepad" timeout 30s
+        type "Launched from xlunch"
+        wait "Launched from xlunch" timeout 10s
+        screenshot "${ARTIFACTS}/editor.png"
+        press LeftAlt+F4
+        press LeftAlt+d
+
+        mouse click 25 742
+        wait "Run:" timeout 30s
+        type "Terminal"
+        wait "Terminal" timeout 10s
+        press Enter
+        wait "live@minios" timeout 30s
+        type "command -v gtk-launch && printf 'XLUNCH_%s_%s\\n' CHECK OK"
+        press Enter
+        wait "XLUNCH_CHECK_OK" timeout 10s
+        screenshot "${ARTIFACTS}/terminal.png"
+    }
+}
