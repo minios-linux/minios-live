@@ -343,3 +343,95 @@ targets:
       records: "$"
       key: id
       fields: [name, description, longDescription]
+
+  # --- Xfce components: stable translation identities ---
+
+  - name: xfce4-minios-tasklist-plugin
+    format: gettext
+    root: submodules/xfce4-tasklist-minios-plugin
+    from:
+      - po/strings.c
+    template: po/messages.pot
+    to: po/{lang}.po
+
+  - name: xfce4-minios-showdesktop-plugin
+    format: gettext
+    root: submodules/xfce4-showdesktop-minios-plugin
+    from:
+      - po/strings.c
+    template: po/messages.pot
+    to: po/{lang}.po
+
+  - name: xfwm4-gl
+    format: gettext
+    root: submodules/xfwm4-gl
+    from:
+      - helper-dialog/helper-dialog.c
+      - settings-dialogs/tweaks-settings.c
+      - settings-dialogs/workspace-settings.c
+      - settings-dialogs/xfce-wm-settings.desktop.in
+      - settings-dialogs/xfce-wmtweaks-settings.desktop.in
+      - settings-dialogs/xfce-workspaces-settings.desktop.in
+      - settings-dialogs/xfwm4-dialog.glade
+      - settings-dialogs/xfwm4-settings.c
+      - settings-dialogs/xfwm4-tweaks-dialog.glade
+      - settings-dialogs/xfwm4-workspace-dialog.glade
+      - src/client.c
+      - src/compositor.c
+      - src/cycle.c
+      - src/display.c
+      - src/event_filter.c
+      - src/events.c
+      - src/focus.c
+      - src/frame.c
+      - src/hints.c
+      - src/icons.c
+      - src/keyboard.c
+      - src/main.c
+      - src/menu.c
+      - src/misc.c
+      - src/moveresize.c
+      - src/mypixmap.c
+      - src/mywindow.c
+      - src/netwm.c
+      - src/parserc.c
+      - src/placement.c
+      - src/poswin.c
+      - src/screen.c
+      - src/session.c
+      - src/settings.c
+      - src/spinning_cursor.c
+      - src/stacking.c
+      - src/startup_notification.c
+      - src/tabwin.c
+      - src/terminate.c
+      - src/transients.c
+      - src/ui_style.c
+      - src/wireframe.c
+      - src/workspaces.c
+      - src/xsync.c
+    template: po/xfwm4.pot
+    to: po/{lang}.po
+
+  - name: xfdesktop-minios
+    format: gettext
+    root: submodules/xfdesktop-minios
+    from:
+      - common
+      - settings
+      - src
+    template: po/xfdesktop.pot
+    to: po/{lang}.po
+
+  - name: xfce4-settings-minios
+    format: gettext
+    root: submodules/xfce4-settings-minios
+    keywords: [_, N_, 'C_:1c,2', 'ngettext:1,2', 'pgettext:1c,2', 'npgettext:1c,2,3', gettext, eval_gettext]
+    from:
+      - common
+      - dialogs
+      - xfce4-settings-editor
+      - xfce4-settings-manager
+      - xfsettingsd
+    template: po/xfce4-settings.pot
+    to: po/{lang}.po

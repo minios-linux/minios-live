@@ -1,6 +1,13 @@
 version: 1
 
 exact:
+  - id: minios-module-manager.seed-folder-help
+    source: "The contents of this folder are copied to the root of the temporary system before the script runs or the chroot terminal opens. This lets you add files and settings to the module in advance.\n\nThe folder structure must match the paths in the system. For example, etc/myapp/config.conf inside the selected folder becomes /etc/myapp/config.conf in the temporary system.\n\nYou can leave this field empty if you do not need to add prepared files."
+    when:
+      target: minios-module-manager
+    translations:
+      ru: "Содержимое этой папки копируется в корень временной системы перед запуском скрипта или открытием терминала chroot. Так можно заранее добавить файлы и настройки в создаваемый модуль.\n\nСтруктура папки должна соответствовать путям в системе. Например, файл etc/myapp/config.conf внутри выбранной папки попадёт в /etc/myapp/config.conf временной системы.\n\nПоле можно оставить пустым, если добавлять заранее подготовленные файлы не нужно."
+
   - id: docs-boot-menu.start-minios
     source: Start MiniOS
     when:
@@ -731,6 +738,149 @@ exact:
     translations:
       de: 'Sitzung {} konnte nicht ausgehängt werden: {}'
 
+  - id: xfdesktop-minios.display-settings
+    source: "_Display Settings..."
+    when:
+      target: xfdesktop-minios
+    translations:
+      ru: "Настройки _дисплея..."
+
+  # Retain source-catalog translations for context and desktop-template keys.
+  - id: xfce4-settings.monitor-vendor-unknown
+    source: Unknown
+    when: {target: xfce4-settings-minios, context: Monitor vendor}
+    translations:
+      de: Unbekannt
+      es: Desconocido
+      fr: Inconnu
+      id: Tak Diketahui
+      it: Sconosciuto
+      pt: Desconhecido
+      pt-BR: Desconhecido
+      ru: Неизвестно
+
+  - id: xfce4-settings.profile-automatic
+    source: Automatic
+    when: {target: xfce4-settings-minios, context: Automatically generated profile}
+    translations:
+      de: Automatisch
+      es: Automático
+      fr: Automatique
+      id: Otomatis
+      it: Automatico
+      pt: Automático
+      pt-BR: Automático
+      ru: Автоматически
+
+  - id: xfce4-settings.profile-quality-low
+    source: Low Quality
+    when: {target: xfce4-settings-minios, context: Profile quality}
+    translations:
+      de: Niedrige Qualität
+      es: Calidad baja
+      fr: Basse qualité
+      id: Kualitas Rendah
+      it: Bassa
+      pt: Qualidade baixa
+      pt-BR: Qualidade Baixa
+      ru: Низкое качество
+
+  - id: xfce4-settings.profile-quality-medium
+    source: Medium Quality
+    when: {target: xfce4-settings-minios, context: Profile quality}
+    translations:
+      de: Mittlere Qualität
+      es: Calidad media
+      fr: Moyenne qualité
+      id: Kualitas Sedang
+      it: Media
+      pt: Qualidade média
+      pt-BR: Qualidade Média
+      ru: Среднее качество
+
+  - id: xfce4-settings.profile-quality-high
+    source: High Quality
+    when: {target: xfce4-settings-minios, context: Profile quality}
+    translations:
+      de: Hohe Qualität
+      es: Calidad alta
+      fr: Haute qualité
+      id: Kualitas Tinggi
+      it: Alta
+      pt: Qualidade alta
+      pt-BR: Qualidade Alta
+      ru: Высокое качество
+
+  - id: xfce4-settings.colorspace-rgb
+    source: Default RGB
+    when: {target: xfce4-settings-minios, context: Colorspace fallback}
+    translations:
+      de: Standard RGB
+      es: RGB por defecto
+      fr: RVB par défaut
+      id: Standar RGB
+      it: RGB predefinito
+      pt: RGB predefinido
+      pt-BR: Padrão RGB
+      ru: RGB по умолчанию
+
+  - id: xfce4-settings.colorspace-cmyk
+    source: Default CMYK
+    when: {target: xfce4-settings-minios, context: Colorspace fallback}
+    translations:
+      de: Standard CMYK
+      es: CMYK por defecto
+      fr: CMJN par défaut
+      id: Standar CMYK
+      it: CMYK predefinito
+      pt: CMYK predefinido
+      pt-BR: Padrão CMYK
+      ru: CMYK по умолчанию
+
+  - id: xfce4-settings.colorspace-gray
+    source: Default Gray
+    when: {target: xfce4-settings-minios, context: Colorspace fallback}
+    translations:
+      de: Standard Grau
+      es: Gris por defecto
+      fr: Gris par défaut
+      id: Standar Abu-Abu
+      it: Grigio predefinito
+      pt: Cinza predefinido
+      pt-BR: Padrão Cinza
+      ru: Серый по умолчанию
+
+  - id: xfdesktop.desktop-settings-comment
+    source: Set desktop background and menu and icon behavior
+    when: {target: xfdesktop-minios}
+    translations:
+      de: Den Hintergrund des Schreibtischs sowie das Menü- und Symbolverhalten einstellen
+      es: Configure el fondo del escritorio y el comportamiento del menú y de los iconos
+      fr: Définir le fond d’écran du bureau, le comportement du menu et des icônes
+      id: Atur latar belakang destop, perilaku ikon, serta menu
+      it: Impostazione dello sfondo della scrivania, del menu e del comportamento delle icone
+      pt: Definir fundo da área de trabalho e comportamento do menu e ícones
+      pt-BR: Define a imagem de fundo da área de trabalho e o comportamento do menu e ícones
+      ru: Задание фона рабочего стола и изменение настроек меню и значков
+
+  - id: xfdesktop.desktop-settings-keywords
+    source: desktop;background;wallpaper;settings;xfce;
+    when: {target: xfdesktop-minios}
+    translations:
+      de: Schreibtisch;Hintergrund;Hintergrundbild;Einstellungen;xfce;
+      es: escritorio;fondo;imagen;preferencias;xfce;
+      fr: desktop;background;wallpaper;settings;xfce;bureau;arrière-plan;papier peint;paramètres;
+      it: desktop;background;wallpaper;settings;xfce;
+      pt: desktop;papel de parede;definições;xfce;
+      pt-BR: área de trabalho;plano de fundo;papel de parede;configurações;xfce;
+      ru: desktop;background;wallpaper;settings;xfce;рабочий;стол;фон;обои;настройки;параметры;
+
+  - id: xfdesktop.unminimize-italian
+    source: Un_minimize Window
+    when: {target: xfdesktop-minios}
+    translations:
+      it: _Ripristina finestra
+
 terms:
   - id: app-term.minios-store
     source: MiniOS Store
@@ -978,6 +1128,14 @@ terms:
 
   - id: brand.minios
     source: MiniOS
+    preserve: true
+    case_sensitive: true
+
+  - id: edition.standard
+    source: Standard
+    when:
+      target: docs
+      path: [getting-started/About-MiniOS.md]
     preserve: true
     case_sensitive: true
 
