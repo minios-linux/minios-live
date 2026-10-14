@@ -43,6 +43,26 @@ fi
 # Conditional Desktop environment settings
 if [[ "${DESKTOP_ENVIRONMENT}" == *"xfce"* ]] && [ "${PACKAGE_VARIANT}" != "puzzle" ]; then
     mkdir -p /etc/skel/.config/xfce4
+
+    # Debian 13 / Devuan 6 use the MiniOS tasklist. Firefox is added here,
+    # after the base desktop layout has created the other pinned applications.
+    if { [ "${DISTRIBUTION}" = "trixie" ] || [ "${DISTRIBUTION}" = "excalibur" ]; } \
+        && [ -f /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml ]; then
+        PANEL_XML=/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+        FIREFOX_DESKTOP="${PACKAGE}.desktop"
+        PINNED_XPATH="/channel/property[@name='plugins']/property[@value='minios-tasklist']/property[@name='pinned-apps']"
+        if [ "$(xmlstarlet sel -t -v "count(${PINNED_XPATH})" "${PANEL_XML}")" -gt 0 ] \
+            && [ "$(xmlstarlet sel -t -v "count(${PINNED_XPATH}/value[@value='${FIREFOX_DESKTOP}'])" "${PANEL_XML}")" -eq 0 ]; then
+            xmlstarlet ed -L \
+                -i "${PINNED_XPATH}/value[1]" \
+                -t elem -n value -v "" \
+                -i "${PINNED_XPATH}/value[1]" \
+                -t attr -n type -v string \
+                -i "${PINNED_XPATH}/value[1]" \
+                -t attr -n value -v "${FIREFOX_DESKTOP}" \
+                "${PANEL_XML}"
+        fi
+    fi
     if grep -q "xterm" /etc/skel/.config/xfce4/helpers.rc; then
         cat <<EOF >/etc/skel/.config/xfce4/helpers.rc
 TerminalEmulator=xterm

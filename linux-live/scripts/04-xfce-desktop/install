@@ -263,29 +263,6 @@ regex=true
 
 EOF
 else
-    case "$DISTRIBUTION" in
-    trixie | excalibur)
-        TASKLIST_PLUGIN="minios-tasklist"
-        TASKLIST_EXTRA='      <property name="sort-order" type="uint" value="4"/>
-      <property name="pinned-apps" type="array">
-        <value type="string" value="firefox-esr.desktop"/>
-        <value type="string" value="thunar.desktop"/>
-        <value type="string" value="xfce4-terminal.desktop"/>
-      </property>'
-        SHOWDESKTOP_PLUGIN="minios-showdesktop"
-        SHOWDESKTOP_EXTRA='
-      <property name="show-icon" type="bool" value="false"/>
-      <property name="show-on-hover" type="bool" value="false"/>
-      <property name="strip-style" type="uint" value="0"/>'
-        ;;
-    *)
-        TASKLIST_PLUGIN="tasklist"
-        TASKLIST_EXTRA=""
-        SHOWDESKTOP_PLUGIN="showdesktop"
-        SHOWDESKTOP_EXTRA=""
-        ;;
-    esac
-
     cat <<EOF >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 <?xml version="1.0" encoding="UTF-8"?>
 
@@ -351,14 +328,13 @@ else
     <property name="plugin-6" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
     </property>
-    <property name="plugin-7" type="string" value="${TASKLIST_PLUGIN}">
+    <property name="plugin-7" type="string" value="tasklist">
       <property name="show-handle" type="bool" value="false"/>
       <property name="flat-buttons" type="bool" value="true"/>
       <property name="show-labels" type="bool" value="false"/>
       <property name="grouping" type="uint" value="1"/>
       <property name="include-all-workspaces" type="bool" value="true"/>
       <property name="show-wireframes" type="bool" value="false"/>
-${TASKLIST_EXTRA}
     </property>
     <property name="plugin-8" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
@@ -389,12 +365,115 @@ ${TASKLIST_EXTRA}
       <property name="digital-time-font" type="string" value="Inter 10"/>
       <property name="digital-date-font" type="string" value="Inter 8"/>
     </property>
-    <property name="plugin-14" type="string" value="${SHOWDESKTOP_PLUGIN}">${SHOWDESKTOP_EXTRA}
-    </property>
+    <property name="plugin-14" type="string" value="showdesktop"/>
   </property>
 </channel>
 
 EOF
+fi
+
+# Debian 13 / Devuan 6: use the MiniOS panel layout and panel plugins.
+# Keep only intentional defaults here; runtime history/known-item lists are not seeded.
+if [ "$DISTRIBUTION" = "trixie" ] || [ "$DISTRIBUTION" = "excalibur" ]; then
+    cat <<'MINIOS_PANEL_XML' >/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=8;x=512;y=752"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="48"/>
+      <property name="background-alpha" type="uint" value="90"/>
+      <property name="mode" type="uint" value="0"/>
+      <property name="enter-opacity" type="uint" value="100"/>
+      <property name="leave-opacity" type="uint" value="100"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="10"/>
+        <value type="int" value="11"/>
+        <value type="int" value="12"/>
+        <value type="int" value="13"/>
+      </property>
+      <property name="icon-size" type="uint" value="32"/>
+    </property>
+    <property name="dark-mode" type="bool" value="false"/>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="whiskermenu"/>
+    <property name="plugin-2" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-3" type="string" value="minios-tasklist">
+      <property name="expand" type="bool" value="true"/>
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="show-labels" type="bool" value="false"/>
+      <property name="grouping" type="uint" value="1"/>
+      <property name="include-all-workspaces" type="bool" value="true"/>
+      <property name="show-wireframes" type="bool" value="false"/>
+      <property name="pinned-apps" type="array">
+        <value type="string" value="thunar.desktop"/>
+        <value type="string" value="xfce4-terminal.desktop"/>
+      </property>
+      <property name="sort-order" type="uint" value="4"/>
+    </property>
+    <property name="plugin-4" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+      <property name="expand" type="bool" value="false"/>
+    </property>
+    <property name="plugin-5" type="string" value="xkb">
+      <property name="display-type" type="uint" value="2"/>
+      <property name="display-name" type="uint" value="1"/>
+      <property name="group-policy" type="uint" value="0"/>
+    </property>
+    <property name="plugin-6" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-7" type="string" value="systray">
+      <property name="icon-size" type="int" value="22"/>
+      <property name="square-icons" type="bool" value="true"/>
+      <property name="hidden-legacy-items" type="array"/>
+      <property name="hide-new-items" type="bool" value="false"/>
+      <property name="single-row" type="bool" value="false"/>
+    </property>
+    <property name="plugin-8" type="string" value="pulseaudio">
+      <property name="enable-keyboard-shortcuts" type="bool" value="true"/>
+    </property>
+    <property name="plugin-9" type="string" value="power-manager-plugin"/>
+    <property name="plugin-10" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-11" type="string" value="clock">
+      <property name="digital-format" type="string" value="%_H:%M"/>
+      <property name="digital-time-format" type="string" value="%R"/>
+      <property name="digital-layout" type="uint" value="1"/>
+      <property name="timezone" type="string" value=""/>
+      <property name="digital-time-font" type="string" value="Inter 10"/>
+      <property name="digital-date-font" type="string" value="Inter 8"/>
+    </property>
+    <property name="plugin-12" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <property name="plugin-13" type="string" value="minios-showdesktop">
+      <property name="show-on-hover" type="bool" value="false"/>
+      <property name="show-icon" type="bool" value="false"/>
+      <property name="strip-style" type="uint" value="0"/>
+    </property>
+  </property>
+</channel>
+MINIOS_PANEL_XML
 fi
 
 if ! pkg_is_installed "xfce4-terminal" >/dev/null 2>&1 && pkg_is_installed "xfce4-screenshooter" >/dev/null 2>&1; then

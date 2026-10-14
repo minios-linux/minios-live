@@ -3,7 +3,7 @@
 # ========================================
 at-spi2-core
 dbus-x11
-greybird-minios-theme || greybird-gtk-theme
+greybird-minios-gtk-theme || greybird-gtk-theme
 gvfs-backends
 gtk-update-icon-cache
 libglib2.0-bin
@@ -18,15 +18,17 @@ minios-thunar-integration
 thunar-volman
 xfce4-appfinder
 xfce4-panel
-xfce4-minios-tasklist-plugin +d=trixie +d=excalibur
-xfce4-minios-showdesktop-plugin +d=trixie +d=excalibur
+xfce4-tasklist-minios-plugin +d=trixie +d=excalibur
+xfce4-showdesktop-minios-plugin +d=trixie +d=excalibur
 xfce4-session
-xfce4-settings
+xfce4-settings -d=trixie -d=excalibur
+xfce4-settings==4.20.1-1minios3 +d=trixie +d=excalibur
 xfce4-xkb-plugin
 xfconf
-xfdesktop4
-xfwm4 -d=trixie
-xfwm4-gl +d=trixie
+xfdesktop4 -d=trixie -d=excalibur
+xfdesktop4==4.20.1-1minios2 +d=trixie +d=excalibur
+xfwm4 -d=trixie -d=excalibur
+xfwm4-gl +d=trixie +d=excalibur
 xmlstarlet
 minios6-artwork
 minios6-wallpapers-flux +{pv=minimum&de=flux}
