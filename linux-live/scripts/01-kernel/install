@@ -5,6 +5,7 @@ set -o pipefail
 set -u
 
 . /minioslib
+console_colors
 
 TMP_PKGLIST="$(mktemp /tmp/kernel-package.list.XXXXXX)"
 trap 'rm -f "${TMP_PKGLIST}"' EXIT

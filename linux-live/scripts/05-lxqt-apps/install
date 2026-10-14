@@ -5,6 +5,7 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . /minioslib
+console_colors
 . /minios_build.conf
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"

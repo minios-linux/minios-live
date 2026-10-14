@@ -5,6 +5,7 @@ set -o pipefail # exit on pipeline error
 set -u          # treat unset variable as error
 
 . "/minioslib" || exit 1
+console_colors
 . "/minios_build.conf" || exit 1
 
 kernel_release_series() {
