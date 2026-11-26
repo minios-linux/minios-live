@@ -194,16 +194,96 @@ contains() {
     [ -f "$sysv_root/var/log/fsck/checkroot" ]
 }
 
+setup_data_discovery() {
+    source "$ROOT/livekit-mos/lib/livekitlib"
+    debug_log() { :; }
+    LIVEKITNAME=minios
+    BEXT=sb
+    DISCOVERY_DEVICES=(minios-test-a)
+    DISCOVERY_LOG="$WORK/discovery.log"
+    : >"$DISCOVERY_LOG"
+    mkdir -p "$WORK/devices" "$WORK/mount"
+
+    # Keep the real discovery logic, but sandbox its absolute paths.
+    # No root privileges, real block devices, or host log writes are needed.
+    local body
+    body=$(declare -f find_data_try)
+    body=${body//\/var\/log\/from.log/\"\$WORK\/from.log\"}
+    body=${body//\/dev\/mapper\/ventoy/\"\$WORK\/ventoy\"}
+    eval "$body"
+    blkid() { printf '/dev/%s: TYPE="ext4"\n' "${DISCOVERY_DEVICES[@]}"; }
+    device_bestfs() { printf 'ext4\n'; }
+    mount() {
+        printf 'mount %s\n' "$*" >>"$DISCOVERY_LOG"
+        if [ "$1" = -o ]; then
+            [ "$2" = remount,rw ] && [ "$3" = "$WORK/mount" ]
+            return
+        fi
+        [ "$2" = "$WORK/mount" ] && [ -d "$WORK/devices/${1##*/}" ] || return 1
+        rmdir "$2" || return 1
+        ln -s "$WORK/devices/${1##*/}" "$2"
+    }
+    umount() {
+        printf 'umount %s\n' "$*" >>"$DISCOVERY_LOG"
+        [ "$1" = "$WORK/mount" ] || return 1
+        [ ! -L "$1" ] || rm -- "$1"
+        mkdir -p "$1"
+    }
+}
+
 @test "data discovery probes read-only before enabling writes on the selected source" {
-    lib="$ROOT/livekit-mos/lib/livekitlib"
-    source "$lib"
+    setup_data_discovery
+    mkdir -p "$WORK/devices/minios-test-a/minios"
+    touch "$WORK/devices/minios-test-a/minios/00-core.sb"
 
     [ "$(fs_options ext4 ro)" = '-t ext4 -o ro,noatime' ]
     [ "$(fs_options ext4)" = '-t ext4 -o rw,noatime' ]
+    run find_data_try "$WORK/mount" ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "$WORK/mount/minios" ]
+    [ "$(<"$WORK/from.log")" = minios ]
+    printf '%s\n' \
+        "mount /dev/minios-test-a $WORK/mount -t ext4 -o ro,noatime" \
+        "mount -o remount,rw $WORK/mount" >"$WORK/expected.log"
+    cmp "$WORK/expected.log" "$DISCOVERY_LOG"
+}
 
-    body=$(awk '/^find_data_try\(\)/,/^}/' "$lib")
-    [[ "$body" == *'OPTIONS="$(fs_options "$FS" ro)"'* ]]
-    [ "$(printf '%s\n' "$body" | grep -Fc 'data_mount_make_writable "$DRIVE" "$1" "$FS" || true')" -eq 2 ]
+@test "data discovery rejects a source containing only additional modules" {
+    setup_data_discovery
+    mkdir -p "$WORK/devices/minios-test-a/minios/modules"
+    touch "$WORK/devices/minios-test-a/minios/modules/99-extra.sb"
+
+    run find_data_try "$WORK/mount" ""
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+    [ ! -e "$WORK/from.log" ]
+    [ ! -L "$WORK/mount" ]
+    printf '%s\n' "mount /dev/minios-test-a $WORK/mount -t ext4 -o ro,noatime" \
+        >"$WORK/expected.log"
+    grep '^mount ' "$DISCOVERY_LOG" >"$WORK/mounts.log"
+    cmp "$WORK/expected.log" "$WORK/mounts.log"
+    contains "$DISCOVERY_LOG" "umount $WORK/mount"
+}
+
+@test "data discovery skips additional-only media and selects the next system source" {
+    setup_data_discovery
+    DISCOVERY_DEVICES=(minios-test-a minios-test-b)
+    mkdir -p "$WORK/devices/minios-test-a/minios/modules" \
+        "$WORK/devices/minios-test-b/minios"
+    touch "$WORK/devices/minios-test-a/minios/modules/99-extra.sb" \
+        "$WORK/devices/minios-test-b/minios/00-core.sb"
+
+    run find_data_try "$WORK/mount" ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "$WORK/mount/minios" ]
+    [ "$(<"$WORK/from.log")" = minios ]
+    [ "$(readlink "$WORK/mount")" = "$WORK/devices/minios-test-b" ]
+    printf '%s\n' \
+        "mount /dev/minios-test-a $WORK/mount -t ext4 -o ro,noatime" \
+        "mount /dev/minios-test-b $WORK/mount -t ext4 -o ro,noatime" \
+        "mount -o remount,rw $WORK/mount" >"$WORK/expected.log"
+    grep '^mount ' "$DISCOVERY_LOG" >"$WORK/mounts.log"
+    cmp "$WORK/expected.log" "$WORK/mounts.log"
 }
 
 @test "selected data source falls back to a clean writable mount" {

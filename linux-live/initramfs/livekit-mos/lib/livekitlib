@@ -1108,15 +1108,6 @@ find_data_try() {
          return
       fi
 
-      # search for bundles in modules directory
-      if [ "$(find "$1/$FROM/modules" -maxdepth 1 -name "*.$BEXT" 2>/dev/null)" != "" ]; then
-         # we found at least one bundle/module here
-         data_mount_make_writable "$DRIVE" "$1" "$FS" || true
-         echo "$1/$FROM" | tr -s "/" | sed -r "s:/[^/]+/[.][.]/:/:g"
-         echo "$FROM" >/var/log/from.log
-         return
-      fi
-
       # unmount twice, since there could be mounted ISO as loop too. If not, it doesn't hurt
       umount "$1" 2>/dev/null
       umount "$1" 2>/dev/null
