@@ -2,6 +2,8 @@
 OnDesktop Mouse1 :MacroCmd {WindowMenu} {HideMenus}
 OnDesktop Mouse2 :WorkspaceMenu
 OnDesktop Mouse3 :RootMenu
+# PCManFM handles the desktop context menu; retain access to the Fluxbox menu.
+Control Mod1 space :RootMenu
 
 # scroll on the desktop to change workspaces
 #OnDesktop Mouse4 :PrevWorkspace

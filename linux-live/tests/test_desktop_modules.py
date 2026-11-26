@@ -219,6 +219,43 @@ printf '%s\\n' "${PACKAGES_TO_INSTALL[@]}"
         self.assertEqual(result.returncode, 0, result.stderr)
         return set(result.stdout.splitlines())
 
+    def test_flux_desktop_package_selection(self):
+        # The desktop is not dependent on the optional application module.
+        for distribution in ("bionic", "trixie"):
+            with self.subTest(distribution=distribution):
+                packages = self.selected_packages("flux", "minimum", distribution)
+                self.assertTrue({"fluxbox-flux", "picom-flux", "pcmanfm-flux",
+                                 "libfm-modules-flux", "gvfs", "xfce4-panel", "xlunch"} <= packages)
+                self.assertFalse(packages & {"compton", "picom", "pcmanfm", "xfce4-docklike-plugin"})
+        apps = SCRIPTS / "05-flux-apps"
+        self.assertNotIn("pcmanfm", (apps / "packages.list").read_text().splitlines())
+        self.assertFalse((apps / "rootcopy-install/etc/skel/.config/pcmanfm").exists())
+        self.assertFalse((apps / "rootcopy-install/etc/skel/.config/libfm").exists())
+
+    def test_flux_desktop_defaults(self):
+        module = SCRIPTS / "04-flux-desktop/rootcopy-install"
+        skel = module / "etc/skel"
+        profile = ini(skel / ".config/pcmanfm/default/pcmanfm.conf")
+        desktop = profile["desktop"]
+        self.assertEqual(desktop["wallpaper_mode"], "crop")
+        self.assertTrue((module / desktop["wallpaper"].lstrip("/")).is_file())
+        self.assertEqual(desktop["show_wm_menu"], "0")
+        self.assertTrue(all(profile["volume"][key] == "0"
+                            for key in ("mount_on_startup", "mount_removable", "autorun")))
+        places = ini(skel / ".config/libfm/libfm.conf")["places"]
+        self.assertEqual(places["places_desktop"], "1")
+        self.assertEqual(places["places_unmounted"], "1")
+        self.assertIn("background: none", (skel / ".fluxbox/overlay").read_text().splitlines())
+        self.assertIn("Control Mod1 space :RootMenu", (skel / ".fluxbox/keys").read_text().splitlines())
+        startup = skel / ".fluxbox/startup"
+        self.assertEqual(subprocess.run(["sh", "-n", str(startup)]).returncode, 0)
+        self.assertNotIn(".fehbg", startup.read_text())
+        self.assertIn("exec pcmanfm --desktop", startup.read_text())
+        panel = ET.parse(skel / ".config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml")
+        plugins = {node.get("value") for node in panel.findall(".//property[@name='plugins']/property")}
+        self.assertTrue({"tasklist", "launcher", "systray"} <= plugins)
+        self.assertNotIn("docklike", plugins)
+
     def test_package_filter_matrix(self):
         for desktop in DESKTOPS:
             for variant in VARIANTS:

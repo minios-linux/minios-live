@@ -29,7 +29,7 @@ minios-setup-keyboard
 
 # set keyboard layout
 echo "$(setxkbmap -query | grep "layout" | awk '{print $2}')" >~/.fluxbox/kblayout
-if [ -n $(cat ~/.fluxbox/kblayout) ]; then
+if [ -n "$(cat ~/.fluxbox/kblayout)" ]; then
     fbsetkb $(cat ~/.fluxbox/kblayout)
 fi
 
@@ -57,9 +57,9 @@ xsetroot -xcf "/usr/share/icons/breeze_cursors/cursors/watch" 37
 xset s off
 xset -dpms
 
-# preload compton and fluxbox to cache
+# preload desktop components to cache
 (
-    compton --help
+    picom --help
     fluxbox --help
     xfce4-panel --help
 ) >/dev/null 2>&1
@@ -67,12 +67,26 @@ xset -dpms
 # Keep black screen for first second while the sound plays.
 # This slows startup a little, but it is nicer effect.
 SND=/usr/share/sounds/startup.wav
+SOUNDPID=
 if [ -r $SND ]; then
     cat $SND >/dev/null # preload
     aplay $SND &
     sleep 1 &
     SOUNDPID=$!
 fi
+
+# The packaged authentication agents can restrict XDG autostart to other
+# desktops. Start the first available agent in the Fluxbox session itself.
+for agent in /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
+    /usr/libexec/polkit-gnome-authentication-agent-1 \
+    /usr/libexec/polkit-mate-authentication-agent-1 \
+    /usr/lib/mate-polkit/polkit-mate-authentication-agent-1 \
+    /usr/libexec/xfce-polkit /usr/lib/xfce-polkit/xfce-polkit; do
+    if [ -x "$agent" ]; then
+        "$agent" &
+        break
+    fi
+done
 
 # Debian-local change:
 #   - fbautostart has been added with a quick hack to check to see if it
@@ -82,44 +96,15 @@ if [ $? -eq 0 ]; then
     fbautostart &
 fi
 
-# We need to postpone compton after fluxbox starts, else it won't set
-# the transparency of toolbar properly... So we check the fehbg file,
-# which is created by fluxbox at the phase when it sets background.
-# Once the file exist, fluxbox-toolbar is already started
-
-SIGNAL1=~/.fehbg
-SIGNAL2=~/.fehbg2
-
-rm -f $SIGNAL1 2>/dev/null
-rm -f $SIGNAL2 2>/dev/null
-
-(
-    while [ ! -e $SIGNAL1 ]; do
-        sleep 0.1
-    done
-    touch $SIGNAL2
-
-    exec compton --sw-opti --shadow-exclude 'class_g="xlunch-windowed"' --fade-exclude 'role*="fluxbox-toolbar"' --opacity-rule '70:role*="fluxbox-toolbar"' --no-fading-destroyed-argb -D 5 -c -f -l -2 -t -2 -r 3 -o 1 -z --shadow-exclude 'bounding_shaped'
-) &
-
-# We wait after background is set and compton is started
-(
-    while [ ! -e $SIGNAL2 ]; do
-        sleep 0.1
-    done
-
-    rm -f $SIGNAL2
-
-    exec volumeicon
-) &
-
 # gen screen resolutions to fluxbox menu
 xrandr 2>/dev/null | fgrep x | fgrep . | sort -n | tr -s " " | cut -d " " -f 2 |
     sed -r "s:(.*):[exec] (\\1) {fbscreensize \\1}:" >~/.fluxbox/menu_resolution
 
 # In all cases, wait for the sound sleeper.
 # If startup took longer (sound completed already), no extra wait
-wait $SOUNDPID
+if [ -n "$SOUNDPID" ]; then
+    wait "$SOUNDPID"
+fi
 
 # If we are running inside virtual environment,
 # switch to bigger screen size right away
@@ -143,6 +128,25 @@ fi
 xfce4-panel --disable-wm-check --sm-client-disable &
 
 # The panel reserves its own space through EWMH struts.
+
+# Start the compositor and icon desktop only after Fluxbox owns this X screen.
+# Neither depends on a wallpaper command, a panel window or the other's success.
+# Bound the wait so a failed WM start cannot leave a persistent polling process.
+(
+    attempts=0
+    until LC_ALL=C wmctrl -m 2>/dev/null | grep -qi '^Name: *Fluxbox'; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge 200 ]; then
+            echo "Fluxbox did not become ready; skipping desktop components" >&2
+            exit 1
+        fi
+        sleep 0.1
+    done
+
+    picom &
+    volumeicon &
+    exec pcmanfm --desktop
+) &
 
 # start keyboard layout switcher if available
 case $(cat ~/.fluxbox/kblayout) in
