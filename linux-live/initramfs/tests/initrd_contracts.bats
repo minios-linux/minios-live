@@ -517,7 +517,10 @@ setup_data_discovery() {
 
     run "$ROOT/livekit-mos/bin/dynfilefs"
     [ "$status" -eq 1 ]
-    [[ "$output" == *'dynfilefs 4.6.0'* ]]
+    [[ "$output" == *'DynFileFS 6.04'* ]]
+    [[ "$output" != *'--upgrade400'* ]]
+    run grep -F 'bin/dynfilefs400' "$ROOT/livekit-mos/mkinitrfs" "$ROOT/dracut-mos/90minios/module-setup.sh"
+    [ "$status" -eq 1 ]
     run "$ROOT/livekit-mos/bin/dynblk" --help
     [ "$status" -eq 0 ]
     [[ "$output" == *'dynblk create PATH'* ]]

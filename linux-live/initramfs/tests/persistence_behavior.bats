@@ -85,6 +85,7 @@ setup_dispatch() {
         perchdir) printf '%s\n' new ;;
         perchmode) printf '%s\n' "$TEST_MODE" ;;
         perchsize) printf '%s\n' "$TEST_SIZE" ;;
+        perchreserve) printf '%s\n' "${TEST_RESERVE:-}" ;;
         perchencrypt) printf '%s\n' "$TEST_ENCRYPT" ;;
         perchcomp) printf '%s\n' none ;;
         *) return 0 ;;
@@ -1371,18 +1372,94 @@ mkdir -p "$mountpoint"
 
 @test "automatic DynFileFS sizing also keeps perchreserve free" {
     setup_dispatch dynfilefs ext4 0
+    TEST_RESERVE=512
     df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 9216000 0 9216000 0% /"; }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
-    # 9000 MiB minus 256 MiB reserve, allowing 1/500 of data size for indexes.
-    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 8726"
+    # 8453 MiB of data + 34 MiB of metadata headroom + 1 MiB fixed
+    # + 512 MiB of perchreserve = 9000 MiB.
+    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 8453"
 }
 
 @test "automatic DynFileFS sizing never grows past a small device" {
     setup_dispatch dynfilefs ext4 0
     df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 3145728 0 3145728 0% /"; }
     persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
-    # (3072 MiB - 256 MiB reserve) * 500 / 501, rounded down to whole MiB.
-    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 2810"
+    # 2804 + ceil(2804 / 256) + 1 = 2816 MiB, after the 256 MiB reserve.
+    assert_log "@mount.dynfilefs -f $TEST_DATA/changes/1/changes.dat -m $TEST_CHANGES -p 4000 -s 2804"
+}
+
+@test "automatic DynFileFS sizing caps at 16 GiB on a large device" {
+    setup_dispatch dynfilefs ext4 0
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 33554432 0 33554432 0% /"; }
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 16384"
+}
+
+@test "explicit DynFileFS sizing accounts for sparse roots rather than eager indexes" {
+    setup_dispatch dynfilefs vfat 1000000
+    printf '%s\n' 'MemTotal:       8388608 kB' >"$MINIOS_PROC_MEMINFO"
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 357376 0 357376 0% /"; }
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    # 93 MiB after the reserve fits four root tables and initial write
+    # headroom, not even half of an eager index for this virtual capacity.
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 1000000"
+}
+
+@test "explicit DynFileFS sizing leaves room for roots above the write allowance" {
+    setup_dispatch dynfilefs ext4 1000000
+    printf '%s\n' 'MemTotal:       8388608 kB' >"$MINIOS_PROC_MEMINFO"
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 329728 0 329728 0% /"; }
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    # After reserve, 66 MiB fits 64 MiB for initial writes, 1 MiB fixed
+    # and another 1 MiB for four 8-byte entries per 2 MiB logical region.
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 65536"
+}
+
+@test "DynFileFS limits requests by physical map and bounded cache estimates" {
+    setup_dispatch dynfilefs ext4 1000000
+    printf '%s\n' 'MemTotal:        524288 kB' >"$MINIOS_PROC_MEMINFO"
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    # 64 MiB budget minus 4 MiB fixed and 40 MiB cache leaves 20 MiB
+    # for the 640-byte-per-MiB map/root allowance.
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 32768"
+}
+
+@test "DynFileFS retains the i686 request ceiling on a high-memory host" {
+    setup_dispatch dynfilefs ext4 3000000
+    printf '%s\n' 'MemTotal:      16777216 kB' >"$MINIOS_PROC_MEMINFO"
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000 -s 2000000"
+}
+
+@test "large existing DynFileFS sessions resume without requesting growth" {
+    setup_dispatch dynfilefs ext4
+    TEST_SIZE=
+    printf '%s\n' 'MemTotal:        524288 kB' >"$MINIOS_PROC_MEMINFO"
+    df() { printf '%s\n' "Filesystem 1K-blocks Used Available Use% Mounted on" "/dev/test 1048576 1048576 0 100% /"; }
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/changes.dat"
+    printf '%s\n' 'default=1' 'session_mode[1]=dynfilefs' \
+        'session_size[1]=1000000' >"$TEST_CHANDIR/session.conf"
+
+    for TEST_SIZE in '' 2000000; do
+        : >"$LOG"
+        persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+        assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000"
+        grep -Fqx 'session_size[1]=1000000' "$TEST_CHANDIR/session.conf"
+    done
+}
+
+@test "DynFileFS boot sizing never passes a relative growth request to the backend" {
+    setup_dispatch dynfilefs ext4 +128
+    mkdir -p "$TEST_CHANDIR/1"
+    : >"$TEST_CHANDIR/1/changes.dat"
+    printf '%s\n' 'default=1' 'session_mode[1]=dynfilefs' \
+        'session_size[1]=64' >"$TEST_CHANDIR/session.conf"
+
+    persistent_changes "$TEST_DATA" "$TEST_CHANGES" || true
+
+    assert_log "@mount.dynfilefs -f $TEST_CHANDIR/1/changes.dat -m $TEST_CHANGES -p 4000"
+    grep -Fqx 'session_size[1]=64' "$TEST_CHANDIR/session.conf"
 }
 
 @test "new DynFileFS session with no available capacity falls back to memory" {

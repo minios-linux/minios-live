@@ -3592,12 +3592,11 @@ persistent_changes() {
    }
 
    calculate_perch_size() {
-      local MEM_TOTAL_KB DYN_LIMIT RAM_LIMIT INDEX_DISK_LIMIT AUTO_LIMIT STORED_SIZE
+      local DYN_LIMIT
 
-      AVAILABLE_SPACE=$(df -P "$CHANDIR" | tail -n 1 | awk '{print $4}')
-      AVAILABLE_SPACE=$((AVAILABLE_SPACE / 1024))
+      AVAILABLE_SPACE=$(perch_free_mb "$CHANDIR")
 
-      if [ "$PERCHMODE" = "raw" ] && [ -e "$CHANDIR/$PERCHFILE" ]; then
+      if [ "$PERCHMODE" = "raw" ] && [ -n "$PERCHFILE_EXISTS" ]; then
          CURRENT_USAGE=$(du -m "$CHANDIR/$PERCHFILE" | awk '{print $1}')
          AVAILABLE_SPACE=$((AVAILABLE_SPACE + CURRENT_USAGE))
       fi
@@ -3609,74 +3608,81 @@ persistent_changes() {
 
       case "$PERCHMODE" in
       dynfilefs)
-         # Format 400 stores one 8-byte offset for every 4 KiB logical block.
-         # With -p 4000 every segment therefore maps about 8 MiB of index into
-         # RAM and stores the same index on disk. Limit indexes to about 1/8 of
-         # physical RAM, then apply the tested i686 address-space ceiling.
-         DYN_LIMIT=2000000
-         MEM_TOTAL_KB=$(awk '/^MemTotal:/ { print $2; exit }' "$MINIOS_PROC_MEMINFO" 2>/dev/null)
-         case "$MEM_TOTAL_KB" in
-         '' | *[!0-9]*) ;;
-         *)
-            RAM_LIMIT=$((MEM_TOTAL_KB / 65536 * 4000))
-            [ "$RAM_LIMIT" -lt "$DYN_LIMIT" ] && DYN_LIMIT=$RAM_LIMIT
-            ;;
+         local MEM_TOTAL_KB STORED_SIZE=0
+
+         # Use up to 16 GiB after the reserve, leaving room for metadata.
+         # An explicit size may exceed free space because the parts grow on demand.
+         case "$PERCHSIZE" in
+         '' | *[!0-9]*) PERCHSIZE=0 ;;
+         0*) PERCHSIZE=${PERCHSIZE#"${PERCHSIZE%%[!0]*}"}; : "${PERCHSIZE:=0}" ;;
          esac
-
-         # A new storage also has to fit its eagerly-created indexes on the
-         # persistence filesystem. Use 8 MiB per 4000 MiB segment as a safe
-         # upper estimate. Existing containers have already paid this cost.
-         if [ ! -e "$CHANDIR/$PERCHFILE" ]; then
-            INDEX_DISK_LIMIT=$((MAX_SIZE / 8 * 4000))
-            [ "$INDEX_DISK_LIMIT" -lt "$DYN_LIMIT" ] && DYN_LIMIT=$INDEX_DISK_LIMIT
-         fi
-         [ "$DYN_LIMIT" -lt 0 ] && DYN_LIMIT=0
-
-         # Refuse an existing session whose stored geometry cannot be opened
-         # within the current machine's RAM/address-space limit. Passing a
-         # smaller -s does not shrink DynFileFS metadata.
-         if [ -e "$CHANDIR/$PERCHFILE" ]; then
+         if [ -n "$PERCHFILE_EXISTS" ]; then
+            # Resume at the stored size unless growth was requested.
+            if [ "$PERCHSIZE_SPECIFIED" != true ] || [ "$PERCHSIZE" = "0" ]; then
+               PERCHSIZE=0
+               return
+            fi
             STORED_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" \
                "$CHANDIR/session.conf" 2>/dev/null)
-            case "$STORED_SIZE" in
-            [1-9] | [1-9][0-9]*)
-               if [ "$STORED_SIZE" -gt "$DYN_LIMIT" ]; then
-                  echo "- DynFileFS session size ${STORED_SIZE}MB exceeds the safe limit ${DYN_LIMIT}MB for available RAM"
-                  return 1
-               fi
-               ;;
-            esac
+            case "$STORED_SIZE" in '' | *[!0-9]*) STORED_SIZE=0 ;; esac
+         elif [ "$PERCHSIZE" = "0" ]; then
+            PERCHSIZE_SPECIFIED=false
+            PERCHSIZE=$MAX_SIZE
+            if [ "$PERCHSIZE" -ge $((16384 + 16384 / 256 + 1)) ]; then
+               PERCHSIZE=16384
+            elif [ "$PERCHSIZE" -gt 0 ]; then
+               PERCHSIZE=$(((PERCHSIZE - 1) * 256 / 257))
+            fi
          fi
 
-         if [ "$PERCHSIZE" = "0" ] && [ ! -e "$CHANDIR/$PERCHFILE" ]; then
-            PERCHSIZE="auto"
-         fi
-         if [ "$PERCHSIZE" = "auto" ]; then
-            # Automatic dynamic persistence defaults to 16 GiB, but never
-            # advertises more capacity than the backing store can ultimately
-            # hold after the reserve. DynFileFS also needs ~0.2% for indexes.
-            AUTO_LIMIT=$((MAX_SIZE * 500 / 501))
-            [ "$DYN_LIMIT" -lt "$AUTO_LIMIT" ] && AUTO_LIMIT=$DYN_LIMIT
-            [ "$AUTO_LIMIT" -gt 16384 ] && AUTO_LIMIT=16384
-            PERCHSIZE=$AUTO_LIMIT
-         elif [ "$PERCHSIZE" -gt "$DYN_LIMIT" ]; then
+         MEM_TOTAL_KB=$(awk '/^MemTotal:/ && $2 ~ /^[0-9]+$/ { print $2; exit }' \
+            "$MINIOS_PROC_MEMINFO" 2>/dev/null)
+         # Budget 1/8 of RAM for the format-600 cache and block map.
+         DYN_LIMIT=$(awk -v memory_kib="$MEM_TOTAL_KB" -v free_mib="$MAX_SIZE" \
+            -v existing="$PERCHFILE_EXISTS" -v explicit="$PERCHSIZE_SPECIFIED" '
+            function fits(size, roots, cache, disk) {
+               roots = int((size + 1) / 2)
+               cache = roots < 8192 ? roots : 8192
+               if (memory_kib != "" && 4 * 1048576 + cache * 5120 + size * 640 > memory_kib * 128)
+                  return 0
+               if (explicit != "true") return 1
+               # Thin volumes need space for metadata and initial writes.
+               disk = 1048576 + 32 * roots
+               if (existing != "true")
+                  disk += (size < 64 ? size : 64) * 1048576
+               return disk <= free_mib * 1048576
+            }
+            BEGIN {
+               low = 0
+               high = 2000000 # Capacity ceiling for the bundled i686 helper.
+               while (low < high) {
+                  size = int((low + high + 1) / 2)
+                  if (fits(size)) low = size
+                  else high = size - 1
+               }
+               printf "%d\n", low
+            }')
+         : "${DYN_LIMIT:=0}"
+
+         if ! [ "$PERCHSIZE" -le "$DYN_LIMIT" ] 2>/dev/null; then
             echo "- persistent changes size ${PERCHSIZE}MB exceeds DynFileFS safe limit"
             echo "- using maximum safe size ${DYN_LIMIT}MB"
             PERCHSIZE=$DYN_LIMIT
          fi
+         # Keep the recorded size when the volume does not grow.
+         if [ -n "$PERCHFILE_EXISTS" ] && [ "$PERCHSIZE" -le "$STORED_SIZE" ]; then
+            PERCHSIZE=0
+         fi
          ;;
       dynblk | vmdk)
-         # Match DynFileFS automatic sizing: use up to 16 GiB only when the
-         # backing store has that much space after the reserve. Explicit thin
-         # capacities remain a user choice and are not capped by current free
-         # space. DynBlk reports its geometry limit and owns its bounded metadata cache.
+         # Auto: up to 16 GiB after the reserve. Explicit sizes may exceed free space.
          DYN_LIMIT=$(dynblk limits --format "$PERCHMODE" 2>/dev/null |
             sed -n 's/^max_capacity_mib: //p')
          case "$DYN_LIMIT" in
          '' | *[!0-9]*) DYN_LIMIT=524288 ;; # Older CLI compatibility only.
          esac
          [ "$DYN_LIMIT" -gt 0 ] || DYN_LIMIT=524288
-         if [ "$PERCHSIZE" = "0" ] && [ ! -e "$CHANDIR/$PERCHFILE" ]; then
+         if [ "$PERCHSIZE" = "0" ] && [ -z "$PERCHFILE_EXISTS" ]; then
             PERCHSIZE=$MAX_SIZE
             [ "$PERCHSIZE" -gt 16384 ] && PERCHSIZE=16384
          fi
@@ -3686,7 +3692,7 @@ persistent_changes() {
          fi
          ;;
       *)
-         if [ "$PERCHSIZE" = "0" ] && [ ! -e "$CHANDIR/$PERCHFILE" ]; then
+         if [ "$PERCHSIZE" = "0" ] && [ -z "$PERCHFILE_EXISTS" ]; then
             PERCHSIZE=4000
          fi
          [ "$MAX_SIZE" -gt 1000000 ] && MAX_SIZE=1000000
@@ -3941,24 +3947,12 @@ persistent_changes() {
    }
 
    dynfilefs_mode() {
-      local OPEN_STATUS CURRENT_BYTES TARGET_BYTES STORED_SIZE RETRY NEW_CONTAINER=false
+      local OPEN_STATUS CURRENT_BYTES TARGET_BYTES RETRY NEW_CONTAINER=false
       PERCHMODE="dynfilefs"
       PERCHFILE="$PERCHDIR/changes.dat"
       [ -e "$CHANDIR/$PERCHFILE" ] && PERCHFILE_EXISTS="true"
       [ -n "$PERCHFILE_EXISTS" ] || NEW_CONTAINER=true
-      if [ "$NEW_CONTAINER" != true ] && [ "$PERCHSIZE_SPECIFIED" != true ]; then
-         STORED_SIZE=$(sed -n "s/^session_size\[$PERCHDIR\]=//p" \
-            "$CHANDIR/session.conf" 2>/dev/null)
-         case "$STORED_SIZE" in
-         [1-9] | [1-9][0-9]*) PERCHSIZE="$STORED_SIZE" ;;
-         esac
-      fi
-      if ! calculate_perch_size; then
-         [ "$NEW_SESSION" = true ] && rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
-         perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
-            "Session #$PERCHDIR: DynFileFS size is not safe for the available RAM; continuing in memory."
-         return
-      fi
+      calculate_perch_size
       if [ "$NEW_CONTAINER" = true ] && [ "$PERCHSIZE" -le 0 ]; then
          [ "$NEW_SESSION" = true ] && rmdir "$CHANDIR/$PERCHDIR" 2>/dev/null || true
          perch_state_fail_now "$PERCHMODE" "$PERCHDIR" \
