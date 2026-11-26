@@ -190,6 +190,16 @@ common_variables
 
 APTCACHE_DIR="$BUILD_DIR/aptcache/$APT_CACHE_DISTRIBUTION"
 
+determine_command_range "$@"
+# build-boot also prepares a module overlay for the initrd chroot.
+for stage in "${CMD[@]:START_INDEX:END_INDEX-START_INDEX}"; do
+    case "$stage" in
+        build_live|build_modules|build_boot)
+            require_host_dpkg_state || exit 1
+            break ;;
+    esac
+done
+
 if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
     if [ "${USE_APT_CACHE_REPO}" = "false" ]; then
         toggle_shell_options e
@@ -208,8 +218,6 @@ if [[ " ${CMD[@]:-} " =~ " ${1:-} " ]] || [[ "${1:-}" == "-" ]]; then
     #generate_squashfs_exclude_file "${EXCLUDE_CORE_FILE}" "${INSTALL_DIR}"
 
 fi
-
-determine_command_range "$@"
 
 # Run commands within the defined range.
 for ((ii = START_INDEX; ii < END_INDEX; ii++)); do

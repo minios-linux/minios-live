@@ -2118,14 +2118,42 @@ build_live() {
 
     mkdir -p "${WORK_DIR}/image/${LIVEKITNAME}"/{boot,changes,modules}
 
+    # A new-format core must also carry its consumer; never decompose an old
+    # published live-config installation merely because the host tool is new.
+    if [ -f "${INSTALL_DIR}/var/lib/dpkg/status" ]; then
+        local LIVE_CONFIG_VERSION
+        LIVE_CONFIG_VERSION=$(chroot "${INSTALL_DIR}" dpkg-query -W -f='${Version}' minios-live-config) || return 1
+        if ! dpkg --compare-versions "${LIVE_CONFIG_VERSION}" ge 12.0.0; then
+            error "Format-1 modules require minios-live-config >= 12.0.0 in the core build root."
+            return 1
+        fi
+    fi
+
+    # Export through a private overlay: retain the ordinary dpkg database in
+    # the mutable core build tree, but never ship it in a module.
+    local EXPORT_ROOT RESULT=0
+    EXPORT_ROOT=$(mktemp -d "${WORK_DIR}/status-export.XXXXXX") || return 1
+    mkdir -p "${EXPORT_ROOT}"/{upper,work,merged}
+    mount -t overlay overlay -o "lowerdir=${INSTALL_DIR},upperdir=${EXPORT_ROOT}/upper,workdir=${EXPORT_ROOT}/work" "${EXPORT_ROOT}/merged" || {
+        rm -rf -- "${EXPORT_ROOT}"
+        return 1
+    }
+    if ! minios_module_dpkg_state pack "${EXPORT_ROOT}/merged" /dev/null; then
+        umount "${EXPORT_ROOT}/merged" || return 1
+        rm -rf -- "${EXPORT_ROOT}"
+        return 1
+    fi
     # create compressed 00-core.sb
-    mkmod_corefs "${INSTALL_DIR}"
+    mkmod_corefs "${EXPORT_ROOT}/merged"
     information "Compression of ${YELLOW}core${ENDCOLOR} data is in progress ..."
     mksquashfs ${COREFS} "${WORK_DIR}/image/${LIVEKITNAME}/00-core-${DISTRIBUTION_ARCH}.${BEXT}" -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} -b 1024K -always-use-fragments -noappend -quiet -progress || {
         error "Failed to compress ${YELLOW}core${ENDCOLOR} data."
-        exit 1
+        RESULT=1
     }
-
+    cd "${WORK_DIR}" || return 1
+    umount "${EXPORT_ROOT}/merged" || return 1
+    rm -rf -- "${EXPORT_ROOT}"
+    return "${RESULT}"
 }
 
 build_config() {
@@ -4897,6 +4925,57 @@ install_core_packages() {
 
 # ===================== MODULES FUNCTIONS =========================
 
+require_host_dpkg_state() {
+    local arch records version filename installed latest= download= required=12.0.2
+    local repo=https://deb.minios.dev/debian
+    arch=$(dpkg --print-architecture) || return 1
+    # Read the small public index directly: the host's cached APT lists may
+    # be stale or not include MiniOS. This check never changes host APT state.
+    records=$(set -o pipefail
+        curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 40 \
+            "$repo/dists/generic/main/binary-$arch/Packages.gz" |
+            gzip -dc | awk -v RS='' -F '\n' '{
+                pkg = version = file = ""
+                for (i=1; i<=NF; i++) {
+                    if ($i ~ /^Package: /) pkg = substr($i,10)
+                    if ($i ~ /^Version: /) version = substr($i,10)
+                    if ($i ~ /^Filename: /) file = substr($i,11)
+                }
+                if (pkg == "minios-dpkg-state" && version != "") print version, file
+            }'
+    ) || { error "Cannot check the current minios-dpkg-state version in the MiniOS generic repository ($arch)."; return 1; }
+    while read -r version filename; do
+        if [[ -n $version ]] && { [[ -z $latest ]] || dpkg --compare-versions "$version" gt "$latest"; }; then
+            latest=$version
+            download=$filename
+        fi
+    done <<<"$records"
+    if [[ -z $latest ]]; then
+        error "No minios-dpkg-state package found in the MiniOS generic repository for $arch."
+        return 1
+    fi
+    if dpkg --compare-versions "$latest" gt "$required"; then required=$latest; fi
+    installed=$(dpkg-query -W -f='${db:Status-Status} ${Version}' "minios-dpkg-state:$arch" 2>/dev/null) || installed=
+    if [[ $installed == installed\ * && -x /usr/bin/minios-dpkg-state ]] &&
+       dpkg --compare-versions "${installed#installed }" ge "$required"; then return 0; fi
+    error "Host requires minios-dpkg-state >= $required ($arch); installed: ${installed:-none}; repository: $latest."
+    if dpkg --compare-versions "$latest" ge "$required"; then
+        if [[ $download == pool/*.deb ]]; then
+            error "Download: $repo/$download"
+            error "From the download directory, run: sudo apt install ./${download##*/}"
+        else
+            error "Enable the MiniOS generic repository on the host, then run: sudo apt update && sudo apt install minios-dpkg-state"
+        fi
+    else
+        error "Install a compatible local minios-dpkg-state .deb manually or wait for its publication."
+    fi
+    return 1
+}
+
+minios_module_dpkg_state() {
+    /usr/bin/minios-dpkg-state "$@"
+}
+
 # This function filters and lists modules based on package variant and other conditions like filter modules configuration.
 filter_modules() {
     current_function
@@ -4974,6 +5053,10 @@ overlay_chroot_mount_fs() {
     toggle_shell_options e
     mkdir -p "${OVERLAY[upper]}" "${OVERLAY[work]}" "${OVERLAY[merged]}"
     mount -t overlay overlay -o lowerdir="${MODULES_LIST}",upperdir="${OVERLAY[upper]}",workdir="${OVERLAY[work]}" "${OVERLAY[merged]}"
+
+    # New modules contain only status.d deltas. Materialize the complete
+    # baseline before any package operation, and retain it across remounts.
+    minios_module_dpkg_state prepare-lowers "${OVERLAY[merged]}" "${MODULES_LIST}" || return 1
 
     setup_chroot_environment "${OVERLAY[merged]}"
 
@@ -5178,6 +5261,17 @@ build_modules() {
     # Define environment and overlay directories
     ENVIRONMENTS="${BUILD_SCRIPTS_DIR}/environments/${DESKTOP_ENVIRONMENT}"
     OVERLAYS="${WORK_DIR}/overlays"
+
+    # Never silently reuse old package-bearing images after changing formats.
+    # Runtime kernel payloads are intentionally database-free.
+    local CACHED_MODULE
+    for CACHED_MODULE in "${WORK_DIR}/image/${LIVEKITNAME}"/*."${BEXT}"; do
+        [ -f "${CACHED_MODULE}" ] || continue
+        if unsquashfs -cat "${CACHED_MODULE}" var/lib/dpkg/status >/dev/null 2>&1; then
+            error "Legacy dpkg database in ${CACHED_MODULE}; rebuild the complete module chain with format 1."
+            return 1
+        fi
+    done
 
     # Change into the environment directory or exit if it fails
     cd "${ENVIRONMENTS}" || {
@@ -5420,6 +5514,10 @@ build_modules() {
                 fi
 
                 information "Compression of ${YELLOW}${MODULE}${ENDCOLOR} module data is in progress ..."
+                # Runtime kernel payloads have no dpkg database. Full diagnostic
+                # payloads and other build-script payloads must use format 1.
+                minios_module_dpkg_state pack "${OVERLAY[merged]}/squashfs-root" \
+                    "${OVERLAY[merged]}/var/lib/dpkg/.minios-build/status.base" || exit 1
                 mksquashfs "${OVERLAY[merged]}/squashfs-root" \
                     "${OVERLAY[merged]}/${MODULE}.${BEXT}" \
                     -comp "${COMP_TYPE}" ${ADDITIONAL_COMP_OPTS} \
@@ -5565,6 +5663,8 @@ build_modules() {
             # Cleanup chroot for non-build modules
             if [ ! -f "${ENVIRONMENTS}/${MODULE}/build" ]; then
                 chroot_cleanup module
+                # Upper is now unmounted; conversion cannot modify a live union.
+                minios_module_dpkg_state pack "${OVERLAY[upper]}" || exit 1
             fi
 
             mkmod_corefs "${OVERLAY[upper]}"
