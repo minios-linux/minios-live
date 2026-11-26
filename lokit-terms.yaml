@@ -1,6 +1,34 @@
 version: 1
 
 exact:
+  - id: minios-installer.modular-installation
+    source: Modular installation
+    when:
+      target: minios-installer
+    translations:
+      ru: Модульная установка
+
+  - id: minios-installer.classic-installation
+    source: Classic installation
+    when:
+      target: minios-installer
+    translations:
+      ru: Классическая установка
+
+  - id: minios-installer.modular-installation-description
+    source: "The system and applications are stored in compressed modules and take up less disk space. Settings, additionally installed applications, and files are saved separately from the modules, in sessions. You can create sessions for different tasks, including encrypted sessions, and select them at boot."
+    when:
+      target: minios-installer
+    translations:
+      ru: "Система и программы хранятся в сжатых модулях и занимают меньше места на диске. Настройки, дополнительно установленные программы и файлы сохраняются отдельно от модулей — в сессиях. Можно создавать сессии для разных задач, в том числе зашифрованные, и выбирать их при загрузке."
+
+  - id: minios-installer.classic-installation-description
+    source: "The contents of the selected modules are unpacked to disk. Applications, settings, and files are saved directly in the installed system. After installation, MiniOS modules and separate sessions are not used."
+    when:
+      target: minios-installer
+    translations:
+      ru: "Содержимое выбранных модулей распаковывается на диск. Программы, настройки и файлы сохраняются непосредственно в установленной системе. После установки модули MiniOS и отдельные сессии не используются."
+
   - id: minios-module-manager.seed-folder-help
     source: "The contents of this folder are copied to the root of the temporary system before the script runs or the chroot terminal opens. This lets you add files and settings to the module in advance.\n\nThe folder structure must match the paths in the system. For example, etc/myapp/config.conf inside the selected folder becomes /etc/myapp/config.conf in the temporary system.\n\nYou can leave this field empty if you do not need to add prepared files."
     when:
