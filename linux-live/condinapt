@@ -770,7 +770,7 @@ check_package() {
     else
         local APT_MADISON_OUTPUT
         APT_MADISON_OUTPUT="$(LANG=C apt-cache --quiet=0 madison "${PACKAGE_NAME}" 2>/dev/null || true)"
-        if awk -F'|' -v version="${PACKAGE_VERSION}" '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 == version) found=1 } END { exit found ? 0 : 1 }' <<<"${APT_MADISON_OUTPUT}"; then
+        if awk -F'|' -v version="${PACKAGE_VERSION}" '{ gsub(/^[ \t\r]+|[ \t\r]+$/, "", $2); if ($2 == version) found=1 } END { exit found ? 0 : 1 }' <<<"${APT_MADISON_OUTPUT}"; then
             FOUND_EXACT_VERSION=true
             return 0
         else
