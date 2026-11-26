@@ -123,17 +123,88 @@ EOF
 
         legacy=$'"'"'realtek-rtl88xxau-dkms=5.6.4.2~git20240726.63cf0b4-0kali1\nrealtek-rtl8814au-dkms=5.8.5.1~git20240527.d8208c8-0kali1'"'"'
         modern=$'"'"'realtek-rtl88xxau-dkms\nrealtek-rtl8814au-dkms'"'"'
-        [ "$(check_case buster i386 distribution)" = "${legacy}" ]
-        [ "$(check_case bullseye i386 distribution)" = "${legacy}" ]
-        [ "$(check_case bookworm i386 distribution)" = "${legacy}" ]
-        [ "$(check_case bookworm i386-pae distribution)" = "${legacy}" ]
-        [ "$(check_case trixie i386 distribution)" = "${modern}" ]
-        [ "$(check_case bookworm i386 minios)" = "${modern}" ]
-        [ "$(check_case bookworm amd64 distribution)" = "${modern}" ]
+        for arch in amd64 i386 i386-pae; do
+            for suite in buster beowulf bullseye chimaera bookworm daedalus bionic focal jammy; do
+                [ "$(check_case "${suite}" "${arch}" distribution)" = "${legacy}" ]
+                [ "$(check_case "${suite}" "${arch}" minios)" = "${modern}" ]
+            done
+            for suite in trixie excalibur sid noble; do
+                [ "$(check_case "${suite}" "${arch}" distribution)" = "${modern}" ]
+                [ "$(check_case "${suite}" "${arch}" minios)" = "${modern}" ]
+            done
+        done
     '
 
     if [ "${status}" -ne 0 ]; then
         printf '%s\n' "${output}" >&2
         false
     fi
+}
+
+@test "NTFS3 and RTL8188EUS package rules respect kernel source compatibility" {
+    functions="${BATS_TEST_TMPDIR}/functions"
+    conditions="${BATS_TEST_TMPDIR}/conditions"
+    awk '/^process_condition\(\)/,/^}/' "${LIVE_ROOT}/condinapt" >"${functions}"
+    awk '/^check_filter\(\)/,/^}/' "${LIVE_ROOT}/condinapt" >>"${functions}"
+    grep -E '^(ntfs3-dkms|realtek-rtl8188eus-dkms)' "${LIVE_ROOT}/scripts/01-kernel/packages.list" >"${conditions}"
+
+    run env FUNCTIONS="${functions}" CONDITIONS="${conditions}" bash -c '
+        set -euo pipefail
+        . "${FUNCTIONS}"
+        declare -A FILTER_ENV_VARS=([ks]=KERNEL_SERIES [kc]=KERNEL_CAPABILITIES)
+        CHECK_ONLY=false VERBOSITY_LEVEL=0 GREEN= RED= ENDCOLOR=
+        warning() { :; }
+        information() { :; }
+        check_package() { FOUND_EXACT_VERSION=true; return 0; }
+        select_packages() {
+            KERNEL_SERIES="$1"
+            KERNEL_CAPABILITIES=("${@:2}")
+            PACKAGES_TO_INSTALL=() PACKAGES_TO_HOLD=() MISSING_PACKAGES=()
+            while IFS= read -r condition; do
+                process_condition "${condition}" false 0 || true
+            done <"${CONDITIONS}"
+            printf "%s\n" "${PACKAGES_TO_INSTALL[@]}"
+        }
+        legacy=realtek-rtl8188eus-dkms=5.3.9~git20230921.3fae723-0kali2
+        for series in 4.9 4.15 4.19 5.4 5.10 5.15; do
+            [ "$(select_packages "${series}")" = "${legacy}" ]
+        done
+        for series in 6.1 6.4 6.5 6.6 6.7 6.8 6.9 6.10 6.11 6.12 6.13; do
+            [ "$(select_packages "${series}")" = $'"'"'ntfs3-dkms\nrealtek-rtl8188eus-dkms'"'"' ]
+            [ "$(select_packages "${series}" ntfs3)" = realtek-rtl8188eus-dkms ]
+        done
+        [ "$(select_packages 6.14)" = realtek-rtl8188eus-dkms ]
+    '
+    if [ "${status}" -ne 0 ]; then
+        printf '%s\n' "${output}" >&2
+        false
+    fi
+}
+
+@test "RTL8821CU selection follows its packaged BUILD_EXCLUSIVE_KERNEL" {
+    functions="${BATS_TEST_TMPDIR}/functions"
+    awk '/^process_condition\(\)/,/^}/' "${LIVE_ROOT}/condinapt" >"${functions}"
+    awk '/^check_filter\(\)/,/^}/' "${LIVE_ROOT}/condinapt" >>"${functions}"
+    condition="$(grep '^realtek-rtl8821cu-dkms ' "${LIVE_ROOT}/scripts/01-kernel/packages.list")"
+    run env FUNCTIONS="$functions" CONDITION="$condition" bash -c '
+        . "$FUNCTIONS"
+        declare -A FILTER_ENV_VARS=([ks]=KERNEL_SERIES [kc]=KERNEL_CAPABILITIES)
+        CHECK_ONLY=false VERBOSITY_LEVEL=0 GREEN= RED= ENDCOLOR=
+        check_package() { return 0; }
+        KERNEL_CAPABILITIES=()
+        for KERNEL_SERIES in 4.9 4.15 6.2 6.12; do
+            PACKAGES_TO_INSTALL=()
+            process_condition "$CONDITION" false 0
+            [ "${#PACKAGES_TO_INSTALL[@]}" = 0 ] || exit 1
+        done
+        for KERNEL_SERIES in 4.19 5.4 5.10 5.15 6.0 6.1; do
+            PACKAGES_TO_INSTALL=()
+            process_condition "$CONDITION" false 0
+            [ "${PACKAGES_TO_INSTALL[*]}" = realtek-rtl8821cu-dkms ] || exit 1
+        done
+        KERNEL_CAPABILITIES=(rtw88_8821cu) PACKAGES_TO_INSTALL=()
+        process_condition "$CONDITION" false 0
+        [ "${#PACKAGES_TO_INSTALL[@]}" = 0 ]
+    '
+    [ "$status" -eq 0 ]
 }

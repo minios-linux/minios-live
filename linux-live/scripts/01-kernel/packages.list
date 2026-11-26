@@ -11,13 +11,14 @@ git
 pahole +kc=btf_modules || dwarves +kc=btf_modules
 
 # BEGIN DKMS PACKAGES
-ntfs3-dkms -kc=ntfs3
+# This backport ships sources only for the listed kernel series, not Linux 4.x/5.x.
+ntfs3-dkms -kc=ntfs3 +{ks=6.1|ks=6.4|ks=6.5|ks=6.6|ks=6.7|ks=6.8|ks=6.9|ks=6.10|ks=6.11|ks=6.12|ks=6.13}
 broadcom-sta-dkms -d=jammy -da=i386
 aufs-dkms +dp=debian +d=buster +d=beowulf -kc=aufs
 aufs-ng-dkms +kp=distribution +ks=6.12 -da=i386 -kc=aufs
 dynblk-dkms +ks=6.12
-matebook-e-dsi-dkms +ks=6.12
-matebook-e-cameras-dkms +ks=6.12
+#matebook-e-dsi-dkms +ks=6.12
+#matebook-e-cameras-dkms +ks=6.12
 zfs-dkms +pv=toolbox +pv=ultra +da=amd64
 
 # Skip the vendor driver when the selected kernel provides in-tree rtw88_8723cs.
@@ -28,24 +29,26 @@ realtek-rtl8723cs-dkms -kc=rtw88_8723cs -d=buster -d=beowulf -d=bullseye -d=chim
 realtek-rtl8821au-dkms -kc=rtw88_8821au
 
 # Skip the vendor driver when the selected kernel provides in-tree rtw88_8821cu.
-realtek-rtl8821cu-dkms -kc=rtw88_8821cu
+# This package permits Linux 4.19, 5.x and 6.0/6.1 only (BUILD_EXCLUSIVE_KERNEL).
+realtek-rtl8821cu-dkms -kc=rtw88_8821cu +{ks=4.19|ks=5.0|ks=5.1|ks=5.2|ks=5.3|ks=5.4|ks=5.5|ks=5.6|ks=5.7|ks=5.8|ks=5.9|ks=5.10|ks=5.11|ks=5.12|ks=5.13|ks=5.14|ks=5.15|ks=5.16|ks=5.17|ks=5.18|ks=5.19|ks=6.0|ks=6.1}
 
 # Linux >= 6.14 provides rtw88_8812au/rtw88_8821au, but this combined vendor driver still covers device IDs not handled by rtw88.
-# Legacy i386 suites need the repository build compatible with DKMS before 3.0.11.
-realtek-rtl88xxau-dkms==5.6.4.2~git20240726.63cf0b4-0kali1 +kp=distribution +{da=i386|da=i386-pae} +d=buster +d=beowulf +d=bullseye +d=chimaera +d=bookworm +d=daedalus +d=bionic +d=focal +d=jammy
-realtek-rtl88xxau-dkms +kp=distribution +{da=i386|da=i386-pae} -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bookworm -d=daedalus -d=bionic -d=focal -d=jammy
-realtek-rtl88xxau-dkms +kp=minios +{da=i386|da=i386-pae}
-realtek-rtl88xxau-dkms -{da=i386|da=i386-pae}
+# Legacy suites need the repository build compatible with DKMS before 3.0.11 on every architecture.
+realtek-rtl88xxau-dkms==5.6.4.2~git20240726.63cf0b4-0kali1 +kp=distribution +d=buster +d=beowulf +d=bullseye +d=chimaera +d=bookworm +d=daedalus +d=bionic +d=focal +d=jammy
+realtek-rtl88xxau-dkms +kp=distribution -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bookworm -d=daedalus -d=bionic -d=focal -d=jammy
+realtek-rtl88xxau-dkms +kp=minios
 
 # Linux provides in-tree RTL8188EU support, but the vendor DKMS is retained for its broader feature set (for example monitor/injection use cases).
-realtek-rtl8188eus-dkms
+# The newer vendor source has broken pre-6.1 cfg80211 key callback declarations.
+# Retain the Kali legacy package already available in MiniOS for older kernels.
+realtek-rtl8188eus-dkms==5.3.9~git20230921.3fae723-0kali2 +{ks=4.9|ks=4.15|ks=4.19|ks=5.4|ks=5.10|ks=5.15}
+realtek-rtl8188eus-dkms -{ks=4.9|ks=4.15|ks=4.19|ks=5.4|ks=5.10|ks=5.15}
 
 # Skip the vendor driver when the selected kernel provides in-tree rtw88_8814au.
-# Legacy i386 suites need the repository build compatible with DKMS before 3.0.11.
-realtek-rtl8814au-dkms==5.8.5.1~git20240527.d8208c8-0kali1 -kc=rtw88_8814au +kp=distribution +{da=i386|da=i386-pae} +d=buster +d=beowulf +d=bullseye +d=chimaera +d=bookworm +d=daedalus +d=bionic +d=focal +d=jammy
-realtek-rtl8814au-dkms -kc=rtw88_8814au +kp=distribution +{da=i386|da=i386-pae} -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bookworm -d=daedalus -d=bionic -d=focal -d=jammy
-realtek-rtl8814au-dkms -kc=rtw88_8814au +kp=minios +{da=i386|da=i386-pae}
-realtek-rtl8814au-dkms -kc=rtw88_8814au -{da=i386|da=i386-pae}
+# Legacy suites need the repository build compatible with DKMS before 3.0.11 on every architecture.
+realtek-rtl8814au-dkms==5.8.5.1~git20240527.d8208c8-0kali1 -kc=rtw88_8814au +kp=distribution +d=buster +d=beowulf +d=bullseye +d=chimaera +d=bookworm +d=daedalus +d=bionic +d=focal +d=jammy
+realtek-rtl8814au-dkms -kc=rtw88_8814au +kp=distribution -d=buster -d=beowulf -d=bullseye -d=chimaera -d=bookworm -d=daedalus -d=bionic -d=focal -d=jammy
+realtek-rtl8814au-dkms -kc=rtw88_8814au +kp=minios
 
 # Linux >= 6.2 provides rtw88_8822bu, but it does not cover all hardware/device IDs supported by rtl88x2bu; keep the vendor DKMS where it is usable.
 realtek-rtl88x2bu-dkms -d=bookworm -d=daedalus -d=trixie -d=excalibur -d=sid
