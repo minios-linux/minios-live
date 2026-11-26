@@ -4668,6 +4668,19 @@ get_base_path() {
     echo "${BASE_PATH}"
 }
 
+# Remove generated APT metadata, keeping downloaded package archives.
+apt_cache_cleanup() {
+    local BASE_PATH="${1:?}"
+    BASE_PATH="${BASE_PATH%/}"
+
+    rm -f "${BASE_PATH}/var/cache/apt/"*.bin \
+        "${BASE_PATH}/var/lib/apt/lists/"*Packages* \
+        "${BASE_PATH}/var/lib/apt/lists/"*Sources* \
+        "${BASE_PATH}/var/lib/apt/lists/"*Translation* \
+        "${BASE_PATH}/var/lib/apt/lists/"*Release* \
+        "${BASE_PATH}/var/lib/apt/lists/deb."*
+}
+
 # Performs cleanup within the chroot environment
 chroot_cleanup() {
     current_function
@@ -4729,11 +4742,7 @@ chroot_cleanup() {
     #if [ "${USE_APT_CACHE_REPO}" = "true" ]; then
     rm -f "${BASE_PATH}/etc/apt/apt.conf.d/99ignore-localcache" 2>/dev/null
     #fi
-    rm -f "${BASE_PATH}/var/cache/apt/"*.bin 2>/dev/null
-    rm -f "${BASE_PATH}/var/lib/apt/lists/"*Packages 2>/dev/null
-    rm -f "${BASE_PATH}/var/lib/apt/lists/"*Translation* 2>/dev/null
-    rm -f "${BASE_PATH}/var/lib/apt/lists/"*InRelease 2>/dev/null
-    rm -f "${BASE_PATH}/var/lib/apt/lists/deb."* 2>/dev/null
+    apt_cache_cleanup "${BASE_PATH:-/}" 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/apt/extended_states" 2>/dev/null
     rm -f "${BASE_PATH}/var/lib/dpkg/"*-old 2>/dev/null
 

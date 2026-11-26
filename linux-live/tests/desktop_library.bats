@@ -45,3 +45,34 @@ setup() {
         [ "$status" -eq 0 ]
     fi
 }
+
+@test "chroot cleanup clears APT metadata but retains cached packages" {
+    declare -gA OVERLAY=([upper]="${TARGET_ROOT}")
+    MODULE=04-lxqt-desktop
+    LIVEKITNAME=minios
+    USE_APT_CACHE=true
+    REMOVE_DPKG_DB=false
+    REMOVE_LARGE_ICONS=false
+    KEEP_LOCALES=true
+    MULTILINGUAL=false
+    LOCALE=en_US
+
+    mkdir -p "$TARGET_ROOT"/{var/cache/apt/archives,var/lib/apt/lists}
+    touch "$TARGET_ROOT"/var/cache/apt/{pkgcache,srcpkgcache}.bin \
+        "$TARGET_ROOT/var/cache/apt/archives/keep.deb" \
+        "$TARGET_ROOT/var/lib/apt/lists/repo_Packages.lz4" \
+        "$TARGET_ROOT/var/lib/apt/lists/repo_Sources.gz" \
+        "$TARGET_ROOT/var/lib/apt/lists/repo_Translation-en" \
+        "$TARGET_ROOT/var/lib/apt/lists/repo_InRelease" \
+        "$TARGET_ROOT/var/lib/apt/lists/repo_Release.gpg" \
+        "$TARGET_ROOT/var/lib/apt/lists/deb.example.org_dep11" \
+        "$TARGET_ROOT/var/lib/apt/lists/lock"
+
+    run chroot_cleanup module
+    [ "$status" -eq 0 ]
+    [ ! -e "$TARGET_ROOT/var/cache/apt/pkgcache.bin" ]
+    [ ! -e "$TARGET_ROOT/var/cache/apt/srcpkgcache.bin" ]
+    [ "$(find "$TARGET_ROOT/var/lib/apt/lists" -maxdepth 1 -type f ! -name lock | wc -l)" -eq 0 ]
+    [ -f "$TARGET_ROOT/var/lib/apt/lists/lock" ]
+    [ -f "$TARGET_ROOT/var/cache/apt/archives/keep.deb" ]
+}
