@@ -1422,6 +1422,12 @@ new_run() {
 
 generate_chroot_configuration_file() {
     toggle_shell_options u
+    # The kernel resolver needs the build policy, never the subscription token.
+    local PRO_REQUIRED=false
+    if [ "${USE_UBUNTU_PRO:-false}" = true ] && [ -n "${UBUNTU_PRO_TOKEN:-}" ] &&
+        ubuntu_pro_is_available; then
+        PRO_REQUIRED=true
+    fi
     if [ "${DISTRIBUTION}" = "buster" ]; then
         LIVE_ROOT_PASSWORD_CRYPTED="${LIVE_ROOT_PASSWORD_CRYPTED_LEGACY}"
     fi
@@ -1483,6 +1489,7 @@ DEBIAN_FRONTEND_TYPE="${DEBIAN_FRONTEND_TYPE}"
 LIVEKITNAME="${LIVEKITNAME}"
 MODULE="${MODULE}"
 USE_APT_CACHE="${USE_APT_CACHE}"
+UBUNTU_PRO_REQUIRED="${PRO_REQUIRED}"
 DEBUG_SET_ROOT_PASSWORD="${DEBUG_SET_ROOT_PASSWORD}"
 EOF
     toggle_shell_options u
@@ -1580,49 +1587,64 @@ ubuntu_pro_attach() {
     information "Activating Ubuntu Pro subscription..."
 
     # Update package lists first
-    run_with_spinner "Updating package lists" chroot "${CHROOT_DIR}" apt-get update -qq
+    run_with_spinner "Updating package lists" chroot "${CHROOT_DIR}" apt-get update -qq || return 1
 
     # Install or upgrade ubuntu-advantage-tools to ensure we have the latest version
     if ! chroot "${CHROOT_DIR}" dpkg -l ubuntu-advantage-tools >/dev/null 2>&1; then
         if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             information "Installing ubuntu-advantage-tools package..."
         fi
-        run_with_spinner "Installing ubuntu-advantage-tools" chroot "${CHROOT_DIR}" apt-get install -y ubuntu-advantage-tools
+        run_with_spinner "Installing ubuntu-advantage-tools" chroot "${CHROOT_DIR}" apt-get install -y ubuntu-advantage-tools || return 1
     else
         # Upgrade to the latest version (important for Bionic which ships with old version 17)
         if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
             information "Upgrading ubuntu-advantage-tools to latest version..."
         fi
-        run_with_spinner "Upgrading ubuntu-advantage-tools" chroot "${CHROOT_DIR}" apt-get install --only-upgrade -y ubuntu-advantage-tools
+        run_with_spinner "Upgrading ubuntu-advantage-tools" chroot "${CHROOT_DIR}" apt-get install --only-upgrade -y ubuntu-advantage-tools || return 1
     fi
 
-    # Attach the token using 'pro' command (available after upgrade)
-    if chroot "${CHROOT_DIR}" pro attach "${TOKEN}" --no-auto-enable 2>&1 | tee /tmp/pro-attach.log; then
-        information "Ubuntu Pro successfully activated"
-
-        # Enable ESM repositories for fresh packages
-        if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-            information "Enabling ESM repositories for security updates..."
-        fi
-
-        # Enable ESM Infra (infrastructure packages)
-        chroot "${CHROOT_DIR}" pro enable esm-infra --assume-yes 2>&1 | grep -v "^$" || true
-
-        # Enable ESM Apps (application packages) if available
-        chroot "${CHROOT_DIR}" pro enable esm-apps --assume-yes 2>&1 | grep -v "^$" || true
-
-        # Update package lists with Pro repositories
-        run_with_spinner "Updating package lists with Pro repositories" chroot "${CHROOT_DIR}" apt-get update -qq
-
-        information "Ubuntu Pro repositories are now active"
-        rm -f /tmp/pro-attach.log
-        return 0
-    else
+    # Do not mask a failed command behind tee/grep or a success message.
+    if ! chroot "${CHROOT_DIR}" pro attach "${TOKEN}" --no-auto-enable; then
         error "Failed to activate Ubuntu Pro subscription"
-        cat /tmp/pro-attach.log
-        rm -f /tmp/pro-attach.log
         return 1
     fi
+    information "Ubuntu Pro successfully activated"
+    information "Enabling ESM repositories for security updates..."
+
+    local SERVICE
+    for SERVICE in esm-infra esm-apps; do
+        if ! chroot "${CHROOT_DIR}" pro enable "${SERVICE}" --assume-yes; then
+            error "Failed to enable Ubuntu Pro service: ${SERVICE}"
+            ubuntu_pro_detach "${CHROOT_DIR}" || true
+            return 1
+        fi
+    done
+
+    if ! run_with_spinner "Updating package lists with Pro repositories" chroot "${CHROOT_DIR}" apt-get update -qq; then
+        error "Failed to update Ubuntu Pro package lists"
+        ubuntu_pro_detach "${CHROOT_DIR}" || true
+        return 1
+    fi
+
+    if ! chroot "${CHROOT_DIR}" pro status --format json |
+        jq -e 'any(.services[]; .name == "esm-infra" and .status == "enabled") and
+               any(.services[]; .name == "esm-apps" and .status == "enabled")' >/dev/null; then
+        error "Ubuntu Pro did not report both ESM services enabled"
+        ubuntu_pro_detach "${CHROOT_DIR}" || true
+        return 1
+    fi
+
+    # APT can succeed after a partial index update. Require both ESM indexes.
+    local POLICY
+    if ! POLICY="$(chroot "${CHROOT_DIR}" env LC_ALL=C apt-cache policy)" ||
+        ! grep -Fq "https://esm.ubuntu.com/infra/ubuntu ${DISTRIBUTION}-infra-security/main " <<<"${POLICY}" ||
+        ! grep -Fq "https://esm.ubuntu.com/apps/ubuntu ${DISTRIBUTION}-apps-security/main " <<<"${POLICY}"; then
+        error "Ubuntu Pro ESM package indexes are missing"
+        ubuntu_pro_detach "${CHROOT_DIR}" || true
+        return 1
+    fi
+    information "Ubuntu Pro repositories are now active"
+    return 0
 }
 
 # Deactivate Ubuntu Pro subscription in chroot environment
@@ -1646,61 +1668,47 @@ ubuntu_pro_detach() {
 
     information "Deactivating Ubuntu Pro subscription..."
 
-    # Detach the subscription using 'pro' command
-    chroot "${CHROOT_DIR}" pro detach --assume-yes 2>/dev/null || true
-
-    # Clean up all traces
+    # Detach before discarding local credentials; a failed detach is not success.
+    if ! chroot "${CHROOT_DIR}" pro detach --assume-yes; then
+        error "Failed to detach Ubuntu Pro subscription"
+        return 1
+    fi
     ubuntu_pro_cleanup_traces "${CHROOT_DIR}"
 }
 
-# Remove all traces of Ubuntu Pro from the system
-# Arguments:
-#   $1 - Path to chroot directory
-# Returns: 0 on success
+# Remove subscription state, not the public files shipped by ubuntu-pro-client.
+# Also works on an unmounted overlay upper, where chroot commands are invalid.
 ubuntu_pro_cleanup_traces() {
     current_function
 
     local CHROOT_DIR="${1}"
 
     if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-        information "Removing Ubuntu Pro traces from the system..."
+        information "Removing Ubuntu Pro subscription traces from the system..."
     fi
 
-    # Remove Pro configuration and state directories
-    rm -rf "${CHROOT_DIR}/var/lib/ubuntu-advantage" 2>/dev/null || true
-    rm -rf "${CHROOT_DIR}/etc/ubuntu-advantage" 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/var/log/ubuntu-advantage"* 2>/dev/null || true
+    # uaclient.conf, the public /usr/share/keyrings/ubuntu-pro-*.gpg files and
+    # package-owned ESM preference files are needed on the next attachment.
+    # The preferences only match ESM origins and contain no credentials.
+    rm -rf "${CHROOT_DIR}/var/lib/ubuntu-advantage" || return 1
+    rm -f "${CHROOT_DIR}/var/log/ubuntu-advantage"* \
+        "${CHROOT_DIR}/etc/apt/sources.list.d/ubuntu-esm-"* \
+        "${CHROOT_DIR}/etc/apt/sources.list.d/ubuntu-pro-"* \
+        "${CHROOT_DIR}/etc/apt/auth.conf.d/"*ubuntu-advantage* \
+        "${CHROOT_DIR}/etc/apt/auth.conf.d/"*ubuntu-pro* \
+        "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-advantage-"* \
+        "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-pro-"* \
+        "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-esm-"* \
+        "${CHROOT_DIR}/var/lib/apt/lists/esm.ubuntu.com_"* \
+        "${CHROOT_DIR}/var/lib/apt/lists/partial/esm.ubuntu.com_"* \
+        "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants/ua-"* \
+        "${CHROOT_DIR}/etc/systemd/system/timers.target.wants/ua-"* || return 1
 
-    # Remove ESM and Pro source lists
-    rm -f "${CHROOT_DIR}/etc/apt/sources.list.d/ubuntu-"*".list" 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/apt/sources.list.d/ubuntu-esm-"*.list 2>/dev/null || true
-
-    # Remove authentication files for ESM repositories
-    rm -f "${CHROOT_DIR}/etc/apt/auth.conf.d/"*"ubuntu-advantage"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/apt/auth.conf.d/"*"ubuntu-pro"* 2>/dev/null || true
-
-    # Remove apt preferences for Pro
-    rm -f "${CHROOT_DIR}/etc/apt/preferences.d/ubuntu-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/apt/preferences.d/ubuntu-pro-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/apt/preferences.d/ubuntu-esm-"* 2>/dev/null || true
-
-    # Remove keyrings
-    rm -f "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-advantage-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-pro-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/apt/trusted.gpg.d/ubuntu-esm-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/usr/share/keyrings/ubuntu-advantage-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/usr/share/keyrings/ubuntu-pro-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/usr/share/keyrings/ubuntu-esm-"* 2>/dev/null || true
-
-    # Remove Pro systemd services and timers
-    rm -f "${CHROOT_DIR}/etc/systemd/system/multi-user.target.wants/ua-"* 2>/dev/null || true
-    rm -f "${CHROOT_DIR}/etc/systemd/system/timers.target.wants/ua-"* 2>/dev/null || true
-
-    # Update apt cache after removing repositories
-    chroot "${CHROOT_DIR}" apt-get update -qq 2>/dev/null || true
+    # pro detach can recreate APT caches after chroot_cleanup has run.
+    apt_cache_cleanup "${CHROOT_DIR}" || return 1
 
     if [ "${VERBOSITY_LEVEL}" -ge 1 ]; then
-        information "Ubuntu Pro traces successfully removed"
+        information "Ubuntu Pro subscription traces successfully removed"
     fi
 }
 

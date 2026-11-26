@@ -53,7 +53,7 @@ add_repository() {
     INDEX="$(wc -l <"${REPOSITORY_TABLE}")"
     printf 'deb [arch=%s signed-by=%s] %s %s %s\n' \
         "${KERNEL_APT_ARCH}" "${KEYRING}" "${URI}" "${SUITE}" "${COMPONENTS}" >>"${APT_ROOT}/sources.list"
-    printf '%s\t%s\t%s\t%s\n' "${URI}" "${SUITE}" "${COMPONENTS}" "${INDEX}" >>"${REPOSITORY_TABLE}"
+    printf '%s\t%s\t%s\t%s\t%s\n' "${URI}" "${SUITE}" "${COMPONENTS}" "${INDEX}" "${KEYRING}" >>"${REPOSITORY_TABLE}"
 }
 
 configure_repositories() {
@@ -94,6 +94,29 @@ configure_repositories() {
             "main restricted universe multiverse" "${KEYRING}"
         add_repository "http://security.ubuntu.com/ubuntu" "${KERNEL_SOURCE_SUITE}-security" \
             "main restricted universe multiverse" "${KEYRING}"
+
+        # Import only the authenticated ESM pockets activated for this same
+        # userspace release. Never reuse its credentials for a foreign suite.
+        if [ "${UBUNTU_PRO_REQUIRED:-false}" = true ] &&
+            [ "${KERNEL_SOURCE_SUITE}" = "${DISTRIBUTION:-}" ]; then
+            local POLICY SERVICE POCKET URI ESM_KEY FOUND
+            POLICY="$(LC_ALL=C apt-cache policy)" || fail "Cannot read active ESM repositories"
+            for SERVICE in infra apps; do
+                URI="https://esm.ubuntu.com/${SERVICE}/ubuntu"
+                ESM_KEY="/usr/share/keyrings/ubuntu-pro-esm-${SERVICE}.gpg"
+                FOUND=false
+                for POCKET in security updates; do
+                    if grep -Fq "${URI} ${KERNEL_SOURCE_SUITE}-${SERVICE}-${POCKET}/main " <<<"${POLICY}"; then
+                        [ -r "${ESM_KEY}" ] || fail "ESM archive keyring is unavailable: ${ESM_KEY}"
+                        add_repository "${URI}" "${KERNEL_SOURCE_SUITE}-${SERVICE}-${POCKET}" main "${ESM_KEY}"
+                        FOUND=true
+                    fi
+                done
+                if [ "${FOUND}" = false ]; then
+                    fail "No active ESM ${SERVICE} repository for the ${KERNEL_SOURCE_SUITE} kernel"
+                fi
+            done
+        fi
     fi
 }
 
@@ -552,7 +575,7 @@ keyring_fingerprints_json() {
     local KEYRING="$1"
     local FIRST=true FINGERPRINT
     local GNUPG_HOME="${WORK}/gnupg"
-    mkdir -m 700 "${GNUPG_HOME}"
+    mkdir -p -m 700 "${GNUPG_HOME}"
     printf '['
     while IFS= read -r FINGERPRINT; do
         [[ "${FINGERPRINT}" =~ ^[0-9A-Fa-f]{40,64}$ ]] || continue
@@ -587,34 +610,37 @@ verify_repository_release() {
     if [ -z "${ORIGIN}" ] || [ -z "${LABEL}" ] || [ -z "${CODENAME}" ]; then
         fail "Incomplete release identity for ${URI} ${SUITE}"
     fi
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "${URI}" "${SUITE}" "${COMPONENTS}" "${ORIGIN}" "${LABEL}" "${CODENAME}" \
-        "$(sha256sum "${INRELEASE}" | cut -d' ' -f1)" >>"${WORK}/verified-repositories.tsv"
+        "$(sha256sum "${INRELEASE}" | cut -d' ' -f1)" "${KERNEL_KEYRING_NAME}" \
+        "${KERNEL_KEYRING_SHA256}" "${KERNEL_KEYRING_FINGERPRINTS}" >>"${WORK}/verified-repositories.tsv"
 }
 
 write_repository_metadata() {
     local KEYRING SOURCE_KEYRING URI SUITE COMPONENTS INDEX
+    local KERNEL_KEYRING_NAME KERNEL_KEYRING_SHA256 KERNEL_KEYRING_FINGERPRINTS
 
     mkdir -p "${SUPPORT_DIR}/keyrings"
     : >"${WORK}/verified-repositories.tsv"
-    if [ "${KERNEL_SOURCE_FAMILY}" = debian ]; then
-        SOURCE_KEYRING=/usr/share/keyrings/debian-archive-keyring.gpg
-        KEYRING=debian-kernel.gpg
-    else
-        SOURCE_KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-        KEYRING=ubuntu-kernel.gpg
-    fi
-    cp "${SOURCE_KEYRING}" "${SUPPORT_DIR}/keyrings/${KEYRING}"
-    while IFS=$'\t' read -r URI SUITE COMPONENTS INDEX; do
+    while IFS=$'\t' read -r URI SUITE COMPONENTS INDEX SOURCE_KEYRING; do
+        case "${SOURCE_KEYRING}" in
+            /usr/share/keyrings/debian-archive-keyring.gpg) KEYRING=debian-kernel.gpg ;;
+            /usr/share/keyrings/ubuntu-archive-keyring.gpg) KEYRING=ubuntu-kernel.gpg ;;
+            /usr/share/keyrings/ubuntu-pro-esm-infra.gpg | /usr/share/keyrings/ubuntu-pro-esm-apps.gpg)
+                KEYRING="${SOURCE_KEYRING##*/}" ;;
+            *) fail "Unsupported kernel repository signing key: ${SOURCE_KEYRING}" ;;
+        esac
+        cp "${SOURCE_KEYRING}" "${SUPPORT_DIR}/keyrings/${KEYRING}"
+        KERNEL_KEYRING_NAME="${KEYRING}"
+        KERNEL_KEYRING_SHA256="$(sha256sum "${SUPPORT_DIR}/keyrings/${KEYRING}" | cut -d' ' -f1)"
+        KERNEL_KEYRING_FINGERPRINTS="$(keyring_fingerprints_json "${SOURCE_KEYRING}")"
         verify_repository_release "${URI}" "${SUITE}" "${COMPONENTS}" "${INDEX}" "${SOURCE_KEYRING}"
     done <"${REPOSITORY_TABLE}"
-    KERNEL_KEYRING_NAME="${KEYRING}"
-    KERNEL_KEYRING_SHA256="$(sha256sum "${SUPPORT_DIR}/keyrings/${KEYRING}" | cut -d' ' -f1)"
-    KERNEL_KEYRING_FINGERPRINTS="$(keyring_fingerprints_json "${SOURCE_KEYRING}")"
 }
 
 write_manifest() {
     local FIRST URI SUITE COMPONENTS ORIGIN LABEL CODENAME INRELEASE FRAGMENT COMPONENT
+    local KERNEL_KEYRING_NAME KERNEL_KEYRING_SHA256 KERNEL_KEYRING_FINGERPRINTS
 
     {
         printf '{\n  "format": 1,\n  "install_policy": "register-materialized-payload",\n'
@@ -632,7 +658,7 @@ write_manifest() {
         printf '  "repositories": ['
         FIRST=true
         if [ "${KERNEL_UPDATE_POLICY}" = track ]; then
-            while IFS=$'\t' read -r URI SUITE COMPONENTS ORIGIN LABEL CODENAME INRELEASE; do
+            while IFS=$'\t' read -r URI SUITE COMPONENTS ORIGIN LABEL CODENAME INRELEASE KERNEL_KEYRING_NAME KERNEL_KEYRING_SHA256 KERNEL_KEYRING_FINGERPRINTS; do
                 [ "${FIRST}" = true ] || printf ','
                 FIRST=false
                 printf '\n    {"family":"%s","uris":["' "${KERNEL_SOURCE_FAMILY}"
