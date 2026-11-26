@@ -126,10 +126,51 @@ if grep -q '^CONFIG_CRYPTO_CRC32C=y$' "$KERNEL_CONFIG" &&
     mv "$DRACUT_INSTALL" "$DRACUT_INSTALL_REAL"
     cat >"$DRACUT_INSTALL" <<'EOF'
 #!/bin/bash
-args=()
-for arg in "$@"; do
-    [ "$arg" = "crc32c" ] || args+=("$arg")
+# Only filter module operands, never filenames or option values.
+args=("$@")
+sources=()
+module_mode=false
+for ((i = 0; i < ${#args[@]}; i++)); do
+    case "${args[i]}" in
+        -m|--module) module_mode=true ;;
+        -D|--destrootdir|-L|--logdir|--kerneldir|--firmwaredirs|\
+        -p|--mod-filter-path|-P|--mod-filter-nopath|\
+        -s|--mod-filter-symbol|-S|--mod-filter-nosymbol|-N|--mod-filter-noname)
+            i=$((i + 1))
+            # Let the real installer diagnose a missing option value.
+            ((i < ${#args[@]})) || exec "${0}.minios-real" "$@"
+            ;;
+        --destrootdir=*|--logdir=*|--kerneldir=*|--firmwaredirs=*|\
+        --mod-filter-path=*|--mod-filter-nopath=*|--mod-filter-symbol=*|\
+        --mod-filter-nosymbol=*|--mod-filter-noname=*|\
+        -D?*|-L?*|-p?*|-P?*|-s?*|-S?*|-N?*) ;;
+        -o|--optional|-H|--hostonly|--silent|--modalias|-v|--verbose|--debug) ;;
+        --)
+            for ((i++; i < ${#args[@]}; i++)); do sources+=("$i"); done
+            break
+            ;;
+        -*) exec "${0}.minios-real" "$@" ;;
+        *) sources+=("$i") ;;
+    esac
 done
+
+if "$module_mode"; then
+    removed=false
+    remaining=0
+    for i in "${sources[@]}"; do
+        if [ "${args[i]}" = "crc32c" ]; then
+            unset 'args[i]'
+            removed=true
+        else
+            remaining=$((remaining + 1))
+        fi
+    done
+    # A built-in-only request is already satisfied. An originally empty
+    # request must still reach the installer so its error is not hidden.
+    if "$removed" && [ "$remaining" -eq 0 ]; then
+        exit 0
+    fi
+fi
 exec "${0}.minios-real" "${args[@]}"
 EOF
     chmod 755 "$DRACUT_INSTALL"
@@ -189,6 +230,10 @@ DRACUT_CMD=(
     dracut
     --force
     --conf "$(dirname "$0")/90-minios.conf"
+    # Distribution conf.d files (Buster's 10-debian.conf, for example) can
+    # override the main config. A live image must never use host-only drivers.
+    --no-hostonly
+    --no-hostonly-cmdline
     --kver "$KERNEL"
     --compress "$COMPRESSION"
     --add-drivers "$AVAILABLE_DRIVERS"

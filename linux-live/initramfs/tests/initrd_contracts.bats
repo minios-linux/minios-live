@@ -397,7 +397,8 @@ contains() {
     contains "$ROOT/dracut-mos/mkdracut" 'mktemp -d /tmp/minios-dracut.XXXXXX'
     contains "$ROOT/dracut-mos/mkdracut" 'export dracutbasedir="$DRACUT_BASE"'
     contains "$ROOT/dracut-mos/mkdracut" 'exec "${0}.minios-real"'
-    contains "$ROOT/dracut-mos/mkdracut" '[ "$arg" = "crc32c" ] || args+=("$arg")'
+    contains "$ROOT/dracut-mos/mkdracut" 'if "$module_mode"; then'
+    contains "$ROOT/dracut-mos/mkdracut" 'if "$removed" && [ "$remaining" -eq 0 ]; then'
     contains "$ROOT/dracut-mos/mkdracut" 'AVAILABLE_DRIVERS="$AVAILABLE_DRIVERS dm-crypt"'
     ! contains "$ROOT/dracut-mos/90minios/module-setup.sh" 'instmods crc32c '
 }
@@ -407,6 +408,12 @@ contains() {
     contains "$builder" 'vfat isofs ahci'
     contains "$builder" 'virtio_pci virtio_net'
     contains "$builder" 'if [ "$CLOUD" = "true" ]'
+}
+
+@test "Dracut CLI disables host-only mode despite distribution config overrides" {
+    builder="$ROOT/dracut-mos/mkdracut"
+    contains "$builder" '    --no-hostonly'
+    contains "$builder" '    --no-hostonly-cmdline'
 }
 
 @test "dynblk delegates its mapping-memory budget to the driver" {
