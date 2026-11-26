@@ -37,7 +37,8 @@ download_pinned() {
     if [ -f "${CACHE_DIR}/${EXPECTED}.deb" ]; then
         cp "${CACHE_DIR}/${EXPECTED}.deb" "${TARGET}"
     else
-        curl -fsSL "${URL}" -o "${TARGET}"
+        curl -fsSL --retry 3 --connect-timeout 15 --max-time 120 "${URL}" -o "${TARGET}" ||
+            fail "Cannot download pinned EFI package: ${URL}"
     fi
     ACTUAL="$(sha256sum "${TARGET}" | cut -d' ' -f1)"
     [ "${ACTUAL}" = "${EXPECTED}" ] || fail "Pinned EFI package hash mismatch: ${URL}"
@@ -161,14 +162,18 @@ acquire_debian() {
 
 acquire_canonical() {
     local ARCHIVES="${WORK}/canonical-archives" ROOT="${WORK}/canonical-root" APT_ROOT="${WORK}/apt"
-    local KEYRING="${TARGET_ROOT%/}/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+    local SOURCE_KEYRING="${TARGET_ROOT%/}/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+    local KEYRING="${WORK}/ubuntu-archive-keyring.gpg"
     local CA="${SCRIPT_DIR}/bootfiles/secure-boot/canonical-uefi-ca.pem"
     local APT_POLICY="" DEFAULT_APT_POLICY=/usr/share/apt/default-sequoia.config
     local DEB SHIM GRUB MODULES MODULES_VERSION MODULES_HASH
     local -a OPTIONS
 
     [ "${EFI_VENDOR}" = ubuntu ] || return 0
-    [ -f "${KEYRING}" ] || fail "Ubuntu archive keyring is unavailable for Canonical EFI acquisition"
+    [ -f "${SOURCE_KEYRING}" ] || fail "Ubuntu archive keyring is unavailable for Canonical EFI acquisition"
+    # The build root can be mode 0700. APT's unprivileged signature verifier
+    # must be able to read the public key without opening the build root.
+    install -m 0644 "${SOURCE_KEYRING}" "${KEYRING}"
     mkdir -p "${ARCHIVES}" "${ROOT}" "${APT_ROOT}/lists/partial" "${APT_ROOT}/cache/archives/partial"
 
     # Debian 13 APT uses Sequoia, whose default policy rejects the SHA1
