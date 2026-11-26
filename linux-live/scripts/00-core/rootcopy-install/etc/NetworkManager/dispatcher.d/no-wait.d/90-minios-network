@@ -1,0 +1,393 @@
+#!/usr/bin/python3
+"""Select reachable GitHub addresses on NetworkManager events."""
+import concurrent.futures
+import contextlib
+import fcntl
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import secrets
+import shutil
+import subprocess
+import sys
+import syslog
+import tempfile
+import time
+from urllib.parse import urlsplit
+
+BEGIN = b"# BEGIN MINIOS NETWORK OVERRIDES"
+END = b"# END MINIOS NETWORK OVERRIDES"
+EVENTS = {"up", "down", "vpn-up", "vpn-down", "dhcp4-change", "dhcp6-change",
+          "dns-change", "connectivity-change", "reapply"}
+# Versioned payloads are immutable; the expected digest is never fetched remotely.
+PROBE_NAME = "minios-network-probe-v1-1m.bin"
+PROBE_PATH = "/network-check/v1/" + PROBE_NAME
+PROBE_SIZE = 1024 * 1024
+PROBE_SHA256 = "8098e63d94f6c48aaf609624bf3c8d4c720d5e18504ea6cb34e86eb4c493f32b"
+PAGES = dict.fromkeys(("minios.dev", "deb.minios.dev", "store.minios.dev"), PROBE_PATH)
+ASSETS = "release-assets.githubusercontent.com"
+HOSTS = set(PAGES) | {"github.com", ASSETS}
+MAX_BODY = PROBE_SIZE
+MAX_SECONDS = 180
+REQUEST_SECONDS = 30
+HEAD_SECONDS = 8
+CONNECT_SECONDS = 5
+
+
+def log(message):
+    syslog.syslog(syslog.LOG_INFO, message)
+
+
+def public_ip(value):
+    try:
+        address = ipaddress.ip_address(value)
+        return str(address) if address.is_global else None
+    except ValueError:
+        return None
+
+
+def split_hosts(data):
+    """Remove only complete managed blocks; leave all other bytes untouched."""
+    clean, manual, previous = [], set(), {}
+    inside = False
+    for line in data.splitlines(keepends=True):
+        marker = line.rstrip(b"\r\n")
+        if marker == BEGIN:
+            if inside:
+                raise ValueError("nested managed hosts block; refusing to edit")
+            inside = True
+            continue
+        if marker == END:
+            if not inside:
+                raise ValueError("unmatched managed hosts marker; refusing to edit")
+            inside = False
+            continue
+        fields = line.split(b"#", 1)[0].decode("ascii", "ignore").split()
+        if len(fields) >= 2:
+            names = [name.lower().rstrip(".") for name in fields[1:]]
+            if inside:
+                address = public_ip(fields[0])
+                if address:
+                    previous.update((name, address) for name in names if name in HOSTS)
+            else:
+                manual.update(names)
+        if not inside:
+            clean.append(line)
+    if inside:
+        raise ValueError("unfinished managed hosts block; refusing to edit")
+    return b"".join(clean), manual, previous
+
+
+def valid_redirect(status, headers, body):
+    location = headers.get("location", "")
+    parsed = urlsplit(location)
+    if (status in (301, 302, 303, 307, 308) and parsed.scheme == "https"
+            and parsed.netloc == ASSETS
+            and parsed.path.startswith("/github-production-release-asset/")):
+        return location
+    return None
+
+
+def valid_probe(status, headers, body):
+    """Require the entire uncompressed synthetic file in one successful response."""
+    if status != 200 or len(body) != PROBE_SIZE or "content-range" in headers:
+        return None
+    if headers.get("content-encoding", "identity").strip().lower() != "identity":
+        return None
+    if "content-length" in headers:
+        try:
+            if int(headers["content-length"]) != PROBE_SIZE:
+                return None
+        except ValueError:
+            return None
+    return True if hashlib.sha256(body).hexdigest() == PROBE_SHA256 else None
+
+
+class Fallback:
+    def __init__(self, hosts="/etc/hosts", state="/run/minios-network-fallback",
+                 config="/etc/minios/network-fallback.json"):
+        self.hosts = Path(hosts)
+        self.state = Path(state)
+        self.config = Path(config)
+        self.token = ""
+        self.deadline = 0
+        self.manual = set()
+        self.previous = {}
+        self.candidates = {}
+
+    @contextlib.contextmanager
+    def locked(self):
+        with (self.state / "lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            yield
+
+    def current(self):
+        return (self.state / "generation").read_text() == self.token
+
+    def active(self):
+        return self.current() and time.monotonic() < self.deadline
+
+    def write_hosts(self, overrides):
+        """Called with our lock held; also preserve edits made while probing."""
+        path = self.hosts.resolve(strict=True)
+        before = path.read_bytes()
+        clean, manual, previous = split_hosts(before)
+        overrides = {host: ip for host, ip in overrides.items()
+                     if host in HOSTS and host not in manual and public_ip(ip)}
+        block = b""
+        if overrides:
+            lines = ["{} {}\n".format(ip, host).encode("ascii")
+                     for host, ip in sorted(overrides.items())]
+            block = BEGIN + b"\n" + b"".join(lines) + END + b"\n"
+        after = block + clean
+        if before == after:
+            return overrides
+        info = path.stat()
+        fd, temporary = tempfile.mkstemp(prefix=".minios-hosts-", dir=str(path.parent))
+        try:
+            with os.fdopen(fd, "wb") as out:
+                out.write(after)
+                out.flush()
+                os.fsync(out.fileno())
+            # Keep permissions, ownership and extended attributes (including SELinux).
+            os.chown(temporary, info.st_uid, info.st_gid)
+            shutil.copystat(str(path), temporary)
+            # Invalidate resolver caches watching the hosts modification time.
+            os.utime(temporary, None)
+            if path.read_bytes() != before:
+                raise RuntimeError("hosts changed concurrently; refusing to overwrite")
+            os.replace(temporary, str(path))
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return overrides
+
+    def register(self):
+        self.state.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with self.locked():
+            self.token = secrets.token_hex(16)
+            (self.state / "generation").write_text(self.token)
+            _, self.manual, self.previous = split_hosts(self.hosts.read_bytes())
+            # Restore normal NSS/DNS before ANY probes, including after reboot.
+            self.write_hosts({})
+
+    def load_config(self):
+        value = json.loads(self.config.read_text())
+        if not isinstance(value, dict) or not isinstance(value.get("enabled"), bool):
+            raise ValueError("configuration must contain a boolean enabled field")
+        if not value["enabled"]:
+            return None
+        url = value.get("release_probe_url", "")
+        parsed = urlsplit(url)
+        if (parsed.scheme != "https" or parsed.netloc != "github.com"
+                or not parsed.path.startswith("/minios-linux/minios-live/releases/download/")
+                or not parsed.path.endswith("/" + PROBE_NAME) or parsed.fragment or parsed.query):
+            raise ValueError("release_probe_url must be a MiniOS GitHub synthetic probe asset")
+        candidates = value.get("candidates", {})
+        if not isinstance(candidates, dict):
+            raise ValueError("candidates must be an object")
+        for host, addresses in candidates.items():
+            if (host not in HOSTS or not isinstance(addresses, list)
+                    or len(addresses) > 12
+                    or any(not isinstance(ip, str) or not public_ip(ip) for ip in addresses)):
+                raise ValueError("invalid candidate list for {}".format(host))
+        self.candidates = candidates
+        return url
+
+    def command(self, args, seconds):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0 or not self.current():
+            return None
+        try:
+            return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                  timeout=min(seconds, remaining), check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    def snapshot(self):
+        """Ignore counters/lifetimes, but include addresses, policy routes and DNS."""
+        data = []
+        for args in (["ip", "-j", "address", "show"],
+                     ["ip", "-j", "-4", "route", "show", "table", "all"],
+                     ["ip", "-j", "-6", "route", "show", "table", "all"],
+                     ["ip", "-j", "-4", "rule", "show"],
+                     ["ip", "-j", "-6", "rule", "show"]):
+            result = self.command(args, 1)
+            if result is None or result.returncode:
+                raise RuntimeError("cannot inspect current network; leaving DNS unchanged")
+            rows = json.loads(result.stdout)
+            if "address" in args:
+                rows = [{"ifname": row.get("ifname"), "flags": row.get("flags"),
+                         "addresses": [{key: addr.get(key) for key in
+                                        ("local", "prefixlen", "scope", "label")}
+                                       for addr in row.get("addr_info", [])]}
+                        for row in rows]
+            else:
+                rows = [{key: val for key, val in row.items()
+                         if key not in ("expires", "cache", "used", "lastuse")}
+                        for row in rows if "cache" not in row.get("flags", [])]
+            data.append(sorted(json.dumps(row, sort_keys=True) for row in rows))
+        for name in ("/etc/resolv.conf", "/run/NetworkManager/resolv.conf",
+                     "/run/NetworkManager/no-stub-resolv.conf"):
+            try:
+                data.append(Path(name).read_text())
+            except FileNotFoundError:
+                data.append(None)
+        return data
+
+    def request(self, host, url, ip=None, head=False):
+        if not self.active():
+            return None
+        with tempfile.TemporaryDirectory(prefix="probe-", dir=str(self.state)) as work:
+            headers, body = Path(work) / "headers", Path(work) / "body"
+            seconds = HEAD_SECONDS if head else REQUEST_SECONDS
+            # One byte of headroom lets exact-size chunked responses reach EOF.
+            # The validator still requires precisely PROBE_SIZE bytes.
+            args = ["curl", "-q", "--silent", "--noproxy", "*", "--proto", "=https",
+                    "--connect-timeout", str(CONNECT_SECONDS), "--max-time", str(seconds),
+                    "--header", "Accept-Encoding: identity",
+                    "--max-filesize", str(MAX_BODY + 1), "--dump-header", str(headers),
+                    "--output", str(body), "--write-out", "%{http_code}"]
+            if head:
+                args.append("--head")
+            if ip:
+                address = "[{}]".format(ip) if ":" in ip else ip
+                args += ["--resolve", "{}:443:{}".format(host, address)]
+            # No -k, no proxy and no automatic redirects: each hostname is tested
+            # independently, using its original TLS SNI and certificate identity.
+            # Older curl versions cannot enforce --max-filesize on chunked bodies.
+            # A kernel file-size limit also bounds temporary files in that case.
+            limited = ["prlimit", "--fsize={0}:{0}".format(MAX_BODY + 1), "--core=0:0", "--"]
+            result = self.command(limited + args + [url], seconds + 0.5)
+            if result is None or result.returncode or not result.stdout.isdigit():
+                code = result.returncode if result is not None else "timeout/cancelled"
+                received = body.stat().st_size if body.exists() else 0
+                log("Probe failed for {} ({}): curl={}, received={} bytes".format(
+                    host, ip or "DNS", code, received))
+                return None
+            fields = {}
+            for line in headers.read_text(errors="replace").splitlines():
+                key, separator, value = line.partition(":")
+                if separator:
+                    fields[key.lower()] = value.strip()
+            with body.open("rb") as stream:
+                content = stream.read(MAX_BODY + 1)
+            return int(result.stdout), fields, content
+
+    def addresses(self, host):
+        values = [self.previous.get(host, "")]
+        result = self.command(["getent", "ahosts", host], 2)
+        if result is not None and result.returncode == 0:
+            values += [line.split()[0] for line in result.stdout.decode().splitlines() if line.split()]
+        values += self.candidates.get(host, [])
+        addresses = []
+        for value in values:
+            ip = public_ip(value)
+            if ip and ip not in addresses:
+                addresses.append(ip)
+        return addresses[:12]
+
+    def select(self, host, url, validator, head=False):
+        def probe(ip):
+            result = self.request(host, url, ip, head)
+            if result is None:
+                return None
+            value = validator(*result)
+            if value is None:
+                log("Probe rejected for {} ({}): HTTP={}, received={} bytes".format(
+                    host, ip or "DNS", result[0], len(result[2])))
+            return value
+
+        normal = probe(None)
+        if normal is not None or host in self.manual or not self.active():
+            return None, normal
+        # Parallelism is bounded; other dispatcher hooks never wait for these probes.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(probe, ip): ip for ip in self.addresses(host)}
+            for future in concurrent.futures.as_completed(futures):
+                value = future.result()
+                if value is not None:
+                    for pending in futures:
+                        pending.cancel()
+                    return futures[future], value
+        log("No verified alternative for {}".format(host))
+        return None, None
+
+    def page(self, host):
+        ip, value = self.select(host, "https://" + host + PAGES[host], valid_probe)
+        return {host: ip} if ip else {}
+
+    def release(self, url):
+        overrides = {}
+        ip, location = self.select("github.com", url, valid_redirect, head=True)
+        if ip:
+            overrides["github.com"] = ip
+        if location:
+            ip, value = self.select(ASSETS, location, valid_probe)
+            if ip:
+                overrides[ASSETS] = ip
+        # Signed URLs are never saved: obtain a fresh redirect on every event.
+        return overrides
+
+    def run(self, clear=False):
+        self.register()
+        if clear:
+            log("Removed managed hosts overrides")
+            return
+        # Coalesce event bursts without dropping the newest event behind a long lock.
+        time.sleep(0.4)
+        if not self.current():
+            return
+        url = self.load_config()
+        if not url:
+            return
+        self.deadline = time.monotonic() + MAX_SECONDS
+        before = self.snapshot()
+        overrides = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            futures = [pool.submit(self.page, host) for host in PAGES]
+            futures.append(pool.submit(self.release, url))
+            for future in futures:
+                overrides.update(future.result())
+        if not self.active() or self.snapshot() != before:
+            log("Network changed or probe budget expired; discarded results")
+            return
+        with self.locked():
+            if not self.current():
+                return
+            applied = self.write_hosts(overrides)
+        if applied:
+            log("Verified temporary overrides: " + ", ".join(
+                "{}={}".format(host, ip) for host, ip in sorted(applied.items())))
+        else:
+            log("Using normal name resolution; no verified overrides applied")
+
+
+def main(args):
+    if args in (["--check"], ["--clear"]):
+        clear = args == ["--clear"]
+    elif len(args) == 2:
+        if args[1] not in EVENTS:
+            return 0
+        clear = False
+    else:
+        print("Usage: 90-minios-network INTERFACE ACTION | --check | --clear", file=sys.stderr)
+        return 2
+    if os.geteuid() != 0:
+        print("This dispatcher hook must run as root", file=sys.stderr)
+        return 1
+    os.environ["PATH"] = "/usr/sbin:/usr/bin:/sbin:/bin"
+    os.umask(0o077)
+    syslog.openlog("minios-network-fallback", syslog.LOG_PID, syslog.LOG_DAEMON)
+    try:
+        Fallback().run(clear=clear)
+    except (OSError, ValueError, RuntimeError) as error:
+        log(str(error))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
