@@ -54,6 +54,41 @@ is maintained for files already stored in the repository.
 Validate it with `initramfs/tests/run.sh --strict` on a host with Bats,
 ShellCheck, cryptsetup, and root privileges.
 
+## Mini Commander
+
+The initrd `bin/mc` uses unchanged Mini Commander v2.3 source, commit
+`f5024ed4bdee4645a906e2526115defd2f2415f9` from `Tomas-M/mini-commander`.
+This is separate from the Debian package, which installs `/usr/bin/mini-cmd`.
+Use the verified Buildroot 2025.02.16 archive and Bootlin i686/musl
+`2024.05-1` toolchain above. Buildroot pins ncurses to 6.4-20230603.
+Run as the unprivileged `builder` in the prepared Trixie development container,
+with private source/output directories rather than the working checkout:
+
+```sh
+# Inside the verified, freshly extracted Buildroot source directory:
+cp /path/to/initramfs/buildroot/mc_defconfig configs/minios_mc_defconfig
+make O=/path/to/mc-output minios_mc_defconfig
+make O=/path/to/mc-output ncurses
+/path/to/initramfs/buildroot/build-mc.sh \
+  /path/to/mc-output /path/to/mini-commander-source /path/to/result/mc
+```
+
+`build-mc.sh` uses `-Os`, function/data sections, static ncursesw, linker
+section garbage collection and the matching target stripper. It checks ELF32,
+x86 and the absence of a dynamic interpreter or shared dependencies before
+atomically replacing its destination. No UPX or application source patch is
+used. Keep `usr/share/terminfo/l/linux` with the payload: this build reads
+terminfo files rather than embedding terminal profiles. Both LiveKit and
+Dracut already include the Linux console description; other terminal types
+need their corresponding entry.
+
+Before replacing `livekit-mos/bin/mc`, run the packaging repository's
+`debian/tests/file-operations.py /path/to/result/mc` with `LC_ALL=C.UTF-8`.
+Also check Linux-console startup and UTF-8 editing in a minimal root with
+only the binary, a root account entry and the bundled Linux terminfo, without
+shared libraries. Run the initramfs suite in strict mode afterwards. Updating
+this source payload does not regenerate existing initrd or ISO images.
+
 ## Crypto payload
 
 The optional crypto payload is built separately because cryptsetup's LVM2 and
